@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Unknown, unqualified and misleading gateway names still require a decision",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Re-resolution preserves known and earlier unknown builder history",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "result": "pass",
+    "live": true
+  }
+]

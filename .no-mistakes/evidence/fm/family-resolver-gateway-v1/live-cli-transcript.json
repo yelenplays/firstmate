@@ -1,0 +1,1805 @@
+[
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-opencode-go-deepseek",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-opencode-go-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-opencode-go-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"pi provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-opencode-go-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-opencode-go-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-opencode-go-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-opencode-go-zhipu",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-opencode-go-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-opencode-go-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-opencode-go-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-opencode-go-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-opencode-go-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-openrouter-deepseek",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "openrouter/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-openrouter-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-openrouter-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"pi provider-qualified model openrouter/deepseek-v4.1-flash identifies maker deepseek (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-openrouter-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-openrouter-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-openrouter-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-openrouter-zhipu",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "openrouter/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-openrouter-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-openrouter-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi provider-qualified model openrouter/glm-5.3 identifies maker zhipu (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-openrouter-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-openrouter-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-openrouter-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-signed-opencode-go-deepseek",
+    "input_metadata": {
+      "harness": "pi-signed",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-signed-opencode-go-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-signed-opencode-go-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"pi-signed provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-signed-opencode-go-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-signed-opencode-go-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-signed-opencode-go-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-signed-opencode-go-zhipu",
+    "input_metadata": {
+      "harness": "pi-signed",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-signed-opencode-go-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-signed-opencode-go-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi-signed provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-signed-opencode-go-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-signed-opencode-go-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-signed-opencode-go-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-signed-openrouter-deepseek",
+    "input_metadata": {
+      "harness": "pi-signed",
+      "model": "openrouter/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-signed-openrouter-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-signed-openrouter-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"pi-signed provider-qualified model openrouter/deepseek-v4.1-flash identifies maker deepseek (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-signed-openrouter-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-signed-openrouter-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-signed-openrouter-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-pi-signed-openrouter-zhipu",
+    "input_metadata": {
+      "harness": "pi-signed",
+      "model": "openrouter/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-pi-signed-openrouter-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-pi-signed-openrouter-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi-signed provider-qualified model openrouter/glm-5.3 identifies maker zhipu (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-pi-signed-openrouter-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=new-pi-signed-openrouter-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-pi-signed-openrouter-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-opencode-opencode-go-deepseek",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-opencode-opencode-go-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-opencode-opencode-go-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"opencode provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-opencode-opencode-go-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=new-opencode-opencode-go-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-opencode-opencode-go-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-opencode-opencode-go-zhipu",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-opencode-opencode-go-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-opencode-opencode-go-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"opencode provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-opencode-opencode-go-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=new-opencode-opencode-go-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-opencode-opencode-go-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-opencode-openrouter-deepseek",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-opencode-openrouter-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-opencode-openrouter-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"opencode provider-qualified model openrouter/deepseek-v4.1-flash identifies maker deepseek (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-opencode-openrouter-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=new-opencode-openrouter-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-opencode-openrouter-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "task": "new-opencode-openrouter-zhipu",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "new-opencode-openrouter-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"new-opencode-openrouter-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"opencode provider-qualified model openrouter/glm-5.3 identifies maker zhipu (resolved from the recorded harness and model; the record predates family recording)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Plan recognized DeepSeek and GLM gateway tasks without catalog maker evidence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "new-opencode-openrouter-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=new-opencode-openrouter-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=new-opencode-openrouter-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "task": "existing-pi-deepseek",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "status",
+      "existing-pi-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "plan",
+      "existing-pi-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "existing-pi-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"pi provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "existing-pi-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=existing-pi-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "task": "existing-pi-zhipu",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "status",
+      "existing-pi-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "plan",
+      "existing-pi-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "existing-pi-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "existing-pi-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=existing-pi-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "task": "existing-pi-signed-deepseek",
+    "input_metadata": {
+      "harness": "pi-signed",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "status",
+      "existing-pi-signed-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-signed-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "plan",
+      "existing-pi-signed-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-signed-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "existing-pi-signed-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-signed-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"pi-signed provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "existing-pi-signed-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-signed-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=existing-pi-signed-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "task": "existing-pi-signed-zhipu",
+    "input_metadata": {
+      "harness": "pi-signed",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "status",
+      "existing-pi-signed-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-signed-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "plan",
+      "existing-pi-signed-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-signed-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "existing-pi-signed-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-pi-signed-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi-signed provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "existing-pi-signed-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-pi-signed-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=existing-pi-signed-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "task": "existing-opencode-deepseek",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "status",
+      "existing-opencode-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-opencode-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "plan",
+      "existing-opencode-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-opencode-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "existing-opencode-deepseek",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-opencode-deepseek\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"opencode provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "existing-opencode-deepseek"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-opencode-deepseek\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=deepseek\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=existing-opencode-deepseek-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "task": "existing-opencode-zhipu",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "status",
+      "existing-opencode-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-opencode-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/.fm-cross-review-before-test.sh",
+      "plan",
+      "existing-opencode-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-opencode-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "existing-opencode-zhipu",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"existing-opencode-zhipu\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"opencode provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-plan previously recorded unknown DeepSeek and GLM tasks",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "existing-opencode-zhipu"
+    ],
+    "exit": 0,
+    "stdout": "task=existing-opencode-zhipu\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=existing-opencode-zhipu-xr-1fe201a7\nreviewer_harness=pi\nreviewer_model=openai-codex/gpt-6.1-sol\nreviewer_effort=high\nreviewer_family=openai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-0",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/cat-jam-free",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-0",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-0\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-0"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-0\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-1",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-1",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-1\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-1"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-1\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-2",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/glm-",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-2",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-2\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-2"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-2\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-3",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/x-deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-3",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-3\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-3"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-3\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-4",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/x-glm-5",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-4",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-4\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-4"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-4\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-5",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/glm-5/other",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-5",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-5\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-5"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-5\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-6",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-6",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-6\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-6"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-6\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "task": "bad-7",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "bad-7",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"bad-7\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Unknown, unqualified and misleading gateway names still require a decision",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "bad-7"
+    ],
+    "exit": 0,
+    "stdout": "task=bad-7\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (pi catalog provider opencode-go serves several makers), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "task": "history-0",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "openai",
+      "ai_family_source": "known earlier builder"
+    }
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "history-0",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"history-0\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"openai\",\n    \"source\": \"known earlier builder\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "history-0"
+    ],
+    "exit": 0,
+    "stdout": "task=history-0\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=openai\naction=spawn-reviewer\nkind=review\nreason=no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\nreviewer_id=history-0-xr-1fe201a7\nreviewer_harness=claude\nreviewer_model=claude-opus-5-5\nreviewer_effort=high\nreviewer_family=anthropic\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "task": "history-1",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "openai,unknown",
+      "ai_family_source": "mixed builder history"
+    }
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "history-1",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"history-1\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"openai,unknown\",\n    \"source\": \"mixed builder history\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "history-1"
+    ],
+    "exit": 0,
+    "stdout": "task=history-1\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=openai,unknown\naction=escalate\nreason=the builder family is unknown (mixed builder history), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "task": "history-2",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown,zhipu",
+      "ai_family_source": "mixed builder history"
+    }
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "history-2",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"history-2\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown,zhipu\",\n    \"source\": \"mixed builder history\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "history-2"
+    ],
+    "exit": 0,
+    "stdout": "task=history-2\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown,zhipu\naction=escalate\nreason=the builder family is unknown (mixed builder history), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "task": "history-3",
+    "input_metadata": {
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "current model; earlier incarnations: unknown"
+    }
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "history-3",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"history-3\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"unknown\",\n    \"source\": \"current model; earlier incarnations: unknown\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: no one-shot review is recorded for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, and direct-PR mode runs no pipeline review\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Re-resolution preserves known and earlier unknown builder history",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "history-3"
+    ],
+    "exit": 0,
+    "stdout": "task=history-3\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=unknown\naction=escalate\nreason=the builder family is unknown (current model; earlier incarnations: unknown), so no reviewer can be proven to be another family\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-0",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-reviewer-0",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/glm-5",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "reviewer": "same-reviewer-0",
+    "input_report": "reviewed head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "same-0",
+      "same-reviewer-0"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=no kind=review head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reason=the reviewer family zhipu is not provably different from the builder's zhipu\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "same-0",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"same-0\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"opencode provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: the latest one-shot record for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 (reviewer same-reviewer-0) does not count: the reviewer family zhipu is not provably different from the builder's zhipu\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-1",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "zai",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-reviewer-1",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/glm-5",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "reviewer": "same-reviewer-1",
+    "input_report": "reviewed head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "same-1",
+      "same-reviewer-1"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=no kind=review head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reason=the reviewer family zhipu is not provably different from the builder's zai\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "same-1",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"same-1\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zai\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: the latest one-shot record for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 (reviewer same-reviewer-1) does not count: the reviewer family zhipu is not provably different from the builder's zai\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-2",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "zhipu",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-reviewer-2",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "zai/glm-5",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "zai",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "reviewer": "same-reviewer-2",
+    "input_report": "reviewed head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "same-2",
+      "same-reviewer-2"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=no kind=review head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reason=the reviewer family zai is not provably different from the builder's zhipu\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "same-2",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"same-2\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: the latest one-shot record for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 (reviewer same-reviewer-2) does not count: the reviewer family zai is not provably different from the builder's zhipu\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-3",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-reviewer-3",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/deepseek-v4-pro",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "reviewer": "same-reviewer-3",
+    "input_report": "reviewed head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "same-3",
+      "same-reviewer-3"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=no kind=review head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reason=the reviewer family deepseek is not provably different from the builder's deepseek\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "same-3",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"same-3\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek\",\n    \"source\": \"opencode provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: the latest one-shot record for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 (reviewer same-reviewer-3) does not count: the reviewer family deepseek is not provably different from the builder's deepseek\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-4",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "deepseek,zhipu",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "task": "same-reviewer-4",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/glm-5",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "reviewer": "same-reviewer-4",
+    "input_report": "reviewed head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "same-4",
+      "same-reviewer-4"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=no kind=review head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reason=the reviewer family zhipu is not provably different from the builder's deepseek,zhipu\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Same-maker gateway reviews and legacy Z.ai aliases cannot establish independence",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "same-4",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"same-4\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"deepseek,zhipu\",\n    \"source\": \"pi catalog provider opencode-go serves several makers\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": \"MISSING: the latest one-shot record for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 (reviewer same-reviewer-4) does not count: the reviewer family zhipu is not provably different from the builder's deepseek,zhipu\",\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "task": "independent",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "opencode-go/glm-5.3",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "ai_family": "unknown",
+      "ai_family_source": "pi catalog provider opencode-go serves several makers"
+    }
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "task": "other-maker",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "reviewer": "other-maker",
+    "input_report": "reviewed head 90da5c064717457e7a8dd3c786ac54d5d6e60159\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "independent",
+      "other-maker"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=no kind=review head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reason=the report declares 90da5c064717457e7a8dd3c786ac54d5d6e60159, not the requested head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "task": "other-maker",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "reviewer": "other-maker",
+    "input_report": "reviewed head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nVerdict: PASS\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "independent",
+      "other-maker"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=yes kind=review verdict=success head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reviewer_family=deepseek\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "status",
+      "independent",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"task\": \"independent\",\n  \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n  \"mode\": \"direct-PR\",\n  \"builder\": {\n    \"family\": \"zhipu\",\n    \"source\": \"opencode provider-qualified model opencode-go/glm-5.3 identifies maker zhipu (re-resolved previously unknown recorded harness and model)\"\n  },\n  \"pipeline_review\": \"N/A: direct-PR mode runs no pipeline review\",\n  \"independent_review\": {\n    \"source\": \"one-shot\",\n    \"family\": \"deepseek\",\n    \"verdict\": \"success\",\n    \"head\": \"1fe201a78a5a047ac5e2b25972c826aad3bb26f1\",\n    \"reviewer\": \"other-maker\",\n    \"detail\": \"one-shot review by other-maker (deepseek) declares head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 with verdict success; the builder is zhipu\"\n  },\n  \"confirm\": \"MISSING: no confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 is recorded\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "plan",
+      "independent"
+    ],
+    "exit": 0,
+    "stdout": "task=independent\nhead=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nbuilder_family=zhipu\naction=none\nreason=one-shot review by other-maker (deepseek) declares head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 with verdict success; the builder is zhipu\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "task": "confirmer",
+    "input_metadata": {
+      "harness": "opencode",
+      "model": "openrouter/deepseek-v4.1-flash",
+      "mode": "direct-PR",
+      "branch": "fm/gateway",
+      "worktree": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project",
+      "project": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project"
+    }
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "reviewer": "confirmer",
+    "input_report": "confirm 1fe201a78a5a047ac5e2b25972c826aad3bb26f1\n",
+    "note": "Synthetic report input exercises the actual report-consumer CLI, not an AI review."
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "collect",
+      "independent",
+      "confirmer"
+    ],
+    "exit": 0,
+    "stdout": "recorded accepted=yes kind=confirm verdict=success head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1 reviewer_family=deepseek\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "verify-confirm",
+      "independent",
+      "1fe201a78a5a047ac5e2b25972c826aad3bb26f1"
+    ],
+    "exit": 0,
+    "stdout": "confirmed 1fe201a78a5a047ac5e2b25972c826aad3bb26f1 by confirmer (deepseek); the builder is zhipu\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "command": [
+      "bash",
+      "bin/fm-cross-review.sh",
+      "verify-confirm",
+      "independent",
+      "90da5c064717457e7a8dd3c786ac54d5d6e60159"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "not confirmed: the recorded confirmation is for 1fe201a78a5a047ac5e2b25972c826aad3bb26f1, not 90da5c064717457e7a8dd3c786ac54d5d6e60159\n"
+  },
+  {
+    "scenario": "Different gateway makers count only for the exact reviewed or confirmed head",
+    "persisted_cross_review_records": [
+      {
+        "at": "2026-10-16T14:44:43Z",
+        "task": "independent",
+        "reviewer": "other-maker",
+        "kind": "review",
+        "head": "1fe201a78a5a047ac5e2b25972c826aad3bb26f1",
+        "declared": [
+          "90da5c064717457e7a8dd3c786ac54d5d6e60159"
+        ],
+        "family": "deepseek",
+        "family_source": "opencode provider-qualified model openrouter/deepseek-v4.1-flash identifies maker deepseek",
+        "builder_family": "zhipu",
+        "verdict": "success",
+        "accepted": false,
+        "reason": "the report declares 90da5c064717457e7a8dd3c786ac54d5d6e60159, not the requested head 1fe201a78a5a047ac5e2b25972c826aad3bb26f1",
+        "report_sha256": "1910f57b2c2a8bdc933f9a810cae66babcae5d03ded3066b4a6825cad1cd6df3"
+      },
+      {
+        "at": "2026-10-16T14:44:44Z",
+        "task": "independent",
+        "reviewer": "other-maker",
+        "kind": "review",
+        "head": "1fe201a78a5a047ac5e2b25972c826aad3bb26f1",
+        "declared": [
+          "1fe201a78a5a047ac5e2b25972c826aad3bb26f1"
+        ],
+        "family": "deepseek",
+        "family_source": "opencode provider-qualified model openrouter/deepseek-v4.1-flash identifies maker deepseek",
+        "builder_family": "zhipu",
+        "verdict": "success",
+        "accepted": true,
+        "reason": null,
+        "report_sha256": "7335be37886648be5ee544c0a006eadc422a72dddbd4d4c5cad313b00790532a"
+      },
+      {
+        "at": "2026-10-16T14:44:46Z",
+        "task": "independent",
+        "reviewer": "confirmer",
+        "kind": "confirm",
+        "head": "1fe201a78a5a047ac5e2b25972c826aad3bb26f1",
+        "declared": [
+          "1fe201a78a5a047ac5e2b25972c826aad3bb26f1"
+        ],
+        "family": "deepseek",
+        "family_source": "opencode provider-qualified model openrouter/deepseek-v4.1-flash identifies maker deepseek",
+        "builder_family": "zhipu",
+        "verdict": "success",
+        "accepted": true,
+        "reason": null,
+        "report_sha256": "bae1fa9dbdd9ad3351116493bca9261554ad57793f20bab41d1a678b3d3feb78"
+      }
+    ],
+    "persisted_task_metadata": "harness=opencode\nmodel=opencode-go/glm-5.3\nmode=direct-PR\nbranch=fm/gateway\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M52HZK4E4RZF8MGVM5BH9A8S/.test-family-tmp/live/project\nai_family=unknown\nai_family_source=pi catalog provider opencode-go serves several makers\nindependent_review_family=deepseek\nindependent_review_head=1fe201a78a5a047ac5e2b25972c826aad3bb26f1\nindependent_review_source=one-shot\n"
+  }
+]

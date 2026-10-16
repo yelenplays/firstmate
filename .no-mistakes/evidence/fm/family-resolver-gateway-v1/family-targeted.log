@@ -1,0 +1,8 @@
+ok - a harness or model name alone never proves the AI family
+ok - Claude Code native full model names and aliases identify Anthropic
+ok - harnesses that serve several makers resolve to unknown whatever the model is called
+ok - a provider-qualified model resolves through its catalog provider key
+ok - an unqualified pi model resolves only when exactly one catalog provider lists it
+ok - without a captured listing the pi catalog is read from pi --list-models
+ok - recognized provider-qualified model namespaces identify gateway makers without guessing unknown models
+ok - family sets are disjoint only when both are fully known and share no maker

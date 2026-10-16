@@ -1,0 +1,200 @@
+[
+  {
+    "check": "deepseek-go: maker",
+    "observed": "deepseek",
+    "expected": "deepseek",
+    "pass": true
+  },
+  {
+    "check": "deepseek-go: plan",
+    "observed": "spawn-reviewer",
+    "expected": "spawn-reviewer",
+    "pass": true
+  },
+  {
+    "check": "deepseek-go: independent candidate",
+    "observed": true,
+    "expected": true,
+    "pass": true
+  },
+  {
+    "check": "deepseek-go: persisted head binding",
+    "observed": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "expected": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "pass": true
+  },
+  {
+    "check": "glm-go: maker",
+    "observed": "zhipu",
+    "expected": "zhipu",
+    "pass": true
+  },
+  {
+    "check": "glm-go: plan",
+    "observed": "spawn-reviewer",
+    "expected": "spawn-reviewer",
+    "pass": true
+  },
+  {
+    "check": "glm-go: independent candidate",
+    "observed": true,
+    "expected": true,
+    "pass": true
+  },
+  {
+    "check": "glm-go: persisted head binding",
+    "observed": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "expected": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "pass": true
+  },
+  {
+    "check": "deepseek-pi: maker",
+    "observed": "deepseek",
+    "expected": "deepseek",
+    "pass": true
+  },
+  {
+    "check": "deepseek-pi: plan",
+    "observed": "spawn-reviewer",
+    "expected": "spawn-reviewer",
+    "pass": true
+  },
+  {
+    "check": "deepseek-pi: independent candidate",
+    "observed": true,
+    "expected": true,
+    "pass": true
+  },
+  {
+    "check": "deepseek-pi: persisted head binding",
+    "observed": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "expected": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "pass": true
+  },
+  {
+    "check": "glm-pi-signed: maker",
+    "observed": "zhipu",
+    "expected": "zhipu",
+    "pass": true
+  },
+  {
+    "check": "glm-pi-signed: plan",
+    "observed": "spawn-reviewer",
+    "expected": "spawn-reviewer",
+    "pass": true
+  },
+  {
+    "check": "glm-pi-signed: independent candidate",
+    "observed": true,
+    "expected": true,
+    "pass": true
+  },
+  {
+    "check": "glm-pi-signed: persisted head binding",
+    "observed": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "expected": "71ee2b1a60820b940492ca7e541c5558173edd88",
+    "pass": true
+  },
+  {
+    "check": "unknown-go: maker",
+    "observed": "unknown",
+    "expected": "unknown",
+    "pass": true
+  },
+  {
+    "check": "unknown-go: plan",
+    "observed": "escalate",
+    "expected": "escalate",
+    "pass": true
+  },
+  {
+    "check": "substring-go: maker",
+    "observed": "unknown",
+    "expected": "unknown",
+    "pass": true
+  },
+  {
+    "check": "substring-go: plan",
+    "observed": "escalate",
+    "expected": "escalate",
+    "pass": true
+  },
+  {
+    "check": "empty-suffix: maker",
+    "observed": "unknown",
+    "expected": "unknown",
+    "pass": true
+  },
+  {
+    "check": "empty-suffix: plan",
+    "observed": "escalate",
+    "expected": "escalate",
+    "pass": true
+  },
+  {
+    "check": "nested-id: maker",
+    "observed": "unknown",
+    "expected": "unknown",
+    "pass": true
+  },
+  {
+    "check": "nested-id: plan",
+    "observed": "escalate",
+    "expected": "escalate",
+    "pass": true
+  },
+  {
+    "check": "existing-deepseek: maker after upgrade",
+    "observed": "unknown",
+    "expected": "deepseek",
+    "pass": false
+  },
+  {
+    "check": "existing-deepseek: no unknown-builder escalation",
+    "observed": "escalate",
+    "expected": "spawn-reviewer",
+    "pass": false
+  },
+  {
+    "check": "existing-glm: maker after upgrade",
+    "observed": "unknown",
+    "expected": "zhipu",
+    "pass": false
+  },
+  {
+    "check": "existing-glm: no unknown-builder escalation",
+    "observed": "escalate",
+    "expected": "spawn-reviewer",
+    "pass": false
+  },
+  {
+    "check": "same-maker-other-gateway: accepted",
+    "observed": false,
+    "expected": false,
+    "pass": true
+  },
+  {
+    "check": "legacy-zai-overlap: accepted",
+    "observed": false,
+    "expected": false,
+    "pass": true
+  },
+  {
+    "check": "legacy-union-overlap: accepted",
+    "observed": false,
+    "expected": false,
+    "pass": true
+  },
+  {
+    "check": "different-maker: accepted",
+    "observed": true,
+    "expected": true,
+    "pass": true
+  },
+  {
+    "check": "different-maker: status exposes accepted independent maker",
+    "observed": "deepseek",
+    "expected": "deepseek",
+    "pass": true
+  }
+]

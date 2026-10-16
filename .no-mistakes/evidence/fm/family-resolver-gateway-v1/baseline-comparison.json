@@ -1,0 +1,22 @@
+[
+  {
+    "version": "base",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "output": "family=unknown\nsource=opencode catalog does not prove a maker for model opencode-go/deepseek-v4.1-flash\n"
+  },
+  {
+    "version": "base",
+    "model": "opencode-go/glm-5",
+    "output": "family=unknown\nsource=opencode catalog does not prove a maker for model opencode-go/glm-5\n"
+  },
+  {
+    "version": "target",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "output": "family=deepseek\nsource=opencode provider-qualified model opencode-go/deepseek-v4.1-flash identifies maker deepseek\n"
+  },
+  {
+    "version": "target",
+    "model": "opencode-go/glm-5",
+    "output": "family=zhipu\nsource=opencode provider-qualified model opencode-go/glm-5 identifies maker zhipu\n"
+  }
+]
