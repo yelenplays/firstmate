@@ -1,0 +1,47 @@
+### argless browser spawn (guarded)
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+spawnSync(chrome) no args -> STUB_ARGV=[--headless]
+execFileSync(chrome) no args -> STUB_ARGV=[--headless]
+
+### open shim (guarded pane)
+$ open https://example.com
+fm-browser-guard: refused a visible browser window for open https://example.com; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+$ open -a 'Google Chrome' https://example.com
+fm-browser-guard: refused a visible browser window for open -a "Google Chrome"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+$ open -b com.google.Chrome
+fm-browser-guard: refused a visible browser window for open -b "com.google.Chrome"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+$ open /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bg-scripts.BkfwSR/eapp/index.html
+fm-browser-guard: refused a visible browser window for open /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bg-scripts.BkfwSR/eapp/index.html; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+$ open -a NoSuchAppFmGuardProbe
+Unable to find application named 'NoSuchAppFmGuardProbe'
+exit=1
+
+### osascript shim (guarded pane)
+$ osascript -e tell application "Google Chrome" to open location ...
+fm-browser-guard: refused a visible browser window for osascript -e tell application "Google Chrome" to open location "https://example.com"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+$ osascript -e return 1+1
+2
+exit=0
+
+### Python webbrowser.open (guarded pane, osascript-on-stdin route)
+webbrowser.open returned True
+
+### captain opt-out FM_ALLOW_HEADED_BROWSER=1 (argless stub spawn, no real window)
+fm-browser-guard: FM_ALLOW_HEADED_BROWSER=1 - allowing a visible window for google chrome for testing (chromium)
+spawnSync(chrome) no args -> STUB_ARGV=[]
+execFileSync(chrome) no args -> STUB_ARGV=[]
+
+### /usr/bin/python3 (3.9.6) webbrowser.open - popen('osascript') via PATH
+fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+webbrowser.open returned False
+
+### Why /opt/homebrew/bin/python3 (3.14.8) was NOT refused above:
+['osapipe = os.popen("/usr/bin/osascript", "w")']

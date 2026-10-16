@@ -1,0 +1,44 @@
+=== guard env: FM_BROWSER_GUARD=1 BROWSER=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M51RTJE2FRXT9EYNERY4HRF1/bin/fm-browser-guard-browser.sh
+which open: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M51RTJE2FRXT9EYNERY4HRF1/bin/fm-browser-guard-bin/open  which osascript: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M51RTJE2FRXT9EYNERY4HRF1/bin/fm-browser-guard-bin/osascript
+=== S1 playwright headless:false
+fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT ua=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36
+RESULT main_proc_headless=true
+=== S2 puppeteer headless:false
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT ua=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36
+RESULT spawnargs_headless=true
+=== S3 raw spawn chrome
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT spawnargs=--user-data-dir=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bg-raw-prof --remote-debugging-port=0 about:blank --headless
+=== S4 raw spawn chrome no args
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT spawnargs=["--headless"]
+=== S5 electron-like non-browser with debug flags
+RESULT echo=--remote-debugging-port=9229 --enable-automation electron-app
+=== S6 open url
+fm-browser-guard: refused a visible browser window for open https://example.com; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+=== S6b open -a Google Chrome
+fm-browser-guard: refused a visible browser window for open -a "Google Chrome"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+=== S6c open page.html
+fm-browser-guard: refused a visible browser window for open page.html; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+=== S7 osascript chrome
+fm-browser-guard: refused a visible browser window for osascript -e tell application "Google Chrome" to open location "https://example.com"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+exit=1
+=== S8 python3 (Python 3.14.8) webbrowser
+fm-browser-guard: refused a visible browser window for BROWSER https://example.com; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+RESULT open_returned= True
+exit=0
+=== S8b /usr/bin/python3 webbrowser
+fm-browser-guard: refused a visible browser window for BROWSER https://example.com; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+RESULT open_returned= True
+=== S9 passthrough: open -R, non-browser osascript, open -a TextEdit-like file open
+open -R exit=0
+2
+osascript exit=0
+=== S10 escape hatch BROWSER
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M51RTJE2FRXT9EYNERY4HRF1/bin/fm-browser-guard-browser.sh
+=== DONE

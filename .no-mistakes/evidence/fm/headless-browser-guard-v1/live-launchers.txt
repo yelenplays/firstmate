@@ -1,0 +1,16 @@
+SNIPPET: export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export PATH='/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M51RTJE2FRXT9EYNERY4HRF1/bin/fm-browser-guard-bin':$PATH; export NODE_OPTIONS="--require \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M51RTJE2FRXT9EYNERY4HRF1/bin/fm-browser-guard-preload.cjs\"${NODE_OPTIONS:+ $NODE_OPTIONS}";
+=== guarded: node pw.mjs /Users/yelen/.no-mistakes/evidence/01M51RTJE2FRXT9EYNERY4HRF1/playwright-headed-request.png
+fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT text=guarded-headless (playwright, asked headless:false)
+RESULT user_agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36
+RESULT browser_processes=1
+PS 71715 /Users/yelen/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --disable- ... headless=true
+RESULT process_headless_flag=true
+=== guarded: node pp.cjs /Users/yelen/.no-mistakes/evidence/01M51RTJE2FRXT9EYNERY4HRF1/puppeteer-headed-request.png
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT text=guarded-headless (puppeteer)
+RESULT user_agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36
+RESULT process_headless_flag=true
+=== guarded: node el.cjs
+RESULT electron_argv=["/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-bg-live.Un8oCF/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron","--inspect=0","--remote-debugging-port=0","/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-bg-scripts.BkfwSR/eapp"]
+RESULT electron_has_headless=false
