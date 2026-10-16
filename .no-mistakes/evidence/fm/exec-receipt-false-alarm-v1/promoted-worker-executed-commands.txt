@@ -1,0 +1,8 @@
+  $ ls '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/state/promote-live.inbox'/*.msg 2>/dev/null; date +%s
+  $ mkdir -p '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/data/promote-live' && wc -l README.md && cat README.md
+  $ D='/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/data/promote-live'; ls -la "$D"; test -s "$D/report.md" && echo REPORT_OK; echo "done [at=$(date +%s)]: README.md is a single H1 line; lab check belongs appended as the 
+  $ ls '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/state/promote-live.inbox'/*.msg 2>/dev/null
+  $ pwd -P; git rev-parse --show-toplevel; echo ---; git status; echo ---; git log --oneline -10; echo ---; git branch -a
+  $ git rev-parse main HEAD; git log --oneline -1 main
+  $ FM_HOME=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status promote-live e1792096616.55176.15450 "working [at=$(date
+  $ FM_HOME=/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status promote-live e1792096616.55176.15450 "paused [at=$(date 

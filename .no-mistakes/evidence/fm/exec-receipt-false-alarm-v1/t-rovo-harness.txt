@@ -1,0 +1,3 @@
+ok - fm-spawn: rovo launches bare, waits for readiness, and delivers its brief pointer
+not ok - enrolled Rovo spawn failed: error: task rovo-enrolled-z7-48083 cannot be dispatched because its backlog data directory is inaccessible: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-rovo-harness.WQTC1X/enrolled/home/data (automatic backlog transitions require tasks-axi 0.2.6 or newer with the required update and mv features): expected exit 0, got 1
+rc=1

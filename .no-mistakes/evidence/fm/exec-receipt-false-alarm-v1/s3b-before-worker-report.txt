@@ -1,0 +1,2 @@
+## immediately after spawn
+rcpt-busy2	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff

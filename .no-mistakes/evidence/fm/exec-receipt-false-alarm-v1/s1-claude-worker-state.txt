@@ -1,0 +1,16 @@
+## delivered execution brief, status section
+4. Report status by appending one line:
+   `FM_HOME='/private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.l3jnsM' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh' status 'rcpt-live' 'e1792094182.52173.5394' "{state} [at=<epoch>]: {one short line}"`
+   States: working, needs-decision, blocked, paused, done, failed.
+   Substitute `<epoch>` with the current Unix time in seconds - run `date +%s` and write the number it printed; a stamp that is not plain digits records no time at all.
+
+## state/rcpt-live.status
+done [at=1792094230]: ready in branch fm/rcpt-live
+
+## state/rcpt-live.execution
+{"version":1,"basis":"captain-approved","phase":"processing","attempt":"e1792094182.52173.5394","attempt_gen":"s1792094177.13117.7901","spawn_gen":"s1792094177.13117.7901"}
+
+## fm-task-execution.sh show
+rcpt-live	firstmate	verify-landing-with-configured-approval-authority
+## fm-task-execution.sh confirmed
+confirmed=yes

@@ -1,0 +1,12 @@
+## worker mid-turn running its build after posting working: (never ran 'started')
+$ cat state/rcpt-work.status
+working [at=1792094561]: setup done, running build
+$ state/rcpt-work.execution
+{"version":1,"basis":"captain-approved","phase":"processing","attempt":"e1792094514.68879.6183","attempt_gen":"s1792094510.33569.3589","spawn_gen":"s1792094510.33569.3589"}
+$ fm-crew-state.sh rcpt-work
+state: working · source: pane · harness busy (claude-hook)
+$ fm-task-execution.sh show rcpt-work
+rcpt-work	worker	continue-implementation
+$ FM_EXECUTION_SCAN_INTERVAL=0 fm-task-execution.sh notify
+rcpt-busy	firstmate	verify-landing-with-configured-approval-authority
+$ wake queue rows for rcpt-work

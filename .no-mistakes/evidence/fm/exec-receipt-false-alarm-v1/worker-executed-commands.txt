@@ -1,0 +1,10 @@
+## worktree slot 3 (base) - shell commands the worker executed:
+  $ pwd -P && git rev-parse --show-toplevel && git status --porcelain && git branch --show-current; echo "---inbox---"; ls '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/state/skip-started-base.inbox'/*.msg 2>/dev/null || echo "no inbox messa
+  $ git checkout -b fm/skip-started-base -- && git branch --show-current && E=$(date +%s) && echo "{state} [at=$E]: {one short line}" >/dev/null; echo "working [at=$E]: isolation verified, branch fm/skip-started-base created" >> '/var/folders/9d/8w50jhgd79x63r
+  $ E=$(date +%s) && echo "paused [at=$E]: running foreground sleep 120 (simulated long build), resumes when it exits" >> '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/state/skip-started-base.status' && { [ ! -e '/var/folders/9d/8w50jhgd79x6
+  $ sleep 120; echo "sleep exited: $?"
+## worktree slot 4 (target) - shell commands the worker executed:
+  $ pwd -P && git rev-parse --show-toplevel && git status --porcelain && git branch --show-current
+  $ ls '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a/state/skip-started-fixed.inbox'/*.msg 2>/dev/null; echo "exit=$?"
+  $ git checkout -b fm/skip-started-fixed -- && FM_HOME='/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh' status 'skip-started-fixed' 'e17920
+  $ FM_HOME='/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh' status 'skip-started-fixed' 'e1792096426.51650.24998' "paused [at=$(date +%s)]:

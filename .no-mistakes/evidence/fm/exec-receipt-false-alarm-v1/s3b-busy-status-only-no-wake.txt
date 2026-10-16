@@ -1,0 +1,23 @@
+## worker mid-turn in its build after posting working: (status command only)
+$ cat state/rcpt-busy2.status
+working [at=1792094975]: setup done, running build
+$ state/rcpt-busy2.execution
+{"version":1,"basis":"captain-approved","phase":"processing","attempt":"e1792094931.74091.28724","attempt_gen":"s1792094926.47696.27467","spawn_gen":"s1792094926.47696.27467"}
+$ fm-crew-state.sh rcpt-busy2
+state: working · source: pane · harness busy (claude-hook)
+$ fm-task-execution.sh show rcpt-busy2
+rcpt-busy2	worker	continue-implementation
+$ FM_EXECUTION_SCAN_INTERVAL=0 fm-task-execution.sh notify
+rcpt-adv	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+rcpt-scout	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+rcpt-work	firstmate	verify-landing-with-configured-approval-authority
+$ wake queue rows for rcpt-busy2
+$ fm-wake-drain.sh (UNFINISHED EXECUTION section)
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+rcpt-adv	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+rcpt-busy	firstmate	verify-landing-with-configured-approval-authority
+rcpt-busy2	worker	continue-implementation
+rcpt-live	firstmate	verify-landing-with-configured-approval-authority
+rcpt-scout	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+rcpt-work	firstmate	verify-landing-with-configured-approval-authority
+WARNING: watcher still down (same stale episode; last beat: 935s ago, grace 300s) - full banner already printed this episode.

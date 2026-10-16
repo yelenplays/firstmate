@@ -1,0 +1,10 @@
+### BASE commit 22fdb5a6 - real omp worker that skips the separate started step
+$ cat state/skip-started-base.status
+working [at=1792096393]: isolation verified, branch fm/skip-started-base created
+paused [at=1792096401]: running foreground sleep 120 (simulated long build), resumes when it exits
+$ jq .phase state/skip-started-base.execution
+attempted
+$ fm-crew-state.sh skip-started-base
+state: unknown · source: none · implementation handoff processing unconfirmed
+$ fm-task-execution.sh show skip-started-base
+skip-started-base	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff

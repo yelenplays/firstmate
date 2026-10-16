@@ -1,0 +1,2 @@
+## immediately after spawn
+rcpt-work	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff

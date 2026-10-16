@@ -1,0 +1,25 @@
+ merge.
+ A done: is accepted when the named head is on this project's shared local branch, not only on a detached copy; the
+ check tests that head, not merely that a branch moved.
+ Keep your branch a clean fast-forward onto the current default branch - if main has advanced, rebase onto it so the
+ eventual merge stays a fast-forward.
+ When it is implemented and committed, append done [at=<epoch>]: ready in branch fm/skip-started-fixed to the status
+ file and stop.
+ The configured merge authority approves the ready branch, then firstmate merges it into local main through the guarded
+ fast-forward path.
+
+ Confirm this implementation handoff
+
+ After verifying isolation, execute from this worker copy before implementation:
+ FM_HOME='/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a'
+ '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh' started
+ 'skip-started-fixed' 'e1792096426.51650.24998'
+ This acknowledges processing, not task completion. Never run it from firstmate.
+
+
+ Isolation verified — disposable treehouse worktree, clean. Creating the branch and reporting.
+
+  ⎋ Declaring paused and running sleep 120
+
+❯
+ ⠹ 36s · ◒ MiMo-V2.6-Flash · 🌳 scratch/scratch · ⑂ fm/skip-started-fixed · ◫ 3.9%/1M ⟲ · $0.01   ⚙ 1 · Fix Skip Start…

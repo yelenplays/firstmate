@@ -1,0 +1,15 @@
+## after the worker posted working: (worker busy in sleep 150, never ran 'started')
+$ cat state/rcpt-busy.status
+working [at=1792094408]: setup done, starting long build
+$ state/rcpt-busy.execution
+{"version":1,"basis":"captain-approved","phase":"processing","attempt":"e1792094375.99782.13998","attempt_gen":"s1792094370.62185.10862","spawn_gen":"s1792094370.62185.10862"}
+$ fm-task-execution.sh show rcpt-busy
+rcpt-busy	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+$ fm-crew-state.sh rcpt-busy
+state: unknown · source: status-log · idle worker; historical working event is not current progress
+$ FM_EXECUTION_SCAN_INTERVAL=0 fm-task-execution.sh notify  (prints only new firstmate-owned wakes)
+rcpt-busy	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+$ wake queue rows
+1792094398	1	check	execution:rcpt-busy	check: execution rcpt-busy
+1792094409	2	check	execution:rcpt-live	check: execution rcpt-live
+1792094447	3	check	execution:rcpt-busy	check: execution rcpt-busy

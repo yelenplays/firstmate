@@ -1,0 +1,10 @@
+$ cat state/rcpt-work.status
+working [at=1792094561]: setup done, running build
+done [at=1792094725]: ready in branch fm/rcpt-work
+$ execution
+{"version":1,"basis":"captain-approved","phase":"processing","attempt":"e1792094514.68879.6183","attempt_gen":"s1792094510.33569.3589","spawn_gen":"s1792094510.33569.3589"}
+$ show
+rcpt-work	firstmate	verify-landing-with-configured-approval-authority
+$ git log fm/rcpt-work
+cc8b670 Add BUILD.md
+8d95d13 initial

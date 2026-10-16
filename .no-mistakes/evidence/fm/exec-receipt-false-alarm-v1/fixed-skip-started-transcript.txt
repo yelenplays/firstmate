@@ -1,0 +1,10 @@
+### TARGET commit 2de8ff2c - real omp worker that skips the separate started step
+$ cat state/skip-started-fixed.status
+working [at=1792096451]: isolated in treehouse worktree, branch fm/skip-started-fixed created
+paused [at=1792096458]: simulated build (sleep 120 foreground), resumes when it exits
+$ jq .phase state/skip-started-fixed.execution
+processing
+$ fm-crew-state.sh skip-started-fixed
+state: working · source: pane · harness busy (omp-ext)
+$ fm-task-execution.sh show skip-started-fixed
+skip-started-fixed	worker	continue-implementation

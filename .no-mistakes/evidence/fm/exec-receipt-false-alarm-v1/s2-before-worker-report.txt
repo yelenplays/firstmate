@@ -1,0 +1,9 @@
+## immediately after spawn (before the worker reports)
+$ fm-task-execution.sh show rcpt-busy
+rcpt-busy	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+$ FM_EXECUTION_SCAN_INTERVAL=0 fm-task-execution.sh notify
+rcpt-busy	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+rcpt-live	firstmate	verify-landing-with-configured-approval-authority
+$ wake queue rows
+1792094398	1	check	execution:rcpt-busy	check: execution rcpt-busy
+1792094409	2	check	execution:rcpt-live	check: execution rcpt-live

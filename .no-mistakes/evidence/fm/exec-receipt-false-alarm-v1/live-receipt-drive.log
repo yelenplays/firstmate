@@ -1,0 +1,80 @@
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh approve busy-worker --basis captain-approved
+rc=0
+
+$ TOKEN=$(/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh attempt busy-worker --spawn-gen g1)
+token issued (rc=0)
+
+### Baseline (the reported false alarm): busy worker posts plain working:/paused: lines, never runs started
+
+$ echo 'working [at=1]: implementing' >> state/busy-worker.status  (old plain recipe)
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh confirmed busy-worker
+rc=1
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh show busy-worker
+busy-worker	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+
+### Adversarial: receipt-bearing status from the PRIMARY checkout (safety report path)
+
+$ (cd /var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.22AonC/projects/demo && /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status busy-worker $TOKEN 'blocked [at=2]: launched in primary checkout')
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+rc=0
+
+$ tail -n1 state/busy-worker.status
+blocked [at=2]: launched in primary checkout
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh confirmed busy-worker
+rc=1
+
+### Adversarial: from a subdirectory of the worktree
+
+$ (cd wt/pkg/foo && /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status busy-worker $TOKEN 'paused [at=3]: waiting on build')
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+rc=0
+
+$ tail -n1 state/busy-worker.status
+paused [at=3]: waiting on build
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh confirmed busy-worker
+rc=1
+
+### Adversarial: stale token and multi-line from the worktree are refused and append nothing
+
+$ (cd wt && /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status busy-worker stale 'working: stale')
+fm-task-execution: stale or mismatched handoff token
+rc=1
+
+$ (cd wt && /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status busy-worker $TOKEN $'working: a\nworking: b')
+fm-task-execution: status requires a single line
+rc=1
+status lines before=       3 after=       3
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh confirmed busy-worker
+rc=1
+
+### Adversarial: worker relaunched (spawn_gen g2) - old-generation token must not confirm
+
+$ (cd wt && /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status busy-worker $TOKEN 'working: old incarnation')
+fm-task-execution: handoff belongs to another spawn incarnation
+rc=1
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh confirmed busy-worker
+rc=1
+
+### Fix: normal status reporting from the isolated worktree root confirms processing
+
+$ (cd wt && /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh status busy-worker $TOKEN 'working [at=4]: implementing feature')
+rc=0
+
+$ tail -n1 state/busy-worker.status
+working [at=4]: implementing feature
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh confirmed busy-worker
+rc=0
+
+$ jq -c . state/busy-worker.execution (token redacted)
+{"version":1,"basis":"captain-approved","phase":"processing","attempt":"<redacted>","attempt_gen":"g1","spawn_gen":"g1"}
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M501F6GW79SHVEH679B3J25J/bin/fm-task-execution.sh show busy-worker
+busy-worker	firstmate	verify-idle-or-failed-owner-and-recover-or-escalate

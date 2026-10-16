@@ -1,0 +1,13 @@
+### TARGET watcher notify pass over the lab home (both skip-started workers still mid-sleep)
+$ FM_EXECUTION_SCAN_INTERVAL=0 fm-task-execution.sh notify
+receipt-live-omp	firstmate	verify-landing-with-configured-approval-authority
+receipt-live-v1	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+skip-started-base	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+rc=0
+$ wake queue entries:
+.wake-queue  240B
+.wake-queue.seq  2B
+$ cat state/.wake-queue
+1792096495	1	check	execution:receipt-live-omp	check: execution receipt-live-omp
+1792096495	2	check	execution:receipt-live-v1	check: execution receipt-live-v1
+1792096496	3	check	execution:skip-started-base	check: execution skip-started-base

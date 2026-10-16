@@ -1,0 +1,25 @@
+ fast-forward path.
+
+ Confirm this implementation handoff
+
+ After verifying isolation, execute from this worker copy before implementation:
+ FM_HOME='/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T//fm-lab.9clb7a'
+ '/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-base.CHNXLj/bin/fm-task-execution.sh' started 'skip-started-base'
+ 'e1792096371.1667.12631'
+ This acknowledges processing, not task completion. Never run it from firstmate.
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Update Available
+ New version 18.11.1 is available. Run: omp update
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ Isolation verified — treehouse worktree, clean. Creating the branch and reporting working status.
+
+ Branch created, working status written. Now declaring the paused status, then running the foreground sleep 120 per
+ spec.
+
+  ⎋ Simulating long build with foreground sleep
+
+❯
+ ⠦ 1m · ◒ MiMo-V2.6-Flash · 🌳 scratch/scratch · ⑂ fm/skip-started-base · ◫ 4.0%/1M ⟲ · $0.00   ⚙ 1 · Launch v1 implem…

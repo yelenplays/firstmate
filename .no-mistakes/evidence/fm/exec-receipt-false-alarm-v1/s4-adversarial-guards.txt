@@ -1,0 +1,50 @@
+worker pane cwd: /Users/yelen/.treehouse/scratchproj-c74ee8/4/scratchproj  (worktree: /Users/yelen/.treehouse/scratchproj-c74ee8/4/scratchproj)
+
+A. legacy unattributed append (old plain echo recipe) from the worktree
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: working [at=1792094741]: plain echo append
+
+B. delivered status command run from the PRIMARY checkout (brief's safety escalation)
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+  exit=0
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: blocked [at=1792094743]: launched in primary checkout, not an isolated worktree
+
+C. delivered status command from a worktree subdirectory
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+  exit=0
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: working [at=1792094745]: from a subdirectory
+
+D. forged/stale token from the worktree root
+fm-task-execution: stale or mismatched handoff token
+  exit=1
+  status file unchanged
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: working [at=1792094745]: from a subdirectory
+
+E. multi-line injection attempt
+fm-task-execution: status requires a single line
+  exit=1
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: working [at=1792094745]: from a subdirectory
+
+F. delivered status command from the isolated worktree root
+  exit=0
+  execution.phase=processing  show: firstmate	verify-idle-or-failed-owner-and-recover-or-escalate
+  status file tail: working [at=1792094752]: isolated root, no started step
+  confirmed: yes
+
+G. relaunch rotates the attempt (new handoff); the old token is refused
+fm-task-execution: stale or mismatched handoff token
+  exit=1
+  status file unchanged
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: working [at=1792094752]: isolated root, no started step
+
+H. generation change (new spawn incarnation) refuses a token bound to the old one
+fm-task-execution: handoff belongs to another spawn incarnation
+  exit=1
+  execution.phase=attempted  show: firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+  status file tail: working [at=1792094752]: isolated root, no started step
+ADV-DONE

@@ -1,0 +1,25 @@
+ok - missing notification marker permits one initial notification
+PASS: approved scout cannot disappear after acknowledgements
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warn: no registry at /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.swnAR6/approved-scout/data/projects.md; defaulting project to no-mistakes off
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+WARNING: watcher still down (same stale episode; last beat: 319s ago, grace 300s) - full banner already printed this episode.
+warn: no registry at /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-approved-execution.swnAR6/approved-scout/data/projects.md; defaulting project to no-mistakes off
+PASS: authority, fan-out, waits, promotion, receipts, restart, handoff and watcher transitions
+bash tests/fm-approved-execution.test.sh  52.71s user 76.72s system 23% cpu 9:13.12 total
+rc=0

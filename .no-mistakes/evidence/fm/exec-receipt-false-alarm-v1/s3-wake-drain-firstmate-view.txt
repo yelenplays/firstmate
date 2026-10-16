@@ -1,0 +1,12 @@
+1792094598	4	check	execution:rcpt-busy	check: execution rcpt-busy
+1792094409	2	check	execution:rcpt-live	check: execution rcpt-live
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 19742.1792094398.ezucEs
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+rcpt-busy done [at=1792094579]: ready in branch fm/rcpt-busy
+rcpt-live done [at=1792094230]: ready in branch fm/rcpt-live
+UNFINISHED EXECUTION (task, accountable owner, next action; acknowledgement is not handling):
+rcpt-busy	firstmate	verify-landing-with-configured-approval-authority
+rcpt-live	firstmate	verify-landing-with-configured-approval-authority
+rcpt-work	worker	continue-implementation
+WARNING: watcher still down (same stale episode; last beat: 535s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

@@ -1,0 +1,36 @@
+### Adversarial checks on spawned task receipt-live-v1 using its delivered status recipe (worker copy: /Users/yelen/.treehouse/scratch-19be84/1/scratch)
+
+## 1. Safety report from the PRIMARY checkout (brief's 'launched in primary checkout' escalation)
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+rc=0
+last status line: blocked [at=1792096522]: launched in primary checkout, not an isolated worktree
+execution phase: attempted
+confirmed rc=1 (non-zero = not confirmed)
+
+## 2. Report from a SUBDIRECTORY of the worker copy
+fm-task-execution: status appended without processing receipt; receipt must run in the isolated worker copy
+rc=0
+last status line: working [at=1792096523]: from subdir
+confirmed rc=1
+
+## 3. Multi-line status is refused
+bash: -c: Zeile 1: Dateiende beim Suchen nach »'« erreicht.
+rc=2
+
+## 4. Report from the worker copy root confirms processing
+rc=0
+last status line: working [at=1792096524]: isolated worker copy
+execution phase: processing
+confirmed rc=0
+
+## 5. New handoff (attempt rotates token, as relaunch/promotion do): old recipe refused, nothing appended
+fm-task-execution: stale or mismatched handoff token
+rc=1
+status file unchanged
+receipt-live-v1	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+
+## 3 (re-run via direct CLI with the current token; the first attempt above was a quoting error in this driver, not product output). Multi-line status is refused
+fm-task-execution: status requires a single line
+rc=1
+status file unchanged
+confirmed rc=1

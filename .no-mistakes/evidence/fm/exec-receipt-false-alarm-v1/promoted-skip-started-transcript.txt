@@ -1,0 +1,18 @@
+### TARGET - in-place promoted omp scout told to skip the separate started step
+$ cat state/promote-live.status
+done [at=1792096607]: README.md is a single H1 line; lab check belongs appended as the final line below it
+working [at=1792096664]: isolation verified, clean base bf5a49a, creating branch fm/promote-live
+paused [at=1792096669]: simulating build with sleep 90, resumes when it completes
+$ jq .phase state/promote-live.execution
+processing
+$ fm-crew-state.sh promote-live
+state: working · source: pane · harness busy (omp-ext)
+$ fm-task-execution.sh show promote-live
+promote-live	worker	continue-implementation
+$ FM_EXECUTION_SCAN_INTERVAL=0 fm-task-execution.sh notify  (rows printed = firstmate wakes)
+receipt-live-v1	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+skip-started-base	firstmate	implementation owner unconfirmed; verify processing or recover failed handoff
+skip-started-fixed	firstmate	verify-landing-with-configured-approval-authority
+$ grep promote-live state/.wake-queue
+🔍 0 for 'promote-live'
+(no wake queued for promote-live)
