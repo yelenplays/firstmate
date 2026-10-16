@@ -103,6 +103,7 @@ Only an away record is away: no record, or the record daemon-backed quiet mode w
 The host asks the Pi branch's offer rule (`branchOfferForWake`, through `bin/fm-branch-dispatch.mjs offer`) whether the branch may take the close.
 So a close reaches main off Pi exactly when it would on Pi: a check trigger, a decision-owned signal or stale trigger, and a scan that is unsafe or holds nothing for the branch stay main's.
 On that main-only pass-through the host prints the close unchanged; the [host header](../bin/fm-supervision-host.sh) owns successor continuity, the downtime hand-back required for delivery, and the next park's take-over request.
+The successor watcher cycle, like one a turn hands back at its start (see [Away](#away)), runs in a process group of its own, so the harness tearing down the hook's group after the rewake does not stop it.
 On a Claude primary the Stop hook triages such a close before it wakes main, and parks the host again when every row is routine ([Hook-side wake triage](watcher-continuity.md#hook-side-wake-triage)).
 The [arm header](../bin/fm-watch-arm.sh) owns take-over eligibility and fallback.
 OpenCode and omp still launch the host with `--restart`, which takes precedence over recorded take-over and lacks its acknowledgement-preserving handover; changing that first-cycle path remains a follow-up.

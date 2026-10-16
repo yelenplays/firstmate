@@ -31,6 +31,8 @@
 #
 #   1. lock          - acquire the per-home session lock FIRST, before any
 #                       mutating step runs.
+#   1b. home role    - the resolved firstmate-repository role line
+#                      (bin/fm-role.sh report), purely local, no network.
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
 #                       diagnostics always run. Bootstrap's own header owns the
@@ -79,7 +81,7 @@
 #                       script points back to the emitted harness supervision
 #                       block and deliberately never arms the watcher itself.
 #
-# Those nine names are also the runtime-bound stage list below, so a truncated
+# Those ten names are also the runtime-bound stage list below, so a truncated
 # startup can name exactly which of them never ran - and the parent banners
 # EVERY nonzero child exit, not only the bound: a child that dies or is killed
 # mid-stage must never truncate the digest silently.
@@ -245,7 +247,9 @@
 #             already treats a lock owned through shared ancestry or a trusted
 #             same-session Claude id as its own, so the re-emit proceeds, while
 #             a lock another live session took meanwhile still produces the
-#             ordinary read-only path.
+#             ordinary read-only path. A re-emit prints a short RE-EMIT CUE
+#             first, so a harness that spills a large output and shows only its
+#             head still tells the model to read the saved full output.
 #
 #   --full    Print the complete digest even for a compact re-emit. A compact
 #             re-emit (--reemit --source compact) prints a SLIM digest by
@@ -324,7 +328,7 @@ FULL_ARG=
 # The ordered stage list is the contract behind the truncation banner: the child
 # names the stage it is entering, and the parent reports every stage at or after
 # that one as never emitted. Keep it in the exact order the digest prints.
-SESSION_START_STAGES='lock bootstrap wake-queue supervision-instructions read-once fleet-state network-checks context next-step'
+SESSION_START_STAGES='lock role bootstrap wake-queue supervision-instructions read-once fleet-state network-checks context next-step'
 
 stage() {  # <stage-name>: breadcrumb for the parent's truncation banner
   [ -n "${FM_SESSION_START_STAGE_FILE:-}" ] || return 0
@@ -744,6 +748,20 @@ if [ "$REEMIT" -eq 0 ] && [ "$SESSION_SOURCE" = startup ]; then
   AGENTS_START_HASH=$(hash_file_sha256 "$FM_ROOT/AGENTS.md" 2>/dev/null || true)
 fi
 
+if [ "$REEMIT" -eq 1 ]; then
+  # First in the output on purpose: a harness that spills a large hook output
+  # delivers only a short head inline (Claude: about 2,000 characters), and
+  # CONTEXT prints last, so this cue is the part that must survive the spill.
+  # The SLIM digest omits curated context by design, so it keeps only the
+  # spill half of the cue.
+  printf 'RE-EMIT CUE: if this output ends with "Output too large ... Full output saved to <path>",\n'
+  if [ "$SLIM" -eq 1 ]; then
+    printf 'read that whole file now, before acting.\n'
+  else
+    printf 'read that whole file now, before acting. Otherwise read data/captain.md, data/captain-shared.md,\n'
+    printf 'and data/learnings.md under %s now if any of them is missing below.\n' "$DATA"
+  fi
+fi
 if [ "$SLIM" -eq 1 ]; then
   section "SESSION START (CONTEXT RE-EMIT, COMPACT) - $FM_HOME"
   printf 'This session already holds the helm and only lost its context to a compaction.\n'
@@ -788,6 +806,15 @@ if [ "$LOCK_RC" -ne 0 ]; then
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
 print_agents_refresh_if_required "$REBUILDING_SESSION_PID"
+
+# --- 1b. home role -------------------------------------------------------
+# This home's firstmate-repository role: user/operator unless an explicit
+# local or receipt-proven inherited grant says otherwise (bin/fm-role-lib.sh).
+# Purely local resolution - no network, no gh call.
+stage role
+subsection "HOME ROLE"
+FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-role.sh" report 2>/dev/null \
+  || printf 'fm-role: unknown (bin/fm-role.sh report failed)\n'
 
 if [ "$READ_ONLY" -eq 0 ]; then
   if [ "$REEMIT" -eq 0 ]; then
@@ -1006,7 +1033,9 @@ Go to a source directly only when:
   - the NETWORK CHECKS section reported its checks still IN PROGRESS and this
     turn needs their verdict (bin/fm-startup-network.sh report),
   - or a STARTUP TRUNCATED banner named the stage that would have printed it, in
-    which case that stage's sources were never emitted and must be reconciled.
+    which case that stage's sources were never emitted and must be reconciled,
+  - or a context re-emit opened with a read cue because the
+    harness cut the digest short.
 EOF
 fi
 
