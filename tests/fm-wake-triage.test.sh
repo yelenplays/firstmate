@@ -391,7 +391,9 @@ SH
     "$TRIAGE" >"$dir/output" 2>&1 &
   pid=$!
   tries=0
-  while [ ! -e "$dir/hold.started" ] && [ "$tries" -lt 100 ]; do
+  # Up to 30s: the bound only catches a hung triage, and under heavy machine
+  # load reaching the hold check can take several seconds.
+  while [ ! -e "$dir/hold.started" ] && [ "$tries" -lt 1500 ]; do
     sleep 0.02
     tries=$((tries + 1))
   done
@@ -609,7 +611,7 @@ test_absorb_retires_routine_rows_of_an_actionable_wake() {
 }
 
 test_absorb_fails_closed() {
-  local dir out rc
+  local dir out rc ack
   # An unread one-shot notice of another task needs firstmate.
   dir=$(absorb_case absorb-unread)
   setup_task unrelated "$dir"
@@ -646,6 +648,37 @@ test_absorb_fails_closed() {
   assert_contains "$out" 'C4 open decision' 'the new decision row was not kept actionable'
   [ "$(awk -F '\t' '{ print $4 }' "$dir/state/.wake-queue")" = other.status ] \
     || fail "the decision row was not the one left queued: $(cat "$dir/state/.wake-queue")"
+
+  # A new decision the drain's fleet-wide scan finds before its own signal is
+  # queued keeps the wake too, and its text reaches the summary the Stop hook
+  # never cuts. Once delivered it is persistent; a changed one is new again.
+  dir=$(absorb_case absorb-unqueued-decision)
+  setup_task other "$dir"
+  printf 'needs-decision [key=review-question]: choose a lane\n' >> "$dir/state/other.status"
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  [ "$rc" -eq 10 ] || fail "an unqueued new decision was absorbed (rc=$rc): $out"
+  assert_contains "$out" 'other - C4 new open decision: other [key=review-question] needs-decision: choose a lane' \
+    'the unqueued decision did not reach the ACT NOW summary'
+  assert_not_contains "$out" 'WAKE_ACKED:' 'the unqueued decision was reported as absorbed'
+  assert_unacked "$dir"
+  ack=$(printf '%s\n' "$out" | sed -n 's/^WAKE_ACK_REQUIRED: after handling completes run \(.*\)$/\1/p' | tail -1)
+  [ -n "$ack" ] || fail 'the kept unqueued-decision wake printed no acknowledgement command'
+  # shellcheck disable=SC2086 # the printed command is a plain word list
+  FM_STATE_OVERRIDE="$dir/state" "$ROOT"/$ack > /dev/null 2>&1 || fail 'the unqueued-decision acknowledgement failed'
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  [ "$rc" -eq 0 ] || fail "a delivered decision kept a later routine wake (rc=$rc): $out"
+  printf 'needs-decision [key=review-question]: choose a lane, now with a deadline\n' >> "$dir/state/other.status"
+  append_wake "$dir/state" stale 'test:routine' 'stale: test:routine'
+  rc=0
+  out=$(run_triage "$dir" '' --absorb) || rc=$?
+  stop_absorb_watcher "$dir"
+  [ "$rc" -eq 10 ] || fail "a changed decision was absorbed as already delivered (rc=$rc): $out"
+  assert_contains "$out" 'C4 new open decision: other [key=review-question] needs-decision: choose a lane, now with a deadline' \
+    'the changed decision did not reach the ACT NOW summary'
+  assert_unacked "$dir"
 
   # A row of an ineligible shape stays ACT NOW even for a working task, and an
   # execution check row (queued only for a firstmate-owned obligation) is never

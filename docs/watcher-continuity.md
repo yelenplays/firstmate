@@ -98,6 +98,8 @@ A close that carries a `supervision-host:` line, or comes from a host that exite
 That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the persistent `OPEN DECISIONS` list, and the persistent `UNFINISHED EXECUTION` obligations.
 Any other line keeps the wake, including unread status, branch outcomes, record divergence, a watcher-down banner, and recovered drain output.
 A new decision, a terminal status, and a firstmate-owned execution item each arrive with their own queue row, which triage keeps as ACT NOW.
+The drain's fleet-wide scan can list a new decision before that row is queued, and it prints new and long-open decisions alike, so triage records in `state/.wake-triage.decisions` the decision lines of each presentation it delivers.
+Any listed decision outside that record, a changed one included, is ACT NOW with its text in the triage summary, which the hook never cuts; a byte-capped list cannot be compared and is ACT NOW too.
 Triage commits the drain output to `state/.wake-triage.last` only after its presentation is delivered, because the drain has already spent its one-shot unread presentation.
 A handoff that fails or is interrupted leaves the pending output in place, and the next triage replays it as recovered drain output, which never absorbs.
 
@@ -386,7 +388,7 @@ The same suite pins the counted-equals-presentable invariant against `bin/fm-gua
 - That row is presented with its acknowledgement command - with the ordinary warning restored - as soon as the grant clears.
 - Structurally unusable rows are retired by main alone while every remaining row stays presentable and acknowledgeable.
 
-`tests/fm-wake-triage.test.sh` pins `--absorb`: an all-routine wake is acknowledged, an actionable wake keeps only its non-routine rows, and unread status, a watcher-down banner, a new decision, an ineligible row shape, and away mode all keep the wake.
+`tests/fm-wake-triage.test.sh` pins `--absorb`: an all-routine wake is acknowledged, an actionable wake keeps only its non-routine rows, and unread status, a watcher-down banner, a new decision (queued or found only by the drain's scan), an ineligible row shape, and away mode all keep the wake.
 Its `test_absorb_interruption_retains_pending_output` and `test_absorb_routine_interruption_retains_pending_output` pin that an undelivered presentation keeps its drain output for the next triage.
 
 Branch acknowledgement retiring the check-row receipts of exactly its granted sequences is pinned by `tests/fm-wake-queue.test.sh` for the secondmate stall receipt and by `tests/fm-inactive-reconcile.test.sh` for the inactive-outcome receipt.

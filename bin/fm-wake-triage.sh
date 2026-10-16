@@ -20,9 +20,10 @@
 # "Nothing else" is a whitelist, absorbable_drain_output below, so a drain line
 # it does not recognize always keeps the wake: queue rows, working status
 # annotations of routine tasks, the acknowledgement line, the queued-wakes
-# warning, the persistent OPEN DECISIONS list (never one naming new or changed
-# decisions), and the persistent UNFINISHED EXECUTION obligations, whose owners
-# get their own queued wake whenever their evidence changes.
+# warning, the persistent OPEN DECISIONS list (only decisions an earlier triage
+# delivered; a new or changed one is ACT NOW even when its task has no queued
+# row), and the persistent UNFINISHED EXECUTION obligations, whose owners get
+# their own queued wake whenever their evidence changes.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -203,6 +204,46 @@ while IFS= read -r tagged; do
     printf '%s\t%s\n' "$id" "$crew" >> "$routine_file"
   fi
 done < "$ids"
+
+# The drain lists every open decision fleet-wide, including one whose task has
+# no queued row yet (its own signal can trail the status write), and it prints
+# a new decision exactly like one presented many wakes ago. Triage therefore
+# remembers the decision lines it has delivered, in $DECISIONS_SEEN, and keeps
+# any other one ACT NOW with its text in the summary, the part of the
+# presentation the Stop hook never cuts. A byte-capped list cannot be compared,
+# so it stays ACT NOW too.
+DECISIONS_SEEN="$STATE/.wake-triage.decisions"
+# decision_entries <file>...: the OPEN DECISIONS entry lines the files list.
+decision_entries() {
+  awk '
+    /^OPEN DECISIONS \(still open, folded from the durable status logs/ { section = 1; next }
+    section && /^[A-Za-z0-9._-]+( \[key=[^]]*\])? (needs-decision|blocked): / { print; next }
+    { section = 0 }
+  ' "$@"
+}
+seen_decisions="$work/seen-decisions"
+if [ -f "$DECISIONS_SEEN" ] && [ ! -L "$DECISIONS_SEEN" ]; then
+  cp -- "$DECISIONS_SEEN" "$seen_decisions" 2>/dev/null || : > "$seen_decisions"
+else
+  : > "$seen_decisions"
+fi
+decision_entries "$out" | while IFS= read -r entry; do
+  grep -Fqx -- "$entry" "$seen_decisions" && continue
+  printf '%s\t%s\t%s\n' "${entry%% *}" "C4 new open decision: $entry" 'not read (the drain found the decision, not a queued row)'
+done >> "$act_file"
+if grep -q '^OPEN DECISIONS: [0-9][0-9]* more omitted (byte cap)$' "$out"; then
+  printf '%s\t%s\n' '-' 'C4 open decisions omitted by the byte cap; read the full drain output' >> "$act_file"
+fi
+
+# record_presented_decisions: after a delivered presentation, remember exactly
+# the decisions it listed. Failing to remember forgets them all instead, so the
+# next wake presents them again rather than absorbing them.
+record_presented_decisions() {
+  if ! { decision_entries "$out" ${recovered[@]+"${recovered[@]}"} | LC_ALL=C sort -u > "$work/decisions" \
+    && chmod 0600 "$work/decisions" && mv -f -- "$work/decisions" "$DECISIONS_SEEN"; }; then
+    rm -f -- "$DECISIONS_SEEN" 2>/dev/null || true
+  fi
+}
 task_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$act_file" "$routine_file")
 act_count=$(awk -F '\t' '$1 != "-" { seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$act_file")
 routine_count=$(awk -F '\t' '{ seen[$1]=1 } END { for (id in seen) count++; print count+0 }' "$routine_file")
@@ -258,6 +299,7 @@ commit_drain_output() {
 
 if [ "$ABSORB" -eq 0 ]; then
   cat "$rendered" || exit 1
+  record_presented_decisions
   commit_drain_output || exit 1
   if [ "$DRAIN_CODE" -ne 0 ]; then exit "$DRAIN_CODE"; fi
   printf '%s\n' "$ack_line"
@@ -316,6 +358,7 @@ if [ "$absorbed" -eq 1 ]; then
   cat "$rendered" || exit 1
   printf 'WAKE_ACKED: triage acknowledged every row through %s; nothing needs firstmate\n' "$cutoff" || exit 1
   [ -z "$ack_out" ] || printf '%s\n' "$ack_out" || exit 1
+  record_presented_decisions
   commit_drain_output || exit 1
   exit 0
 fi
@@ -344,6 +387,7 @@ fi
 cat "$rendered" || exit 1
 [ -z "$partial_note" ] || printf '%s\n' "$partial_note" || exit 1
 [ -z "$ack_line" ] || printf '%s\n' "$ack_line" || exit 1
+record_presented_decisions
 commit_drain_output || exit 1
 if [ "$DRAIN_CODE" -ne 0 ]; then
   [ "$DRAIN_CODE" -ne 10 ] || exit 1
