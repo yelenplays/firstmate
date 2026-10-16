@@ -24,14 +24,8 @@
 #
 # Layout under <state-dir>:
 #   <task>.inbox/NNN.msg       one durable steer, numeric sequence, atomic rename
-#   <task>.inbox/handled/      the worker's `mv` here IS the acknowledgement
-# bin/fm-inbox.sh take <inbox-dir> prints pending numeric .msg records, each
-# with its path, then moves each printed record into handled/ in one call.
-# It serializes with writers and other takers using .seq.lock; output or move
-# failure stops without acknowledging the failed record. Empty/absent is a no-op.
-# Taking acknowledges receipt, not completion: the worker must act on the output.
-#   <task>.inbox/.seq.lock     serializes sequence allocation across writers
-#                              (the session and the away daemon)
+#   <task>.inbox/handled/      moving a record here acknowledges its receipt
+#   <task>.inbox/.seq.lock     serializes writers and takers
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
 #   <task>.inbox/.delivered    last doorbell that reached the pane: "<msg>\t<epoch>";
@@ -40,6 +34,12 @@
 #                              so later polls suppress another escalation
 #   <task>.inbox/.retry-ring   name of a fire-and-forget record still owed its
 #                              one retry ring (fm_task_inbox_mark_retry)
+#
+# bin/fm-inbox.sh take <inbox-dir> prints pending numeric .msg records, each
+# with its path, then moves each printed record into handled/ in one call.
+# It serializes with writers and other takers using .seq.lock; output or move
+# failure stops without acknowledging the failed record. Empty/absent is a no-op.
+# Taking acknowledges receipt, not completion: the worker must act on the output.
 #
 # Record format (fm_task_inbox_write / fm_task_inbox_body):
 #   schema=fm-task-inbox.v1
@@ -51,9 +51,10 @@
 #    its from-firstmate marker and corr token verbatim in this body>
 #
 # Sequence numbers are never reused within a task: allocation scans both the
-# inbox root and handled/, so a message is processed at most once per worker
-# lifetime even if every doorbell is duplicated. Concurrent writers serialize
-# on .seq.lock; the worst racing outcome is ordering, never loss.
+# inbox root and handled/, so a successfully taken record is not returned again
+# even if every doorbell is duplicated. A failure before the acknowledgement
+# move may leave printed output to be retried; receipt never proves execution.
+# Concurrent writers and takers serialize on .seq.lock.
 #
 # Re-ring ladder (fm_task_inbox_due_action): an unhandled message older than
 # FM_TASK_INBOX_GRACE_SECS is due one delivery attempt per grace period; an

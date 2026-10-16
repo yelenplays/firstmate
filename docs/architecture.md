@@ -392,7 +392,7 @@ An unreachable remote host is unknown rather than dead, preserves its route and 
 Idle secondmate panes are healthy; teardown is explicit and refuses while the secondmate home has in-flight work unless the captain has approved discard with `--force`.
 
 Secondmate homes converge conservatively to the primary's version and declared inherited local material at launch and during locked session start.
-The [`secondmate-provisioning` skill](../.agents/skills/secondmate-provisioning/SKILL.md) owns the full guarded sync, propagation, nudge, and mid-session local-material push contract.
+The [`secondmate-provisioning` inheritance reference](../.agents/skills/secondmate-provisioning/references/inheritance.md) owns the full guarded sync, propagation, nudge, and mid-session local-material push contract.
 
 Secondmate agents can run on a different verified harness than crewmates.
 The pin format, per-id override, and harness/model/effort precedence are owned by [configuration.md](configuration.md#harness-support).

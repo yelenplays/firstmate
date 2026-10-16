@@ -654,7 +654,7 @@ Move a live remote second mate onto a newly pinned harness, model, or effort wit
 ### Firstmate code convergence
 
 Session start and every remote launch converge the persistent remote home on the primary's own default-branch commit rather than on the Firstmate copy that host keeps.
-The [`secondmate-provisioning` skill](../.agents/skills/secondmate-provisioning/SKILL.md) owns the guarded convergence contract, including the distinct `/updatefirstmate` behavior, and [`bin/fm-remote-secondmate-control.sh`](../bin/fm-remote-secondmate-control.sh) owns the commit-import mechanics.
+The [`secondmate-provisioning` inheritance reference](../.agents/skills/secondmate-provisioning/references/inheritance.md) owns the guarded convergence contract, including the distinct `/updatefirstmate` behavior, and [`bin/fm-remote-secondmate-control.sh`](../bin/fm-remote-secondmate-control.sh) owns the commit-import mechanics.
 Neither session start nor launch moves the host's own Firstmate copy.
 An unsafe or unavailable target is reported and left untouched.
 A completed sync reports which watched instruction paths its advance changed.

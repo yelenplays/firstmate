@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# fm-inbox.sh - the captain's out-of-band capture surface.
+# fm-inbox.sh - captain capture and worker steering-inbox receipt.
 #
-# Solves three DIFFERENT problems with three different mechanisms, because they
-# are not the same problem:
+# Captain capture uses distinct mechanisms for distinct problems:
 #
 #   note    Queue an idea for firstmate while firstmate is mid-turn and cannot
 #           answer. Writes a durable record and appends ONE `check` wake, so the
@@ -33,11 +32,9 @@
 #   fm-inbox.sh drain [--ack <id>...]
 #   fm-inbox.sh take <task-inbox-dir>
 #
-# `take` is the worker steering-inbox receive-and-ack shortcut, separate from
-# captain notes: it prints each pending numeric .msg with its path and moves
-# it to handled/. Act on the returned instructions after receipt.
-# bin/fm-task-inbox-lib.sh owns ordering, serialization, and failure semantics.
-# It needs no configuration and makes no network call.
+# `take` exposes worker steering-inbox receipt, separate from captain notes.
+# bin/fm-task-inbox-lib.sh owns its receive-and-ack contract.
+# Act on the returned instructions after receipt.
 #
 # `note --request-id` is the idempotent capture path: a repeat of the same
 # request id returns the original note instead of creating a second one, and
@@ -96,8 +93,8 @@
 # An absent profile means the call uses whatever credentials are already in the
 # environment, which is also what FM_INBOX_PROFILE= (empty) forces.
 #
-# `note`, `announce`, `reply`, `receipts`, `ready`, `status`, `list` and `drain`
-# need NO configuration at all, because they make no model call. The voice
+# `note`, `announce`, `reply`, `receipts`, `ready`, `status`, `list`, `drain` and
+# `take` need NO configuration at all, because they make no model call. The voice
 # handover depends on `note`, so it keeps working in a home that has configured
 # nothing. `--json` / `receipts` / `ready` require python3, which a firstmate
 # home already uses for other tools.
@@ -106,8 +103,8 @@
 #   FM_HOME              operational home whose state/ and data/ are used.
 #
 # PRIVACY: `say` sends your audio and `ask` sends your question to Bedrock.
-# `note`, `announce`, `reply`, `receipts`, `ready`, `status`, `list` and `drain`
-# make no network call at all.
+# `note`, `announce`, `reply`, `receipts`, `ready`, `status`, `list`, `drain` and
+# `take` make no network call at all.
 #
 # `note` is also the queueing half of the spoken interface: when the voice agent
 # in bin/fm-voice-relay.py hands real work over to firstmate, it runs this
