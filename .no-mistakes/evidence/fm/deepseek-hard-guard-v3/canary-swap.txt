@@ -1,0 +1,35 @@
+# A: listing fails (network down) -> nothing proven, nothing swapped
+$ FM_OPENCODE_BIN=opencode-broken fm-free-model-canary.sh run --record
+UNVERIFIABLE opencode/deepseek-v4.1-flash-free: opencode models opencode listed nothing (exit 1)
+exit 1
+$ fm-free-model-canary.sh check   # first unverifiable is reported once
+free-model canary could not verify the free opencode models: UNVERIFIABLE opencode/deepseek-v4.1-flash-free: opencode models opencode listed nothing (exit 1); details in state/free-model-canary/last.out
+exit 0
+[{"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free","provider":"opencode","private_ok":false}]
+
+# B: real opencode listing with the free DeepSeek line removed (free tier ended)
+$ FM_OPENCODE_BIN=opencode-free-gone fm-free-model-canary.sh run --record
+SWAPPED opencode/deepseek-v4.1-flash-free: no longer listed by opencode; its dispatch profile now runs pi opencode-go/deepseek-v4.1-flash (backup config/crew-dispatch.json.bak-2026-10-16-canary)
+exit 0
+$ fm-free-model-canary.sh check   # captain notice
+captain notice - free-model canary swapped a dispatch profile: SWAPPED opencode/deepseek-v4.1-flash-free: no longer listed by opencode; its dispatch profile now runs pi opencode-go/deepseek-v4.1-flash (backup config/crew-dispatch.json.bak-2026-10-16-canary)
+exit 0
+$ fm-free-model-canary.sh check   # again: alert only once
+exit 0
+$ jq -c ".rules[].use" config/crew-dispatch.json
+[{"harness":"claude","model":"opus"},{"harness":"opencode","model":"opencode/big-pickle","provider":"opencode"}]
+[{"harness":"claude","model":"sonnet"}]
+[{"harness":"pi","model":"opencode-go/deepseek-v4.1-flash","provider":"opencode-go","private_ok":false}]
+$ ls config
+crew-dispatch.json  1.7K
+crew-dispatch.json.bak-2026-10-16-canary  1.7K
+crew-dispatch.json.bak-2026-10-16-research-lane  312B
+private-markers  41B
+
+📊 4 files, 0 dirs (1 .json, 1 .bak-2026-10-16-research-lane, 1 no ext, 1 .bak-2026-10-16-canary)
+$ fm-free-research-lane.sh status
+lane: enabled as rule 3 on the paid replacement pi opencode-go/deepseek-v4.1-flash
+private markers: 2
+$ fm-free-model-canary.sh run   # after swap: no watched profile
+canary: no watched profile
+exit 0

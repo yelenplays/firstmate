@@ -1,0 +1,6 @@
+$ FM_HOME=<secondmate home> fm-free-research-lane.sh enable
+fm-free-research-lane: this is a secondmate home; its dispatch rules are inherited from the primary
+exit 1
+$ FM_HOME=<secondmate home> fm-free-model-canary.sh run
+fm-free-model-canary: this is a secondmate home; its dispatch rules are inherited from the primary, which runs the canary
+exit 2

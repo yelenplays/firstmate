@@ -1,0 +1,25 @@
+# adversarial: lane is not the last rule
+$ fm-free-research-lane.sh disable
+fm-free-research-lane: the lane is rule 3 of 4; removing it would renumber later rules, so edit config/crew-dispatch.json by hand
+exit 1
+
+# lane last, rule 1 beats rule 3, canary armed
+$ fm-free-research-lane.sh disable
+backup: config/crew-dispatch.json.bak-2026-10-16-research-lane
+lane: disabled (removed rule 3)
+exit 0
+$ jq -c ".rules | map({when: .when[0:30], beats})"
+[{"when":"code changes in public repos","beats":null},{"when":"small docs edits","beats":[{"rule":1,"why":"docs"}]}]
+$ fm-free-research-lane.sh status
+lane: disabled
+private markers: 2
+$ ls state
+free-model-canary/
+model-route/
+.guard-watcher-stale-banner  13B
+.spend-cache.json  105.4K
+dispatch-resolve.jsonl  998B
+scout-pub2.jev-brief-preflight.jsonl  183B
+spend-model.json  167B
+
+📊 5 files, 2 dirs (2 .json, 2 .jsonl, 1 .guard-watcher-stale-banner)

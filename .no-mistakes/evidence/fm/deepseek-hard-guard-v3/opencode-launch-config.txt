@@ -1,0 +1,11 @@
+opencode 1.19.0
+== OPENCODE_CONFIG_CONTENT='{"permission":{"*":"allow"}}'
+$ opencode debug config | jq {autoupdate,share,permission}
+{"autoupdate":null,"share":null,"permission":{"*":"allow"}}
+$ opencode debug agent build | jq .tools.skill
+true
+== OPENCODE_CONFIG_CONTENT='{"permission":{"*":"allow","skill":"deny"},"autoupdate":false,"share":"disabled"}'
+$ opencode debug config | jq {autoupdate,share,permission}
+{"autoupdate":false,"share":"disabled","permission":{"*":"allow","skill":"deny"}}
+$ opencode debug agent build | jq .tools.skill
+false

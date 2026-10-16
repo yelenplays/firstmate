@@ -1,0 +1,49 @@
+# config default = [free deepseek (private_ok false), claude sonnet]; no Jev key, so the default decides
+$ fm-dispatch-resolve.sh t-pub --project firstmate
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (no typed-call key configured)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: rule_1=0 rule_2=0 rule_3=0 default=1
+  effort: - (declared fallback (classifier absent))
+  note: no rule matched
+  note: 1 eligible candidate(s) unranked (opencode)
+  candidate: opencode:opencode/deepseek-v4.1-flash-free  provider=opencode  pred=unknown  -> eligible, unranked: provider opencode not in the quota snapshot: disclosed uncertainty
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=28%  spendPriority=0.1246  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'sonnet'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/state/model-route/5d5d1eed24a88415ad90e6a70a6f197c34cdded809ed98de6a4c35c721ecdd63.json
+exit 0
+
+$ fm-dispatch-resolve.sh t-priv --project firstmate   # brief mentions ZEBRACORP
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (no typed-call key configured)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: rule_1=0 rule_2=0 rule_3=0 default=1
+  effort: - (declared fallback (classifier absent))
+  note: no rule matched
+  candidate: opencode:opencode/deepseek-v4.1-flash-free  -> not eligible: private-material guard: brief matches config/private-markers line 3
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=28%  spendPriority=0.1246  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'sonnet'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/state/model-route/257188f6bf72fa8105043f301d9171fe36cbf7eb793c16a4dfd9bb188d75e943.json
+exit 0
+
+$ fm-dispatch-resolve.sh t-pub --project acme-private-site   # project matches marker "Acme Private"
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (no typed-call key configured)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: rule_1=0 rule_2=0 rule_3=0 default=1
+  effort: - (declared fallback (classifier absent))
+  note: no rule matched
+  candidate: opencode:opencode/deepseek-v4.1-flash-free  -> not eligible: private-material guard: project matches config/private-markers line 2
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=28%  spendPriority=0.1247  runway=projected_exhaustion  pred=unknown  -> eligible
+  profile: --harness 'claude' --model 'sonnet'
+  receipt: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/state/model-route/5d5d1eed24a88415ad90e6a70a6f197c34cdded809ed98de6a4c35c721ecdd63.json
+exit 0

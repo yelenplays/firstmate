@@ -1,0 +1,44 @@
+$ fm-free-research-lane.sh status
+lane: disabled
+private markers: none readable at config/private-markers
+exit 0
+$ fm-free-research-lane.sh enable   # no config/private-markers
+fm-free-research-lane: config/private-markers is missing or not a readable regular file; the private-material guard would refuse every task, so the lane stays off
+exit 1
+$ fm-free-research-lane.sh enable   # markers file has only comments
+fm-free-research-lane: config/private-markers names no marker; add the private projects, people, and clients first
+exit 1
+$ fm-free-research-lane.sh enable   # 2 markers
+backup: config/crew-dispatch.json.bak-2026-10-16-research-lane
+lane: enabled as rule 3 on opencode/deepseek-v4.1-flash-free
+exit 0
+$ fm-free-research-lane.sh enable   # again
+lane: already enabled as rule 3
+exit 0
+$ fm-free-research-lane.sh status
+lane: enabled as rule 3 on opencode/deepseek-v4.1-flash-free
+private markers: 2
+exit 0
+$ ls config
+crew-dispatch.json
+crew-dispatch.json.bak-2026-10-16-research-lane
+private-markers
+$ jq .rules[2] config/crew-dispatch.json
+{
+  "when": "read-only research and reading on non-private material whose deliverable is an evidence file, inventory, summary or first-pass research report that firstmate or a stronger model checks before anything ships or is decided: public web or GitHub research sweeps, gathering sources and documentation, codebase or public wiki inventories, transcript or document distillation, comparisons and fact checks. Only for public-code projects or public web topics. Never for code changes, tests, reviews, or a report that directly decides a captain question, and never for private projects, private people or clients, personal accounts, health or finances",
+  "use": [
+    {
+      "harness": "opencode",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "provider": "opencode",
+      "private_ok": false
+    }
+  ],
+  "why": "Free research lane (bin/fm-free-research-lane.sh): read-only, non-private work checked by a stronger model; the private-material guard enforces non-private in code and the free-model canary swaps to the paid replacement when the free tier ends."
+}
+$ jq .rules[1].beats
+[{"rule":1,"why":"docs"}]
+$ ls state
+free-model-canary.check-every
+free-model-canary.check-trust
+free-model-canary.check.sh

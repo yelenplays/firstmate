@@ -1,0 +1,51 @@
+# private brief (mentions a marker), free DeepSeek profile marked private_ok false
+$ fm-spawn.sh scout-priv /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/public-docs --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: opencode/deepseek-v4.1-flash-free is a dispatch profile marked private_ok false and the private-material guard refused this launch: brief matches config/private-markers line 3; route this task to a private-capable profile
+exit 1
+
+# public brief, but project dir acme-private-site matches marker "Acme Private"
+$ fm-spawn.sh scout-projpriv /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/acme-private-site --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: opencode/deepseek-v4.1-flash-free is a dispatch profile marked private_ok false and the private-material guard refused this launch: project matches config/private-markers line 2; route this task to a private-capable profile
+exit 1
+
+# adversarial: same private brief as a raw launch command naming the model
+$ fm-spawn.sh scout-priv /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/public-docs --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: opencode is a dispatch profile marked private_ok false and the private-material guard refused this launch: brief matches config/private-markers line 3; route this task to a private-capable profile
+exit 1
+
+# public brief, public project: guard passes, spawn continues to later launch steps
+$ fm-spawn.sh scout-pub /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/public-docs --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/data/scout-pub/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn
+exit 1
+
+# (rerun with corrected brief headings) public brief, public project: guard passes, spawn continues to later launch steps
+$ fm-spawn.sh scout-pub /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/public-docs --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/data/scout-pub/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn
+exit 1
+
+# (rerun) private brief with corrected headings
+$ fm-spawn.sh scout-priv /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/public-docs --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: opencode/deepseek-v4.1-flash-free is a dispatch profile marked private_ok false and the private-material guard refused this launch: brief matches config/private-markers line 3; route this task to a private-capable profile
+exit 1
+
+# public brief scaffolded by fm-brief.sh --scout, public project: guard passes, spawn continues past it
+$ fm-spawn.sh scout-pub2 /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw/projects/public-docs --scout --harness opencode --model opencode/deepseek-v4.1-flash-free
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /private/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/fm-lab.eTCROw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5207ASSCEGWHJWQT219BQM0/bin/backends/tmux.sh: Zeile 77: tmux: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5207ASSCEGWHJWQT219BQM0/bin/backends/tmux.sh: Zeile 99: tmux: Kommando nicht gefunden
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5207ASSCEGWHJWQT219BQM0/bin/backends/tmux.sh: Zeile 103: tmux: Kommando nicht gefunden
+exit 1
+

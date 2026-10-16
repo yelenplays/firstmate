@@ -1,0 +1,12 @@
+$ opencode models opencode --refresh --pure | grep deepseek
+opencode/deepseek-v4.1-flash-free
+(listing has 12 models)
+$ fm-free-model-canary.sh run --record   # real opencode
+OK opencode/deepseek-v4.1-flash-free: listed
+exit 0
+$ jq state/free-model-canary/result.json
+{"outcome":"ok","state":"done","exit":0,"summary":""}
+$ fm-free-model-canary.sh check   # nothing to report for ok
+exit 0
+$ jq .rules[2].use config/crew-dispatch.json   # unchanged
+[{"harness":"opencode","model":"opencode/deepseek-v4.1-flash-free","provider":"opencode","private_ok":false}]
