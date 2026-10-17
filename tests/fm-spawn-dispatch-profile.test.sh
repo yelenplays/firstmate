@@ -542,15 +542,17 @@ test_active_dispatch_profile_allows_explicit_harness() {
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
 
+  # The fixture's default pin is a bare effort medium, the exact one-level
+  # cap for gpt-5, so the explicit flags now carry an effort inside it.
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort medium)
   status=$?
   expect_code 0 "$status" "an explicit profile must launch without requiring consultation records"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report explicit codex harness"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
   assert_grep "ai_family=openai" "$HOME_DIR/state/$id.meta" "a codex builder was not recorded as the openai family"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
+  assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"medium\"' --dangerously-bypass-approvals-and-sandbox" \
     "explicit harness launch did not thread model and effort"
   pass "active crew-dispatch profile allows an explicit resolved harness"
 }
@@ -585,11 +587,11 @@ test_active_dispatch_profile_allows_positional_harness() {
   enable_dispatch_profile "$HOME_DIR"
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id" "$PROJ_DIR" codex --model gpt-5 --effort high)
+    "$id" "$PROJ_DIR" codex --model gpt-5 --effort medium)
   status=$?
   expect_code 0 "$status" "positional harness should satisfy active dispatch-profile requirement"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report positional codex harness"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
   pass "active crew-dispatch profile allows the legacy positional harness form"
 }
 
@@ -1800,13 +1802,13 @@ test_batch_forwards_shared_profile_flags() {
   out=$(FM_FAKE_PANE_PATH_1="$WT_DIR" FM_FAKE_PANE_PATH_2="$wt2" \
     FM_FAKE_WINCOUNT="$CASE_DIR/wincount" \
     run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+    "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort medium)
   status=$?
   expect_code 0 "$status" "batch spawn with shared profile flags should succeed"
   assert_contains "$out" "spawned $id1 harness=codex" "first batch task did not use shared harness"
   assert_contains "$out" "spawned $id2 harness=codex" "second batch task did not use shared harness"
-  assert_meta_profile "$HOME_DIR/state/$id1.meta" codex gpt-5 high
-  assert_meta_profile "$HOME_DIR/state/$id2.meta" codex gpt-5 high
+  assert_meta_profile "$HOME_DIR/state/$id1.meta" codex gpt-5 medium
+  assert_meta_profile "$HOME_DIR/state/$id2.meta" codex gpt-5 medium
   pass "batch dispatch forwards shared --harness, --model, and --effort to every pair"
 }
 
@@ -2355,6 +2357,177 @@ test_private_guard_refuses_a_private_registered_secondmate_home() {
   status=$?
   expect_guard_refusal 'a private registered secondmate home' "$id" 'home name matches config/private-markers line 3'
   pass "private guard: a recovery launch checks the registered secondmate home"
+}
+
+# config/crew-dispatch.json's same envelope that feeds plan and the dispatch
+# resolver caps a concrete crewmate launch: --effort beyond it refuses before
+# metadata or launch, an effort inside launches, and --captain-override rides
+# past the gate after naming the policy on stderr.
+cap_config_write_claude_opus_medium() {
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+}
+
+test_effort_cap_refuses_launch_above_the_home_cap() {
+  local rec id out status
+  id=effortcap-high-refused-z30
+  rec=$(make_spawn_case effortcap-high-refused claude "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_medium
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "an effort beyond the envelope should refuse the launch"
+  assert_contains "$out" "exceeds the home's effort cap (medium)" "the refusal names the cap and level"
+  assert_absent "$HOME_DIR/state/$id.meta" "the refusal left no task metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "the refusal left a delivered launch command"
+  pass "a launch above a model's effort envelope refuses before metadata"
+}
+
+test_effort_cap_allows_launch_inside_the_envelope() {
+  local rec id out status launch
+  id=effortcap-medium-ok-z31
+  rec=$(make_spawn_case effortcap-medium-ok claude "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_medium
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "an effort inside the envelope should launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
+  [ -s "$LAUNCH_LOG" ] || fail "the in-envelope effort produced no launch command"
+  pass "a launch inside the model's effort envelope proceeds normally"
+}
+
+test_effort_cap_captain_override_launches_with_a_named_line() {
+  local rec id out status
+  id=effortcap-override-z32
+  rec=$(make_spawn_case effortcap-override claude "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_medium
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort high \
+    --captain-override 'fixture override wording' 2>&1)
+  status=$?
+  expect_code 0 "$status" "an explicit captain override should launch past the cap: $out"
+  assert_contains "$out" "effort-cap override" "the override named its policy move"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 high
+  pass "a captain override launches past the cap after naming the policy on stderr"
+}
+
+test_effort_cap_skips_harnesses_without_an_effort_knob() {
+  local rec id out status
+  id=effortcap-opencode-z33
+  rec=$(make_spawn_case effortcap-opencode opencode "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_medium
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness opencode --model anthropic/claude-sonnet-4-5 --effort max)
+  status=$?
+  expect_code 0 "$status" "a harness without an effort knob should not be gated: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" opencode anthropic/claude-sonnet-4-5 max
+  pass "a harness that cannot run an effort is never gated by the cap"
+}
+
+test_effort_cap_unreadable_config_refuses() {
+  local rec id out status
+  id=effortcap-broken-z34
+  rec=$(make_spawn_case effortcap-broken claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules": oops}' > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "an unreadable effort config should refuse the launch"
+  assert_contains "$out" "config/crew-dispatch.json" "the refusal names the config"
+  assert_absent "$HOME_DIR/state/$id.meta" "the refusal left no task metadata"
+  pass "an unreadable effort cap config fails closed"
+}
+
+# The cap follows the model's own name variants, so a declaration for the
+# dated snapshot or the bare claude catalog alias also gates the plain
+# full-name launch, while an unrelated generation is not gated by it.
+test_effort_cap_matches_claude_model_name_variants() {
+  local rec id out status launch
+  # A dated-suffix declaration gates the plain model name.
+  id=effortcap-dated-refused-z35
+  rec=$(make_spawn_case effortcap-dated claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5-20260101","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "a dated-variant declaration should gate the plain Opus launch"
+  assert_contains "$out" "exceeds the home's effort cap (medium)" "the variant refusal names the cap and level"
+  assert_absent "$HOME_DIR/state/$id.meta" "the variant refusal left no task metadata"
+  pass "a dated model-name declaration gates the plain Opus launch"
+
+  # The bare catalog alias declaration gates the full-name launch too.
+  id=effortcap-alias-ok-z36
+  rec=$(make_spawn_case effortcap-alias claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"opus","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "an effort inside a bare-alias declaration's envelope should launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
+  pass "a bare alias declaration gates the full-name Opus launch by its envelope"
+
+  # An unrelated generation's declaration never gates another model's name.
+  id=effortcap-other-gen-z37
+  rec=$(make_spawn_case effortcap-other-gen claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-6-1","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort high)
+  status=$?
+  expect_code 0 "$status" "an unrelated generation should not gate this launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 high
+  pass "an unrelated generation's declaration never gates another model"
+  pass "the effort cap matches the model's own name variants"
+}
+
+# A modelless claude launch runs the claude opus default, so an opus-family
+# declaration caps it; a sonnet-family declaration does not.
+test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default() {
+  local rec id out status
+  id=effortcap-modelless-refused-z38
+  rec=$(make_spawn_case effortcap-modelless claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "a modelless claude launch should be gated by its opus default"
+  assert_contains "$out" "exceeds the home's effort cap (medium)" "the modelless refusal names the cap"
+  assert_absent "$HOME_DIR/state/$id.meta" "the modelless refusal left no task metadata"
+
+  id=effortcap-modelless-ok-z39
+  rec=$(make_spawn_case effortcap-modelless-ok claude "$id")
+  read_case_record "$rec"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort medium)
+  status=$?
+  expect_code 0 "$status" "a modelless claude launch inside the envelope should launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude default medium
+  pass "the opus default gates a modelless claude launch and medium passes"
+
+  id=effortcap-sonnet-not-opus-z40
+  rec=$(make_spawn_case effortcap-sonnet-not claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-sonnet-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort high)
+  status=$?
+  expect_code 0 "$status" "a sonnet-family declaration should not gate the opus default: $out"
+  pass "a sonnet-family declaration does not gate a modelless claude launch"
+  pass "a modelless claude launch is capped by its opus default"
 }
 
 
@@ -3050,5 +3223,12 @@ test_private_guard_refuses_a_private_secondmate
 test_private_guard_refuses_a_private_secondmate_charter
 test_private_guard_refuses_a_private_registered_secondmate_home
 test_enrolled_launch_status_confirms_processing
+test_effort_cap_refuses_launch_above_the_home_cap
+test_effort_cap_allows_launch_inside_the_envelope
+test_effort_cap_captain_override_launches_with_a_named_line
+test_effort_cap_skips_harnesses_without_an_effort_knob
+test_effort_cap_unreadable_config_refuses
+test_effort_cap_matches_claude_model_name_variants
+test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default
 
 echo "# all fm-spawn-dispatch-profile tests passed"

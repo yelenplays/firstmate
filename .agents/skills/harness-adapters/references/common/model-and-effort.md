@@ -19,7 +19,7 @@ Never select `max` through this fallback; only an explicit per-task or standing 
 
 The explicit native `ultra` value follows the model-scoped refusal contract in `../../../bin/fm-harness.sh validate-native-effort`; it is never silently omitted or mapped to a Pi level.
 For other values, if requested effort is outside the adapter's accepted set, the spawn records `effort=` in task metadata but emits no effort flag.
-This preserves launch success instead of passing a known-bad value.
+This avoids passing a known-bad value; launch remains subject to [effort caps for concrete launches](../../../../../docs/configuration.md#effort-caps-for-concrete-launches).
 A harness with no verified interactive effort flag follows the same record-and-omit contract.
 
 ## Harness and provider identity
