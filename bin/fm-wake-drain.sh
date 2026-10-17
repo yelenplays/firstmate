@@ -10,16 +10,22 @@
 #
 # Usage: fm-wake-drain.sh [--decisions]
 #        fm-wake-drain.sh --ack-through SEQUENCE --recovery-generation GENERATION
+#        fm-wake-drain.sh --ack-rows SEQUENCE[,SEQUENCE...] --recovery-generation GENERATION
 # OPEN DECISIONS prints the open count plus only the decisions that are new or
 # changed since the last successful presentation to the same conversation;
 # --decisions lists every open decision instead (print_open_decisions_section
 # owns the rule).
+# --ack-rows acknowledges only the named sequences main was presented, for
+# bin/fm-wake-triage.sh --absorb to retire the routine rows of a batch whose
+# other rows still need firstmate; --ack-through stays the handling turn's
+# whole-batch acknowledgement.
 #
 # Keep sequence-bound row consumption independent from generation-bound episode
 # retirement; docs/watcher-continuity.md owns the recovery contract.
 # Every scratch file this script mints (.main-eligible-rows.tmp.*,
 # .wake-rows.consume.*, .wake-queue.retire.*, .wake-queue.ack.*,
-# .wake-queue.actor-view.*) is created and removed under the queue lock, so one
+# .wake-queue.ack-rows.*, .wake-queue.actor-view.*) is created and removed
+# under the queue lock, so one
 # found while taking that lock was left by a drain that died mid-write; each
 # locked drain rotates such leftovers away before doing anything else.
 # FM_STATUS_PRESENTATION_LOCK_TIMEOUT sets the positive whole-second wait for
@@ -51,6 +57,8 @@ RECOVERY_MARKER_TOKEN=
 RECOVERY_ACK_REQUIRED=false
 RECOVERY_ACK_MOVED=false
 ACK_THROUGH=
+ACK_ROWS=
+ACK_ROWS_TMP=
 ACK_GENERATION=
 ACK_REMOVED=0
 PRESENTED_MAX=0
@@ -97,7 +105,8 @@ rows_file_valid() { fm_wake_grant_rows_valid "$1"; }
 rotate_scratch_locked() {
   local scratch
   for scratch in "$STATE"/.main-eligible-rows.tmp.* "$STATE"/.wake-rows.consume.* \
-    "$STATE"/.wake-queue.retire.* "$STATE"/.wake-queue.ack.* "$STATE"/.wake-queue.actor-view.*; do
+    "$STATE"/.wake-queue.retire.* "$STATE"/.wake-queue.ack.* "$STATE"/.wake-queue.ack-rows.* \
+    "$STATE"/.wake-queue.actor-view.*; do
     [ -e "$scratch" ] || [ -L "$scratch" ] || continue
     rm -f -- "$scratch"
   done
@@ -203,6 +212,37 @@ consume_actor_rows_locked() { # <rows-file> <cutoff>
   DRAIN_TMP=
 }
 
+# --ack-rows: stage the named sequences main owns right now as ACK_ROWS_TMP, so
+# every consumer below reads one owned set. Created and removed inside one queue
+# lock hold, because the acknowledgement releases the lock in between.
+stage_ack_rows_locked() {
+  ACK_ROWS_TMP=$(mktemp "$STATE/.wake-queue.ack-rows.XXXXXX") || return 1
+  printf '%s\n' "$ACK_ROWS" | tr ',' '\n' \
+    | awk -v main="$MAIN_ROWS_FILE" '
+        BEGIN { while ((getline line < main) > 0) owned[line]=1 }
+        $1 ~ /^[0-9]+$/ && ($1 in owned) { print $1 }
+      ' | LC_ALL=C sort -nu > "$ACK_ROWS_TMP" || return 1
+}
+
+drop_ack_rows_locked() {
+  [ -z "$ACK_ROWS_TMP" ] || rm -f -- "$ACK_ROWS_TMP" || return 1
+  ACK_ROWS_TMP=
+}
+
+consume_named_rows_locked() { # <rows-file> <named-rows-file>
+  local rows=$1 named=$2
+  if [ ! -e "$rows" ] && [ ! -L "$rows" ]; then
+    return 0
+  fi
+  DRAIN_TMP=$(mktemp "$STATE/.wake-rows.consume.XXXXXX") || return 1
+  awk -v named="$named" '
+    BEGIN { while ((getline line < named) > 0) drop[line]=1 }
+    $1 ~ /^[0-9]+$/ && !($1 in drop) { print $1 }
+  ' "$rows" > "$DRAIN_TMP" || return 1
+  write_rows_file_locked "$rows" "$DRAIN_TMP" || return 1
+  DRAIN_TMP=
+}
+
 # A branch-actor drain or ack requires a snapshot to already exist and name at
 # least one row. The extension always writes a non-empty snapshot before it
 # ever prompts the branch (an empty eligible set means no prompt at all), so a
@@ -244,7 +284,20 @@ case "${1:-}" in
     case "$ACK_GENERATION" in ''|*[!A-Za-z0-9._-]*) echo "wake drain: invalid recovery generation" >&2; exit 2 ;; esac
     [ "$#" -eq 4 ] || { echo "wake drain: unexpected acknowledgement arguments" >&2; exit 2; }
     ;;
-  *) echo "usage: fm-wake-drain.sh [--decisions | --ack-through SEQUENCE --recovery-generation GENERATION]" >&2; exit 2 ;;
+  --ack-rows)
+    ACK_ROWS=${2:-}
+    case "$ACK_ROWS" in
+      ''|,*|*,|*,,*|*[!0-9,]*) echo "wake drain: invalid acknowledgement rows" >&2; exit 2 ;;
+    esac
+    [ "${3:-}" = --recovery-generation ] \
+      || { echo "wake drain: acknowledgement requires its recovery generation" >&2; exit 2; }
+    ACK_GENERATION=${4:-}
+    case "$ACK_GENERATION" in ''|*[!A-Za-z0-9._-]*) echo "wake drain: invalid recovery generation" >&2; exit 2 ;; esac
+    [ "$#" -eq 4 ] || { echo "wake drain: unexpected acknowledgement arguments" >&2; exit 2; }
+    [ "$ACTOR" = main ] || { echo "wake drain: --ack-rows acknowledges main's presented rows only" >&2; exit 2; }
+    ACK_THROUGH=$(printf '%s\n' "$ACK_ROWS" | tr ',' '\n' | awk '$1 + 0 > max { max = $1 + 0 } END { print max + 0 }')
+    ;;
+  *) echo "usage: fm-wake-drain.sh [--decisions | --ack-through SEQUENCE --recovery-generation GENERATION | --ack-rows SEQUENCE[,SEQUENCE...] --recovery-generation GENERATION]" >&2; exit 2 ;;
 esac
 # A known-decision ledger records what one conversation was shown. Main keeps
 # its own; the branch keeps one for the supervision host's engine conversation
@@ -305,7 +358,8 @@ record_history_acknowledgement() {
   local history_data_override=${FM_DATA_OVERRIDE:-$FM_HOME/data}
   if ! FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
     FM_DATA_OVERRIDE="$history_data_override" FM_STATE_OVERRIDE="$STATE" \
-    "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" >/dev/null; then
+    "$SCRIPT_DIR/fm-history.sh" wake-ack "$ACK_THROUGH" "$ACK_REMOVED" "$ACTOR" \
+      ${ACK_ROWS:+--rows "$ACK_ROWS"} >/dev/null; then
     printf 'wake drain: could not journal the wake acknowledgement\n' >&2
     return 1
   fi
@@ -972,6 +1026,7 @@ cleanup() {
   local status=$?
   [ -z "$DRAIN_TMP" ] || rm -f -- "$DRAIN_TMP" 2>/dev/null || true
   [ -z "$DRAIN_VIEW_TMP" ] || rm -f -- "$DRAIN_VIEW_TMP" 2>/dev/null || true
+  [ -z "$ACK_ROWS_TMP" ] || rm -f -- "$ACK_ROWS_TMP" 2>/dev/null || true
   if [ "$DRAIN_LOCK_HELD" = true ]; then
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
   fi
@@ -1035,8 +1090,14 @@ if [ -n "$ACK_THROUGH" ]; then
       echo "wake drain: main acknowledgement has an invalid presented-row claim" >&2
       exit 1
     fi
-    ACK_FINGERPRINTS=$(inactive_outcome_fingerprints "$ACK_THROUGH" 'inactive-outcome:' "$MAIN_ROWS_FILE") || exit 1
-    ACK_NOTICE_FINGERPRINTS=$(inactive_outcome_fingerprints "$ACK_THROUGH" 'inactive-reconcile:' "$MAIN_ROWS_FILE") || exit 1
+    OWNED_ROWS_FILE=$MAIN_ROWS_FILE
+    if [ -n "$ACK_ROWS" ]; then
+      stage_ack_rows_locked || exit 1
+      OWNED_ROWS_FILE=$ACK_ROWS_TMP
+    fi
+    ACK_FINGERPRINTS=$(inactive_outcome_fingerprints "$ACK_THROUGH" 'inactive-outcome:' "$OWNED_ROWS_FILE") || exit 1
+    ACK_NOTICE_FINGERPRINTS=$(inactive_outcome_fingerprints "$ACK_THROUGH" 'inactive-reconcile:' "$OWNED_ROWS_FILE") || exit 1
+    drop_ack_rows_locked || exit 1
   fi
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
   DRAIN_LOCK_HELD=false
@@ -1063,11 +1124,16 @@ if [ -n "$ACK_THROUGH" ]; then
       exit 1
     }
   else
-    awk -F '\t' -v cutoff="$ACK_THROUGH" -v seqs="$MAIN_ROWS_FILE" '
+    OWNED_ROWS_FILE=$MAIN_ROWS_FILE
+    if [ -n "$ACK_ROWS" ]; then
+      stage_ack_rows_locked || exit 1
+      OWNED_ROWS_FILE=$ACK_ROWS_TMP
+    fi
+    awk -F '\t' -v cutoff="$ACK_THROUGH" -v seqs="$OWNED_ROWS_FILE" '
       BEGIN { while ((getline line < seqs) > 0) owned[line]=1 }
       NF < 5 || $2 !~ /^[0-9]+$/ || $2 > cutoff || !($2 in owned) { print }
     ' "$FM_WAKE_QUEUE" > "$DRAIN_TMP" || exit 1
-    fm_wake_commit_secondmate_stall_receipts_through "$ACK_THROUGH" "$MAIN_ROWS_FILE" || {
+    fm_wake_commit_secondmate_stall_receipts_through "$ACK_THROUGH" "$OWNED_ROWS_FILE" || {
       echo "wake drain: secondmate stall receipt could not be recorded safely" >&2
       exit 1
     }
@@ -1099,12 +1165,20 @@ if [ -n "$ACK_THROUGH" ]; then
   DRAIN_TMP=
   if [ "$ACTOR" = branch ]; then
     consume_actor_rows_locked "$ELIGIBLE_ROWS_FILE" "$ACK_THROUGH" || exit 1
+  elif [ -n "$ACK_ROWS" ]; then
+    consume_named_rows_locked "$MAIN_ROWS_FILE" "$ACK_ROWS_TMP" || exit 1
+    drop_ack_rows_locked || exit 1
   else
     consume_actor_rows_locked "$MAIN_ROWS_FILE" "$ACK_THROUGH" || exit 1
   fi
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
   DRAIN_LOCK_HELD=false
-  if [ "$ACK_REMOVED" -eq 0 ] && [ "$PRESENTED_MAX" -gt "$ACK_THROUGH" ]; then
+  if [ -n "$ACK_ROWS" ]; then
+    # Named rows already gone are an idempotent replay; the caller still holds
+    # the batch's own WAKE_ACK_REQUIRED command for whatever remains.
+    [ "$ACK_REMOVED" -gt 0 ] \
+      || printf 'wake drain: none of rows %s was acknowledged (already consumed, or never presented to main)\n' "$ACK_ROWS" >&2
+  elif [ "$ACK_REMOVED" -eq 0 ] && [ "$PRESENTED_MAX" -gt "$ACK_THROUGH" ]; then
     # Nothing at or below the cutoff was this actor's to consume, while a
     # presented row above it is still waiting: the caller acknowledged an
     # earlier wake, not the one it is handling. Say so, and name the exact

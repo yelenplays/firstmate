@@ -1,14 +1,17 @@
 Mode: Claude Stop-hook-owned supervision.
 
 When this session owns supervision and away mode is not active:
-1. Drain first with `bin/fm-wake-triage.sh`.
+1. For a wake without completed hook-side triage (step 3), drain first with `bin/fm-wake-triage.sh`.
    Act on every ACT NOW, NOTICES and STANDING entry.
-   Automatic acknowledgement is disabled; after handling, run its exact `WAKE_ACK_REQUIRED` command.
+   Triage you run by hand never acknowledges; after handling, run its exact `WAKE_ACK_REQUIRED` command.
    If the triage itself fails, read any `state/.wake-triage.pending.*` output, then use `bin/fm-wake-drain.sh`.
 2. Routine watcher arm and re-arm are owned by the Stop `asyncRewake` hook (`bin/fm-claude-stop-autoarm.sh`), never by you.
    Every turn end while supervision is needed launches or attaches one home-scoped watcher cycle with no model command and no model tokens.
-   An actionable close wakes you through the hook's exit-2 rewake, delivered as a `Stop hook feedback` message.
-3. On a `Stop hook feedback` wake (`signal:`, `stale:`, `check:`, or `heartbeat`), run `bin/fm-wake-triage.sh` first and handle the wake.
+   A close needing your handling wakes you through the hook's exit-2 rewake, delivered as a `Stop hook feedback` message ([hook-side triage](../watcher-continuity.md#hook-side-wake-triage)).
+3. On a `Stop hook feedback` wake (`signal:`, `stale:`, `check:`, or `heartbeat`), the hook has usually triaged it already.
+   A banner that says the wake was absorbed only asks you to end the turn; do not drain, triage, or acknowledge it again.
+   When the banner says not to triage or drain again, use its embedded output, handle every ACT NOW item, then run the `WAKE_ACK_REQUIRED` command it ends with.
+   Otherwise, including when the banner embeds output from a failed triage, run `bin/fm-wake-triage.sh` first and handle the wake.
    Do not run `bin/fm-watch-arm.sh` after an ordinary wake; the next turn end re-arms automatically when supervision is still needed.
    Do not invent a wake from an attach-status line alone; drain and act only on real wake records, the drain's `OPEN DECISIONS` and `UNREAD STATUS` entries, or a real watcher reason line.
 4. On the one `Stop hook feedback` automatic-mechanism failure notice (`firstmate watcher auto-arm FAILED ...`), drain, inspect the automatic mechanism failure, and do not turn the notice into a repeating manual-arm loop.
