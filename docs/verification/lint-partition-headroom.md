@@ -129,6 +129,3 @@ is needed.
   refusal test passes.
 - Pinned ShellCheck passes on all three changed shell files. Pinned actionlint
   validates all three workflow files; shell syntax and `git diff --check` pass.
-
-The active pipeline's outer executor owns publication and the new hosted run;
-this CI repair neither reruns nor waives the cancelled check.
