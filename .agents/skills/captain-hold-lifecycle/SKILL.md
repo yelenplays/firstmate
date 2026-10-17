@@ -22,6 +22,8 @@ Prefer holding the work item the question gates over minting a new row; create a
 The originating investigation or review is never its own inventory entry, so hold a separate task for the call and pass `--origin <origin-id>` so `complete` can check it.
 Put the question and its options in the hold reason, and keep one held task per genuine gate: a multi-question review is one held task pointing at its report, not a row per question. Represent that task with exactly one board card that consolidates its questions and options; never fan one task id into duplicate same-key cards.
 Register or re-hold through `bin/fm-captain-hold.sh hold`, which is idempotent per task id.
+At most three calls may wait on the captain at once, and `hold` is the brake: it refuses a fourth live call with exit 3 and names the three that are live.
+Ask the captain which of them to park (re-hold it with `--until <date>`) or drop (`answer` it with the captain's words), act on that answer, then hold the new call; never work around the refusal.
 Scout workers inventory the whole report and review surface in their durable report, then hand it off through their final status; firstmate owns the held-task registration, completion gate, and cleanup after that handoff.
 Firstmate runs `bin/fm-captain-hold.sh complete` with every captain-held task id after inventorying the report and review surface.
 For a scout with nothing outstanding, firstmate uses the one-call empty-inventory cleanup path owned by `bin/fm-teardown.sh --help`; other review surfaces still attest `--none`.

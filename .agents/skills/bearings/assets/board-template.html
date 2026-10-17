@@ -150,9 +150,22 @@ a { color: inherit; text-decoration: none; }
 .bb-stat__num { font-family: var(--font-mono); font-size: var(--fs-h3); font-weight: 600; line-height: 1; color: var(--text-strong); }
 .bb-stat--call .bb-stat__num { color: var(--rust-600); }
 .bb-stat__label { font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+/* the captain's WIP limit: the call count reads against it, and a tile over
+   the limit turns solid so it is impossible to miss on a glance */
+.bb-stat__row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.bb-stat__of { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600; color: var(--rust-400); }
+.bb-stat__wip {
+  align-self: flex-start; margin-top: 2px; font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; border-radius: var(--radius-xs); padding: 3px 7px 2px;
+}
+.bb-stat__wip--at { color: var(--gold-600); background: var(--gold-100); border: 1.5px solid var(--gold-300); }
+.bb-stat__wip--over { color: var(--paper-000); background: var(--rust-600); border: 1.5px solid var(--rust-700); }
+.bb-stat--over { background: var(--rust-100); border-color: var(--rust-600); }
 
 .bb-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.bb-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* a long subline wraps under its heading instead of running into the next column */
+.bb-section__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.bb-section__head .fm-sign--muted { white-space: normal; line-height: 1.35; min-width: 0; }
 .bb-cols { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; }
 
 /* ---- Captain's Call: one card at a time, dealt off a visible stack ---- */
@@ -189,6 +202,7 @@ a { color: inherit; text-decoration: none; }
 .bb-decision { display: flex; flex-direction: column; }
 .bb-decision__pad { padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
 .bb-decision__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bb-decision__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .bb-decision__repo { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-faint); white-space: nowrap; }
 .bb-decision__title { margin: 0; font-size: var(--fs-h4); font-weight: 800; color: var(--text-strong); line-height: 1.25; }
 .bb-decision__detail { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.45; }
@@ -272,6 +286,13 @@ a { color: inherit; text-decoration: none; }
 
 .bb-foot { display: flex; justify-content: flex-end; border-top: 1px solid var(--border-default); padding-top: 14px; }
 
+/* side by side, the two sections of a row share one heading row, so a subline
+   that wraps under its heading never pushes one column's card below the other's */
+@media (min-width: 901px) {
+  .bb-cols { row-gap: 12px; }
+  .bb-cols > .bb-section { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  .bb-cols > .bb-section > * { align-self: start; }
+}
 @media (max-width: 900px) {
   .bb-cols { grid-template-columns: 1fr; }
 }
@@ -289,6 +310,7 @@ a { color: inherit; text-decoration: none; }
       </span>
       <span class="bb-brand__wm">bearings</span>
     </span>
+    <span class="bb-meta-mono" id="bb-asof"></span>
   </div>
 </header>
 
@@ -456,9 +478,19 @@ __FM_BEARINGS_BOARD_DATA__
   var CHECK_SVG = '<svg class="fm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 
   document.getElementById("bb-provenance").textContent = data.schema + " · " + data.generated;
+  var generatedAt = Date.parse(data.generated);
+  document.getElementById("bb-asof").textContent = isNaN(generatedAt) ? "" :
+    "changed " + new Date(generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  /* The board refreshes itself in place. Lavish replays each card's form
+     (data-lavish-question) and keeps its own prompt queue across that reload,
+     so the board keeps no state of its own: an artifact's sandboxed frame has
+     no storage to keep it in. */
 
   /* stat strip */
   var callTotal = data.captains_call.length;
+  var wipLimit = typeof data.wip_limit === "number" && data.wip_limit > 0 ? data.wip_limit : 0;
+  var wipOver = wipLimit ? Math.max(0, callTotal - wipLimit) : 0;
   var stats = [
     { n: callTotal, l: "need you", call: true },
     { n: data.underway.length, l: "underway" },
@@ -467,13 +499,26 @@ __FM_BEARINGS_BOARD_DATA__
   ];
   var strip = document.getElementById("bb-stats");
   stats.forEach(function (s) {
-    var t = el("div", "bb-stat" + (s.call ? " bb-stat--call" : ""));
-    t.appendChild(el("span", "bb-stat__num", String(s.n)));
+    var withLimit = s.call && wipLimit;
+    var t = el("div", "bb-stat" + (s.call ? " bb-stat--call" : "") + (withLimit && wipOver ? " bb-stat--over" : ""));
+    var numRow = el("span", "bb-stat__row");
+    numRow.appendChild(el("span", "bb-stat__num", String(s.n)));
+    if (withLimit) {
+      numRow.appendChild(el("span", "bb-stat__of", "/ " + wipLimit));
+      t.title = "At most " + wipLimit + " things should wait on you at once";
+    }
+    t.appendChild(numRow);
     t.appendChild(el("span", "bb-stat__label", s.l));
+    if (withLimit && wipOver) {
+      t.appendChild(el("span", "bb-stat__wip bb-stat__wip--over", wipOver + " over limit"));
+    } else if (withLimit && callTotal === wipLimit) {
+      t.appendChild(el("span", "bb-stat__wip bb-stat__wip--at", "at limit"));
+    }
     strip.appendChild(t);
   });
   document.getElementById("bb-call-sub").textContent =
-    callTotal ? callTotal + " item" + (callTotal === 1 ? "" : "s") + " wait on you, captain" : "nothing needs you, captain";
+    (callTotal ? callTotal + " item" + (callTotal === 1 ? "" : "s") + " wait on you, captain" : "nothing needs you, captain") +
+    (wipOver ? " · " + wipOver + " over your limit of " + wipLimit : "");
 
   /* Captain's Call deck: every item renders as the same full card */
   var deck = document.getElementById("bb-call");
@@ -493,7 +538,16 @@ __FM_BEARINGS_BOARD_DATA__
       top.appendChild(badge("online", "checks green"));
       top.appendChild(badge(item.risk === "low" ? "neutral" : "warn", "risk " + item.risk));
     } else {
-      top.appendChild(badge("solid", "decision"));
+      var tags = el("span", "bb-decision__tags");
+      tags.appendChild(badge("solid", "decision"));
+      /* a routed answer is recorded but leaves the call open until firstmate
+         routes it, so say so instead of inviting the captain to answer twice */
+      if (item.routing) {
+        var routed = badge("info", "answer recorded");
+        routed.title = "Firstmate is routing your answer; a new answer replaces it";
+        tags.appendChild(routed);
+      }
+      top.appendChild(tags);
       top.appendChild(el("span", "bb-decision__repo", item.repo));
     }
     pad.appendChild(top);

@@ -4958,11 +4958,14 @@ done
 setsid sleep 60 &
 drain_holder=$!
 # Read the identity only once the holder has exec'd sleep: mid-exec its cmdline
-# can read empty, and a pre-exec identity would never match the live holder.
-for _ in $(seq 1 100); do
-  case "$(ps -p "$drain_holder" -o comm= 2>/dev/null)" in *sleep) break ;; esac
+# can read empty, and a pre-exec identity would never match the live holder. A
+# loaded host can take well over five seconds to get there, so wait up to 30.
+drain_holder_execd=0
+for _ in $(seq 1 600); do
+  case "$(ps -p "$drain_holder" -o comm= 2>/dev/null)" in *sleep) drain_holder_execd=1; break ;; esac
   sleep 0.05
 done
+[ "$drain_holder_execd" = 1 ] || fail "the draining holder never exec'd sleep within 30s"
 drain_holder_identity=$(bash -c '. "$1/bin/fm-wake-lib.sh"; fm_pid_identity "$2"' _ "$ROOT" "$drain_holder") \
   || fail "could not read the draining holder's identity"
 awk -v pid="$drain_holder" -v ident="$drain_holder_identity" \
