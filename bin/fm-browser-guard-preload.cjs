@@ -228,8 +228,10 @@ function installLauncherPatch() {
 // supports it, so the forced launch matches the library's own headless launch
 // on old and new builds alike.
 const CHROMIUM_BINARY = /^(?:google chrome(?: (?:beta|dev|canary|for testing))?|chrome|chromium|chromium-browser|google-chrome|chrome-headless-shell|headless_shell|brave|brave-browser|brave browser|msedge|microsoft edge|vivaldi|opera|thorium)$/;
-const FIREFOX_BINARY = /^(?:firefox|firefox-bin|firefox-esr|firefoxdeveloperedition|firefox-nightly|nightly|mozilla firefox)$/;
-const WEBKIT_BINARY = /^(?:pw_run\.sh|playwright|minibrowser)$/;
+const FIREFOX_BINARY = /^(?:firefox|firefox-bin|firefox-esr|firefoxdeveloperedition|firefox-nightly|mozilla firefox)$/;
+const WEBKIT_BINARY = /^(?:pw_run\.sh|minibrowser)$/;
+const WEBKIT_APP_PATH = /[\\/]playwright\.app[\\/]contents[\\/]macos[\\/]playwright$/;
+const FIREFOX_APP_PATH = /[\\/]nightly\.app[\\/]contents[\\/]macos[\\/]nightly$/;
 
 function baseName(command) {
   const text = String(command);
@@ -259,6 +261,9 @@ function classifyBrowser(command) {
   if (CHROMIUM_BINARY.test(base)) return 'chromium';
   if (FIREFOX_BINARY.test(base)) return 'firefox';
   if (WEBKIT_BINARY.test(base)) return 'webkit';
+  const path = String(command).toLowerCase();
+  if (WEBKIT_APP_PATH.test(path)) return 'webkit';
+  if (FIREFOX_APP_PATH.test(path)) return 'firefox';
   return null;
 }
 

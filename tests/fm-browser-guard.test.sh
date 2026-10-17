@@ -801,6 +801,13 @@ test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced() {
   assert_equals 1 "$(stub_launches "$log")" "a promisified browser execFile must start once"
   assert_equals "$(printf '%s\n' --remote-debugging-port=0 https://example.com --headless)" "$(stub_args "$log" 1)" \
     "a promisified browser execFile must be forced headless"
+  stub=$(make_browser_stub "$TMP_ROOT/playwright-cli-stub" playwright)
+  log="$TMP_ROOT/playwright-cli.log"
+  rm -f "$log"
+  FM_STUB_LOG="$log" guarded node -e 'require("child_process").spawnSync(process.argv[1], ["test"])' "$stub" >/dev/null 2>"$log.err" || true
+  assert_equals 1 "$(stub_launches "$log")" "the playwright CLI must start once"
+  assert_equals test "$(stub_args "$log" 1)" "the playwright CLI must receive exactly its own arguments"
+  assert_equals 0 "$(guard_lines "$log.err")" "the playwright CLI must not be reported as a forced browser"
   pass "Electron launches are untouched and argument-less browser spawns are forced headless"
 }
 
