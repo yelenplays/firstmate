@@ -202,4 +202,44 @@ assert_grep '-5C degrees outside' "$ALT/preferences/dash-topic.md" '-- escaped s
 "$MEM" remember 'flag note' remember to pass -v for verbose >/dev/null
 assert_grep 'pass -v for verbose' "$ALT/preferences/flag-note.md" 'unquoted single-dash token stays in the body'
 
+# --- expires, sensitivity, the now digest, and merge-from --------------------
+
+NOW_STORE="$TMP_ROOT/now-store"
+nowmem() { FM_MEMORY_DIR="$NOW_STORE" "$MEM" "$@"; }
+nowmem remember --category now --expires 2999-01-01 --sensitivity private 'Week focus' 'Exam week; keep replies short.' >/dev/null
+assert_grep 'expires: 2999-01-01' "$NOW_STORE/now/week-focus.md" 'expires recorded in frontmatter'
+assert_grep 'sensitivity: private' "$NOW_STORE/now/week-focus.md" 'sensitivity recorded in frontmatter'
+nowmem remember --category now --expires 2000-01-01 'Old focus' 'long over' >/dev/null
+nowmem remember --category now 'Work focus' 'Shipping memory capture.' >/dev/null
+out=$(nowmem now)
+assert_contains "$out" '- Week focus (until 2999-01-01): Exam week; keep replies short.' 'now prints a current entry with its expiry'
+assert_contains "$out" '- Work focus: Shipping memory capture.' 'now prints an entry without an expiry'
+assert_not_contains "$out" 'long over' 'now leaves an expired entry out'
+assert_present "$NOW_STORE/now/old-focus.md" 'now never deletes an expired entry'
+out=$(nowmem now --exclude-private)
+assert_not_contains "$out" 'Exam week' '--exclude-private drops private entries'
+assert_contains "$out" 'Shipping memory capture.' '--exclude-private keeps normal entries'
+out=$(nowmem now --max-chars 60)
+assert_contains "$out" 'more now/ entries omitted by the size cap' 'the size cap reports what it dropped'
+rc=0; nowmem remember --expires tomorrow 'bad date' 'x' >/dev/null 2>&1 || rc=$?
+expect_code 3 "$rc" 'a malformed --expires is rejected'
+rc=0; nowmem remember --sensitivity secret 'bad level' 'x' >/dev/null 2>&1 || rc=$?
+expect_code 3 "$rc" 'an unknown --sensitivity is rejected'
+rc=0; nowmem remember 'late option' 'the fact' --expires 2999-01-01 >/dev/null 2>&1 || rc=$?
+expect_code 2 "$rc" 'a trailing --expires after the body is rejected'
+
+OTHER="$TMP_ROOT/orphan-store"
+mkdir -p "$OTHER/entities"
+FM_MEMORY_DIR="$OTHER" "$MEM" remember --category entity 'orphan fact' 'only the orphan store has this' >/dev/null
+FM_MEMORY_DIR="$OTHER" "$MEM" remember --category now 'Work focus' 'a different focus' >/dev/null
+rc=0; out=$(nowmem merge-from "$OTHER") || rc=$?
+expect_code 1 "$rc" 'merge-from reports a differing file as a conflict'
+assert_contains "$out" 'copied: entities/orphan-fact.md' 'merge-from copies a missing memory'
+assert_contains "$out" 'conflict (kept this store): now/work-focus.md' 'merge-from names the conflict'
+assert_grep 'Shipping memory capture.' "$NOW_STORE/now/work-focus.md" 'merge-from never overwrites this store'
+assert_contains "$(nowmem recall --json 'orphan fact')" 'entities/orphan-fact.md' 'merged memory is recallable at once'
+rm "$OTHER/now/work-focus.md"
+out=$(nowmem merge-from "$OTHER") || fail 'a clean merge-from must exit 0'
+assert_contains "$out" 'merged: copied=0 identical=1 conflict=0' 'a repeated merge-from is idempotent'
+
 pass 'fm-memory behavior suite'
