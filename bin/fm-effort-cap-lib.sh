@@ -35,10 +35,16 @@
 #   fm_effort_range_for <harness> [<model>]
 #     After a load: prints `min max default` for the envelope over every
 #     matching profile, or prints nothing when no profile matches. A profile
-#     matches when its harness equals <harness> and its model equals <model>,
-#     or, for a modelless profile, when both are modelless: a modelless
-#     profile governs only modelless spawns of its harness, never a concrete
-#     model. The envelope is the union of the declarations, not their
+#     matches when its harness equals <harness> and its model is variation-
+#     equal to <model>: for non-claude harnesses that is the exact string
+#     ("default" spelling included, which is otherwise modelless); for
+#     claude it also spans the model's own name variants, because a model
+#     name there names a family - the full form claude-<alias>-<n>..., its
+#     dated suffixes, the bare catalog alias (opus|sonnet|haiku|fable), and
+#     a modelless or `default` launch, which runs the account's Opus default
+#     and is therefore capped by the opus-family profiles. A modelless
+#     profile still governs only modelless spawns, never a concrete model.
+#     The envelope is the union of the declarations, not their
 #     intersection: its upper bound is the highest profile upper bound
 #     (effort_max, else effort, else xhigh) so a model stays launchable
 #     wherever any declaration allows it, its lower bound the lowest profile
@@ -156,10 +162,34 @@ fm_effort_range_for() {
   jq -r --arg h "$1" --arg m "${2-}" '
     def L: ["low","medium","high","xhigh","max","ultra"];
     def rk($e): if $e == null then null else (L | index($e)) end;
+    # A declared or concrete model name matches its variants: the exact or
+    # "default" spelling is modelless, and a claude full name, its bare
+    # catalog alias, and its dated suffixes name the same family. A modelless
+    # claude launch runs the claude Opus default, so an opus-family profile
+    # caps it. Only these claude catalog names gain variant matching; every
+    # other harness matches its model exactly.
+    def norm: . as $x | (($x // "") | ascii_downcase) as $l
+      | if $l == "" or $l == "default" then null else $l end;
+    def claude_alias($x): $x == "opus" or $x == "sonnet" or $x == "haiku" or $x == "fable";
+    def variant($d; $c):
+      ($d == $c)
+      or (($d | test("^claude-(opus|sonnet|haiku|fable)-[0-9]"))
+          and ($c | test("^claude-(opus|sonnet|haiku|fable)-[0-9]"))
+          and (($c | startswith($d + "-")) or ($d | startswith($c + "-"))))
+      or ((claude_alias($d) and ($c | startswith("claude-" + $d + "-")))
+          or (claude_alias($c) and ($d | startswith("claude-" + $c + "-"))));
     .profiles
     | map(select((.harness == $h)
-        and (($m == "" and (.model // null) == null)
-             or ($m != "" and .model == $m))))
+        and (
+          (($m | norm) == null
+             and ((.model // null | norm) == null
+                  or ($h == "claude"
+                      and (.model // null | norm) != null
+                      and variant((.model // null | norm); "opus"))))
+          or ((.model // null | norm) != null
+              and (($m | norm) != null)
+              and variant((.model // null | norm); ($m | norm)))
+        )))
     | map({
         max_rk: rk(.effort_max // .effort // "xhigh"),
         min_rk: ([(.effort_min // .effort // "low"), (.effort_floor // null)]

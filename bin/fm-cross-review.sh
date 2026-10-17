@@ -536,7 +536,9 @@ reviewer_chain_file() {
 # clamped into the home's crew-dispatch envelope for that harness/model pair
 # (the same ranges bin/fm-dispatch-resolve.sh clamps dispatch answers into),
 # so a declared high effort cannot outrun the model policy the home already
-# fixed; bin/fm-spawn.sh's effort-cap refusal backstops the launch.
+# fixed; bin/fm-spawn.sh's effort-cap refusal backstops the launch. The
+# tracked default keeps the Opus reviewer at medium (fail-safe: a home with
+# no effort policy never spawns an Opus reviewer at high; 2026-10-17).
 reviewer_candidates() {
   local chain
   chain=$(reviewer_chain_file)
@@ -556,7 +558,7 @@ reviewer_candidates() {
     ' "$chain"
   else
     printf 'pi openai-codex/gpt-6.1-sol high\n'
-    printf 'claude claude-opus-5-5 high\n'
+    printf 'claude claude-opus-5-5 medium\n'
   fi
 }
 

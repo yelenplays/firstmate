@@ -2925,6 +2925,10 @@ fi
 # config/crew-dispatch.json, the same ranges the dispatch resolver clamps
 # dispatch and cross-review answers into, so a hand-typed or printed effort
 # cannot outrun the model policy for any task kind, reviewers included. The
+# envelope follows the model's own name variants: a claude full name, its
+# dated suffixes, its bare catalog alias, and a modelless or `default`
+# claude launch (which runs the claude opus default) share one envelope, so
+# a cap cannot be dodged by re-spelling the model. The
 # check needs an effort axis: a harness with none (opencode, kimi, cursor)
 # is never gated, mirroring the resolver's unenforceable-effort disclosure.
 # --captain-override is the only bypass, named here and recorded through the

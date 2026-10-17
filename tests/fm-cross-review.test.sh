@@ -419,7 +419,7 @@ test_reviewer_chain_skips_the_builder_family() {
   assert_equals claude "$(field "$out" reviewer_harness)" "the Claude reviewer is selected"
   assert_equals anthropic "$(field "$out" reviewer_family)" "the same-family candidate is skipped"
   assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
-  assert_equals high "$(field "$out" reviewer_effort)" "the Opus reviewer runs at high effort"
+  assert_equals medium "$(field "$out" reviewer_effort)" "the tracked Opus reviewer default stays at medium effort"
   pass "the fixed reviewer chain skips candidates from the builder family"
 }
 
@@ -431,6 +431,8 @@ test_effort_cap_clamps_the_opus_reviewer_to_medium() {
   new_case cap-clamp direct-PR pi openai-codex/gpt-6.1-sol openai
   printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
     > "$HOME_DIR/config/crew-dispatch.json"
+  printf '%s\n' '[{"harness":"claude","model":"claude-opus-5-5","effort":"high"}]' \
+    > "$HOME_DIR/config/cross-review-chain.json"
   out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
   assert_equals claude "$(field "$out" reviewer_harness)" "the chain still reaches the Opus candidate"
   assert_equals medium "$(field "$out" reviewer_effort)" "a capped profile clamps the declared Opus high effort"
@@ -480,6 +482,41 @@ test_home_chain_config_drives_the_candidates() {
   assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the declared candidate takes over with its medium effort"
   assert_equals medium "$(field "$out" reviewer_effort)" "the competitor entry kept its declared effort"
   pass "the home chain config names the candidates and their effort clamp"
+}
+
+# Effort caps match the model's own name variants, so a cap declared for the
+# dated snapshot or its bare claude catalog alias also clamps a plain
+# claude-opus launch, while an unrelated generation does not.
+test_effort_cap_matches_claude_model_name_variants() {
+  local out
+  # A dated-suffix declaration caps the plain model name the chain asks for.
+  new_case capdated-builder direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5-20260101","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the chain still names the plain Opus model"
+  assert_equals low "$(field "$out" reviewer_effort)" "a dated-variant declaration clamps the plain Opus launch"
+  assert_contains "$out" "reviewer_effort_clamped=from medium" "the variant clamp is disclosed"
+  pass "a dated model-name variant declaration caps the plain Opus reviewer"
+
+  # The bare catalog alias declaration caps the full-name launch.
+  new_case capalias-builder direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"opus","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals low "$(field "$out" reviewer_effort)" "a bare-alias declaration clamps the full-name Opus launch"
+  pass "a bare alias declaration caps the full-name Opus reviewer"
+
+  # An unrelated generation is not capped: its profile only covers its own name.
+  new_case capother-gen-builder direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-6-1","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  printf '%s\n' '[{"harness":"claude","model":"claude-opus-5-5","effort":"high"}]' \
+    > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals high "$(field "$out" reviewer_effort)" "an unrelated generation's profile never caps this model"
+  if grep -q "reviewer_effort_clamped" <<<"$out"; then fail "a phantom clamp was disclosed: $out"; fi
+  pass "an unrelated generation's cap does not narrow another model"
 }
 
 test_home_chain_file_refuses_malformed_input() {
