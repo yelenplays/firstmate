@@ -415,9 +415,10 @@ function installOptionsGuard() {
     const wrapper = function () {
       const argv = Array.prototype.slice.call(arguments);
       try {
-        // fork(module, args, options) and fork(module, options);
-        // execSync(command, options).
-        const optionsIndex = name === 'fork' && Array.isArray(argv[1]) ? 2 : 1;
+        // fork normalizes like Node: an args list or a null/undefined args
+        // puts the options third, and an options object second is
+        // fork(module, options). execSync(command, options).
+        const optionsIndex = name === 'fork' && (argv[1] === undefined || argv[1] === null || Array.isArray(argv[1])) ? 2 : 1;
         if (argv[optionsIndex] !== null && typeof argv[optionsIndex] === 'object' && !Array.isArray(argv[optionsIndex])) {
           argv[optionsIndex] = guardedOptions(argv[optionsIndex]);
         }

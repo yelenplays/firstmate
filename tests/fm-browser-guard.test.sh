@@ -720,28 +720,59 @@ test_bun_launches_are_forced_headless() {
 }
 
 # fork and execSync spawn through Node's internal spawn, so an explicit env
-# passed to them must get the guard reattached the same way spawn does.
+# passed to them must get the guard reattached the same way spawn does - in
+# every argument shape Node accepts, not just the args-list one. Each child
+# launches a recording browser stub, so the assertion is the browser's own argv.
 test_fork_and_exec_sync_keep_the_guard() {
-  local driver out
+  local driver stub log out form want
   driver="$TMP_ROOT/fork-driver.cjs"
+  stub=$(make_browser_stub "$TMP_ROOT/fork-stub" chromium)
   cat > "$driver" <<'JS'
 const cp = require('node:child_process');
-if (process.argv[2] === 'child') {
-  process.stdout.write([process.env.FM_BROWSER_GUARD, process.env.NODE_OPTIONS].join('|'));
+const [form, stub, log] = process.argv.slice(2);
+const env = { PATH: '/usr/bin:/bin', FM_STUB_LOG: log, FORK_CHILD_STUB: stub };
+if (process.env.FORK_CHILD_STUB) {
+  process.stdout.write('guard=' + (process.env.FM_BROWSER_GUARD || 'MISSING'));
+  try { cp.execFileSync(process.env.FORK_CHILD_STUB, ['--remote-debugging-port=0'], { stdio: 'ignore' }); } catch (e) {}
+} else if (form === 'spawnSync-null' || form === 'execFileSync-undefined') {
+  try {
+    if (form === 'spawnSync-null') cp.spawnSync(stub, null, { env, stdio: 'ignore' });
+    else cp.execFileSync(stub, undefined, { env, stdio: 'ignore' });
+  } catch (e) {}
+  process.stdout.write('guard=direct');
 } else {
-  const lines = [];
-  const child = cp.fork(__filename, ['child'], { env: { PATH: '/usr/bin:/bin' }, stdio: 'pipe' });
-  child.stdout.on('data', (d) => lines.push('fork=' + d));
-  child.on('exit', () => {
-    lines.push('execSync=' + cp.execSync('printf %s "$FM_BROWSER_GUARD|$NODE_OPTIONS"', { env: { PATH: '/usr/bin:/bin' } }));
-    process.stdout.write(lines.join('\n'));
-  });
+  const options = { env, stdio: ['ignore', 'pipe', 'ignore', 'ipc'] };
+  const child =
+    form === 'array' ? cp.fork(__filename, [], options)
+    : form === 'undefined' ? cp.fork(__filename, undefined, options)
+    : form === 'null' ? cp.fork(__filename, null, options)
+    : cp.fork(__filename, options);
+  child.stdout.on('data', (d) => process.stdout.write(String(d)));
 }
 JS
-  out=$(guarded node "$driver" 2>&1)
-  assert_contains "$out" "fork=1|--require \"$LOADER\"" "a fork with an explicit env must keep the guard"
-  assert_contains "$out" "execSync=1|--require \"$LOADER\"" "an execSync with an explicit env must keep the guard"
-  pass "fork and execSync with an explicit env keep the guard"
+  for form in array undefined null options-only spawnSync-null execFileSync-undefined; do
+    log="$TMP_ROOT/fork-$form.log"
+    rm -f "$log"
+    out=$(guarded node "$driver" "$form" "$stub" "$log" 2>"$log.err")
+    case $form in
+    spawnSync-null | execFileSync-undefined) assert_equals 'guard=direct' "$out" "$form: the driver must run" ;;
+    *) assert_equals 'guard=1' "$out" "fork($form): a fork with an explicit env must keep the guard marker" ;;
+    esac
+    case $form in
+    # The argument-less forms launch the browser with no arguments of its own.
+    spawnSync-null | execFileSync-undefined) want='--headless' ;;
+    *) want=$(printf '%s\n' --remote-debugging-port=0 --headless) ;;
+    esac
+    assert_equals 1 "$(stub_launches "$log")" "$form: the browser stub must be launched once"
+    assert_equals "$want" "$(stub_args "$log" 1)" \
+      "$form: a browser launched behind an explicit env must be forced headless"
+  done
+  log="$TMP_ROOT/fork-execSync.log"
+  rm -f "$log"
+  # shellcheck disable=SC2016 # the variables expand in the spawned shell.
+  out=$(guarded node -e 'process.stdout.write(require("child_process").execSync("printf %s \"${FM_BROWSER_GUARD:-MISSING}|$NODE_OPTIONS\"", { env: { PATH: "/usr/bin:/bin" } }).toString())' 2>&1)
+  assert_equals "1|--require \"$LOADER\"" "$out" "an execSync with an explicit env must keep the guard"
+  pass "fork in every argument shape, execSync, and argument-less spawnSync/execFileSync keep the guard behind an explicit env"
 }
 
 # --- the guard must not break a worker --------------------------------------
