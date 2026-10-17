@@ -9,6 +9,9 @@
 # at all.
 set -u
 
+# Quota fixtures describe the ordinary pool; alternate roots opt in explicitly.
+unset CLAUDE_CONFIG_DIR
+
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -1655,6 +1658,25 @@ assert_contains "$out" 'quota and runway unknown' 'wrong pool exhaustion remains
 assert_not_contains "$out" 'not eligible: runway exhausted_now' 'wrong pool exhaustion cannot reject Claude'
 rm "$HOME_DIR/config/claude-account"
 pass 'duration and capacity gates apply only to the worker pool measured'
+
+# Without a pin, an inherited alternate root is also an unmatched worker pool.
+mkdir -p "$TMP_ROOT/inherited-claude"
+reset_log
+CLAUDE_CONFIG_DIR="$TMP_ROOT/inherited-claude" TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+expect_code 0 "$code" 'inherited custom Claude root remains eligible'
+assert_contains "$out" 'eligible, unranked: Claude worker pool is not matched' 'inherited custom root discloses unknown quota'
+assert_not_contains "$out" 'predicted duration ~300s exceeds' 'inherited custom root cannot borrow the ordinary runway'
+reset_log
+CLAUDE_CONFIG_DIR="$HOME/.claude" TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+expect_code 0 "$code" 'inherited ordinary Claude root resolves'
+assert_contains "$out" 'predicted duration ~300s exceeds projected-exhaustion runway 60s' 'inherited ordinary root keeps its binding runway'
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+reset_log
+CLAUDE_CONFIG_DIR="$TMP_ROOT/inherited-claude" TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+expect_code 0 "$code" 'ordinary pin overrides an inherited custom Claude root'
+assert_contains "$out" 'predicted duration ~300s exceeds projected-exhaustion runway 60s' 'explicit ordinary pin takes precedence over the inherited root'
+rm "$HOME_DIR/config/claude-account"
+pass 'inherited Claude roots and ordinary pin precedence are covered explicitly'
 
 # A failing or absent ledger never fabricates a limit: candidates keep their
 # quota-driven ranking with pred=unknown disclosed.
