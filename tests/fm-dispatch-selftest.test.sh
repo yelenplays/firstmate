@@ -8,6 +8,9 @@
 # CLI.
 set -u
 
+# Synthetic quota snapshots describe the ordinary account, not the caller's.
+unset CLAUDE_CONFIG_DIR
+
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
