@@ -1,0 +1,25 @@
+import json, os, pathlib, subprocess
+ROOT = pathlib.Path.cwd()
+EVIDENCE = pathlib.Path('/Users/yelen/.no-mistakes/evidence/01M55STZBF17XWCASAY5ZRABQW')
+ENV = os.environ.copy()
+ENV.pop('FM_ALLOW_HEADED_BROWSER', None)
+SNIPPET = subprocess.check_output(['bin/fm-browser-guard-env.sh', '--command'], text=True)
+results = []
+def check(name, argv, expected_code, expected_text, stdin=None):
+    p = subprocess.run(['/bin/sh', '-c', SNIPPET + ' exec "$@"', 'guard-live', *argv], input=stdin, text=True, capture_output=True, env=ENV, timeout=30)
+    ok = p.returncode == expected_code and expected_text in (p.stdout + p.stderr)
+    record = dict(name=name, command=argv, exit=p.returncode, stdout=p.stdout, stderr=p.stderr, passed=ok)
+    results.append(record)
+    print(json.dumps(record), flush=True)
+    return ok
+check('open URL refuses before macOS LaunchServices', ['open', 'https://example.invalid/fm-guard-proof'], 1, 'fm-browser-guard:')
+check('clustered open -na Chrome refuses', ['open', '-na', 'Google Chrome', '--args', '--remote-debugging-port=0'], 1, 'fm-browser-guard:')
+check('open HTML refuses', ['open', './.guard-validation/report.html'], 1, 'fm-browser-guard:')
+check('AppleScript Safari activation refuses', ['osascript', '-e', 'tell application "Safari" to activate'], 1, 'fm-browser-guard:')
+check('stdin JXA browser activation refuses', ['osascript', '-l', 'JavaScript'], 1, 'fm-browser-guard:', "Application('Google Chrome').activate()\n")
+check('Python real webbrowser.open refuses without fallback', ['python3', '-I', '-c', 'import webbrowser; print("webbrowser_return=" + str(webbrowser.open("https://example.invalid/fm-guard-proof")))'], 0, 'fm-browser-guard:')
+check('non-browser AppleScript reaches real interpreter', ['osascript', '-e', 'return 6 * 7'], 0, '42')
+check('ordinary Node subprocess remains usable', ['node', '-e', 'const cp=require("node:child_process"); require("node:util").promisify(cp.execFile)("/bin/echo",["ordinary-node-ok"]).then(r=>process.stdout.write(r.stdout));'], 0, 'ordinary-node-ok')
+check('ordinary Bun subprocess remains usable', ['bun', '-e', 'const r=Bun.spawnSync(["/bin/echo","ordinary-bun-ok"]); process.stdout.write(r.stdout);'], 0, 'ordinary-bun-ok')
+(EVIDENCE/'live-guard-cli-results.json').write_text(json.dumps(results, indent=2)+'\n')
+raise SystemExit(0 if all(r['passed'] for r in results) else 1)

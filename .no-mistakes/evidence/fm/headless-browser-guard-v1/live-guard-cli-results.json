@@ -1,0 +1,111 @@
+[
+  {
+    "name": "open URL refuses before macOS LaunchServices",
+    "command": [
+      "open",
+      "https://example.invalid/fm-guard-proof"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open https://example.invalid/fm-guard-proof; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n",
+    "passed": true
+  },
+  {
+    "name": "clustered open -na Chrome refuses",
+    "command": [
+      "open",
+      "-na",
+      "Google Chrome",
+      "--args",
+      "--remote-debugging-port=0"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open -a \"Google Chrome\"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n",
+    "passed": true
+  },
+  {
+    "name": "open HTML refuses",
+    "command": [
+      "open",
+      "./.guard-validation/report.html"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open ./.guard-validation/report.html; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n",
+    "passed": true
+  },
+  {
+    "name": "AppleScript Safari activation refuses",
+    "command": [
+      "osascript",
+      "-e",
+      "tell application \"Safari\" to activate"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for osascript -e tell application \"Safari\" to activate; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n",
+    "passed": true
+  },
+  {
+    "name": "stdin JXA browser activation refuses",
+    "command": [
+      "osascript",
+      "-l",
+      "JavaScript"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n",
+    "passed": true
+  },
+  {
+    "name": "Python real webbrowser.open refuses without fallback",
+    "command": [
+      "python3",
+      "-I",
+      "-c",
+      "import webbrowser; print(\"webbrowser_return=\" + str(webbrowser.open(\"https://example.invalid/fm-guard-proof\")))"
+    ],
+    "exit": 0,
+    "stdout": "webbrowser_return=True\n",
+    "stderr": "fm-browser-guard: refused a visible browser window for BROWSER https://example.invalid/fm-guard-proof; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n",
+    "passed": true
+  },
+  {
+    "name": "non-browser AppleScript reaches real interpreter",
+    "command": [
+      "osascript",
+      "-e",
+      "return 6 * 7"
+    ],
+    "exit": 0,
+    "stdout": "42\n",
+    "stderr": "",
+    "passed": true
+  },
+  {
+    "name": "ordinary Node subprocess remains usable",
+    "command": [
+      "node",
+      "-e",
+      "const cp=require(\"node:child_process\"); require(\"node:util\").promisify(cp.execFile)(\"/bin/echo\",[\"ordinary-node-ok\"]).then(r=>process.stdout.write(r.stdout));"
+    ],
+    "exit": 0,
+    "stdout": "ordinary-node-ok\n",
+    "stderr": "",
+    "passed": true
+  },
+  {
+    "name": "ordinary Bun subprocess remains usable",
+    "command": [
+      "bun",
+      "-e",
+      "const r=Bun.spawnSync([\"/bin/echo\",\"ordinary-bun-ok\"]); process.stdout.write(r.stdout);"
+    ],
+    "exit": 0,
+    "stdout": "ordinary-bun-ok\n",
+    "stderr": "",
+    "passed": true
+  }
+]

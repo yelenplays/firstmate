@@ -1,0 +1,22 @@
+[
+  {
+    "version": "before-fix",
+    "parentExit": 0,
+    "parentStderr": "fm-browser-guard: forced headless: playwright (webkit) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)\n",
+    "cli": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error: unknown option '--headless'\n(Did you mean --headed?)\n"
+    }
+  },
+  {
+    "version": "current",
+    "parentExit": 0,
+    "parentStderr": "",
+    "cli": {
+      "exit": 0,
+      "stdout": "Listing tests:\nTotal: 0 tests in 0 files\n",
+      "stderr": ""
+    }
+  }
+]

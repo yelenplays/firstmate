@@ -1,0 +1,137 @@
+{
+  "versions": {
+    "playwright-core": "1.64.1",
+    "puppeteer-core": "25.14.0",
+    "@playwright/test": "1.64.1"
+  },
+  "launches": [
+    {
+      "runtime": "node",
+      "library": "playwright",
+      "filteredChildEnvironment": false,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/playwright_chromiumdev_profile-KGM8If --remote-debugging-pipe --no-startup-window --noerrdialogs --flag-switches-begin --flag-switches-end --enable-unsafe-swiftshader",
+      "screenshot": "real-node-playwright.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "node",
+      "library": "playwright",
+      "filteredChildEnvironment": true,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/playwright_chromiumdev_profile-QaDtZc --remote-debugging-pipe --no-startup-window --noerrdialogs --flag-switches-begin --flag-switches-end --enable-unsafe-swiftshader",
+      "screenshot": "real-node-playwright-filtered.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "node",
+      "library": "puppeteer",
+      "filteredChildEnvironment": false,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-crash-reporter --disable-default-apps --disable-dev-shm-usage --disable-hang-monitor --disable-infobars --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-search-engine-choice-screen --disable-sync --enable-automation --export-tagged-pdf --force-color-profile=srgb --generate-pdf-document-outline --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,WebUIReloadButton,WebUIOmniboxPopup,WebUIOmniboxAimPopup,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes --enable-features=PdfOopif --disable-extensions --remote-debugging-port=0 --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/puppeteer_dev_chrome_profile-PaJWYW --headless --noerrdialogs --flag-switches-begin --flag-switches-end about:blank",
+      "screenshot": "real-node-puppeteer.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "node",
+      "library": "puppeteer",
+      "filteredChildEnvironment": true,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-crash-reporter --disable-default-apps --disable-dev-shm-usage --disable-hang-monitor --disable-infobars --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-search-engine-choice-screen --disable-sync --enable-automation --export-tagged-pdf --force-color-profile=srgb --generate-pdf-document-outline --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,WebUIReloadButton,WebUIOmniboxPopup,WebUIOmniboxAimPopup,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes --enable-features=PdfOopif --disable-extensions --remote-debugging-port=0 --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/puppeteer_dev_chrome_profile-L7c7T8 --headless --noerrdialogs --flag-switches-begin --flag-switches-end about:blank",
+      "screenshot": "real-node-puppeteer-filtered.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "bun",
+      "library": "playwright",
+      "filteredChildEnvironment": false,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/playwright_chromiumdev_profile-F4ZNpY --remote-debugging-pipe --no-startup-window --headless --noerrdialogs --flag-switches-begin --flag-switches-end --enable-unsafe-swiftshader",
+      "screenshot": "real-bun-playwright.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "bun",
+      "library": "playwright",
+      "filteredChildEnvironment": true,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/playwright_chromiumdev_profile-PNndSw --remote-debugging-pipe --no-startup-window --headless --noerrdialogs --flag-switches-begin --flag-switches-end --enable-unsafe-swiftshader",
+      "screenshot": "real-bun-playwright-filtered.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "bun",
+      "library": "puppeteer",
+      "filteredChildEnvironment": false,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-crash-reporter --disable-default-apps --disable-dev-shm-usage --disable-hang-monitor --disable-infobars --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-search-engine-choice-screen --disable-sync --enable-automation --export-tagged-pdf --force-color-profile=srgb --generate-pdf-document-outline --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,WebUIReloadButton,WebUIOmniboxPopup,WebUIOmniboxAimPopup,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes --enable-features=PdfOopif --disable-extensions --remote-debugging-port=0 --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/puppeteer_dev_chrome_profile-HY0qls --headless --noerrdialogs --flag-switches-begin --flag-switches-end about:blank",
+      "screenshot": "real-bun-puppeteer.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    },
+    {
+      "runtime": "bun",
+      "library": "puppeteer",
+      "filteredChildEnvironment": true,
+      "requestedHeadless": false,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "commandLine": " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-crash-reporter --disable-default-apps --disable-dev-shm-usage --disable-hang-monitor --disable-infobars --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-search-engine-choice-screen --disable-sync --enable-automation --export-tagged-pdf --force-color-profile=srgb --generate-pdf-document-outline --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,WebUIReloadButton,WebUIOmniboxPopup,WebUIOmniboxAimPopup,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes --enable-features=PdfOopif --disable-extensions --remote-debugging-port=0 --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55STZBF17XWCASAY5ZRABQW/.guard-validation/tmp/puppeteer_dev_chrome_profile-o8tqnK --headless --noerrdialogs --flag-switches-begin --flag-switches-end about:blank",
+      "screenshot": "real-bun-puppeteer-filtered.png",
+      "screenshotDimensions": {
+        "width": 1440,
+        "height": 900
+      },
+      "diagnosticLines": [
+        "fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)"
+      ]
+    }
+  ]
+}
