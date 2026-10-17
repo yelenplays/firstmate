@@ -42,8 +42,8 @@
 # (answer: respond --action approve with a reason, and the worker lists the
 # untested scenarios as a follow-up check in the PR description). approve-followup
 # is offered only at a test-step gate whose snapshot carries a `live validation
-# verdict: inconclusive` finding and lists no ids beyond the asked ids, because
-# approval accepts the whole gate. Jev must judge that the scenarios cannot run
+# verdict: inconclusive` asked finding and whose other findings are all `no-op`
+# context, because approval accepts the whole gate. Jev must judge that the scenarios cannot run
 # in the gate by design and no code defect is named. Any other answer, a mix of
 # the two, a transport failure, or a malformed
 # response escalates; there is no fallback to another judge. Every
@@ -292,11 +292,39 @@ fi
 [ "$COMPACT" = "$JEV_STATE" ] || escalate privacy "the contract or findings carry a secret-shaped value; nothing was sent"
 
 # --- the Jev call ---------------------------------------------------------------
-# Approve is offered only where it can apply: a test-step gate whose snapshot
-# carries a `live validation verdict: inconclusive` finding and lists no finding beyond the asked ids,
-# because an approve answer accepts the whole gate. Any other gate can only be fixed or escalated.
+# Approve is offered only where it can apply: a test-step gate where an asked
+# finding carries a `live validation verdict: inconclusive`, and every other
+# finding in the snapshot is non-acting `no-op` context. An approve answer
+# accepts the whole gate, so an unjudged actionable finding (auto-fix, another
+# ask-user id, or an unknown authority) keeps approve off the table. Any other
+# gate can only be fixed or escalated.
+FINDING_ROWS=$(printf '%s\n' "$FINDINGS" | awk '
+  function flush() { if (id != "") printf "%s\t%s\t%d\n", id, act, inc; id = ""; act = ""; inc = 0 }
+  /^id:[[:space:]]*/ { flush(); toon = 0; id = $0; sub(/^id:[[:space:]]*/, "", id); sub(/[[:space:]]+$/, "", id); next }
+  /^[[:space:]]*findings\[[0-9]+\]\{id[,}]/ {
+    flush(); toon = 1; h = $0; sub(/^[^{]*\{/, "", h); sub(/\}.*/, "", h)
+    nf = split(h, cols, ","); ai = 0; for (i = 1; i <= nf; i++) if (cols[i] == "action") ai = i
+    next }
+  toon && /^[[:space:]]+[A-Za-z0-9._-]+,/ {
+    r = $0; sub(/^[[:space:]]+/, "", r); n = split(r, f, ",")
+    printf "%s\t%s\t%d\n", f[1], (ai > 0 && ai < nf ? f[ai] : ""), (tolower(r) ~ /live validation verdict: *inconclusive/); next }
+  toon && !/^[[:space:]]/ { toon = 0 }
+  id != "" && /^authority\/action:/ { act = $0; sub(/^authority\/action:[[:space:]]*/, "", act); sub(/[[:space:]]+$/, "", act) }
+  id != "" && tolower($0) ~ /live validation verdict: *inconclusive/ { inc = 1 }
+  END { flush() }
+')
 OFFER_APPROVE=false
-if [ "$STEP" = test ] && [ "$HAVE_IDS" = "$WANT_IDS" ] && printf '%s\n' "$FINDINGS" | grep -Eiq 'live validation verdict: *inconclusive'; then OFFER_APPROVE=true; fi
+if [ "$STEP" = test ]; then
+  ASKED_INCONCLUSIVE=false
+  UNJUDGED=false
+  while IFS=$'\t' read -r fid fact finc; do
+    case ",$IDS," in
+      *",$fid,"*) [ "$finc" = 1 ] && ASKED_INCONCLUSIVE=true ;;
+      *) [ "$fact" = no-op ] || UNJUDGED=true ;;
+    esac
+  done <<<"$FINDING_ROWS"
+  [ "$ASKED_INCONCLUSIVE" = true ] && [ "$UNJUDGED" = false ] && OFFER_APPROVE=true
+fi
 QUESTIONS=$(printf '%s\n' "$IDS" | tr ',' '\n' | jq -Rnc --argjson approve "$OFFER_APPROVE" '
   {"in-scope-fix": {what: "Fixing it is a straight correction the accepted contract already requires",
       signals: ["it restores accepted behavior an earlier fix broke", "it completes the already-approved design",
