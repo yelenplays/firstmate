@@ -1,0 +1,10 @@
+candidate=41e12a6371b04895ebfbbc9a1603732afd945526
+
+Required live tool availability (no filesystem search):
+tmux: not on PATH
+electron: not on PATH
+firefox: not on PATH
+MiniBrowser: not on PATH
+pw_run.sh: not on PATH
+
+Owned Chrome parent processes remaining after cleanup:

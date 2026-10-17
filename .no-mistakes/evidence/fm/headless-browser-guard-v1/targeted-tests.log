@@ -9,10 +9,18 @@ ok - the osascript shim refuses the AppleScript routes to a browser window
 ok - scripts that are not browser launches reach the real osascript, stdin included
 ok - the captain's opt-out passes the PATH shims through with one notice line
 ok - Python's webbrowser is refused in a guarded pane and allowed through the opt-out
+fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+fm-browser-guard: FM_ALLOW_HEADED_BROWSER=1 - allowing a visible window for google chrome (chromium)
+filtered subprocess browser guard passed
+ok - filtered subprocess environments retain browser enforcement without copying secrets
 ok - the guard leaves ordinary Node work, promisified execFile, and shell spawns untouched
 ok - Electron launches are untouched and argument-less browser spawns are forced headless
+ok - the macOS Brave Browser binary is classified and forced headless
 ok - the guard environment keeps an existing NODE_OPTIONS and is safe to apply twice
 ok - a host without the guard files warns once and still launches
 ok - a hostile checkout path is quoted inertly and only the Node layer is skipped
+ok - a vanished preload degrades to an unguarded Node process instead of MODULE_NOT_FOUND
 ok - the guard environment script has one documented command and refuses anything else
 all fm-browser-guard tests passed

@@ -1,12 +1,17 @@
-{"node":"v26.11.0","playwright":"1.64.1","puppeteer":"25.14.0","executablePath":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing","guard":"1"}
-fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
-{"scenario":"Playwright launch","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"Playwright launchPersistentContext","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"Playwright launchServer","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"Puppeteer esm","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"Puppeteer commonjs","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"promisified execFile Chrome launch","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"promisified","cleanup":{"code":null,"signal":"SIGKILL"}}
-{"scenario":"raw Chrome spawn overrides --headless=false","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
-{"scenario":"spawn-false","cleanup":{"code":null,"signal":"SIGKILL"}}
-{"scenario":"ordinary promisified execFile","stdout":"unrelated-process-unchanged","passed":true}
+page:
+  title: Guard live proof
+  url: "data:text/html,<title>Guard live proof</title><h1>Headed request, guarded session</h1>"
+  refs: 2
+snapshot:
+uid=g1:1_0 RootWebArea "Guard live proof" url="data:text/html,<title>Guard live proof</title><h1>Headed request, guarded session</h1>"
+  uid=g1:1_1 heading "Headed request, guarded session" level="1"
+help[1]:
+  Use `chrome-devtools-axi eval <expr>` for JS expressions. For multi-statement code, pass a function: `eval "() => { ...; return result }"`
+
+$ guarded CHROME_DEVTOOLS_AXI_HEADED=1 eval navigator.userAgent
+result: "{\"userAgent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36\",\"title\":\"Guard live proof\",\"text\":\"Headed request, guarded session\"}"
+help[1]:
+  Run `chrome-devtools-axi snapshot` to see current page state
+
+$ ps (only isolated browser parent)
+49944 49698 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-crash-reporter --disable-default-apps --disable-dev-shm-usage --disable-hang-monitor --disable-infobars --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-search-engine-choice-screen --disable-sync --enable-automation --export-tagged-pdf --force-color-profile=srgb --generate-pdf-document-outline --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,WebUIReloadButton,WebUIOmniboxPopup,WebUIOmniboxAimPopup,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes --enable-features=PdfOopif --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M55C8XTJG96SJKKMS60QGCG5/.guard-validation/home/chrome-profile --disable-extensions about:blank --use-mock-keychain --password-store=basic --hide-crash-restore-bubble --remote-debugging-pipe --headless
