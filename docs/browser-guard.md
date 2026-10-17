@@ -25,8 +25,10 @@ Three layers, each covering what the one below it cannot.
    The library then takes its own headless path - its own binary choice, its own flags - so the forced launch is exactly the launch that library performs when it is asked for headless.
 2. **The browser process** - the same preload wraps `child_process.spawn`, `spawnSync`, `execFile` (including `util.promisify(execFile)`), and `execFileSync` and adds the library's own headless flag to a browser command line that is missing one: `--headless` for the Chromium family, `-headless` for Firefox, `--headless` for WebKit.
    It recognizes a browser by its binary name alone - Chrome, Chromium, Chrome for Testing, the headless shell, Edge, Brave and the other Chromium browsers, Firefox, and Playwright's WebKit - never by debugging flags, so an Electron app launched with `--remote-debugging-port` is left untouched, and a bare `spawn(chromePath)` with no argument list still gets the flag.
-   This is the layer that catches a launcher's ESM build (puppeteer-core ships one), a wrapper script, a driver, and any other tool that starts a known browser binary.
-   It is also the reason a `chrome-devtools-axi` run that opts into a headed browser still cannot open one.
+   This covers a launcher's ESM build (puppeteer-core ships one) and other Node tools that start a known browser binary through those direct process calls.
+   When one of those calls supplies a filtered child environment, the preload copies it and reattaches the guard exports without copying unrelated parent variables or mutating the caller's environment.
+   Caller-supplied Node options are preserved, and reattachment is skipped when the parent process has the captain's opt-out set.
+   This keeps enforcement across a `chrome-devtools-axi` MCP subprocess that rebuilds its environment.
 3. **The PATH shims** - [`bin/fm-browser-guard-bin/open`](../bin/fm-browser-guard-bin/open) and [`bin/fm-browser-guard-bin/osascript`](../bin/fm-browser-guard-bin/osascript) are symlinks to [`bin/fm-browser-guard-open.sh`](../bin/fm-browser-guard-open.sh) and [`bin/fm-browser-guard-osascript.sh`](../bin/fm-browser-guard-osascript.sh), which the guard puts first on the pane's `PATH`.
    They cover the routes that never touch Node, and they refuse rather than forcing because `open` has no headless form.
    The guard also sets `BROWSER` to [`bin/fm-browser-guard-browser.sh`](../bin/fm-browser-guard-browser.sh), which Python's `webbrowser`, `gh`, and `git web--browse` call with the URL before anything else.
@@ -36,15 +38,16 @@ Three layers, each covering what the one below it cannot.
 The guard environment also sets `LAVISH_AXI_NO_OPEN=1`, lavish-axi's own switch for suppressing its local browser launch.
 A worker's visual review therefore still serves its artifact and prints its review URL, and the firstmate that owns the captain's attention opens it in the unguarded primary session instead of a worker pane forcing a window or hitting a refusal.
 
-The preload is loaded into every Node process a worker starts, including the harness itself, so it is built to be inert: all installation and hook work is wrapped, nothing is written to stdout, and a failure anywhere leaves the process behaving exactly as it would have without the guard.
-Its cost when it does not act is one filename test per compiled module and one command test per spawn.
+The preload is loaded into every Node process a worker starts, including the harness itself, so installation and hook errors are caught to avoid breaking unrelated Node work, and diagnostics never write to stdout.
 
 ## The captain's escape hatch
 
 `FM_ALLOW_HEADED_BROWSER=1` is the opt-out, and it is the captain's to set.
 Scope it to one command to allow only that command's launches; exporting it in a shell allows subsequent child commands until it is unset.
 It is not consumed after one launch.
+If [worker launch environment filtering](configuration.md#worker-launch-environment-configlaunch-env-allowlist) is enabled, an ambient opt-out must be allowlisted to reach the worker.
 Every layer reads its own process environment at use time; changing a pane shell's exports does not change an already-running worker's environment.
+The opt-out bypasses guard decisions but does not unset lavish-axi's separate `LAVISH_AXI_NO_OPEN` switch.
 The notices described above name the opt-out when it is honored.
 Firstmate never sets it for a worker, and no config file or flag turns the guard off for a fleet.
 This is an environment-based backstop, not a sandbox preventing a worker from changing its own environment.
@@ -52,8 +55,11 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
 ## Boundaries
 
 - A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a native non-Node browser driver (a Rust build of `agent-browser`, or any other launcher that starts Chrome without Node and without the shims), a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a script file passed to `osascript` (only `-e` and stdin scripts are read).
-- A browser binary renamed to a name the spawn layer does not recognize is outside layer 2; a Playwright or Puppeteer launch of it is still forced headless by layer 1.
-- A browser URL held in an AppleScript variable, or one assembled inside a shell string passed to `child_process.exec`, cannot be judged without evaluating the script, so the guard does not try.
+- A browser binary renamed to a name the spawn layer does not recognize is outside layer 2.
+  Layer 1 can still force it headless through a patched CommonJS launcher API, but an unpatched ESM launcher build has no such fallback.
+- Shell command strings are not rewritten: `child_process.exec`, `execSync`, and process calls with `shell: true` remain outside the browser-process layer even for literal browser commands.
+  They retain only the protections supplied by inherited guard exports and PATH shims.
+- A browser URL held in an AppleScript variable cannot be judged without evaluating the script, so the guard does not try.
 - The guard covers agents Firstmate launches.
   The captain's own primary session is not guarded, so the captain's own browser use and login flows are unaffected.
 - If the guard environment builder detects missing guard files, it emits a warning-only snippet and the worker continues unguarded rather than failing.
