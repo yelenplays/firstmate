@@ -45,11 +45,13 @@ export FAKE_CURL_LOG="$LOG" FAKE_CURL_RESPONSE="$RESPONSE"
 
 # answer <choice1> <conf1> [<choice2> <conf2>] - a canned response whose
 # probabilities put the choice on top by the given margin.
-answer() {
-  jq -nc --args '
+answer() { # <choice> <confidence> ...; ANSWER_APPROVE=1 answers a question that offers approve-followup
+  jq -nc --arg approve "${ANSWER_APPROVE:-0}" --args '
     def probs($c; $conf):
-      ["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
-      | map({(.): (if . == $c then (1 + 3 * ($conf | tonumber)) / 4 else (1 - ($conf | tonumber)) / 4 end)}) | add;
+      (["in-scope-fix", "expands-contract", "unsettled-call", "destructive-or-security"]
+        + (if $approve == "1" then ["approve-followup"] else [] end)) as $keys
+      | ($keys | length) as $n
+      | $keys | map({(.): (if . == $c then (1 + ($n - 1) * ($conf | tonumber)) / $n else (1 - ($conf | tonumber)) / $n end)}) | add;
     $ARGS.positional as $a
     | {model: "jev-1.13.0",
        answers: (([range(0; $a | length; 2) as $i
@@ -495,6 +497,185 @@ test_send_failure_reports_error() {
   pass "fm-jev-ask-user: a failed send reports the undelivered decision"
 }
 
+TGATE=nm-01M4TEST0000000000000000AB-test
+INCONCLUSIVE='live validation verdict: inconclusive (2 of 5 scenarios were driven live against the product); untested: Parse a live upstream feed that ends without a newline, Resume parsing after an interrupted download'
+NOOP_CONTEXT='The regression tests passed, but this step cannot reach the live upstream feed by design. Validate those outcomes outside the gate.'
+
+# test_world [lines|toon] [context-action] [asked-ids] [gate-key]: a test-step
+# gate whose snapshot holds a context finding T1 next to the asked inconclusive verdict T2.
+test_world() {
+  local shape=${1:-lines} context=${2-no-op} asked=${3:-T2} gate=${4:-$TGATE}
+  world
+  FINDINGS="$HOME_DIR/data/t1/$gate-findings.txt"
+  if [ "$shape" = toon ]; then
+    cat > "$FINDINGS" <<TOON
+gate:
+  step: test
+  findings[2]{id,severity,file,action,description}:
+    T1,warning,"",$context,"$NOOP_CONTEXT"
+    T2,warning,"",ask-user,"$INCONCLUSIVE"
+TOON
+  else
+    {
+      printf 'id: T1\nseverity: warning\nfile: ""\nline: ""\n'
+      [ -z "$context" ] || printf 'authority/action: %s\n' "$context"
+      printf 'description: %s\n\n' "$NOOP_CONTEXT"
+      printf 'id: T2\nseverity: warning\nfile: ""\nline: ""\nauthority/action: ask-user\ndescription: %s\n\n' "$INCONCLUSIVE"
+      printf 'Crew context (not a decision): the gate cannot reach the upstream feed by design; acceptance outside the gate is recorded in the report.\n'
+    } > "$FINDINGS"
+  fi
+  printf 'needs-decision [at=1791145829] [key=%s]: ask-user findings=%s file=%s\n' "$gate" "$asked" "$FINDINGS" \
+    > "$HOME_DIR/state/t1.status"
+}
+
+approve_offered() {
+  jq -e '.questions.f1.criteria | has("approve-followup")' "$LOG/body" >/dev/null
+}
+
+test_subset_snapshot_with_noop_context_approves() {
+  local code out shape msg
+  for shape in lines toon; do
+    test_world "$shape"
+    ANSWER_APPROVE=1 answer approve-followup 0.9
+    run code out t1 "$TGATE" --round 1
+    assert_equals "$code" 0 "a $shape snapshot with no-op context passes intake and acts on approval"
+    assert_contains "$out" "ACT $TGATE: Jev decided approve T2" "the $shape approval is printed first"
+    assert_equals "$(jq -c '.questions | keys' "$LOG/body")" '["f1","s1"]' "only the asked id is a $shape question"
+    assert_equals "$(jq -c '.questions.f1.criteria | keys' "$LOG/body")" \
+      '["approve-followup","destructive-or-security","expands-contract","in-scope-fix","unsettled-call"]' \
+      "the $shape test gate offers approve-followup"
+    assert_contains "$(jq -r .state "$LOG/body")" "$NOOP_CONTEXT" "the $shape no-op finding stays as context"
+    assert_equals "$(sed -n 1,3p "$LOG/send-args" | tr '\n' ' ')" "t1 --resolve-key $TGATE " \
+      "the $shape approval answers through fm-send --resolve-key"
+    msg=$(sed -n 4p "$LOG/send-args")
+    assert_contains "$msg" "Jev decided this gate under ask-user-authority: approve findings T2" \
+      "the $shape answer records that Jev decided the approval"
+    assert_contains "$msg" "Respond exactly: no-mistakes axi respond --step test --action approve --reason" \
+      "the $shape answer carries the exact approve command"
+    assert_contains "$msg" "'Follow-up check' heading" "the $shape answer records the follow-up check"
+    assert_contains "$msg" "never pass --yes" "the $shape approval forbids --yes"
+    assert_equals "$(last_log | jq -c '[.outcome, .code, .sent, .findings, .answers[0].choice]')" \
+      '["act","decided",true,["T2"],"approve-followup"]' "the $shape approval is logged as Jev's"
+  done
+  pass "fm-jev-ask-user: id-line and TOON subset snapshots with no-op context approve an inconclusive test gate"
+}
+
+test_snapshot_ids_must_cover_the_asked_ids() {
+  local code out
+  test_world lines no-op T2,T9
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 1 "an asked id missing from the snapshot is refused"
+  assert_contains "$out" "does not list: T9" "the missing id is named"
+
+  test_world toon no-op T2,T9
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 1 "an asked id missing from a TOON snapshot is refused"
+  assert_contains "$out" "does not list: T9" "the TOON missing id is named"
+
+  test_world lines no-op T2,T2
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 1 "a repeated asked id is refused"
+  assert_contains "$out" "finding ids repeat" "the repeated asked id is named"
+
+  test_world
+  printf 'id: T2\nauthority/action: ask-user\ndescription: duplicate\n' >> "$FINDINGS"
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 1 "a snapshot that repeats an id is refused"
+  assert_contains "$out" "the snapshot repeats a finding id" "the repeated snapshot id is named"
+  assert_equals "$(calls)" 0 "no id mismatch reaches Jev"
+  pass "fm-jev-ask-user: the asked ids must be a unique subset of the snapshot ids"
+}
+
+test_approve_needs_unanimous_confident_answers() {
+  local code out
+  test_world lines no-op T1,T2
+  sed -i.bak 's/^authority\/action: no-op$/authority\/action: ask-user/' "$FINDINGS"
+  ANSWER_APPROVE=1 answer in-scope-fix 0.95 approve-followup 0.95
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 2 "a gate split between fix and approve escalates"
+  assert_contains "$out" "ESCALATE $TGATE jev-class" "the split gate is a class escalation"
+  assert_contains "$out" "T2=approve-followup@0.95" "the escalation shows the approve answer"
+  assert_absent "$LOG/send-args" "a split gate never answers"
+
+  test_world
+  ANSWER_APPROVE=1 answer approve-followup 0.746
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 2 "an approval with raw confidence just below the floor escalates"
+  assert_contains "$out" "ESCALATE $TGATE jev-low-confidence" "the floor applies to approve"
+  assert_contains "$out" "T2=approve-followup@0.75" "the displayed approval confidence remains rounded"
+  assert_absent "$LOG/send-args" "a below-floor approval never answers"
+  pass "fm-jev-ask-user: approval needs every finding approved at or above the floor"
+}
+
+test_approve_is_offered_only_for_inconclusive_test_gates() {
+  local code out context rgate=${TGATE%-test}-review
+  test_world lines no-op T2 "$rgate"
+  answer in-scope-fix 0.9
+  run code out t1 "$rgate" --round 1
+  assert_equals "$code" 0 "a review gate still decides an in-scope fix"
+  ! approve_offered || fail "a review gate must not offer approve-followup"
+  ANSWER_APPROVE=1 answer approve-followup 0.99
+  run code out t1 "$rgate" --round 1
+  assert_equals "$code" 2 "an approval outside a test gate is refused"
+  assert_contains "$out" "jev-error" "an unoffered approval is a malformed answer"
+  rm -f "$LOG/send-args"
+
+  test_world
+  sed -i.bak 's/live validation verdict: inconclusive/live validation verdict: failed/' "$FINDINGS"
+  answer in-scope-fix 0.9
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 0 "a test gate without an inconclusive verdict still decides a fix"
+  ! approve_offered || fail "a test gate without an inconclusive asked finding must not offer approve-followup"
+
+  for context in auto-fix ask-me ''; do
+    test_world lines "$context"
+    answer in-scope-fix 0.9
+    run code out t1 "$TGATE" --round 1
+    ! approve_offered || fail "unjudged context '${context:-no authority}' must not offer approve-followup"
+  done
+  test_world toon auto-fix
+  answer in-scope-fix 0.9
+  run code out t1 "$TGATE" --round 1
+  ! approve_offered || fail "unjudged TOON auto-fix context must not offer approve-followup"
+  pass "fm-jev-ask-user: approve is offered only for an inconclusive asked test finding with no unjudged context"
+}
+
+test_screens_win_over_approve() {
+  local code out
+  test_world
+  ANSWER_APPROVE=1 answer approve-followup 0.99
+  jq '.answers.s1.noul = 0.91' "$RESPONSE" > "$TMP_ROOT/high-risk.json" && mv "$TMP_ROOT/high-risk.json" "$RESPONSE"
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 2 "a high security screen escalates a confident approval"
+  assert_contains "$out" "ESCALATE $TGATE jev-security" "the security screen owns the escalation"
+  assert_absent "$LOG/send-args" "a security-flagged approval never answers"
+
+  test_world
+  ANSWER_APPROVE=1 answer approve-followup 0.99
+  run code out t1 "$TGATE" --round 4
+  assert_equals "$code" 2 "an approval past round 3 escalates"
+  assert_contains "$out" "ESCALATE $TGATE round-cap" "the round cap wins over approve"
+  assert_equals "$(calls)" 0 "the round cap never calls Jev"
+
+  test_world
+  sed -i.bak 's/the gate cannot reach the upstream feed/the gate cannot reach the credential store/' "$FINDINGS"
+  ANSWER_APPROVE=1 answer approve-followup 0.99
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 2 "a credential-naming snapshot escalates before approval"
+  assert_contains "$out" "ESCALATE $TGATE always-escalate" "the always-escalate screen wins over approve"
+  assert_equals "$(calls)" 0 "no always-escalate snapshot reaches Jev"
+
+  test_world
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\nreach person@example.com\n' > "$HOME_DIR/state/t1.inbox/002.msg"
+  ANSWER_APPROVE=1 answer approve-followup 0.99
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 2 "contact data escalates before approval"
+  assert_contains "$out" "ESCALATE $TGATE privacy" "the privacy screen wins over approve"
+  assert_equals "$(calls)" 0 "contact data never reaches Jev"
+  assert_absent "$LOG/send-args" "no screened approval answers the gate"
+  pass "fm-jev-ask-user: security, round-cap, always-escalate, and privacy screens win over approve"
+}
+
 test_privacy_corpus_before_transport
 test_real_dispatch_finding_before_transport
 test_act_sends_jev_decision_with_resolve_key
@@ -511,3 +692,8 @@ test_always_escalate_classes_skip_jev
 test_escalates_oversized_or_secret_contract
 test_record_errors_refuse
 test_send_failure_reports_error
+test_subset_snapshot_with_noop_context_approves
+test_snapshot_ids_must_cover_the_asked_ids
+test_approve_needs_unanimous_confident_answers
+test_approve_is_offered_only_for_inconclusive_test_gates
+test_screens_win_over_approve
