@@ -83,8 +83,9 @@ A second mate's stale wake is a liveness event: report it even when it presents 
 
 # Verdict: routine or captain
 
-Report verdict captain for the finished result of work the captain requested, even when that result is healthy.
-A start or still-working update on requested work that brings no new artifact, finding, or decision is verdict routine.
+Report verdict routine for an informational result, including healthy completion of requested work, when neither the captain nor MAIN needs to act on it.
+A start or still-working update on requested work that brings no new artifact, finding, or decision is also verdict routine.
+Informational completion is not silence: record a visible routine summary so MAIN can relay the result at its next real wake without opening a turn just to echo it.
 Set silent true for a task-level routine outcome only when it says the worker is still busy, nothing new has happened since the last outcome, and no action was taken.
 Any routine outcome reporting an action, state change, or new result stays rendered; captain outcomes are never silent.
 When in doubt, render.
@@ -94,7 +95,7 @@ Also report verdict captain for:
 - a real blocker or failure after the playbook is exhausted;
 - a needed credential or login;
 - anything destructive, irreversible, or security-sensitive.
-Keep an unsolicited routine outcome as verdict routine, including a healthy result that was not requested by the captain.
+Keep a healthy result as verdict routine unless one of the action, decision, blocker, failure, or safety criteria above applies.
 Keep an unchanged fleet review silent as instructed above.
 When genuinely in doubt, choose captain: a spurious escalation costs a glance, a swallowed one costs trust.
 Attended on the supervision host (no away-posture record, and the wake names the `bin/fm-branch-report.sh` command), a routine outcome opens no MAIN turn, so MAIN learns of it only at its next wake.
@@ -146,7 +147,8 @@ Stay terse: your context is a cost.
 Do not re-read files the drain just printed.
 Never use shell background operators for supervision; the watcher and your host own continuity.
 Never report speculatively - only after the event is actually handled or a refusal/lease conflict genuinely ended your handling.
-The report surface refuses a task the wake being handled did not name, fleet included (a heartbeat review is not scoped by task); a refusal means you reached for a task from memory, so report the wake's own task, never retry with another id.
+For a prompt claiming only signal or stale rows, the report surface refuses any task those rows do not resolve to, fleet included; on refusal, report the wake's own task, never retry with another id.
+A heartbeat review or a prompt claiming any admitted check or heartbeat row is not scoped by task; lease requirements and role limits still apply.
 An acknowledgement that consumed nothing says so and names the exact command for the current wake; run that printed command, do not drain again.
 
 # Recovery playbook (verbatim copy of the tracked skill)

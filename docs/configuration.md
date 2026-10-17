@@ -227,7 +227,7 @@ A change takes effect at the next session start; `bin/fm-theme.sh show` prints t
 
 ### Inheritance
 
-`config/theme` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md), so every home renders the same pack.
+`config/theme` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md), so every home renders the same pack.
 
 ## Hermes Agent access (config/hermes-agent.env)
 
@@ -328,7 +328,7 @@ While attended, a captain-facing branch outcome (verdict `captain`) is saved as 
 It then opens one processing turn on main for that sequence.
 The turn stays open until main acknowledges the sequence through its `fm_branch_processed` tool.
 While away, the entry is saved, but processing waits until the away-posture record is archived.
-The branch prompt's "Verdict: routine or captain" section owns the distinction between captain-facing, unsolicited routine, and unchanged-review outcomes.
+The branch prompt's ["Verdict: routine or captain" section](../bin/fm-branch-prompt.sh) owns verdict and silence criteria.
 
 The generated [Pi supervision protocol](supervision-protocols/pi.md) owns main's event ownership, acknowledgement duty, and conversational treatment for merged outcomes, while the persisted entry itself owns captain visibility.
 A task-level routine no-change outcome or a no-change heartbeat explicitly reported with `silent=true` is delivered without a rendered note; the branch prompt owns task-level eligibility, and every other routine outcome still appends a rendered, sailboat-prefixed note.
@@ -468,7 +468,7 @@ Each away-posture wake includes a line naming the problem.
 The running host reads both files at every wake, so an engine change or an opt-out takes effect at the next wake without a restart.
 
 The opt-out is inherited into secondmate homes: a primary that opts out also opts its secondmates out, and clearing it restores each mate's own host setting at its next spawn or convergence.
-The primary-authoritative propagation contract, including removal of a mate's local opt-out when the primary has none, is owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md).
+The primary-authoritative propagation contract, including removal of a mate's local opt-out when the primary has none, is owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md).
 `config/supervision-host` is local to each home and not inherited, because each home's engine and model are its own choice.
 While the home runs the host, main's lease-checked commands also take the per-task lease lock, so a claim by the host's engine cannot race a mutation main already started (`bin/fm-lease-lib.sh`).
 
@@ -637,7 +637,7 @@ Legacy tmux metadata remains cleanup-compatible when its exact window name is `f
 [`herdr-backend.md`](herdr-backend.md#watching-and-task-containers) owns launcher-bound workspace placement, the label-only fallback, collision handling, and recovery behavior.
 
 The local `config/herdr-presentation-spaces` file instead opts a home out of, or explicitly in to, Herdr's default-on disposable single-task visual projection; [Presentation spaces](herdr-backend.md#presentation-spaces) owns its accepted values, default, Herdr version floor, migration, behavior, safety limits, recovery contract, and narrow locked session-start cleanup of exact restored idle-shell children.
-The setting is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md).
+The setting is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md).
 
 For normal herdr operations, `HERDR_SESSION` selects the named session, but destructive test cleanup must not rely on `HERDR_SESSION` alone.
 Use the explicit guarded cleanup path described in [`docs/herdr-backend.md`](herdr-backend.md) instead of `herdr server stop`.
@@ -655,7 +655,7 @@ cmux has no session layer at all - one workspace per task, in whatever cmux wind
 The caller-facing label remains `fm-<id>`, but the actual cmux workspace title is scoped by the active `FM_HOME` readable label plus a short hash of the resolved `FM_ROOT` path as `fm-<home-label>-<id>`.
 
 Test cleanup must use the guarded path in [`docs/cmux-backend.md`](cmux-backend.md#current-operation-and-safety), never enumerate-and-close every workspace.
-`config/backend` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md).
+`config/backend` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md).
 
 ## Away-mode supervisor backend (FM_SUPERVISOR_BACKEND / FM_SUPERVISOR_TARGET)
 
@@ -857,7 +857,7 @@ The locked mutable bootstrap path materializes its visible default of `7500` est
 ### Set and validate the budget
 
 To select another allowance, replace the primary home's file with one valid positive value in the exact format below; the next locked bootstrap convergence or `bin/fm-config-push.sh` propagates it to registered secondmates.
-A secondmate does not create an independent default and instead receives the primary value through the inherited-local-material contract in [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md).
+A secondmate does not create an independent default and instead receives the primary value through the inherited-local-material contract in [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md).
 
 The file must be one positive base-10 integer followed by exactly one newline in a regular, single-linked file beneath a non-symlinked `config/` directory.
 Malformed, multi-line, symlinked, hardlinked, special, or otherwise unsafe values are rejected rather than treated as a default.
@@ -910,7 +910,7 @@ The skill text owns the marker spelling, the tick order, and the reinforcement r
 ## Secondmate routes (data/secondmates.md)
 
 Persistent secondmate routes live locally in `data/secondmates.md`.
-The concise single-line route contract is owned by the [`secondmate-provisioning` skill](../.agents/skills/secondmate-provisioning/SKILL.md#routing-table), including the parser-compatible fields, one-sentence summary requirement, `home:` pointer to the seeded charter, and limit on extra registry prose.
+The concise single-line route contract is owned by the [`secondmate-provisioning` skill](../.agents/skills/secondmate-provisioning/references/setup.md#routing-table), including the parser-compatible fields, one-sentence summary requirement, `home:` pointer to the seeded charter, and limit on extra registry prose.
 
 ### Remote routes and validation
 
@@ -1047,7 +1047,7 @@ An explicit `--model` or `--effort` overrides the matching token from the govern
 Remote secondmate routes accept verified harness adapters only and reject raw launch commands.
 When `config/crew-dispatch.json` exists, crewmate and scout spawns require an explicit resolved harness instead of automatically falling back to `config/crew-harness`.
 
-The inherited-local-material contract is owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md); its harness-relevant consequence is that a secondmate's own crewmates use the primary's dispatch profiles and static harness value.
+The inherited-local-material contract is owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md); its harness-relevant consequence is that a secondmate's own crewmates use the primary's dispatch profiles and static harness value.
 Those inherited values are defaults and rules only; `fm-spawn` still permits a consciously chosen explicit runtime outside the config.
 
 `config/secondmate-harness` and `config/secondmate-harness.d/` are not inherited because secondmates do not launch secondmates.
@@ -1104,7 +1104,7 @@ The diagnostic names the accepted values; Firstmate never falls back to a permis
 ### When changes apply and inheritance
 
 `bin/fm-spawn.sh` reads the file on every spawn and relaunch, so a change takes effect at the next launch without a restart.
-The file is a captain-wide safety preference, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a secondmate's own Claude crewmates then launch on the same posture.
+The file is a captain-wide safety preference, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract; a secondmate's own Claude crewmates then launch on the same posture.
 
 The [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md) records the permission-mode observations and the distinct startup dialogs.
 
@@ -1140,7 +1140,8 @@ Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/rem
 
 The optional local, gitignored `config/crew-exclude-tools` hides named tools from this home's ship and scout workers, for example to keep an MCP server's write tools out of reach while its read tools stay available.
 The contract is runtime-neutral: a runtime must support hiding the listed tool names or refuse the launch, and a non-empty list is never silently ignored.
-With no file, or a file with no entries, every launch on every runtime is unchanged.
+With no file, or a file with no entries, this setting adds no tool exclusions.
+Built-in Claude workers separately receive fixed context-saving tool and auto-compaction defaults; [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns those defaults and their seat scope.
 
 Create the file with one tool name per line, such as `mcp__<server>__<tool>` for an MCP tool.
 Blank lines and lines beginning with `#` are allowed, and surrounding whitespace on a line is trimmed; a trailing comment on an entry line is not allowed.
@@ -1271,7 +1272,7 @@ When the file exists, `bin/fm-brief.sh` appends its text verbatim as the scaffol
 
 An absent or blank file changes nothing, while a present path that is not a readable regular file, or text carrying its own `Delivery contract: mode=` line, stops the scaffold before anything is written.
 The text is static and never executed or expanded, and secondmate charters never take it.
-The file is inherited into secondmate homes through the [primary-authoritative configuration contract](../.agents/skills/secondmate-provisioning/SKILL.md), so a secondmate's own ship and scout briefs carry the primary's additions, and removing the primary's file removes every secondmate copy at the next convergence.
+The file is inherited into secondmate homes through the [primary-authoritative configuration contract](../.agents/skills/secondmate-provisioning/references/inheritance.md), so a secondmate's own ship and scout briefs carry the primary's additions, and removing the primary's file removes every secondmate copy at the next convergence.
 
 `bin/fm-brief.sh`'s header owns the placement rule and its safety argument.
 
@@ -1281,7 +1282,7 @@ The optional local, gitignored `config/launch-env-allowlist` limits the ambient 
 With no file, ambient inheritance remains unfiltered: selected harness markers are cleared, while the provider, long-lived terminal daemon, and shell initialization determine which other variables reach the worker.
 
 Do not assume every worker inherits the invoking Firstmate process's current environment.
-The file is inherited into secondmate homes through the [primary-authoritative configuration contract](../.agents/skills/secondmate-provisioning/SKILL.md).
+The file is inherited into secondmate homes through the [primary-authoritative configuration contract](../.agents/skills/secondmate-provisioning/references/inheritance.md).
 
 Changes apply to subsequent launches; existing processes keep their environment.
 
@@ -1373,7 +1374,7 @@ When the flag is present, Claude launches omit those attribution-off settings, D
 `bin/fm-git-strip-ai-trailers.sh` owns the identities, the install, and chaining the hooks of whichever repository git is running in, including when `git -c core.hooksPath` supplies the pane's hook override, so a project hook such as husky still runs when stripping is enabled.
 A repository whose config sets `core.hooksPath` to the empty string runs no project hook, as in plain git; if the wrapper otherwise cannot resolve that repository's hooks directory, the git operation fails rather than silently skipping a project hook such as a pre-push guard.
 When stripping is enabled, the hooks directory is read-only, so a hook manager run inside a fleet pane (lefthook's npm postinstall, `pre-commit install`) fails instead of displacing the strip; install a project's hooks from outside the pane, where the wrappers chain them.
-The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
+The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
 
 ## Worker CPU priority
@@ -1426,12 +1427,13 @@ The typed resolver resolves the rule's profile object or array under its documen
 
 - When the file exists, `fm-spawn.sh` enforces that contract by refusing crewmate and scout spawns that lack an explicit harness (`--harness`, a positional adapter, or a raw launch command).
 - Batch spawns satisfy the same requirement with a shared `--harness`.
-- Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
+- Secondmate spawns are exempt from the explicit-harness requirement; their pin resolution is described below.
 
 **Contract owners**
 
 The resolver and firstmate's dispatch intake apply these rules, then resolve the profile object or array under the operating contract in `AGENTS.md` section 4 and `quota-array-dispatch`, and pass only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
-Secondmate spawns are exempt and still resolve through their per-id pin when present, otherwise `config/secondmate-harness` and its optional model and effort tokens.
+Secondmate spawns resolve through their per-id pin when present, otherwise `config/secondmate-harness` and its optional model and effort tokens.
+All task kinds remain subject to [effort caps for concrete launches](#effort-caps-for-concrete-launches).
 This section is the single owner of the canonical schema and its per-field semantics.
 `AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
 
@@ -1470,9 +1472,10 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `effort_floor` | Optional scalar `low`, `medium`, `high`, `xhigh`, or `max`, supported by an effort-capable harness and model and not above the profile's `effort_max`, or `effort` when no upper bound is declared (`xhigh` when both are omitted); see [typed effort resolution](#firstmate-retains-the-dispatch-decision) below. |
 | Profile `effort_min` and `effort_max` | Optional; they need `effort` and widen it into a range, `effort_min <= effort <= effort_max` on `low < medium < high < xhigh < max < ultra`. |
 
-**Fields applied only by typed resolution**
+**Typed-resolution declarations**
 
-Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; firstmate's own intake reads them as ordinary hints.
+Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, and `overflow` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; firstmate's own intake reads them as ordinary hints.
+Profile `effort_floor` also participates in the [concrete-launch effort envelope](#effort-caps-for-concrete-launches).
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1857,6 +1860,32 @@ By accepted design, a printed profile line does not enforce catalog/authenticati
 Effort ranges and completion-runway eligibility are evaluated above; no last resort bypasses a known refusal.
 `AGENTS.md` section 4 owns how firstmate consumes a printed profile, the captain-authorized overrides, and intake when no profile is returned.
 
+### Effort caps for concrete launches
+
+[`bin/fm-effort-cap-lib.sh`](../bin/fm-effort-cap-lib.sh) derives a shared effort envelope from all rule and default profiles in the home's `config/crew-dispatch.json`, independent of which rule matched the task.
+This section owns the operator contract; the library header owns its API.
+
+- `bin/fm-spawn.sh` refuses a non-empty resolved effort above the matching envelope's upper bound before provisioning, for every task kind, including reviewers and secondmates.
+  It skips this gate for `opencode`, `kimi`, and `cursor`, and does not inspect the harness default when effort is omitted.
+  An explicit captain-authorized override can bypass an exceeded cap, with a named diagnostic and the normal override record; standing `yolo` and in-scope approval do not authorize it.
+  When the gate runs, an unreadable or malformed effort policy refuses the launch even with an override.
+- `bin/fm-cross-review.sh plan` clamps each considered candidate's declared effort into the matching envelope before selecting a [cross-family reviewer](#cross-family-review).
+  An omitted candidate effort uses the highest matching `effort` or `effort_floor`; if neither is declared, the candidate is skipped.
+  A policy that cannot be loaded stops planning rather than selecting around it.
+
+Profiles match only within the same harness.
+Model matching is case-insensitive and normally exact; omitted, empty, and `default` model values are equivalent.
+Bare Claude aliases (`opus`, `sonnet`, `haiku`, `fable`) also match their unprefixed full names (`claude-<alias>-...`), and a versioned name matches an extension of itself after a dash, such as `claude-opus-5-5` and `claude-opus-5-5-20260101`.
+Different full version names do not match merely because they share `opus`; use the bare alias to cover those versions.
+For effort-cap matching, a modelless `claude` launch is treated as Opus and additionally matches Opus profiles; a modelless profile still governs only modelless launches, never a concrete model.
+
+Each profile contributes its [declared effort range](#crew-dispatch-profiles-configcrew-dispatchjson), with `effort_floor` raising its lower bound.
+The combined envelope takes the lowest lower bound and highest upper bound across matching profiles, so adding a tighter profile does not narrow an existing broader declaration.
+For example, a rule using `{"harness": "claude", "model": "opus", "effort": "medium"}` caps Opus launches at medium only when no matching profile permits higher effort.
+Spawn enforces only the upper bound; reviewer planning uses both bounds.
+An absent rules file or no matching profile imposes no cap; an explicitly declared reviewer effort is then unchanged.
+Behavioral regression coverage is in [`tests/fm-cross-review.test.sh`](../tests/fm-cross-review.test.sh) and [`tests/fm-spawn-dispatch-profile.test.sh`](../tests/fm-spawn-dispatch-profile.test.sh).
+
 ### Optional model consultation records
 
 `bin/fm-model-route-receipt.py` records the exact instructions and policy hashes, offered-options hash, selected harness/model/effort and consultation.
@@ -2123,7 +2152,7 @@ Classification results remain in the helper's local log rather than being added 
 This section is the single owner of the opt-in wiki integration for ship and scout briefs; [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh)'s header owns the parser, the rendered wording, and the guide marker.
 `FM_WIKIS_ROOT` or gitignored `config/wikis-root` names a directory holding `routing/estate.json`; the environment wins, the file's first non-comment non-blank line is used, and a leading `~/` expands to `$HOME`.
 With neither set, or with a directory that lacks `routing/estate.json`, briefs carry no wiki sections and cleanup checks nothing, so the feature is inert until configured.
-`config/wikis-root` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a home where the path does not resolve renders no wiki sections.
+`config/wikis-root` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract; a home where the path does not resolve renders no wiki sections.
 
 A project's backing wikis come from its `data/projects.md` row: an optional `[wiki: A, B]` bracket directly after the mode bracket, or directly after the name when the row has none, lists vault names or card ids separated by commas, and names may contain spaces ([`bin/fm-project-mode.sh`](../bin/fm-project-mode.sh) `--wikis` prints them).
 The token never changes the registered delivery posture.
@@ -2164,7 +2193,12 @@ A no-mistakes pipeline review of the exact head counts when the agent that ran i
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The fixed candidate chain is `pi openai-codex/gpt-6.1-sol high`, then `claude claude-opus-5-5 medium`, so a Claude-built change goes to Sol and an OpenAI-built one to Opus; Firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
+The tracked reviewer chain tries Sol through Pi, then Opus through Claude, using the concrete model selectors and effort defaults in `reviewer_candidates` in [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh).
+Opus defaults to medium as a fail-safe when no home policy is configured.
+Firstmate chooses the first usable candidate whose catalog-proven family is disjoint from the builder's.
+A home may replace the chain with `config/cross-review-chain.json`, a non-empty array of objects with required non-empty `harness` and `model` strings and optional `effort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`).
+An unreadable or malformed chain stops planning with a diagnostic naming the file instead of silently narrowing the chain.
+[Effort caps for concrete launches](#effort-caps-for-concrete-launches) owns candidate clamping, omitted-effort handling, and the spawn backstop; the script header owns the clamp diagnostic.
 
 ## Memory store (config/memory-dir)
 
@@ -2269,7 +2303,7 @@ Local routes use direct guarded filesystem operations, while remote routes deleg
 For a mid-session inherited local-material edit where tracked-file sync is not needed, run `bin/fm-config-push.sh`.
 It uses the same live secondmate discovery and propagation helper as bootstrap; its [help](../bin/fm-config-push.sh) owns reporting and exit semantics, and [`fm_config_inherit_items`](../bin/fm-config-inherit-lib.sh) declares the inherited items.
 
-- When an allowlisted config item changes for an already-running local home, it sends the literal-content reread pointer described in [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md); unchanged allowlisted config sends no pointer unless a previous delivery is pending.
+- When an allowlisted config item changes for an already-running local home, it sends the literal-content reread pointer described in [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md); unchanged allowlisted config sends no pointer unless a previous delivery is pending.
 - A changed remote home instead receives one durably recorded marked re-read instruction after the allowlisted bytes have transferred because primary-local generation paths are not meaningful on another host.
 - The locked bootstrap inheritance pass uses the same placement-specific behavior; see `secondmate-provisioning` for the single contract owner.
 - That live discovery starts from `state/*.meta` records with `kind=secondmate`; `data/secondmates.md` only backfills `home=` for older or incomplete meta records.
@@ -3301,7 +3335,7 @@ The runner proves exactly one durability boundary: output that reached the runne
 The spoken interface in [`docs/voice-relay.md`](voice-relay.md) and the model-backed subcommands of `bin/fm-inbox.sh` reach a paid API in a named account, so no region, model id or AWS profile is shipped as a tracked default.
 Each is one line in a local, gitignored `config/` file, with an environment variable that overrides it for a single run, and a missing required value refuses with the path to write rather than falling back to a value that belongs to another home.
 
-That configuration is the whole opt-in: an unconfigured home cannot start the relay and cannot run `fm-inbox.sh say` or `ask`, while `note`, `announce`, `reply`, `receipts`, `ready`, `status`, `list` and `drain` need no configuration at all because they make no model call.
+That configuration is the whole opt-in: an unconfigured home cannot start the relay and cannot run `fm-inbox.sh say` or `ask`, while `note`, `announce`, `reply`, `receipts`, `ready`, `status`, `list`, `drain` and `take` need no configuration at all because they make no model call.
 The voice handover depends on `note`, so it keeps working in a home that has configured nothing.
 
 | File | Environment | Holds |
@@ -3366,7 +3400,8 @@ FM_BACKEND=             # optional runtime backend override for new spawns; tmux
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
 FM_WIKIS_ROOT=          # optional wikis root override; see "Wiki context in briefs"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh exports into ship and scout panes, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set
-FM_TASK_INBOX=          # internal: absolute path of the task's steering inbox (state/<id>.inbox) that fm-spawn.sh exports into every ship, scout, and secondmate launch, never set by hand; the steering doorbell names "$FM_TASK_INBOX"
+FM_TASK_INBOX=          # internal: task steering-inbox path; exported by fm-spawn.sh, never set by hand (bin/fm-task-inbox-lib.sh owns the contract)
+FM_TASK_INBOX_CLI=      # internal: steering-inbox CLI path; exported by fm-spawn.sh, never set by hand (bin/fm-spawn.sh owns launch assignments)
 FM_TEST_SLOT_DIR=       # test-only; see bin/fm-test-run.sh --help for fixture slot isolation
 HERDR_SESSION=default  # herdr-only: named session for normal backend ops; not enough for destructive cleanup (docs/herdr-backend.md)
 FM_BACKEND_HERDR_SUBMIT_POLLS=6  # herdr-only: agent-state samples spread across each Enter attempt's budget when confirming a submit (docs/herdr-backend.md "Current transport behavior")

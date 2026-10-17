@@ -47,6 +47,9 @@
 # A fresh clone has no gitignored state dir yet; a root that otherwise
 # qualifies as primary gets one created here before the scope check runs, so
 # the first session takes the helm without a manual `mkdir state`.
+# Worker seats emit nothing before any home mutation: FM_TASK_ID, a Treehouse
+# slot cwd (unless marked as a secondmate home), or that cwd in a hook payload
+# excludes the seat even when this runner was installed at a primary's path.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -87,6 +90,29 @@ stand_down() {
   exit 0
 }
 
+# Scope the session, not just the runner's installation directory. Global hooks
+# can invoke a primary's absolute runner path from an unrelated worker copy.
+fm_primary_seat_matches "${PWD:-.}" || stand_down
+PAYLOAD=
+if [ ! -t 0 ]; then
+  PAYLOAD=$(cat 2>/dev/null || true)
+  fm_hook_payload_is_foreign_host "$PAYLOAD" && stand_down
+fi
+# Read the same simple string fields without adding a jq dependency. Hook cwd
+# paths may escape forward slashes, so normalize those before scope detection.
+hook_field() {
+  printf '%s' "$PAYLOAD" | awk -v key="$1" '
+    BEGIN { RS = "\"" }
+    seen == 2 { gsub(/\\\//, "/"); print; exit }
+    seen == 1 && $0 ~ /^[[:space:]]*:[[:space:]]*$/ { seen = 2; next }
+    seen == 1 { seen = 0 }
+    $0 == key { seen = 1 }
+  '
+}
+SESSION_CWD=$(hook_field cwd)
+[ -z "$SESSION_CWD" ] || fm_primary_seat_matches "$SESSION_CWD" || stand_down
+[ -n "$SOURCE" ] || SOURCE=$(hook_field source)
+
 # The same two eligibility owners the nudge wrapper uses, so a no-mistakes gate
 # agent and an unmarked task worktree can never run a session start for a home
 # they do not own. Pi's preflight-only status preserves that intentional silence
@@ -111,33 +137,6 @@ session_start_completed() {
   case "$lock_pid" in ''|*[!0-9]*) return 1 ;; esac
   [ "$completion_pid" = "$lock_pid" ]
 }
-
-if [ -z "$SOURCE" ] && [ ! -t 0 ]; then
-  # Claude and Codex both deliver a JSON SessionStart payload on stdin whose
-  # `source` field carries startup|resume|clear|compact. Parsed without jq so a
-  # host missing it still gets correct routing rather than silent full runs.
-  # A terminal stdin is skipped outright: a hook always pipes its payload, and
-  # an operator running this by hand must not be left waiting on a read.
-  # Splitting on the quote character finds the FIRST "source" key and its value
-  # without depending on greedy-regex luck, and it cannot mistake a string VALUE
-  # of "source" for the key, because only a key is followed by a bare colon.
-  PAYLOAD=$(cat 2>/dev/null || true)
-  # Cursor loads the tracked Claude settings as well as its own registration,
-  # so a Cursor-delivered payload here is the duplicate: bin/fm-sessionstart-
-  # cursor.sh already owns that session open and calls this wrapper with an
-  # explicit --source and no payload. Running twice would take the helm twice
-  # and repeat every startup sweep.
-  if fm_hook_payload_is_foreign_host "$PAYLOAD"; then
-    exit 0
-  fi
-  SOURCE=$(printf '%s' "$PAYLOAD" | awk '
-    BEGIN { RS = "\"" }
-    seen == 2 { print; exit }
-    seen == 1 && $0 ~ /^[[:space:]]*:[[:space:]]*$/ { seen = 2; next }
-    seen == 1 { seen = 0 }
-    $0 == "source" { seen = 1 }
-  ')
-fi
 
 case "$SOURCE" in
   resume|reload|fork)

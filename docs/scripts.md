@@ -72,7 +72,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-seat-pick.sh` | Opt-in team seat selection and deterministic reroute planning ([configuration](configuration.md#seat-picking-for-teams-configseat-pick)) |
 | `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
 | `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
-| `fm-jev-ask-user.sh` | Jev decides a no-mistakes ask-user gate first; answers confident in-scope fixes through `fm-send --resolve-key`, escalates everything else ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
+| `fm-jev-ask-user.sh` | Jev-first no-mistakes finding decisions under [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
 | `fm-jev-pr-verdict.sh` | Metadata-only advisory for review-ready shared-wiki GitHub PRs ([configuration](configuration.md#advisory-wiki-pr-verdict)) |
 | `fm-jev-merge-gate.sh` | Collect exact-head merge evidence and compare Jev's shadow decision with firstmate's ([configuration](configuration.md#jev-merge-gate-shadow)) |
 | `fm-jev-model-proposal.sh` | Per-role Jev model proposal from curated evidence; never edits config ([configuration](configuration.md#jev-model-proposals)) |
@@ -202,7 +202,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-public-followup.sh`  | Brief, reconcile, and deliver typed public commitments, surface refusals, then rechain or retire retained loops |
 | `fm-public-followup-emit.sh` | Validate and report one typed terminal work result into its owning home, or stage it when that home is remote |
 | `fm-public-followup-collect.sh` | Read and retire the typed terminal results a remote work home staged for the home that owes the public reply |
-| `fm-inbox.sh`            | The captain's out-of-band capture surface: queue a note (optionally idempotent by request id), announce or repair its wake, record a durable primary reply, and emit bounded receipts and primary-readiness JSON |
+| `fm-inbox.sh`            | Capture captain notes and replies, report receipts and readiness, and expose worker steering-inbox receipt |
 | `fm-mail.sh`             | General-purpose mail plane: read unseen IMAP mail, send one SMTP message, or surface new mail as a `check` wake via `poll` (configuration in the home's gitignored `.env`) |
 | `fm-mail.py`             | The IMAP/SMTP engine behind `fm-mail.sh` |
 | `fm-mail-check.sh`       | Standing received-mail poll: `arm` registers a watcher check that runs `fm-mail.sh poll` on the watcher cadence (new mail still wakes via the poll; the check's own line also wakes unless the poll is a proven no-op), `disarm` removes it |

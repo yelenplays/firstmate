@@ -41,7 +41,10 @@
 # host's own handback. Silent outcomes remain in the store but are not queued
 # or relayed as notes. An attended turn queues nothing: its captain rows reach
 # MAIN through the host's branch-outcome exit and the drain's BRANCH OUTCOMES
-# section (bin/fm-wake-drain.sh), and its routine rows stay in the store.
+# section (bin/fm-wake-drain.sh), and its informational routine rows (including
+# healthy completion needing no action) stay unread until MAIN's next real
+# drain. Decisions, blockers and failures keep the captain verdict; the prompt
+# owns those criteria, not summary keywords in this transport.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1246,6 +1246,8 @@ test_wait_no_turns_absent_keeps_the_previous_brief() {
   brief="$home/data/brief-wait-off/brief.md"
   assert_no_grep "end your turn at once" "$brief" "an absent flag still added the waiting section"
   assert_grep "natural checkpoint" "$brief" "an absent flag dropped the unprompted inbox check"
+  assert_grep 'Wait on long pipeline/CI phases with one blocking wait' "$brief" 'the default brief must discourage repeated pipeline/CI polling'
+  assert_grep "fm-inbox.sh' take " "$brief" 'the default brief must teach one-call steering receipt'
   assert_no_grep "Do not poll or list the inbox while waiting" "$brief" "an absent flag still added the no-poll inbox line"
   assert_grep "background the drive call" "$brief" "an absent flag replaced the backgrounded drive text"
   assert_no_grep "issue the same foreground call again" "$brief" \

@@ -49,8 +49,10 @@
 #     a review. A private vault change (bin/fm-wiki-lib.sh
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
 #     and no new reviewer sees it. docs/configuration.md "Cross-family review"
-#     owns the fixed candidate-chain policy; the first candidate whose family
-#     is proven by its catalog and disjoint from the builder's wins. A spawn
+#     owns the candidate-chain policy and home override; its "Effort caps for
+#     concrete launches" section owns effort handling. When a declared effort
+#     moves, plan prints `reviewer_effort_clamped=from <level> by the home
+#     effort policy (<file>)`. A spawn
 #     plan also writes data/<task-id>/cross-review-model.json binding that
 #     profile to the head; a write failure only warns.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
@@ -89,6 +91,8 @@ NM_TIMEOUT="${FM_CROSS_REVIEW_NM_TIMEOUT:-30}"
 
 # shellcheck source=bin/fm-ai-family-lib.sh
 . "$SCRIPT_DIR/fm-ai-family-lib.sh"
+# shellcheck source=bin/fm-effort-cap-lib.sh
+. "$SCRIPT_DIR/fm-effort-cap-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -516,9 +520,34 @@ private_change() {  # <head>, decision-time vault exclusion for plan and brief
   fi
 }
 
+reviewer_chain_file() {
+  printf '%s\n' "$CONFIG/cross-review-chain.json"
+}
+
+# Emit `harness model effort` lines; `-` defers effort to the shared envelope.
+# Keep a safe tracked default even for homes without an effort policy.
+# docs/configuration.md "Cross-family review" owns the home-chain schema.
 reviewer_candidates() {
-  printf 'pi openai-codex/gpt-6.1-sol high\n'
-  printf 'claude claude-opus-5-5 medium\n'
+  local chain
+  chain=$(reviewer_chain_file)
+  if [ -e "$chain" ]; then
+    # shellcheck disable=SC2016 # jq program text, not shell expansions.
+    jq -re '
+      def ladder_ok($e): ($e == null)
+        or (["low","medium","high","xhigh","max","ultra"] | index($e) != null);
+      if (type == "array") and (length > 0)
+         and all(.[]; (type == "object")
+            and ((.harness | type) == "string") and ((.harness | length) > 0)
+            and ((.model | type) == "string") and ((.model | length) > 0)
+            and ladder_ok(.effort))
+      then
+        .[] | "\(.harness) \(.model) \(.effort // "-")"
+      else empty end
+    ' "$chain"
+  else
+    printf 'pi openai-codex/gpt-6.1-sol high\n'
+    printf 'claude claude-opus-5-5 medium\n'
+  fi
 }
 
 reviewer_id_for() {  # <tag> <head>
@@ -528,7 +557,7 @@ reviewer_id_for() {  # <tag> <head>
 }
 
 cmd_plan() {
-  local head='' run='' want=review base_ref base h m e f chosen=''
+  local head='' run='' want=review base_ref base h m e f chosen='' range='' clamped_from='' declared_e
   [ "$#" -ge 1 ] || usage_die "usage: fm-cross-review.sh plan <task-id> [--head <sha>] [--run <run-id>] [--confirm]"
   load_task "$1"
   shift
@@ -561,15 +590,40 @@ cmd_plan() {
       return 0
       ;;
   esac
+  fm_effort_caps_load "$CONFIG" || die "the reviewer chain cannot be clamped: $FM_EFFORT_RANGE_ERROR"
+  local chain_src
+  if ! chain_src=$(reviewer_candidates); then
+    die "the reviewer candidate chain is unreadable or malformed: $(reviewer_chain_file)"
+  fi
   while read -r h m e; do
     [ -n "$h" ] || continue
+    case "$e" in
+      -) e='' ;;
+    esac
+    declared_e=$e
+    clamped_from=''
+    range=$(fm_effort_range_for "$h" "$m")
+    if [ -n "$range" ]; then
+      read -r rmin rmax rdef <<<"$range"
+      if [ -n "$e" ]; then
+        e=$(fm_effort_clamp "$e" "$rmin" "$rmax") \
+          || die "cannot clamp reviewer effort for $h/$m: $FM_EFFORT_RANGE_ERROR"
+        [ "$e" = "$declared_e" ] || clamped_from=$declared_e
+      elif [ "$rdef" = '-' ]; then
+        continue # no declared effort anywhere for this pair: unusable
+      else
+        e=$rdef
+      fi
+    elif [ -z "$e" ]; then
+      continue # no declared effort and no matching profile: unusable
+    fi
     fm_ai_family_resolve "$h" "$m"
     if fm_ai_family_disjoint "$B_FAM" "$FM_AI_FAMILY"; then
       chosen="$h $m $e $FM_AI_FAMILY"
       break
     fi
   done <<EOF
-$(reviewer_candidates)
+$chain_src
 EOF
   if [ -z "$chosen" ]; then
     printf 'action=escalate\nreason=no catalog-proven reviewer family differs from the builder'"'"'s %s\n' "$B_FAM"
@@ -589,6 +643,7 @@ EOF
     printf 'reviewer_id=%s\n' "$(reviewer_id_for xc "$HEAD_SHA")"
   fi
   printf 'reviewer_harness=%s\nreviewer_model=%s\nreviewer_effort=%s\nreviewer_family=%s\n' "$h" "$m" "$e" "$f"
+  [ -z "$clamped_from" ] || printf 'reviewer_effort_clamped=from %s by the home effort policy (%s)\n' "$clamped_from" "$FM_EFFORT_RANGE_FILE"
 }
 
 # ---- brief -------------------------------------------------------------------

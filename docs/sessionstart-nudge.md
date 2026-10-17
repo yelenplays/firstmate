@@ -186,6 +186,9 @@ So a truncated digest does neither of these:
 - They source `bin/fm-gate-refuse-lib.sh` and stay silent for a no-mistakes gate agent identified by `NO_MISTAKES_GATE` or a `.no-mistakes/repos/*.git` git-common-dir.
 - They share `bin/fm-primary-scope-lib.sh` with `bin/fm-turnend-guard.sh`, so every hook uses one primary-detection owner.
 
+The run wrapper also scopes the actual session cwd and the hook payload's `cwd` before creating state, so invoking an installed primary runner from a worker cannot inject that primary's digest.
+Worker-seat detection belongs to the shared primary predicate, described under [Primary scope](turnend-guard.md#primary-scope).
+
 A fresh clone has no gitignored state directory yet.
 When the root otherwise qualifies as primary, the run wrapper creates the state directory before the unchanged scope check, so the first session takes the helm without a manual `mkdir state`.
 If that creation fails, the run wrapper prints one stderr line naming the state directory and the reason, then stands down as it would for any ineligible root.
@@ -398,6 +401,7 @@ It proves the nudge wrapper's silence for these cases:
 It also proves the nudge wrapper's exact U+2063 `FIRSTMATE_OP:`-prefixed, `session-start`-typed one-line output.
 
 It separately proves the run wrapper's silence for the gate environment and an unmarked linked worktree, including the internal Pi prerequisite's explicit silent stand-down.
+Its worker-seat regression covers task identity, plain-clone Treehouse slots, the actual cwd and hook-payload cwd when invoking a primary's installed runner, and the genuine secondmate-home exception.
 It proves the run wrapper creates a missing state directory on a fresh primary and delivers the full digest, while an unmarked linked worktree gets none.
 It proves a fresh primary whose state directory cannot be created reports that on one stderr line and stands down without a digest.
 
