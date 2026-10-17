@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# fm-matt-skill.sh - load one Matt Pocock skill from its installed Claude plugin
-# and print the original bytes, or refuse and print nothing on stdout.
+# fm-matt-skill.sh - load an installed Matt Pocock skill or the bundled exception
+# below, or refuse and print nothing on stdout.
 # --list can return a partial list with status 7, as described below.
 #
-# Firstmate never copies, vendors, or paraphrases a third-party skill. Runtimes
-# without native plugin discovery use generated pointers whose first instruction
+# Runtimes without native plugin discovery use generated pointers whose first instruction
 # runs this loader. Runtime discovery evidence lives in
-# docs/verification/matt-pocock-runtime-reach.md. No skill body is copied, so
-# upstream procedure changes arrive on the next load.
+# docs/verification/matt-pocock-runtime-reach.md. Installed skill bodies are read
+# in place, so upstream procedure changes arrive on the next load.
+# Exception: resolving-merge-conflicts was retired upstream with no replacement.
+# Only an exact-name status-5 refusal loads the attributed compatibility skill
+# under .agents/skills/resolving-merge-conflicts, labeled as bundled, not original.
+# An offered upstream skill always takes precedence over the bundled procedure.
+# Missing, disabled, ambiguous, or damaged installs still refuse. --list remains
+# the installed plugin inventory, not a list of bundled compatibility routes.
+# Strict plugin pins cannot validate the bundled skill and therefore refuse it.
 #
 # This loader resolves the bare plugin name `mattpocock-skills` with
 # --include-undeclared. See bin/fm-skill-path.sh's header for marketplace
@@ -18,11 +24,12 @@
 # Attribution: the skills are Matt Pocock's work, MIT licensed, published at
 # https://github.com/mattpocock/skills and distributed as the Claude plugin
 # `mattpocock-skills`. This script reads the installed original in place and
-# reproduces nothing of its own.
+# otherwise reproduces nothing of its own. The bundled exception carries its
+# attribution and MIT license beside the skill.
 #
 # Usage:
 #   fm-matt-skill.sh --list                   offered skills, one name per line
-#   fm-matt-skill.sh <skill>                  header, then original SKILL.md bytes
+#   fm-matt-skill.sh <skill>                  identity header, then SKILL.md bytes
 #   fm-matt-skill.sh <skill> --path           absolute SKILL.md path only
 #   fm-matt-skill.sh <skill> --files          support files, absolute, one per line
 #   fm-matt-skill.sh <skill> --check          verify only, print the identity block
@@ -35,10 +42,10 @@
 #                            against; a generated pointer passes the identity it
 #                            was generated from. Any difference is reported as
 #                            pin=changed under a PLUGIN CHANGED banner, and no
-#                            value given reports pin=unpinned
-#   --require-validated-pin  refuse when any given validated value differs from
-#                            the resolved plugin, instead of loading the
-#                            installed bytes under a PLUGIN CHANGED banner;
+#                            value given reports pin=unpinned for installed
+#                            skills. Bundled content always reports pin=bundled
+#   --require-validated-pin  refuse bundled content or any difference between a
+#                            given validated value and the resolved plugin;
 #                            requires at least one --validated-* value
 #   -h, --help               print this header
 #
@@ -47,7 +54,7 @@
 #   2    usage error
 #   3    plugin not installed for this configuration
 #   4    plugin installed but not enabled
-#   5    skill not offered by this installed plugin version
+#   5    skill not offered by this installed plugin version, without a bundled route
 #   6    integrity or ambiguity refusal
 #   7    --list left out at least one offered skill that does not resolve; the
 #        ones that do are still printed and each left-out one is named on stderr
@@ -62,8 +69,8 @@
 # bump would turn each release into a fleet outage and recreate the sync chore
 # the pointer pattern exists to remove, so a differing plugin still loads the
 # original bytes and prints a PLUGIN CHANGED banner naming both identities.
-# Identity, offer, symlink, containment, and front-matter checks always refuse,
-# because those are the states where the bytes cannot be trusted.
+# Plugin integrity checks (identity, symlink, containment, and front matter)
+# always refuse on failure, because those bytes cannot be trusted.
 # --require-validated-pin turns drift back into a refusal for a caller that
 # wants the strict reading.
 #
@@ -157,15 +164,17 @@ fi
   || die 127 "bin/fm-skill-path.sh is required to resolve a skill and is missing or not executable at $RESOLVER"
 
 # The repo's single owner of plugin-skill resolution finds the one enabled
-# install, verifies it, and decides what it offers. Its refusals pass through
-# verbatim on stderr, exit status included. A partial listing (7) still
-# carries the skills that resolve.
+# install, verifies it, and decides what it offers. Diagnostics pass through on
+# stderr; refusal statuses pass through except for the compatibility route
+# documented above. A partial listing (7) still carries the skills that resolve.
 resolve() {  # <args...> -> resolver stdout, or exit with its status
   set +e
   RESOLVED=$("$RESOLVER" "$PLUGIN" "$@" --include-undeclared)
   RC=$?
   set -e
-  [ "$RC" -eq 0 ] || [ "$RC" -eq 7 ] || exit "$RC"
+  [ "$RC" -eq 0 ] || [ "$RC" -eq 7 ] \
+    || { [ "$RC" -eq 5 ] && [ "$LIST" -eq 0 ] && [ "$SKILL" = resolving-merge-conflicts ]; } \
+    || exit "$RC"
 }
 
 if [ "$LIST" -eq 1 ]; then
@@ -178,19 +187,39 @@ resolve "$SKILL"
 field() {  # <key>
   printf '%s\n' "$RESOLVED" | sed -n "s/^$1=//p" | head -n 1
 }
-KEY="$(field plugin)@$(field marketplace)"
-SCOPE=$(field scope)
-VERSION=$(field version)
-COMMIT=$(field commit)
-SKILL_DIR=$(field skill_dir)
-SKILL_FILE=$(field skill_file)
-RESOLVED_BY="bin/fm-skill-path.sh"
-[ -n "$SKILL_FILE" ] || die 6 "bin/fm-skill-path.sh resolved $SKILL without a skill_file"
+BUNDLED=0
+if [ "$RC" -eq 5 ]; then
+  [ "$REQUIRE_PIN" -eq 0 ] || die 6 "a validated plugin pin cannot validate the bundled $SKILL skill"
+  BUNDLED=1
+  SKILL_DIR="$HERE/../.agents/skills/resolving-merge-conflicts"
+  [ ! -L "$SKILL_DIR" ] && [ -d "$SKILL_DIR" ] \
+    || die 6 "bundled compatibility skill directory is missing or symlinked: $SKILL_DIR"
+  SKILL_DIR=$(CDPATH='' cd -- "$SKILL_DIR" && pwd -P)
+  SKILL_FILE="$SKILL_DIR/SKILL.md"
+  [ -f "$SKILL_FILE" ] && [ ! -L "$SKILL_FILE" ] \
+    || die 6 "bundled compatibility skill is missing or symlinked: $SKILL_FILE"
+  KEY=none
+  SCOPE=repository
+  VERSION=bundled
+  COMMIT=
+  RESOLVED_BY=repository-compatibility
+else
+  KEY="$(field plugin)@$(field marketplace)"
+  SCOPE=$(field scope)
+  VERSION=$(field version)
+  COMMIT=$(field commit)
+  SKILL_DIR=$(field skill_dir)
+  SKILL_FILE=$(field skill_file)
+  RESOLVED_BY="bin/fm-skill-path.sh"
+  [ -n "$SKILL_FILE" ] || die 6 "bin/fm-skill-path.sh resolved $SKILL without a skill_file"
+fi
 
 # --- pin comparison ----------------------------------------------------------
 
 PIN_STATE=unpinned
-if [ -n "$PIN_PLUGIN$PIN_VERSION$PIN_COMMIT" ]; then
+if [ "$BUNDLED" -eq 1 ]; then
+  PIN_STATE=bundled
+elif [ -n "$PIN_PLUGIN$PIN_VERSION$PIN_COMMIT" ]; then
   PIN_STATE=validated
   if { [ -n "$PIN_PLUGIN" ] && [ "$PIN_PLUGIN" != "$KEY" ]; } \
      || { [ -n "$PIN_VERSION" ] && [ "$PIN_VERSION" != "$VERSION" ]; } \
@@ -225,7 +254,12 @@ digest() {  # <file> -> sha256 or empty
 }
 
 emit_header() {
-  printf '===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====\n'
+  if [ "$BUNDLED" -eq 1 ]; then
+    printf '===== FIRSTMATE: BUNDLED COMPATIBILITY SKILL =====\n'
+    printf 'source=bundled; adapted from Matt Pocock, maintained by Firstmate\n'
+  else
+    printf '===== FIRSTMATE POINTER: ORIGINAL SKILL LOADED =====\n'
+  fi
   printf 'skill=%s\n' "$SKILL"
   printf 'author=%s\n' "$AUTHOR"
   printf 'license=%s\n' "$LICENSE"
@@ -261,7 +295,11 @@ fi
 emit_header
 printf '\n'
 cat "$SKILL_FILE"
-printf '\n===== END ORIGINAL SKILL.md =====\n'
+if [ "$BUNDLED" -eq 1 ]; then
+  printf '\n===== END BUNDLED SKILL.md =====\n'
+else
+  printf '\n===== END ORIGINAL SKILL.md =====\n'
+fi
 
 SUPPORT=$(support_files)
 if [ -n "$SUPPORT" ]; then

@@ -111,7 +111,7 @@ make_seeded_secondmate_home() {
 task_inbox_export() {  # <home> <id>
   local state
   state=$(CDPATH='' cd -- "$1/state" && pwd -P) || fail "cannot resolve state dir $1/state"
-  printf "export FM_TASK_INBOX='%s'; " "$state/$2.inbox"
+  printf "export FM_TASK_INBOX='%s' FM_TASK_INBOX_CLI='%s/bin/fm-inbox.sh'; " "$state/$2.inbox" "$ROOT"
 }
 
 
@@ -1824,7 +1824,7 @@ test_claude_forwards_firstmate_config_dir_when_set() {
   status=$?
   expect_code 0 "$status" "claude spawn with CLAUDE_CONFIG_DIR set should succeed"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}'" \
+  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}'" \
     "claude launch did not forward firstmate's CLAUDE_CONFIG_DIR to the crewmate pane"
   pass "claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store"
 }
@@ -2716,7 +2716,7 @@ claude_expected_launch() {  # <launch> <home> <id> <permission-flag>
   [ "$(printf '%s' "$doorbell" | "$ROOT/bin/fm-operational-input.sh" doorbell-kind)" = launch-brief ] \
     || doorbell="not a launch-brief doorbell"
   quoted="'$(printf '%s' "$doorbell" | sed "s/'/'\\\\''/g")'"
-  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")FM_HOME='$2' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
+  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")FM_HOME='$2' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}' --disallowedTools Artifact,Workflow,ScheduleWakeup,AskUserQuestion $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
 }
 
 test_claude_permission_mode_bypass_matches_absent_launch() {
@@ -2905,6 +2905,58 @@ test_non_claude_harness_ignores_claude_permission_mode() {
   pass "config/claude-permission-mode changes claude launches only"
 }
 
+# Exercise the actual delivered prompt and execute its ordinary reporting
+# command, omitting the separate appendix receipt exactly as real workers did.
+test_enrolled_launch_status_confirms_processing() {
+  local rec id out brief content launch command prompt token now
+  id=execution-status-receipt
+  rec=$(make_spawn_case "$id" codex)
+  read_case_record "$rec"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-brief.sh" "$id" arbitrary-project-name --mode no-mistakes >/dev/null || fail 'receipt scaffold failed'
+  brief="$HOME_DIR/data/$id/brief.md"
+  content=$(<"$brief")
+  content=${content//'{TASK}'/Implement approved change.}
+  content=${content//'{FIRSTMATE_SPEC}'/Exercise worker status receipt.}
+  printf '%s\n' "$content" > "$brief"
+  # Enrollment enables the real tasks-axi backlog path, whose bounded reads
+  # need the timeout owner's actual CLI rather than the launch-only stub.
+  rm "$FAKEBIN_DIR/timeout"
+  cp "$ROOT/.tasks.toml" "$HOME_DIR/.tasks.toml"
+  printf '## In flight\n- [ ] %s - Implement approved change (kind: ship)\n\n## Queued\n\n## Done\n' "$id" > "$HOME_DIR/data/backlog.md"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" approve "$id" --basis captain-approved || fail 'could not approve receipt task'
+  cat > "$FAKEBIN_DIR/codex" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$FM_ROLE_PROMPT"
+SH
+  chmod +x "$FAKEBIN_DIR/codex"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  expect_code 0 "$?" "enrolled spawn failed: $out"
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'spawn confirmed before worker activity'; fi
+  # The source instructions stay unchanged; the token belongs to this launch.
+  cmp -s "$brief" <(printf '%s\n' "$content") || fail 'spawn rewrote source instructions'
+  launch=$(<"$LAUNCH_LOG")
+  FM_ROLE_PROMPT="$CASE_DIR/envelope" PATH="$FAKEBIN_DIR:$PATH" bash -c "$launch" || fail 'could not consume enrolled launch'
+  prompt="$CASE_DIR/prompt"
+  sed -n '/FIRSTMATE_OP: v1 launch-brief:/,$p' "$CASE_DIR/envelope" | "$ROOT/bin/fm-operational-input.sh" body > "$prompt" || fail 'could not decode enrolled launch'
+  command=$(awk '/^[[:space:]]*`FM_HOME=.* status / {sub(/^[[:space:]]*`/, ""); sub(/`$/, ""); print; exit}' "$prompt")
+  [ -n "$command" ] || fail 'delivered status recipe has no receipt'
+  command=${command//'{state}'/working}
+  now=$(date +%s)
+  command=${command//'<epoch>'/$now}
+  command=${command//'{one short line}'/worker processing}
+  (cd "$HOME_DIR" && bash -c "${command/working/blocked}") || fail 'delivered recipe dropped safety report'
+  assert_grep "blocked [at=$now]: worker processing" "$HOME_DIR/state/$id.status" 'safety report was not appended'
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'supervisor cwd confirmed processing'; fi
+  (cd "$WT_DIR" && bash -c "$command") || fail 'delivered recipe failed in isolated worker copy'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id" || fail 'normal reporting did not confirm processing'
+  assert_grep 'worker processing' "$HOME_DIR/state/$id.status" 'worker event was not appended'
+  token=$(jq -r .attempt "$HOME_DIR/state/$id.execution")
+  [ -n "$token" ] || fail 'spawn omitted the receipt token'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" attempt "$id" >/dev/null
+  if (cd "$WT_DIR" && bash -c "$command") 2>/dev/null; then fail 'old delivered recipe survived a new handoff'; fi
+  pass 'delivered status command confirms isolated worker processing without the separate receipt'
+}
+
 test_launch_preserves_inherited_git_config
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
@@ -2997,5 +3049,6 @@ test_private_guard_fails_closed_without_a_list
 test_private_guard_refuses_a_private_secondmate
 test_private_guard_refuses_a_private_secondmate_charter
 test_private_guard_refuses_a_private_registered_secondmate_home
+test_enrolled_launch_status_confirms_processing
 
 echo "# all fm-spawn-dispatch-profile tests passed"

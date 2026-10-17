@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Behavioral tests for bin/fm-ai-family-lib.sh: which AI family (model maker)
 # a harness and model resolve to, read from the harness catalog or its
-# documented native model surface, never from a name alone.
+# documented native model surface, including recognized gateway model namespaces.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -101,6 +101,26 @@ SH
   pass "without a captured listing the pi catalog is read from pi --list-models"
 }
 
+test_gateway_model_namespaces() {
+  local h gateway
+  # The model id is sufficient even when no catalog is available.
+  for h in pi pi-signed opencode; do
+    for gateway in opencode-go openrouter another-gateway; do
+      assert_equals deepseek "$(FM_AI_FAMILY_PI_CATALOG=/nonexistent resolve "$h" "$gateway/deepseek-v4.1-flash")" "$h DeepSeek through $gateway"
+      assert_equals zhipu "$(FM_AI_FAMILY_PI_CATALOG=/nonexistent resolve "$h" "$gateway/glm-5")" "$h GLM through $gateway"
+      assert_equals unknown "$(FM_AI_FAMILY_PI_CATALOG=/nonexistent resolve "$h" "$gateway/mystery-model")" "$h unknown through $gateway"
+    done
+  done
+  for gateway in deepseek- glm- x-deepseek-v4.1-flash x-glm-5 glm-5/other; do
+    assert_equals unknown "$(FM_AI_FAMILY_PI_CATALOG=/nonexistent resolve pi "opencode-go/$gateway")" "not a recognized gateway namespace: $gateway"
+  done
+  assert_equals unknown "$(FM_AI_FAMILY_PI_CATALOG=/nonexistent resolve pi deepseek-v4.1-flash)" "unqualified model still needs catalog evidence"
+  assert_equals zhipu "$(fm_ai_family_of_provider zai)" "Z.ai provider uses the same maker as GLM"
+  fm_ai_family_resolve opencode opencode-go/glm-5
+  assert_contains "$FM_AI_FAMILY_SOURCE" "opencode-go/glm-5" "source identifies the model without claiming catalog evidence"
+  pass "recognized provider-qualified model namespaces identify gateway makers without guessing unknown models"
+}
+
 test_union_and_disjoint() {
   assert_equals "anthropic,openai" "$(fm_ai_family_union openai anthropic,openai)" "union is sorted and deduped"
   assert_equals "anthropic" "$(fm_ai_family_union anthropic '')" "empty sets are ignored"
@@ -112,6 +132,10 @@ test_union_and_disjoint() {
   ! fm_ai_family_disjoint anthropic unknown || fail "unknown never proves a different family"
   ! fm_ai_family_disjoint unknown,openai anthropic || fail "a set containing unknown is not provably disjoint"
   ! fm_ai_family_disjoint '' openai || fail "an empty set is not provably disjoint"
+  assert_equals zhipu "$(fm_ai_family_union zai zhipu)" "legacy Z.ai records normalize to Zhipu"
+  ! fm_ai_family_disjoint zai zhipu || fail "Z.ai and Zhipu are the same maker"
+  ! fm_ai_family_disjoint deepseek,zhipu zai || fail "legacy provider name cannot hide an overlap"
+  fm_ai_family_disjoint zai deepseek || fail "Zhipu and DeepSeek remain disjoint"
   pass "family sets are disjoint only when both are fully known and share no maker"
 }
 
@@ -121,4 +145,5 @@ test_multi_maker_harnesses_are_unknown
 test_provider_qualified_models
 test_unqualified_models_read_the_catalog
 test_live_catalog_is_the_cli
+test_gateway_model_namespaces
 test_union_and_disjoint

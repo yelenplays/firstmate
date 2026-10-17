@@ -2953,6 +2953,36 @@ reconcile_requests_detached() {
   RECONCILE_REQUEST_PID=$!
 }
 
+# A published /bearings lavish board refreshes itself while it is open. The
+# board script owns when a refresh is due and what it publishes; the watcher
+# only offers it a chance each poll, detached for the same beacon reason as the
+# ledger publication above, and records a failure where triage can see it.
+# A watcher pointed at some other state directory (FM_STATE_OVERRIDE, as every
+# test watcher is) never offers one: the refresh would compose that foreign
+# state onto the home's real, captain-visible board.
+BEARINGS_BOARD=
+BEARINGS_OWN_STATE=$(cd "$STATE" 2>/dev/null && pwd -P || true)
+if [ -n "$BEARINGS_OWN_STATE" ] \
+  && [ "$BEARINGS_OWN_STATE" = "$(cd "$FM_HOME/state" 2>/dev/null && pwd -P || true)" ]; then
+  BEARINGS_BOARD=$("$SCRIPT_DIR/fm-bearings-board.sh" path 2>/dev/null || true)
+fi
+BEARINGS_BOARD_PID=
+bearings_board_refresh_detached() {
+  if [ -n "$BEARINGS_BOARD_PID" ]; then
+    if kill -0 "$BEARINGS_BOARD_PID" 2>/dev/null; then
+      return 0
+    fi
+    if ! wait "$BEARINGS_BOARD_PID" 2>/dev/null; then
+      triage_log "bearings board refresh failed: $(tail -n 1 "$STATE/.bearings-board-refresh.err" 2>/dev/null)"
+    fi
+    BEARINGS_BOARD_PID=
+  fi
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    "$SCRIPT_DIR/fm-bearings-board.sh" refresh --if-due \
+    </dev/null >/dev/null 2>"$STATE/.bearings-board-refresh.err" &
+  BEARINGS_BOARD_PID=$!
+}
+
 PR_POLL_CONTROL_LOCK=
 PR_POLL_PUBLISH_LOCK=
 SIGNAL_PUBLISH_LOCKS=()
@@ -3201,6 +3231,8 @@ while :; do
   if reconcile_requests_pending; then
     reconcile_requests_detached
   fi
+
+  [ -z "$BEARINGS_BOARD" ] || [ ! -f "$BEARINGS_BOARD" ] || bearings_board_refresh_detached
 
   # Parent-owned secondmate pending-reply reconciliation: resolve correlated
   # parent reports, observe backend busy/idle turn completion, send one recovery

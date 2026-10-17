@@ -155,7 +155,8 @@ $ cat out.txt
 I can't run that command because it modifies a file outside the workspace. If you provide a workspace-relative path, I can run the equivalent command there - would you like to do that?
 ```
 
-This matters because the standard crewmate contract's literal status line is a bash `echo ... >> status_file` command. Given that exact literal instruction, rovo recovered on its own by falling back to its native file tool for the same append, and succeeded, preserving the file's existing content:
+The following probe used the plain bash `echo ... >> status_file` reporting recipe.
+Given that literal append instruction, rovo recovered on its own by falling back to its native file tool, and succeeded, preserving the file's existing content:
 
 ```
 $ echo "existing: prior" > "$LAB/outside/status2.txt"
@@ -180,6 +181,17 @@ $ ls "$LAB/outside/inbox/handled"
 `fm-spawn.sh`'s `rovo_config_override_flag` builds one merged JSON object per rovo launch (see "Effort and model" above for why it must be one), always granting `toolPermissions.allowedExternalPaths` for exactly three real (symlink-resolved) paths scoped to this task: the brief directory (`data/<id>/`, covering `brief.md`/`launch-brief.md`/`report.md`), the steering inbox directory (`state/<id>.inbox/`, covering every steer and its `handled/` acknowledgement), and the status file itself (`state/<id>.status`).
 `tests/fm-rovo-signals-live-e2e.test.sh` extends the launch-then-send live guard with exactly this shape end to end: a real rovo process launched with the production `--config-override` grant reads an external brief and appends to an external status file (preserving its prior content), and the same brief and status file, launched WITHOUT the grant, are left untouched while the transcript shows rovo's own refusal - proving the fix closes the gap rather than merely adding an untested flag.
 `tests/fm-rovo-harness.test.sh` pins the portable half against the fake-binary suite: the grant's three paths appear in every rovo launch (including when the requested effort is unsupported and omitted), and exactly one `--config-override` occurrence ever appears.
+
+### Execution receipts: known limitation
+
+Rovo is excluded from the status-coupled execution-receipt fix, with support deferred to `exec-receipt-rovo-v1`.
+This exception covers enrolled implementation workers launched directly, promoted in place from scouts, or relaunched from saved briefs.
+Rovo handoffs retain the plain status-file recipe and separate `fm-task-execution.sh started` appendix rather than replacing reporting with `fm-task-execution.sh status`.
+The receipt command still requires shell access to home-side scripts and records, which Rovo's bash confinement does not provide.
+The native file-tool grant described above permits status appends but excludes `state/<id>.execution`; a native append therefore does not confirm processing.
+A busy Rovo worker posting `working:` or `paused:` may still appear in `UNFINISHED EXECUTION` as "implementation owner unconfirmed; verify processing or recover failed handoff" and generate `check: unfinished-execution` or `check: execution <task>` notifications.
+The existing live status-append evidence does not prove receipt confirmation, and no adapter-compatible receipt transport is claimed here.
+Do not widen Rovo's grants, write an execution record manually, or bypass token, generation, or isolated-copy checks to suppress these notifications.
 
 ## Backend liveness: tmux verified live, herdr placement verified live with a herdr-side agent-detection gap
 

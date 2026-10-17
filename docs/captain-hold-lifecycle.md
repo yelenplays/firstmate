@@ -39,7 +39,7 @@ It never reads report bodies, review artifacts, terminal output, or chat.
 | `verify` | Read-only check that scout teardown runs before removing source state. | [Checking before scout teardown](#checking-before-scout-teardown-verify) |
 | `parked` | Read-only check of whether a task's pause is captain-parked. | [Captain-parked pauses](#captain-parked-pauses-parked) |
 | `open` | Read-only check of whether a row is still an open captain call. | [Cleanup never closes a captain call](#cleanup-never-closes-a-captain-call) |
-| `answers` | Channel-agnostic entry point for keyed answers. | [Answer-time resolution](#answer-time-resolution) |
+| `answers`, `to-route` | Intake for keyed answers and inspection or retirement of answers awaiting routing. | [Answer-time resolution](#answer-time-resolution) |
 | `bind`, `unbind`, `binding` | Record that a captured-answer source feeds the keyed-answer intake. | [Source bindings](#source-bindings) |
 | `reconcile-requests` | Internal intake that records a reconcile request from a board selection. | [Reconcile](#reconcile-re-check-reality-never-a-blind-close) |
 | `reconcile close`, `reconcile note`, `reconcile list` | Retire or list pending reconcile requests. | [Verifying and retiring a request](#verifying-and-retiring-a-request) |
@@ -57,6 +57,9 @@ It works in this order:
 5. It verifies the hold and timestamp.
 
 Publishing the stamp first ensures a snapshot cannot observe a newly captain-held task without the timestamp that defines its age.
+
+Before step 1, `hold` applies the WIP brake defined in [`bin/fm-captain-hold.sh`](../bin/fm-captain-hold.sh), whose header owns refusal, retry, locking, and unsupported-backend or unreadable-count behavior.
+[`bin/fm-captain-wip-lib.sh`](../bin/fm-captain-wip-lib.sh) owns the fixed limit and live-call count, including the boundary between per-home enforcement and the board's fleet-wide view.
 
 Repeat and edge cases:
 
@@ -196,8 +199,8 @@ Only `answer` with the captain's words or evidence-backed `reconcile close` reso
 
 "A keyed answer resolves its matching captain-held task" is one capability with one owner.
 `answers` is its channel-agnostic entry point.
-It reads `<task-id>\t<answer>\t<label>[\t<mode>]` lines and resolves each named task through the same `answer` path.
-Every guard therefore applies identically no matter which channel the answer arrived on.
+It handles keyed answers according to the card-declared mode below, using the same `answer` path for resolutions.
+The script header owns the input format and guards, which apply identically no matter which channel the answer arrived on.
 
 The optional mode column carries a card-declared close:
 
@@ -205,18 +208,12 @@ The optional mode column carries a card-declared close:
 | --- | --- |
 | `done` (default) | Completes the task. |
 | `release` | Lifts the hold so held work resumes. |
+| `route` | Closes nothing: records the answer for firstmate to route and reports `to-route:`. |
 | Any other value | Skipped. |
 
-Each key is reported as follows:
-
-| Key | Result |
-| --- | --- |
-| Names no task, names a task that is not captain-held, or names a task already closed | Reported as `skipped:` and feeds nothing. |
-| A replay whose answer and requested close mode match the newest record | An idempotent `closed:`. |
-| A replay with a mode mismatch | Skipped. |
-
-The command exits nonzero when any key was skipped.
-`--source` is provenance text recorded in the durable decision, never a behavior switch, and the command carries no per-channel branch.
+`route` exists for a card whose composer could not know which close the answer means, such as a card the board composes for a hold nobody authored.
+Completing a captain-gated work item would silently drop approved work, so staging an answer leaves its hold untouched until firstmate determines the intended action.
+The [`bin/fm-captain-hold.sh` header](../bin/fm-captain-hold.sh) owns staging and retirement mechanics, per-key outcomes, replay compatibility, and provenance; [`bearings`](../.agents/skills/bearings/SKILL.md#handling-a-board-wake) owns the supervisor's board-answer workflow.
 
 ### Source bindings
 
@@ -319,7 +316,7 @@ No path here closes a captain call without either the captain's words through `a
 
 ## Card hygiene: a landed subject is not a live call
 
-`bin/fm-bearings-board.sh build` cross-checks every `decision` card before it publishes and drops stale subjects rather than trusting the composed inventory alone.
+`bin/fm-bearings-board.sh build` and its automatic `refresh` cross-check every `decision` card before they publish and drop stale subjects rather than trusting the composed inventory alone.
 
 Three checks run, all on exact identity and none on prose:
 
@@ -367,15 +364,14 @@ The first matching row in this order decides the bucket:
 | --- | --- | --- |
 | 1 | `blocked` | Any blocker is unresolved. |
 | 2 | `dated` | `hold_until` is in the future. |
-| 3 | `aged` | An undated hold's hold-set timestamp is at least `FM_SNAPSHOT_UNDATED_HOLD_AGE_DAYS` old (default 14, floored elapsed days). |
-| 4 | `live` | None of the above. |
+| 3 | `live` | None of the above. |
 
 No captain hold can fall through them and none can match two, which is what keeps a hold from vanishing from every view.
 `captain_actionable` - waiting on the captain now - is exactly `hold_bucket == "live"`.
 
-Existing undated holds without a hold-set stamp fall back to the task's `since` date.
-That aging is a projection safety net only.
-The durable deferral remains re-holding with `--until`.
+An undated hold stays `live` however old it grows, so an unanswered call keeps its place under the captain's WIP limit until it is parked, dropped, or answered.
+`hold_age_days` still reports its age; existing undated holds without a hold-set stamp fall back to the task's `since` date.
+The durable deferral is re-holding with `--until`.
 
 The fleet snapshot's secondmate-home summary classifies an actionable captain hold as `captain_decision`.
 It preserves every captain hold in the bounded queued inventory of the owning home.
@@ -387,7 +383,7 @@ It preserves every captain hold in the bounded queued inventory of the owning ho
 | `hold_bucket` | Where the hold appears |
 | --- | --- |
 | `live` | A default Captain's Call entry. |
-| `blocked`, `dated`, or `aged` | Leaves the default Captain's Call, renders as a Charted Next gate stating why - the blocking work, the `until <date>`, or the floored age - and contributes to the concrete `omitted[]` disclosure. |
+| `blocked` or `dated` | Leaves the default Captain's Call, renders as a Charted Next gate stating why - the blocking work or the `until <date>` - and contributes to the concrete `omitted[]` disclosure. |
 
 `--all-decisions` reveals every captain hold available within the remote-summary bound and drops its gate.
 An available hold is therefore never in both Captain's Call and Charted Next.
@@ -397,12 +393,12 @@ An actively worked held task may also appear in Underway, which reports running 
 
 Three accepted limits remain deliberate:
 
-- A remote or secondmate hold retains the producer home's age and aging decision from the summary's capture time and threshold rather than being recomputed by the parent.
+- A remote or secondmate hold retains the producer home's age and bucket from the summary's capture time rather than being recomputed by the parent.
 - A rare concurrent answer-close and re-hold race can leave the newly re-held task without its age basis.
 - Cross-home summaries remain bounded by `FM_SNAPSHOT_SECONDMATE_DECISIONS` and `FM_SNAPSHOT_SECONDMATE_QUEUED`.
   A remote deferred hold beyond those bounds is not exported, so it can be neither gated nor revealed.
 
-Re-holding through the wrapper with `--until` remains the durable fix rather than relying on the projection safety net.
+Re-holding through the wrapper with `--until` remains the durable deferral.
 
 ### Recently Landed notes
 
@@ -541,6 +537,10 @@ The suite does not test the accepted merge-to-cleanup re-hold window or asynchro
 - Hold-set stamping precedes visible hold state, preserves an active lifecycle's timestamp, and resets after release.
 - Interrupted answer closure retains the stamp until close and restores resolution-first ordering on retry.
 - Deferral through `--until` leaves `captain_actionable` false until due.
+- The WIP brake refuses another live call at capacity before creating or stamping its task, permits repeated holds and future deferrals, and makes room after a call is parked or answered.
+  Old unanswered calls still consume capacity and remain in Captain's Call.
+- A captured `route` answer leaves both question-shaped and work-item calls held, stages the captain's words with provenance, and retires after firstmate resolves it.
+  A resolved replay stages nothing, a newer answer replaces an unrouted one, and clearing the staged answer alone leaves the call open.
 
 ### Legacy paths
 
@@ -623,8 +623,13 @@ The board's half is pinned in `tests/fm-bearings-board.test.sh`:
 - A build requires a fresh authoritative listed-open result before binding or arming.
 - A reopen retires the pre-reopen source generation and waits for a fresh live listener.
 - A rebuild of an already-armed board with no live listener starts one.
+- Refresh skips absent or ended boards, carries authored options over fresh state, drops answered calls, and republishes a changed template even when fleet state is unchanged.
+- A held idle task with a recorded green PR retains its authored merge card as its only call, counts once in the rendered "need you" total, and loses the card after its answer releases the hold.
+- A staged answer marks its still-open card and makes refresh due.
 
-That suite drives its Lavish session through a protocol-shaped stub.
+`tests/fm-bearings-board-render.test.sh` additionally pins the count against the WIP limit, at-limit and overflow indicators, and the recorded-answer badge.
+
+The board suite drives its Lavish session through a protocol-shaped stub.
 `tests/fm-bearings-board-lavish-live-e2e.test.sh` is the default-on capability guard for the installed provider, and [`verification/process-event-sources.md`](verification/process-event-sources.md) owns the version-scoped evidence.
 [`verification/process-event-sources.md`](verification/process-event-sources.md) owns the process-event ownership and reclamation evidence exercised by `tests/fm-procevent.test.sh`.
 
@@ -638,7 +643,7 @@ Projection regressions live in two suites:
 
 | Suite | What it covers |
 | --- | --- |
-| `tests/fm-fleet-snapshot-view.test.sh` | The total structured-only bucket classifier, hold-until parsing, kind-independent captain actionability, undated-hold aging, and title stripping. |
+| `tests/fm-fleet-snapshot-view.test.sh` | The total structured-only bucket classifier, hold-until parsing, kind-independent captain actionability, undated holds staying live however old, and title stripping. |
 | `tests/fm-bearings-snapshot.test.sh` | Default and expanded decision-bucket membership, deferral explanations, blocker-overflow disclosure, working-hold dual surfaces, remote-summary schema invalidation, exact leading-kind inference, artifact-kind mismatch and answered-question exclusion, kind-bearing and kindless local-only landings publishing their recorded note, and scout-report precedence over competing pull-request links. |
 
 ### Refreshing this record

@@ -30,7 +30,7 @@ ln -s "$NODE_BIN" "$HISTORY_BIN/node"
 task_inbox_export() {  # <home> <id>
   local state
   state=$(CDPATH='' cd -- "$1/state" && pwd -P) || fail "cannot resolve state dir $1/state"
-  printf "export FM_TASK_INBOX='%s'; " "$state/$2.inbox"
+  printf "export FM_TASK_INBOX='%s' FM_TASK_INBOX_CLI='%s/bin/fm-inbox.sh'; " "$state/$2.inbox" "$ROOT"
 }
 
 

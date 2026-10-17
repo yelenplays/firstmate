@@ -2,8 +2,8 @@
 # fm-skill-path.sh - resolve one exact installed Claude plugin skill from the
 # authoritative plugin registry, or refuse and print no path.
 #
-# Firstmate never copies, vendors, or paraphrases a third-party skill. An adapter
-# that wants to operate under an original skill resolves it here and reads the
+# Plugin resolution never copies, vendors, or paraphrases a third-party skill.
+# An adapter that wants to operate under an original skill resolves it here and reads the
 # installed bytes, so an upstream bump arrives on its own and a moved or tampered
 # install becomes a loud refusal instead of a hallucinated path.
 #

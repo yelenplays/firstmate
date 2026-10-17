@@ -174,7 +174,7 @@ After an actionable foreground close, including an attached peer cycle that ende
 3. Only then exits 2 with the wake.
 
 A child of the hook cannot outlive its exit-2 rewake.
-So that successor is the one deliberate detached launch in the continuity path:
+So with the supervision host off, that successor is the one deliberate detached launch in the continuity path (the [host header](../bin/fm-supervision-host.sh) owns the host's own-group successors):
 
 - It runs under nohup.
 - Its stdio is away from the hook's pipes.
@@ -214,7 +214,8 @@ In its `--claude` mode it cooperates with the auto-arm.
 ## Recovery episode acknowledgement
 
 A recovery episode is one generation of the `state/.watcher-down` marker.
-It is retired only by the generation-bound acknowledgement the drain prints as `WAKE_ACK_REQUIRED`.
+Handling retires it through the generation-bound acknowledgement the drain prints as `WAKE_ACK_REQUIRED`.
+Automatic quiet retirement is limited to the empty clean-close recovery and confirmed take-over cases below.
 The away return brief treats a still-open handling episode as a wake in progress, not watcher downtime; an open downtime episode remains a gap.
 
 ### Announcement
@@ -241,8 +242,10 @@ A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
 That handling republication gives a successor exactly one recovery presentation without orphaning the acknowledgement already printed for that generation.
-A watcher stopped so an arm can take its cycle over (`bin/fm-watch-arm.sh --take-over`) publishes downtime like any close, but the taking arm restores an acknowledged episode that stop reopened only when the taken-over arm's cycle-ledger row for that exact arm and watcher records the watcher ending by the take-over's TERM and no wake was appended in between.
-The taking arm waits within a short bound for that row; a missing row or any other signal leaves downtime for the fresh cycle's ordinary recovery wake, while take-over still proceeds.
+A watcher stopped so an arm can take its cycle over (`bin/fm-watch-arm.sh --take-over`) publishes downtime like any close, but the taking arm retires that stop's fresh pending downtime only with an acknowledged snapshot, a safely readable empty queue, and the taken-over arm's cycle-ledger row for that exact arm and watcher recording the take-over's TERM.
+An unchanged append sequence restores the acknowledged snapshot; if intervening arrivals were already consumed, the stop's current generation is acknowledged instead, so completed work neither rolls back to an older generation nor reopens an empty recovery.
+Unread queue rows, unsafe queue paths, and unacknowledged snapshots never authorize quiet retirement.
+The taking arm waits within a short bound for the terminal row; a missing row or any other signal leaves downtime for the fresh cycle's ordinary recovery wake, while take-over still proceeds.
 Any other episode is left for the next cycle's arm check.
 
 ### What an acknowledgement retires
@@ -473,6 +476,8 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 It also exercises a single TERM with a live foreign downtime-marker lock holder, retained stale singleton and subsequent arm-style recovery, including decimal `08` and zero `00` cleanup bounds.
 It checks that a newly appended keyed decision is classified without rereading earlier status bytes, so signal handling can return to the watcher's beacon refresh even when the status history is long.
 `tests/fm-wake-queue.test.sh` proves TERM likewise stops a watcher blocked in the drain-ring idle check's pane capture.
+Its handover cases pin the [generation-reuse contract](#generation-reuse) for already-acknowledged arrivals, unread rows, unsafe queue paths, and unacknowledged snapshots.
+`tests/fm-supervision-host.test.sh` exercises that contract through repeated real host and hook cycles, including hook-process-group teardown and one-shot recovery of work queued during a genuine outage.
 
 `tests/fm-watcher-lock.test.sh` covers:
 

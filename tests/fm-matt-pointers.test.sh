@@ -1036,6 +1036,132 @@ test_generator_refuses_without_an_enabled_plugin() {
   pass "the generator refuses, and writes nothing, without an enabled plugin"
 }
 
+test_loader_restores_retired_conflict_skill() {
+  local root out path rc
+  root="$TMP_ROOT/retired-conflict"
+  build_plugin "$root"
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts "${PINS[@]}") \
+    || fail "loader could not load the retired conflict skill"
+  assert_contains "$out" 'FIRSTMATE: BUNDLED COMPATIBILITY SKILL' "bundled provenance was hidden"
+  assert_not_contains "$out" 'ORIGINAL SKILL LOADED' "bundled skill claimed to be a plugin original"
+  assert_contains "$out" 'name: resolving-merge-conflicts' "loader returned the wrong skill"
+  assert_contains "$out" 'pin=bundled' "plugin pins were presented as validating bundled content"
+  path=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts --path) \
+    || fail "retired conflict skill has no loadable path"
+  [ -f "$path" ] || fail "conflict skill path does not exist"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts --files)
+  assert_contains "$out" '/LICENSE' "bundled attribution license is unavailable"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts --check)
+  assert_contains "$out" "skill_file=$path" "check and path disagree"
+  assert_not_contains "$out" 'name: resolving-merge-conflicts' "--check printed the skill body"
+
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts "${PINS[@]}" --require-validated-pin 2>/dev/null)
+  rc=$?
+  expect_code 6 "$rc" "strict plugin pin accepted bundled content"
+  [ -z "$out" ] || fail "strict-pin refusal printed content"
+
+  # A future upstream return wins over the compatibility body.
+  write_skill "$root/install/skills/engineering/resolving-merge-conflicts" resolving-merge-conflicts 'Resolve conflicts.' ''
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts) \
+    || fail "loader refused a restored upstream skill"
+  assert_contains "$out" 'UNIQUE-UPSTREAM-PROCEDURE-resolving-merge-conflicts' "bundled skill shadowed upstream"
+  assert_not_contains "$out" 'BUNDLED COMPATIBILITY SKILL' "upstream was labeled as bundled"
+
+  # Integrity and enablement refusals must never activate the fallback.
+  printf '%s\n' '---' 'name: wrong-name' '---' >"$root/install/skills/engineering/resolving-merge-conflicts/SKILL.md"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts 2>/dev/null)
+  expect_code 6 $? "fallback hid an upstream integrity refusal"
+  [ -z "$out" ] || fail "integrity refusal printed content"
+  printf '{"enabledPlugins":{"%s":false}}\n' "$KEY" >"$root/config/settings.json"
+  out=$(CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts 2>/dev/null)
+  expect_code 4 $? "fallback hid a disabled plugin"
+  [ -z "$out" ] || fail "disabled-plugin refusal printed content"
+  pass "retired conflict skill loads honestly without bypassing plugin integrity"
+}
+
+test_pointer_step_one_reaches_retired_conflict_skill() {
+  local root dest cmd out
+  root="$TMP_ROOT/retired-conflict-caller"
+  build_plugin "$root"
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "pointer install failed against a healthy plugin"
+
+  cmd=$(awk '/^```bash$/{f=1;next} /^```$/{f=0} f' "$dest/matt-tdd/SKILL.md" | sed 's/ tdd / resolving-merge-conflicts /; s/ tdd$/ resolving-merge-conflicts/')
+  case "$cmd" in *resolving-merge-conflicts*) ;; *) fail "could not derive the pointer Step 1 command" ;; esac
+  out=$(cd "$root" && CLAUDE_CONFIG_DIR="$root/config" bash -c "$cmd") \
+    || fail "pinned pointer Step 1 command could not reach the retired conflict skill"
+  assert_contains "$out" 'name: resolving-merge-conflicts' "pinned pointer route returned the wrong skill"
+
+  out=$(cd "$root" && CLAUDE_CONFIG_DIR="$root/config" "$LOADER" resolving-merge-conflicts) \
+    || fail "unpinned pointer Step 1 command could not reach the retired conflict skill"
+  assert_contains "$out" 'name: resolving-merge-conflicts' "unpinned pointer route returned the wrong skill"
+  pass "a pointer's Step 1 command reaches the retired conflict skill"
+}
+
+test_bundled_pointer_survives_audit_and_prune() {
+  local root dest pointer marker out rc cmd mode
+  root="$TMP_ROOT/bundled-pointer"
+  build_plugin "$root"
+  write_skill "$root/install/skills/engineering/resolving-merge-conflicts" resolving-merge-conflicts 'Resolve conflicts.' ''
+  dest="$root/skills"
+  run_pointers "$root/config" --dest "$dest" --date 2026-07-30 >/dev/null \
+    || fail "could not install conflict pointer before upstream retirement"
+  pointer="$dest/matt-resolving-merge-conflicts/SKILL.md"
+  marker="$dest/matt-resolving-merge-conflicts/.firstmate-pointer"
+  cp "$pointer" "$root/pointer-before.md"
+  cp "$marker" "$root/marker-before"
+  rm -rf "$root/install/skills/engineering/resolving-merge-conflicts"
+
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 0 $? "--check rejected a healthy bundled compatibility pointer"
+  assert_contains "$out" "BUNDLED: $dest/matt-resolving-merge-conflicts" "audit did not identify the bundled route"
+  assert_not_contains "$out" 'UNRESOLVED:' "audit misclassified the bundled route as unresolved"
+  assert_not_contains "$out" 'RETIRED:' "audit requested removal of a working compatibility pointer"
+  for mode in dry-run apply; do
+    if [ "$mode" = dry-run ]; then
+      out=$(run_pointers "$root/config" --prune --dry-run --dest "$dest" 2>&1)
+      rc=$?
+    else
+      out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+      rc=$?
+    fi
+    expect_code 0 "$rc" "--prune $mode rejected a working bundled pointer"
+    assert_contains "$out" 'BUNDLED:' "prune $mode did not explain why the pointer was kept"
+    assert_not_contains "$out" 'UNRESOLVED:' "prune $mode reported a false failure"
+    cmp -s "$root/pointer-before.md" "$pointer" || fail "prune $mode changed the bundled pointer"
+    cmp -s "$root/marker-before" "$marker" || fail "prune $mode changed the bundled marker"
+  done
+  cmd=$(pointer_command "$pointer")
+  out=$(CLAUDE_CONFIG_DIR="$root/config" bash -c "$cmd") \
+    || fail "pruned compatibility pointer no longer loads"
+  assert_contains "$out" 'BUNDLED COMPATIBILITY SKILL' "kept pointer did not reach the compatibility skill"
+
+  rm "$pointer"
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "bundled route hid a missing pointer body"
+  assert_contains "$out" "MISSING: $pointer" "audit did not name the missing bundled pointer"
+  cp "$root/pointer-before.md" "$pointer"
+  sed "s|^loader=.*|loader=$root/missing-loader|" "$marker" >"$root/marker-new"
+  mv "$root/marker-new" "$marker"
+  out=$(run_pointers "$root/config" --check --dest "$dest" 2>&1)
+  expect_code 1 $? "bundled route hid an unusable recorded loader"
+  assert_contains "$out" "BROKEN: $pointer" "audit did not name the broken bundled pointer loader"
+  cp "$root/marker-before" "$marker"
+
+  write_skill "$root/install/skills/engineering/resolving-merge-conflicts" wrong-name 'Damaged upstream skill.' ''
+  out=$(run_pointers "$root/config" --prune --dest "$dest" 2>&1)
+  expect_code 1 $? "bundled classification hid an upstream integrity refusal"
+  assert_contains "$out" 'UNRESOLVED:' "prune did not report the damaged upstream skill"
+  assert_not_contains "$out" 'BUNDLED:' "damaged upstream skill was mislabeled as bundled"
+  assert_present "$pointer" "prune removed a damaged upstream skill pointer"
+  pass "audit and prune preserve bundled pointers without hiding missing or broken routes"
+}
+
+test_bundled_pointer_survives_audit_and_prune
+test_loader_restores_retired_conflict_skill
+test_pointer_step_one_reaches_retired_conflict_skill
 test_loader_prints_original_bytes_and_identity
 test_loader_refuses_without_printing_anything
 test_loader_reports_drift_without_hiding_the_original
