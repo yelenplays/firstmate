@@ -295,6 +295,29 @@ fi
 # The header owns approval eligibility. Keep unjudged actionable findings
 # out of a whole-gate approval.
 FINDING_ROWS=$(printf '%s\n' "$FINDINGS" | awk '
+  # TOON strings quote commas and backslash-escape quotes. Refuse an
+  # ambiguous row rather than guessing which field grants no-op authority.
+  function split_row(r, f,    n, j, c, quoted, closed) {
+    n = 1; f[n] = ""; quoted = closed = 0
+    for (j = 1; j <= length(r); j++) {
+      c = substr(r, j, 1)
+      if (quoted) {
+        if (c == "\"") { quoted = 0; closed = 1 }
+        else if (c == "\\") {
+          c = substr(r, ++j, 1)
+          if (c == "\"" || c == "\\") f[n] = f[n] c
+          else if (c == "n" || c == "r" || c == "t") f[n] = f[n] "\\" c
+          else return 0
+        } else f[n] = f[n] c
+      } else if (c == ",") { f[++n] = ""; closed = 0 }
+      else if (closed) return 0
+      else if (c == "\"") {
+        if (f[n] != "") return 0
+        quoted = 1
+      } else f[n] = f[n] c
+    }
+    return quoted ? 0 : n
+  }
   function flush() { if (id != "") printf "%s\t%s\t%d\n", id, act, inc; id = ""; act = ""; inc = 0 }
   /^id:[[:space:]]*/ { flush(); toon = 0; id = $0; sub(/^id:[[:space:]]*/, "", id); sub(/[[:space:]]+$/, "", id); next }
   /^[[:space:]]*findings\[[0-9]+\]\{id[,}]/ {
@@ -302,8 +325,8 @@ FINDING_ROWS=$(printf '%s\n' "$FINDINGS" | awk '
     nf = split(h, cols, ","); ai = 0; for (i = 1; i <= nf; i++) if (cols[i] == "action") ai = i
     next }
   toon && /^[[:space:]]+[A-Za-z0-9._-]+,/ {
-    r = $0; sub(/^[[:space:]]+/, "", r); n = split(r, f, ",")
-    printf "%s\t%s\t%d\n", f[1], (ai > 0 && ai < nf ? f[ai] : ""), (tolower(r) ~ /live validation verdict: *inconclusive/); next }
+    r = $0; sub(/^[[:space:]]+/, "", r); n = split_row(r, f)
+    printf "%s\t%s\t%d\n", f[1], (n == nf && ai > 0 && f[ai] == "no-op" ? "no-op" : "unknown"), (tolower(r) ~ /live validation verdict: *inconclusive/); next }
   toon && !/^[[:space:]]/ { toon = 0 }
   id != "" && /^authority\/action:/ { act = $0; sub(/^authority\/action:[[:space:]]*/, "", act); sub(/[[:space:]]+$/, "", act) }
   id != "" && tolower($0) ~ /live validation verdict: *inconclusive/ { inc = 1 }

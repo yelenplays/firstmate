@@ -640,6 +640,30 @@ test_approve_is_offered_only_for_inconclusive_test_gates() {
   pass "fm-jev-ask-user: approve is offered only for an inconclusive asked test finding with no unjudged context"
 }
 
+test_toon_quoted_commas_preserve_context_action() {
+  local code out context file_field
+  for file_field in '"src/a,no-op,b.sh"' '"src/a\",no-op,b.sh"' '"src/a\\,no-op,b.sh"'; do
+    for context in auto-fix ask-me no-op; do
+      test_world toon "$context"
+      # The quoted filename is one TOON field, not extra action columns.
+      printf 'gate:\n  step: test\n  findings[2]{id,severity,file,action,description}:\n    T1,warning,%s,%s,"%s"\n    T2,warning,"",ask-user,"%s"\n' \
+        "$file_field" "$context" "$NOOP_CONTEXT" "$INCONCLUSIVE" > "$FINDINGS"
+      ANSWER_APPROVE=1 answer approve-followup 0.99
+      run code out t1 "$TGATE" --round 1
+      if [ "$context" = no-op ]; then
+        assert_equals 0 "$code" "a quoted-comma filename does not disable harmless no-op approval ($file_field)"
+        approve_offered || fail "quoted-comma no-op context must offer approval ($file_field)"
+        assert_contains "$out" "ACT $TGATE: Jev decided approve T2" "harmless quoted-comma context permits approval"
+      else
+        assert_equals 2 "$code" "quoted commas cannot disguise unjudged $context context as no-op ($file_field)"
+        ! approve_offered || fail "quoted-comma $context context must not offer approval ($file_field)"
+        assert_absent "$LOG/send-args" "unjudged $context context never sends approval"
+      fi
+    done
+  done
+  pass "fm-jev-ask-user: quoted TOON commas cannot disguise unjudged context authority"
+}
+
 test_screens_win_over_approve() {
   local code out
   test_world
@@ -676,6 +700,7 @@ test_screens_win_over_approve() {
   pass "fm-jev-ask-user: security, round-cap, always-escalate, and privacy screens win over approve"
 }
 
+test_toon_quoted_commas_preserve_context_action
 test_privacy_corpus_before_transport
 test_real_dispatch_finding_before_transport
 test_act_sends_jev_decision_with_resolve_key
