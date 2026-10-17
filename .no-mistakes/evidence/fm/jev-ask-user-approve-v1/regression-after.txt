@@ -1,0 +1,14 @@
+ok - fm-jev-ask-user: id-line and TOON subset snapshots with no-op context approve an inconclusive test gate
+
+--- Last emitted CLI output ---
+ACT nm-01M4TEST0000000000000000AB-test: Jev decided approve T2 (T2=approve-followup@0.9)
+Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-01M4TEST0000000000000000AB-test, step test, round 1; T2=approve-followup@0.9). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.
+
+--- Offered choice keys ---
+[
+  "approve-followup",
+  "destructive-or-security",
+  "expands-contract",
+  "in-scope-fix",
+  "unsettled-call"
+]

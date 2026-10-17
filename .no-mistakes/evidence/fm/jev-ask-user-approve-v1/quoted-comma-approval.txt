@@ -1,0 +1,65 @@
+Quoted-comma TOON authority regression (real TypeSafe Jev and real fm-send)
+
+
+Only T2 was asked. T1 is auto-fix, so whole-gate approval must not be offered.
+
+
+Input snapshot:
+gate:
+  step: test
+  findings[2]{id,severity,file,action,description}:
+    T1,warning,"src/a,no-op,b.sh",auto-fix,"The parser drops the final field. Correct this bug to preserve every field as required."
+    T2,warning,"",ask-user,"live validation verdict: inconclusive; untested: Parse a live upstream feed ending without a newline. The upstream feed cannot be reached inside this gate by design; acceptance outside the gate is recorded. No code defect was found."
+
+
+CLI command:
+FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1
+
+Observed CLI result:
+ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)
+Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.
+
+Persisted decision:
+[
+  {
+    "ts": "2026-10-17T11:57:34Z",
+    "purpose": "ask-user-gate",
+    "task": "t1",
+    "key": "nm-liveprobe-test",
+    "round": 1,
+    "findings": [
+      "T2"
+    ],
+    "outcome": "act",
+    "code": "decided",
+    "jev_called": true,
+    "answers": [
+      {
+        "id": "T2",
+        "choice": "approve-followup",
+        "confidence": 1,
+        "meets_floor": true,
+        "valid": true
+      }
+    ],
+    "route": "typesafe",
+    "model": "jev-1.13.0",
+    "response_model": "jev-1.13.0",
+    "http": "200",
+    "latency_ms": 519,
+    "sent": true
+  }
+]
+
+Persisted status:
+needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/quoted-comma-actionable-context/data/t1/findings.txt
+resolved [key=nm-liveprobe-test] [at=1792238254]: answered: Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, [truncated]
+
+
+Durable inbox message:
+schema=fm-task-inbox.v1
+at=2026-10-17T11:57:34Z
+--
+Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.
+
+Scope: delivery is real inbox enqueue and decision closure. The isolated Herdr pane was a shell with no active agent; no worker executed the generated response, no pipeline was controlled, and no PR was created. The named lab was torn down successfully.

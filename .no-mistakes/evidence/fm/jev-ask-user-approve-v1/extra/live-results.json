@@ -1,0 +1,206 @@
+[
+  {
+    "name": "mixed-fix-and-approve",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVE-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (T1=in-scope-fix@1 T2=approve-followup@1)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T12:09:27Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVE-test",
+        "round": 1,
+        "findings": [
+          "T1",
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T1",
+            "choice": "in-scope-fix",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          },
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 260,
+        "sent": null
+      }
+    ],
+    "inbox": [],
+    "status": "needs-decision [key=nm-LIVE-test]: ask-user findings=T1,T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.test-phase-tmp/jev-home-yglpikgd/data/t1/findings.txt\n",
+    "expected": "Escalate a real Jev split between in-scope-fix T1 and approve-followup T2"
+  },
+  {
+    "name": "typed-security-screen",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVE-test jev-security: the security screen was uncertain or identified a security-sensitive, destructive, or irreversible finding\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T12:09:28Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVE-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-security",
+        "jev_called": true,
+        "answers": [],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 247,
+        "sent": null
+      }
+    ],
+    "inbox": [],
+    "status": "needs-decision [key=nm-LIVE-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.test-phase-tmp/jev-home-fkgh13c3/data/t1/findings.txt\n",
+    "expected": "Separate Jev risk screen must override approval"
+  },
+  {
+    "name": "expansion-class",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVE-review jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (T2=expands-contract@1)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T12:09:29Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVE-review",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "expands-contract",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 388,
+        "sent": null
+      }
+    ],
+    "inbox": [],
+    "status": "needs-decision [key=nm-LIVE-review]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.test-phase-tmp/jev-home-fzbu9gyp/data/t1/findings.txt\n",
+    "expected": "Escalate new architecture beyond the accepted parser fix"
+  },
+  {
+    "name": "phone-sibling-2026-10-111-12",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVE-test privacy: the contract or findings carry a secret-shaped value; nothing was sent\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T12:09:29Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVE-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "privacy",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox": [],
+    "status": "needs-decision [key=nm-LIVE-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.test-phase-tmp/jev-home-cv2_8i44/data/t1/findings.txt\n",
+    "expected": "Privacy escalation before Jev; date exception must not allow this phone-shaped sibling"
+  },
+  {
+    "name": "phone-sibling-2026-101-11-12",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVE-test privacy: the contract or findings carry a secret-shaped value; nothing was sent\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T12:09:30Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVE-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "privacy",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox": [],
+    "status": "needs-decision [key=nm-LIVE-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.test-phase-tmp/jev-home-6sdf037n/data/t1/findings.txt\n",
+    "expected": "Privacy escalation before Jev; date exception must not allow this phone-shaped sibling"
+  },
+  {
+    "name": "phone-sibling-+2026-10-11-12",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVE-test privacy: the contract or findings carry a secret-shaped value; nothing was sent\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T12:09:30Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVE-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "privacy",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox": [],
+    "status": "needs-decision [key=nm-LIVE-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.test-phase-tmp/jev-home-_vd9mxv8/data/t1/findings.txt\n",
+    "expected": "Privacy escalation before Jev; date exception must not allow this phone-shaped sibling"
+  }
+]

@@ -1,0 +1,106 @@
+[
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "provision",
+      "fm-lab-jev-delivery-70989-6742"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "run",
+      "fm-lab-jev-delivery-70989-6742",
+      "workspace",
+      "create",
+      "--cwd",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH",
+      "--label",
+      "jev-approval-evidence",
+      "--no-focus"
+    ],
+    "exit": 0,
+    "output": "{\"id\":\"cli:workspace:create\",\"result\":{\"root_pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"focused\":true,\"foreground_cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"pane_id\":\"w1:p1\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":40},\"tab_id\":\"w1:t1\",\"terminal_id\":\"term_65e07f6b9f3ff1\",\"workspace_id\":\"w1\"},\"tab\":{\"agent_status\":\"unknown\",\"focused\":true,\"label\":\"1\",\"number\":1,\"pane_count\":1,\"tab_id\":\"w1:t1\",\"workspace_id\":\"w1\"},\"type\":\"workspace_created\",\"workspace\":{\"active_tab_id\":\"w1:t1\",\"agent_status\":\"unknown\",\"focused\":true,\"label\":\"jev-approval-evidence\",\"number\":1,\"pane_count\":1,\"tab_count\":1,\"workspace_id\":\"w1\"}}}\n"
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "run",
+      "fm-lab-jev-delivery-70989-6742",
+      "tab",
+      "create",
+      "--workspace",
+      "w1",
+      "--cwd",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH",
+      "--label",
+      "fm-t1",
+      "--no-focus"
+    ],
+    "exit": 0,
+    "output": "{\"id\":\"cli:tab:create\",\"result\":{\"root_pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"focused\":false,\"foreground_cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"pane_id\":\"w1:p2\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":40},\"tab_id\":\"w1:t2\",\"terminal_id\":\"term_65e07f6ba635b2\",\"workspace_id\":\"w1\"},\"tab\":{\"agent_status\":\"unknown\",\"focused\":false,\"label\":\"fm-t1\",\"number\":2,\"pane_count\":1,\"tab_id\":\"w1:t2\",\"workspace_id\":\"w1\"},\"type\":\"tab_created\"}}\n"
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "teardown",
+      "fm-lab-jev-delivery-70989-6742"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "provision",
+      "fm-lab-jev-delivery-64311-15089"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "run",
+      "fm-lab-jev-delivery-64311-15089",
+      "workspace",
+      "create",
+      "--cwd",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH",
+      "--label",
+      "jev-approval-evidence",
+      "--no-focus"
+    ],
+    "exit": 0,
+    "output": "{\"id\":\"cli:workspace:create\",\"result\":{\"root_pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"focused\":true,\"foreground_cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"pane_id\":\"w1:p1\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":40},\"tab_id\":\"w1:t1\",\"terminal_id\":\"term_65e07fc69e6571\",\"workspace_id\":\"w1\"},\"tab\":{\"agent_status\":\"unknown\",\"focused\":true,\"label\":\"1\",\"number\":1,\"pane_count\":1,\"tab_id\":\"w1:t1\",\"workspace_id\":\"w1\"},\"type\":\"workspace_created\",\"workspace\":{\"active_tab_id\":\"w1:t1\",\"agent_status\":\"unknown\",\"focused\":true,\"label\":\"jev-approval-evidence\",\"number\":1,\"pane_count\":1,\"tab_count\":1,\"workspace_id\":\"w1\"}}}\n"
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "run",
+      "fm-lab-jev-delivery-64311-15089",
+      "tab",
+      "create",
+      "--workspace",
+      "w1",
+      "--cwd",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH",
+      "--label",
+      "fm-t1",
+      "--no-focus"
+    ],
+    "exit": 0,
+    "output": "{\"id\":\"cli:tab:create\",\"result\":{\"root_pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"focused\":false,\"foreground_cwd\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH\",\"pane_id\":\"w1:p2\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":40},\"tab_id\":\"w1:t2\",\"terminal_id\":\"term_65e07fc6a56552\",\"workspace_id\":\"w1\"},\"tab\":{\"agent_status\":\"unknown\",\"focused\":false,\"label\":\"fm-t1\",\"number\":2,\"pane_count\":1,\"tab_id\":\"w1:t2\",\"workspace_id\":\"w1\"},\"type\":\"tab_created\"}}\n"
+  },
+  {
+    "command": [
+      "bin/fm-herdr-lab.sh",
+      "teardown",
+      "fm-lab-jev-delivery-64311-15089"
+    ],
+    "exit": 0,
+    "output": ""
+  }
+]

@@ -1,0 +1,715 @@
+[
+  {
+    "scenario": "missing-id",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 1,
+    "output": "fm-jev-ask-user: the snapshot's ids do not match findings=T2,T9 (it does not list: T9)\n",
+    "decision_log": [],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "duplicate-asked-id",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 1,
+    "output": "fm-jev-ask-user: finding ids repeat in nm-liveprobe-test\n",
+    "decision_log": [],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "duplicate-snapshot-id",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 1,
+    "output": "fm-jev-ask-user: the snapshot repeats a finding id\n",
+    "decision_log": [],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "round-cap",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 4",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test round-cap: review round 4 is past the round-3 cap; the captain decides\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:00Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 4,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "round-cap",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "credential-concern",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test always-escalate: a finding names a security, credential, destructive, irreversible, or data-loss concern\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:00Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "always-escalate",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "wiki-project",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test kept-out: the project is a wiki vault, whose content never goes to Jev\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:00Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "kept-out",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "private-contact",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test privacy: the contract or findings carry a secret-shaped value; nothing was sent\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:01Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "privacy",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox_records": 1
+  },
+  {
+    "scenario": "phone-sibling",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test privacy: the contract or findings carry a secret-shaped value; nothing was sent\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:01Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "privacy",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null
+      }
+    ],
+    "inbox_records": 1
+  },
+  {
+    "scenario": "routine-fix",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-review --round 1",
+    "exit": 1,
+    "output": "ACT nm-liveprobe-review: Jev decided fix T2 (T2=in-scope-fix@1)\nJev decided this gate under ask-user-authority: fix findings T2 as the gate proposes (gate nm-liveprobe-review, step review, round 1; T2=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings T2 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/routine-fix\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nerror: no backend target recorded in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/routine-fix/state/t1.meta (tried meta=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/routine-fix/state/t1.meta; backend=from-meta)\nfm-jev-ask-user: Jev decided, but the answer did not reach the worker; resend the message above with fm-send --resolve-key nm-liveprobe-review\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:03Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-review",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "send-failed",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "in-scope-fix",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 247,
+        "sent": false
+      }
+    ],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "approve-noop-lines",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 1,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-noop-lines\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nerror: no backend target recorded in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-noop-lines/state/t1.meta (tried meta=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-noop-lines/state/t1.meta; backend=from-meta)\nfm-jev-ask-user: Jev decided, but the answer did not reach the worker; resend the message above with fm-send --resolve-key nm-liveprobe-test\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:04Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "send-failed",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 262,
+        "sent": false
+      }
+    ],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "approve-noop-toon",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 1,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-noop-toon\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nerror: no backend target recorded in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-noop-toon/state/t1.meta (tried meta=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-noop-toon/state/t1.meta; backend=from-meta)\nfm-jev-ask-user: Jev decided, but the answer did not reach the worker; resend the message above with fm-send --resolve-key nm-liveprobe-test\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:54:06Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "send-failed",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 267,
+        "sent": false
+      }
+    ],
+    "inbox_records": 0
+  },
+  {
+    "scenario": "routine-fix-delivery",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-review --round 1",
+    "exit": 0,
+    "output": "ACT nm-liveprobe-review: Jev decided fix T2 (T2=in-scope-fix@1)\nJev decided this gate under ask-user-authority: fix findings T2 as the gate proposes (gate nm-liveprobe-review, step review, round 1; T2=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings T2 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/routine-fix-delivery\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-delivery-46175-32464:w1:p2 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/routine-fix-delivery/state/t1.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:55:35Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-review",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "in-scope-fix",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 721,
+        "sent": true
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-review]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/routine-fix-delivery/data/t1/findings.txt\nresolved [key=nm-liveprobe-review] [at=1792238135]: answered: Jev decided this gate under ask-user-authority: fix findings T2 as the gate proposes (gate nm-liveprobe-review, step review, round 1; T2=in-scope- [truncated]\n",
+    "inbox_records": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:55:34Z\n--\nJev decided this gate under ask-user-authority: fix findings T2 as the gate proposes (gate nm-liveprobe-review, step review, round 1; T2=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings T2 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ]
+  },
+  {
+    "scenario": "approve-lines-delivery",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 0,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-lines-delivery\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-delivery-46175-32464:w1:p2 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-lines-delivery/state/t1.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:55:39Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 364,
+        "sent": true
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-lines-delivery/data/t1/findings.txt\nresolved [key=nm-liveprobe-test] [at=1792238138]: answered: Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, [truncated]\n",
+    "inbox_records": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:55:38Z\n--\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome."
+    ]
+  },
+  {
+    "scenario": "approve-toon-delivery",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 0,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-toon-delivery\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-delivery-46175-32464:w1:p2 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-toon-delivery/state/t1.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:55:42Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 360,
+        "sent": true
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/approve-toon-delivery/data/t1/findings.txt\nresolved [key=nm-liveprobe-test] [at=1792238141]: answered: Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, [truncated]\n",
+    "inbox_records": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:55:41Z\n--\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome."
+    ]
+  },
+  {
+    "scenario": "date-range-context",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 0,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/date-range-context\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-delivery-46175-32464:w1:p2 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/date-range-context/state/t1.inbox/002.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:55:45Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 300,
+        "sent": true
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/date-range-context/data/t1/findings.txt\nresolved [key=nm-liveprobe-test] [at=1792238144]: answered: Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, [truncated]\n",
+    "inbox_records": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:55:44Z\n--\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.",
+      "schema=fm-task-inbox.v1\nat=2026-10-11T20:00:00Z\n--\nReplay on 2026-10-11/12.\n"
+    ]
+  },
+  {
+    "scenario": "date-range-context",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 0,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/date-range-context\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-delivery-70989-6742:w1:p2 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/date-range-context/state/t1.inbox/002.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:55:59Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 311,
+        "sent": true
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/date-range-context/data/t1/findings.txt\nresolved [key=nm-liveprobe-test] [at=1792238158]: answered: Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, [truncated]\n",
+    "inbox_records": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:55:58Z\n--\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.",
+      "schema=fm-task-inbox.v1\nat=2026-10-11T20:00:00Z\n--\nReplay on 2026-10-11/12.\n"
+    ]
+  },
+  {
+    "scenario": "non-test-refuses-approval",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-review --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-review jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (T2=unsettled-call@0.51)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:55:59Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-review",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "unsettled-call",
+            "confidence": 0.51,
+            "meets_floor": false,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 252,
+        "sent": null
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-review]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/non-test-refuses-approval/data/t1/findings.txt\n",
+    "inbox_records": []
+  },
+  {
+    "scenario": "unjudged-actionable-context",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (T2=unsettled-call@0.6)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:56:00Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "unsettled-call",
+            "confidence": 0.6,
+            "meets_floor": false,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 254,
+        "sent": null
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/unjudged-actionable-context/data/t1/findings.txt\n",
+    "inbox_records": []
+  },
+  {
+    "scenario": "unjudged-unknown-context",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (T2=unsettled-call@0.57)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:56:01Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "unsettled-call",
+            "confidence": 0.57,
+            "meets_floor": false,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 614,
+        "sent": null
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/unjudged-unknown-context/data/t1/findings.txt\n",
+    "inbox_records": []
+  },
+  {
+    "scenario": "mixed-real-model",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (T1=in-scope-fix@1 T2=approve-followup@1)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:56:28Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T1",
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T1",
+            "choice": "in-scope-fix",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          },
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 241,
+        "sent": null
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T1,T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/mixed-real-model/data/t1/findings.txt\n",
+    "inbox_records": []
+  },
+  {
+    "scenario": "real-security-screen",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 2,
+    "output": "ESCALATE nm-liveprobe-test jev-security: the security screen was uncertain or identified a security-sensitive, destructive, or irreversible finding\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:56:29Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "escalate",
+        "code": "jev-security",
+        "jev_called": true,
+        "answers": [],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 288,
+        "sent": null
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/real-security-screen/data/t1/findings.txt\n",
+    "inbox_records": []
+  },
+  {
+    "scenario": "quoted-comma-actionable-context",
+    "snapshot": "gate:\n  step: test\n  findings[2]{id,severity,file,action,description}:\n    T1,warning,\"src/a,no-op,b.sh\",auto-fix,\"The parser drops the final field. Correct this bug to preserve every field as required.\"\n    T2,warning,\"\",ask-user,\"live validation verdict: inconclusive; untested: Parse a live upstream feed ending without a newline. The upstream feed cannot be reached inside this gate by design; acceptance outside the gate is recorded. No code defect was found.\"\n",
+    "command": "FM_HOME=<disposable-lab> bin/fm-jev-ask-user.sh t1 nm-liveprobe-test --round 1",
+    "exit": 0,
+    "output": "ACT nm-liveprobe-test: Jev decided approve T2 (T2=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/quoted-comma-actionable-context\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-delivery-64311-15089:w1:p2 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/quoted-comma-actionable-context/state/t1.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-17T11:57:34Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-liveprobe-test",
+        "round": 1,
+        "findings": [
+          "T2"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "T2",
+            "choice": "approve-followup",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 519,
+        "sent": true
+      }
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-liveprobe-test]: ask-user findings=T2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54V5P0VHQHH9M1VDX216GQH/.validation-tmp/quoted-comma-actionable-context/data/t1/findings.txt\nresolved [key=nm-liveprobe-test] [at=1792238254]: answered: Jev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, [truncated]\n",
+    "inbox_records": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:57:34Z\n--\nJev decided this gate under ask-user-authority: approve findings T2 and record the unchecked scenarios as a follow-up check (gate nm-liveprobe-test, step test, round 1; T2=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome."
+    ]
+  }
+]

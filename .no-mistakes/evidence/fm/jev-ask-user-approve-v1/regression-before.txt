@@ -1,0 +1,12 @@
+not ok - a lines snapshot with no-op context passes intake and acts on approval (expected '2', got '0')
+
+--- Last emitted CLI output ---
+ESCALATE nm-01M4TEST0000000000000000AB-test jev-error: the Jev answer was malformed or split (T2=approve-followup@0.9)
+
+--- Offered choice keys ---
+[
+  "destructive-or-security",
+  "expands-contract",
+  "in-scope-fix",
+  "unsettled-call"
+]
