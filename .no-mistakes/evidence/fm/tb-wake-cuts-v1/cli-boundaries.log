@@ -1,0 +1,86 @@
+Candidate: 7a74bff83386d4f5d37756a595808b2312e67edd
+BASELINE worker startup continuation (actual base scripts, isolated home):
+  exit=0; stdout='\u2063FIRSTMATE_OP: v1 session-start: Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.'; stderr=''
+CURRENT supervisor continuation (positive control; same home shape and process):
+  exit=0; stdout='\u2063FIRSTMATE_OP: v1 session-start: Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.'; stderr=''
+CURRENT explicit worker identity: exit=0; stdout_bytes=0; stderr_bytes=0; home_state_before=[]; home_state_after=[]
+CURRENT worker cwd with primary-installed runner: exit=0; stdout_bytes=0; stderr_bytes=0; home_state_before=[]; home_state_after=[]
+CURRENT plain-clone Treehouse slot: exit=0; stdout_bytes=0; stderr_bytes=0; home_state_before=[]; home_state_after=[]
+CURRENT worker cwd in compact hook payload: exit=0; stdout_bytes=0; stderr_bytes=0; home_state_before=[]; home_state_after=[]
+CURRENT worker identity with copied secondmate marker: exit=0; stdout_bytes=0; state_entries=[]
+CURRENT genuine marked slot supervisor: exit=0; stdout='\u2063FIRSTMATE_OP: v1 session-start: Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.'
+Real producer wake queue: 1792237444	1	check	execution:measurement	check: execution measurement
+ROUTING 'check: unfinished-execution': exit=0
+eligible=1
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+ROUTING 'check: rearm-resurface': exit=0
+eligible=1
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+ROUTING 'check: credential required': exit=0
+eligible=0
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+ROUTING 'check: unfinished-execution failed': exit=0
+eligible=0
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+ROUTING 'check: rearm-resurface-extra': exit=0
+eligible=0
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+ROUTING 'check: unfinished-execution': exit=0
+eligible=0
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+ROUTING 'check: rearm-resurface': exit=0
+eligible=0
+status=safe
+corrupted=0
+rows=1
+tasks=
+unscoped=1
+Credential check stays queued: 1792237444	1	check	execution:measurement	check: execution measurement
+1792237444	2	check	auth	check: credential required
+ROUTING 'check: unfinished-execution': exit=0
+eligible=1
+status=empty
+corrupted=0
+rows=
+tasks=
+unscoped=0
+ROUTING 'check: rearm-resurface': exit=0
+eligible=1
+status=empty
+corrupted=0
+rows=
+tasks=
+unscoped=0
+ROUTING 'check: unfinished-execution': exit=0
+eligible=0
+status=unsafe
+corrupted=1
+rows=
+tasks=
+unscoped=0
+No model, fake harness, default session, or production home was used; model classification and primary delivery remain untested.
+Removed isolated CLI homes and baseline copies.

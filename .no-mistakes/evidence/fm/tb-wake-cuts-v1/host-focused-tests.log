@@ -1,0 +1,5 @@
+ok - dispatch: only residual checks reach the engine; decisions, real signals/stale and broken queues stay on main
+ok - host: healthy informational completion waits for a real drain; a mixed failure turn wakes main immediately
+ok - host: an attended captain outcome wakes main once and stays in its drain until main acknowledges it
+ok - host: an attended decision close stays main's exactly as the plain arm delivers it
+ok - host: an outcome lookup failure forces a visible main handoff
