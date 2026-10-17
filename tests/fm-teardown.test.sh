@@ -854,6 +854,20 @@ PY
   pass 'model ledger skips unparsable prior lines'
 }
 
+test_model_ledger_missing_meta_is_not_fatal() {
+  local case_dir
+  case_dir=$(make_case model-ledger-no-meta)
+  printf 'done: ok\n' > "$case_dir/state/task-x1.status"
+  python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 || fail 'missing meta must not fail the recorder'
+  [ ! -s "$case_dir/data/model-ledger.jsonl" ] || fail 'missing meta must not write a ledger row'
+  mkdir "$case_dir/data/model-ledger.jsonl" 2>/dev/null || true
+  write_meta "$case_dir" local-only ship
+  if python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 2>/dev/null; then
+    fail 'genuine write errors must still fail'
+  fi
+  pass 'model ledger ignores missing meta but keeps write errors fatal'
+}
+
 test_local_only_fork_remote_allows() {
   local case_dir rc
   case_dir=$(make_case fork-allow)
@@ -5675,6 +5689,7 @@ if [ "${1:-}" = --model-ledger ]; then
   test_model_ledger_failure_retains_records
   test_model_ledger_populates_counts_at_teardown
   test_model_ledger_skips_corrupt_prior_line
+  test_model_ledger_missing_meta_is_not_fatal
   exit 0
 fi
 
@@ -5694,6 +5709,7 @@ test_local_only_fork_remote_allows
 test_model_ledger_failure_retains_records
 test_model_ledger_populates_counts_at_teardown
 test_model_ledger_skips_corrupt_prior_line
+test_model_ledger_missing_meta_is_not_fatal
 test_teardown_retires_watcher_state
 test_teardown_closes_the_backlog_item_itself
 test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note

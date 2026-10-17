@@ -96,7 +96,11 @@ def pipeline_review_rounds(worktree):
 
 def record(state, data, task):
     meta = {}
-    for line in (state / (task + ".meta")).read_text().splitlines():
+    try:
+        meta_text = (state / (task + ".meta")).read_text()
+    except FileNotFoundError:
+        return
+    for line in meta_text.splitlines():
         key, sep, value = line.partition("=")
         if sep:
             meta[key] = value
