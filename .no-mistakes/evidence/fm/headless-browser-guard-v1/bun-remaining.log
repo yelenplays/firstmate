@@ -1,0 +1,2 @@
+{"runtime":"bun","version":"v24.3.0","bunVersion":"1.3.14","playwright":"1.64.1","puppeteer":"25.14.0"}
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)

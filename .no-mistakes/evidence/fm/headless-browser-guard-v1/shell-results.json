@@ -1,0 +1,136 @@
+[
+  {
+    "name": "open HTTPS URL refuses",
+    "command": [
+      "open",
+      "https://example.invalid/browser-guard"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open https://example.invalid/browser-guard; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "clustered app launch refuses",
+    "command": [
+      "open",
+      "-gna",
+      "Google Chrome",
+      "--args",
+      "--remote-debugging-port=0"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open -a \"Google Chrome\"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "browser bundle launch refuses",
+    "command": [
+      "open",
+      "-b",
+      "org.mozilla.firefox"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open -b \"org.mozilla.firefox\"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "HTML default handler refuses",
+    "command": [
+      "open",
+      "browser-guard-report.html"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open browser-guard-report.html; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "non-browser app cannot bypass URL refusal",
+    "command": [
+      "open",
+      "-a",
+      "TextEdit",
+      "https://example.invalid/browser-guard"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for open -a \"TextEdit\" https://example.invalid/browser-guard; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "AppleScript explicit browser refuses",
+    "command": [
+      "osascript",
+      "-e",
+      "tell application \"Google Chrome\" to activate"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for osascript -e tell application \"Google Chrome\" to activate; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "AppleScript bundle id refuses",
+    "command": [
+      "osascript",
+      "-e",
+      "tell application id \"com.google.Chrome\" to activate"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for osascript -e tell application id \"com.google.Chrome\" to activate; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "JXA browser refuses",
+    "command": [
+      "osascript",
+      "-l",
+      "JavaScript",
+      "-e",
+      "Application('Google Chrome').activate()"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for osascript -l JavaScript -e Application('Google Chrome').activate(); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "AppleScript stdin with language option refuses",
+    "command": [
+      "osascript",
+      "-l",
+      "AppleScript"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "safe AppleScript still executes",
+    "command": [
+      "osascript",
+      "-e",
+      "return 6 * 7"
+    ],
+    "exit": 0,
+    "stdout": "42\n",
+    "stderr": ""
+  },
+  {
+    "name": "Python webbrowser refuses without fallback",
+    "command": [
+      "python3",
+      "-c",
+      "import webbrowser; print(\"open_return=\" + str(webbrowser.open(\"https://example.invalid/browser-guard\")))"
+    ],
+    "exit": 0,
+    "stdout": "open_return=True\n",
+    "stderr": "fm-browser-guard: refused a visible browser window for BROWSER https://example.invalid/browser-guard; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)\n"
+  },
+  {
+    "name": "ordinary open flags still reach system consumer",
+    "command": [
+      "open",
+      "-h"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "Warning: Xcode platforms folder not found at \"/Library/Developer/CommandLineTools\". You may have invalid DEVELOPER_DIR or stale xcode-select setting.\nUsage: open [-e] [-t] [-f] [-W] [-R] [-n] [-g] [-h] [-s <partial SDK name>][-b <bundle identifier>] [-a <application>] [-u URL] [filenames] [--args arguments]\nHelp: Open opens files from a shell.\n      By default, opens each file using the default application for that file.  \n      If the file is in the form of a URL, the file will be opened as a URL.\nOptions: \n      -a                    Opens with the specified application.\n      --arch ARCH           Open with the given cpu architecture type and subtype.\n      -b                    Opens with the specified application bundle identifier.\n      -e                    Opens with TextEdit.\n      -t                    Opens with default text editor.\n      -f                    Reads input from standard input and opens with TextEdit.\n      -F  --fresh           Launches the app fresh, that is, without restoring windows. Saved persistent state is lost, excluding Untitled documents.\n      -R, --reveal          Selects in the Finder instead of opening.\n      -W, --wait-apps       Blocks until the used applications are closed (even if they were already running).\n          --args            All remaining arguments are passed in argv to the application's main() function instead of opened.\n      -n, --new             Open a new instance of the application even if one is already running.\n      -j, --hide            Launches the app hidden.\n      -g, --background      Does not bring the application to the foreground.\n      -h, --header          Searches header file locations for headers matching the given filenames, and opens them.\n      -s                    For -h, the SDK to use; if supplied, only SDKs whose names contain the argument value are searched.\n                            Otherwise the highest versioned SDK in each platform is used.\n      -u, --url URL         Open this URL, even if it matches exactly a filepath\n      -i, --stdin  PATH     Launches the application with stdin connected to PATH; defaults to /dev/null\n      -o, --stdout PATH     Launches the application with /dev/stdout connected to PATH; \n          --stderr PATH     Launches the application with /dev/stderr connected to PATH to\n          --env    VAR      Add an enviroment variable to the launched process, where VAR is formatted AAA=foo or just AAA for a null string value.\n"
+  }
+]
