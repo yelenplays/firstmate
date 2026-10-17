@@ -5,7 +5,7 @@
 # fake tmux pane and a real isolated git worktree. The fake tmux captures the
 # literal launch command sent with `tmux send-keys -l`, so assertions pin the
 # command firstmate would run without starting any real harness.
-# --opus-effort runs only the Opus cap and neighboring profile regressions
+# --opus-effort runs only the Opus/home caps and neighboring profile regressions
 # without running unrelated environment-inheritance checks. --opus-raw-effort
 # exercises the raw-command boundary and neighboring raw-launch regressions.
 set -u
@@ -2439,8 +2439,10 @@ test_private_guard_refuses_a_private_registered_secondmate_home() {
 # resolver caps a concrete crewmate launch: --effort beyond it refuses before
 # metadata or launch, an effort inside launches, and --captain-override rides
 # past the gate after naming the policy on stderr.
-cap_config_write_claude_opus_medium() {
-  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
+# A low home cap keeps its refusal and override cases distinct from the
+# model-wide Opus ceiling, which clamps unnamed high-effort requests to medium.
+cap_config_write_claude_opus_low() {
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"low"}}],"default":null}' \
     > "$HOME_DIR/config/crew-dispatch.json"
 }
 
@@ -2449,12 +2451,13 @@ test_effort_cap_refuses_launch_above_the_home_cap() {
   id=effortcap-high-refused-z30
   rec=$(make_spawn_case effortcap-high-refused claude "$id")
   read_case_record "$rec"
-  cap_config_write_claude_opus_medium
+  cap_config_write_claude_opus_low
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
     --harness claude --model claude-opus-5-5 --effort high 2>&1)
   status=$?
   expect_code 1 "$status" "an effort beyond the envelope should refuse the launch"
-  assert_contains "$out" "exceeds the home's effort cap (medium)" "the refusal names the cap and level"
+  assert_contains "$out" "clamped to medium" "the model ceiling applies before the home cap"
+  assert_contains "$out" "exceeds the home's effort cap (low)" "the refusal names the cap and level"
   assert_absent "$HOME_DIR/state/$id.meta" "the refusal left no task metadata"
   [ ! -s "$LAUNCH_LOG" ] || fail "the refusal left a delivered launch command"
   pass "a launch above a model's effort envelope refuses before metadata"
@@ -2462,15 +2465,15 @@ test_effort_cap_refuses_launch_above_the_home_cap() {
 
 test_effort_cap_allows_launch_inside_the_envelope() {
   local rec id out status launch
-  id=effortcap-medium-ok-z31
-  rec=$(make_spawn_case effortcap-medium-ok claude "$id")
+  id=effortcap-low-ok-z31
+  rec=$(make_spawn_case effortcap-low-ok claude "$id")
   read_case_record "$rec"
-  cap_config_write_claude_opus_medium
+  cap_config_write_claude_opus_low
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
-    --harness claude --model claude-opus-5-5 --effort medium)
+    --harness claude --model claude-opus-5-5 --effort low)
   status=$?
   expect_code 0 "$status" "an effort inside the envelope should launch: $out"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 low
   [ -s "$LAUNCH_LOG" ] || fail "the in-envelope effort produced no launch command"
   pass "a launch inside the model's effort envelope proceeds normally"
 }
@@ -2480,14 +2483,14 @@ test_effort_cap_captain_override_launches_with_a_named_line() {
   id=effortcap-override-z32
   rec=$(make_spawn_case effortcap-override claude "$id")
   read_case_record "$rec"
-  cap_config_write_claude_opus_medium
+  cap_config_write_claude_opus_low
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
-    --harness claude --model claude-opus-5-5 --effort high \
+    --harness claude --model claude-opus-5-5 --effort medium \
     --captain-override 'fixture override wording' 2>&1)
   status=$?
   expect_code 0 "$status" "an explicit captain override should launch past the cap: $out"
   assert_contains "$out" "effort-cap override" "the override named its policy move"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 high
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
   pass "a captain override launches past the cap after naming the policy on stderr"
 }
 
@@ -2496,7 +2499,7 @@ test_effort_cap_skips_harnesses_without_an_effort_knob() {
   id=effortcap-opencode-z33
   rec=$(make_spawn_case effortcap-opencode opencode "$id")
   read_case_record "$rec"
-  cap_config_write_claude_opus_medium
+  cap_config_write_claude_opus_low
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
     --harness opencode --model anthropic/claude-sonnet-4-5 --effort max)
   status=$?
@@ -2529,13 +2532,13 @@ test_effort_cap_matches_claude_model_name_variants() {
   id=effortcap-dated-refused-z35
   rec=$(make_spawn_case effortcap-dated claude "$id")
   read_case_record "$rec"
-  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5-20260101","effort":"medium"}}],"default":null}' \
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5-20260101","effort":"low"}}],"default":null}' \
     > "$HOME_DIR/config/crew-dispatch.json"
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
-    --harness claude --model claude-opus-5-5 --effort high 2>&1)
+    --harness claude --model claude-opus-5-5 --effort medium 2>&1)
   status=$?
   expect_code 1 "$status" "a dated-variant declaration should gate the plain Opus launch"
-  assert_contains "$out" "exceeds the home's effort cap (medium)" "the variant refusal names the cap and level"
+  assert_contains "$out" "exceeds the home's effort cap (low)" "the variant refusal names the cap and level"
   assert_absent "$HOME_DIR/state/$id.meta" "the variant refusal left no task metadata"
   pass "a dated model-name declaration gates the plain Opus launch"
 
@@ -2556,13 +2559,14 @@ test_effort_cap_matches_claude_model_name_variants() {
   id=effortcap-other-gen-z37
   rec=$(make_spawn_case effortcap-other-gen claude "$id")
   read_case_record "$rec"
-  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-6-1","effort":"medium"}}],"default":null}' \
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-6-1","effort":"low"}}],"default":null}' \
     > "$HOME_DIR/config/crew-dispatch.json"
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
     --harness claude --model claude-opus-5-5 --effort high)
   status=$?
   expect_code 0 "$status" "an unrelated generation should not gate this launch: $out"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 high
+  assert_contains "$out" "clamped to medium" "the model ceiling still applies without a matching home cap"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
   pass "an unrelated generation's declaration never gates another model"
   pass "the effort cap matches the model's own name variants"
 }
@@ -3220,6 +3224,13 @@ if [ "${1:-}" = --opus-effort ]; then
   test_claude_threads_model_and_effort
   test_captain_override_records_and_launches_explicit_profile
   test_opus_effort_cap_and_named_override
+  test_effort_cap_refuses_launch_above_the_home_cap
+  test_effort_cap_allows_launch_inside_the_envelope
+  test_effort_cap_captain_override_launches_with_a_named_line
+  test_effort_cap_skips_harnesses_without_an_effort_knob
+  test_effort_cap_unreadable_config_refuses
+  test_effort_cap_matches_claude_model_name_variants
+  test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default
   exit 0
 fi
 
