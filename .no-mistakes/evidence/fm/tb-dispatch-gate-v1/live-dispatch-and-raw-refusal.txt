@@ -1,0 +1,28 @@
+candidate=38c9cbbf016aa052d632208eb9cd657a4d727d7b
+Public CLI checks; no fake responses or harnesses.
+quota-axi wrapper only adds --provider claude --no-credential-refresh; normal login is read, not changed.
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/fm-lab.oer_2rvg
+exit=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/fm-lab.oer_2rvg
+
+
+$ bin/fm-spawn.sh raw-opus-0 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1 claude --model claude-opus-5-5 --effort high --mode local-only --yolo off
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/fm-lab.oer_2rvg
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+$ bin/fm-spawn.sh raw-opus-1 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1 claude --model="claude-opus-5-5[1m]" --effort=xhigh --mode local-only --yolo off
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/fm-lab.oer_2rvg
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+$ bin/fm-spawn.sh raw-opus-2 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1 env WORKER=1 claude --model anthropic/claude-opus-5-5 --effort max --mode local-only --yolo off
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/fm-lab.oer_2rvg
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Assertions: all three raw Opus launches refused before task publication. Account-aware live dispatch was blocked by the quota reader requiring Keychain access.
+Disposable home and safety wrapper removed; no real worker was launched.

@@ -1,0 +1,36 @@
+candidate=38c9cbbf016aa052d632208eb9cd657a4d727d7b
+Deterministic public-CLI contract check using synthetic task records, NOT a live-worker cleanup.
+$ python3 bin/fm-model-ledger.py --state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/ledger-contract.k24e7mum/state --data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/ledger-contract.k24e7mum/data sample
+exit=0
+
+
+$ python3 bin/fm-model-ledger.py --state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/ledger-contract.k24e7mum/state --data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/ledger-contract.k24e7mum/data sample
+exit=0
+
+
+Parsed output record (private payloads excluded):
+{
+  "task": "sample",
+  "spawn_gen": "s123.1.demo",
+  "recorded_at": "2026-10-17T10:37:31Z",
+  "kind": "ship",
+  "harness": "claude",
+  "model": "claude-opus-5-5",
+  "effort": "medium",
+  "provider": "claude",
+  "pool": null,
+  "final_state": "done",
+  "needs_decision_count": 1,
+  "blocked_count": 1,
+  "redispatches": 2.0,
+  "pipeline_review_rounds": null,
+  "cross_review_verdict": "success",
+  "claude_eq_tokens": 150.0
+}
+Retry: byte-identical output; valid historical row retained; malformed/non-object rows ignored; malformed tail separated from append.
+$ python3 bin/fm-model-ledger.py --state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/ledger-contract.k24e7mum/state --data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54PCA3ESFKGWVSZFQJEGCP1/.test-local/ledger-contract.k24e7mum/data mate
+exit=0
+
+
+Secondmate input: ledger byte-identical; no task outcome added.
+Synthetic input state removed.

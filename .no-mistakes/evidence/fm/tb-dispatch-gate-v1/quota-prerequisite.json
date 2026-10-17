@@ -1,0 +1,14 @@
+{
+  "command": "XDG_CACHE_HOME=<worktree-local cache> quota-axi --provider claude --no-credential-refresh --json",
+  "exit": 1,
+  "providers": [
+    {
+      "provider": "claude",
+      "state": {
+        "status": "auth_required",
+        "stale": false,
+        "error": "keychain_prompt_required"
+      }
+    }
+  ]
+}
