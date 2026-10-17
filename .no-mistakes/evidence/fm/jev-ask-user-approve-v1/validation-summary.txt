@@ -1,0 +1,40 @@
+Live validation scope: shipped fm-jev-ask-user CLI -> real TypeSafe Jev 1.13.0 -> shipped fm-send durable inbox and decision ledger.
+No Jev response or sender was mocked. The Herdr endpoint was passive: no agent consumed or executed the generated no-mistakes commands. Inbox enqueue is the documented fm-send delivery contract.
+Two targeted behavior scripts also passed: tests/fm-jev-ask-user.test.sh and tests/fm-jev-lib.test.sh (these use stubs and are not the live evidence).
+Initial lab metadata omitted window= and correctly caused send failures. Fixed only the disposable setup and re-drove successfully. An initial confidence-floor probe returned full confidence; the final uncertain-input probe exercised below-floor escalation.
+Both disposable Herdr labs were torn down in their creation turns through bin/fm-herdr-lab.sh; its default-session tripwire passed. All temporary worktree files were removed. No source files were changed.
+No screenshots: this change exposes a CLI/inbox contract, not a rendered UI. No other validation, pipeline-control, publication, PR, or CI phase was executed.
+
+Observed end-user outcomes:
+Routine fix with extra no-op context (plain snapshot): pass
+ACT nm-JEVLIVE-review: Jev decided fix F1 (F1=in-scope-fix@0.99)
+Routine fix with extra no-op context (TOON snapshot): pass
+ACT nm-JEVLIVE-review: Jev decided fix F1 (F1=in-scope-fix@0.97)
+Inconclusive test gets approval reason and follow-up instruction: pass
+ACT nm-JEVLIVE-test: Jev decided approve F1 (F1=approve-followup@1)
+Unjudged actionable context prevents whole-gate approval: pass
+ESCALATE nm-JEVLIVE-test jev-low-confidence: Jev was below the 0.75 confidence floor (F1=in-scope-fix@0.45)
+Inconclusive no-op does not grant approval to another asked finding: pass
+ACT nm-JEVLIVE-test: Jev decided fix F1 (F1=in-scope-fix@1)
+Approval is unavailable outside the test step: pass
+ESCALATE nm-JEVLIVE-review jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=unsettled-call@0.28)
+Mixed fix and approval choices escalate: pass
+ESCALATE nm-JEVLIVE-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=in-scope-fix@1 F2=approve-followup@1)
+Uncertain judgment stays below the configured confidence floor: pass
+ESCALATE nm-JEVLIVE-test jev-low-confidence: Jev was below the 1 confidence floor (F1=in-scope-fix@0.41)
+TOON inconclusive test gets approval and follow-up instruction: pass
+ACT nm-JEVLIVE-test: Jev decided approve F1 (F1=approve-followup@1)
+Date-range context reaches real Jev unchanged: pass
+ACT nm-JEVLIVE-review: Jev decided fix F1 (F1=in-scope-fix@1)
+Phone contact stays local: pass
+ESCALATE nm-JEVLIVE-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+Destructive finding stays human-owned: pass
+ESCALATE nm-JEVLIVE-review always-escalate: a finding names a security, credential, destructive, irreversible, or data-loss concern
+Review round beyond cap stays human-owned: pass
+ESCALATE nm-JEVLIVE-review round-cap: review round 4 is past the round-3 cap; the captain decides
+Missing asked ID is rejected: pass
+fm-jev-ask-user: the snapshot's ids do not match findings=F1 (it does not list: F1)
+Duplicate snapshot IDs are rejected: pass
+fm-jev-ask-user: the snapshot repeats a finding id
+Missing Jev key escalates without sending: pass
+ESCALATE nm-JEVLIVE-review jev-unavailable: no Jev key is configured

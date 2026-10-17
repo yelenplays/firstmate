@@ -1,0 +1,528 @@
+[
+  {
+    "name": "Routine fix with extra no-op context (plain snapshot)",
+    "passed": true,
+    "exit": 0,
+    "want": "fix",
+    "audit": {
+      "ts": "2026-10-17T11:06:45Z",
+      "purpose": "ask-user-gate",
+      "task": "check1",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "act",
+      "code": "decided",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 0.99,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 289,
+      "sent": true
+    },
+    "output": "ACT nm-JEVLIVE-review: Jev decided fix F1 (F1=in-scope-fix@0.99)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@0.99). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-jev-approval-55847-16647:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/state/check1.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:06:45Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@0.99). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check1/findings.txt\nresolved [key=nm-JEVLIVE-review] [at=1792235205]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@ [truncated]\n"
+  },
+  {
+    "name": "Routine fix with extra no-op context (TOON snapshot)",
+    "passed": true,
+    "exit": 0,
+    "want": "fix",
+    "audit": {
+      "ts": "2026-10-17T11:06:47Z",
+      "purpose": "ask-user-gate",
+      "task": "check2",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "act",
+      "code": "decided",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 0.97,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 252,
+      "sent": true
+    },
+    "output": "ACT nm-JEVLIVE-review: Jev decided fix F1 (F1=in-scope-fix@0.97)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@0.97). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-jev-approval-55847-16647:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/state/check2.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:06:46Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@0.97). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check2/findings.txt\nresolved [key=nm-JEVLIVE-review] [at=1792235206]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@ [truncated]\n"
+  },
+  {
+    "name": "Inconclusive test gets approval reason and follow-up instruction",
+    "passed": true,
+    "exit": 0,
+    "want": "approve",
+    "audit": {
+      "ts": "2026-10-17T11:06:48Z",
+      "purpose": "ask-user-gate",
+      "task": "check3",
+      "key": "nm-JEVLIVE-test",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "act",
+      "code": "decided",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "approve-followup",
+          "confidence": 1,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 264,
+      "sent": true
+    },
+    "output": "ACT nm-JEVLIVE-test: Jev decided approve F1 (F1=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-JEVLIVE-test, step test, round 1; F1=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-jev-approval-55847-16647:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/state/check3.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:06:47Z\n--\nJev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-JEVLIVE-test, step test, round 1; F1=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome."
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-test]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check3/findings.txt\nresolved [key=nm-JEVLIVE-test] [at=1792235208]: answered: Jev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-JEVLIVE-test, ste [truncated]\n"
+  },
+  {
+    "name": "Unjudged actionable context prevents whole-gate approval",
+    "passed": true,
+    "exit": 2,
+    "want": "no-approve",
+    "audit": {
+      "ts": "2026-10-17T11:06:48Z",
+      "purpose": "ask-user-gate",
+      "task": "check4",
+      "key": "nm-JEVLIVE-test",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "jev-low-confidence",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 0.45,
+          "meets_floor": false,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 252,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-test jev-low-confidence: Jev was below the 0.75 confidence floor (F1=in-scope-fix@0.45)\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-test]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check4/findings.txt\n"
+  },
+  {
+    "name": "Inconclusive no-op does not grant approval to another asked finding",
+    "passed": true,
+    "exit": 0,
+    "want": "fix",
+    "audit": {
+      "ts": "2026-10-17T11:06:49Z",
+      "purpose": "ask-user-gate",
+      "task": "check5",
+      "key": "nm-JEVLIVE-test",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "act",
+      "code": "decided",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 1,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 261,
+      "sent": true
+    },
+    "output": "ACT nm-JEVLIVE-test: Jev decided fix F1 (F1=in-scope-fix@1)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-test, step test, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step test --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-jev-approval-55847-16647:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/state/check5.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:06:49Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-test, step test, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step test --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-test]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check5/findings.txt\nresolved [key=nm-JEVLIVE-test] [at=1792235209]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-test, step test, round 1; F1=in-scope-fix@1). Re [truncated]\n"
+  },
+  {
+    "name": "Approval is unavailable outside the test step",
+    "passed": true,
+    "exit": 2,
+    "want": "no-approve",
+    "audit": {
+      "ts": "2026-10-17T11:06:50Z",
+      "purpose": "ask-user-gate",
+      "task": "check6",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "jev-class",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "unsettled-call",
+          "confidence": 0.28,
+          "meets_floor": false,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 259,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-review jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=unsettled-call@0.28)\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check6/findings.txt\n"
+  },
+  {
+    "name": "Mixed fix and approval choices escalate",
+    "passed": true,
+    "exit": 2,
+    "want": "jev-class",
+    "audit": {
+      "ts": "2026-10-17T11:06:50Z",
+      "purpose": "ask-user-gate",
+      "task": "check7",
+      "key": "nm-JEVLIVE-test",
+      "round": 1,
+      "findings": [
+        "F1",
+        "F2"
+      ],
+      "outcome": "escalate",
+      "code": "jev-class",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 1,
+          "meets_floor": true,
+          "valid": true
+        },
+        {
+          "id": "F2",
+          "choice": "approve-followup",
+          "confidence": 1,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 298,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-test jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=in-scope-fix@1 F2=approve-followup@1)\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-test]: ask-user findings=F1,F2 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check7/findings.txt\n"
+  },
+  {
+    "name": "Uncertain judgment stays below the configured confidence floor",
+    "passed": true,
+    "exit": 2,
+    "want": "jev-low-confidence",
+    "audit": {
+      "ts": "2026-10-17T11:06:51Z",
+      "purpose": "ask-user-gate",
+      "task": "check8",
+      "key": "nm-JEVLIVE-test",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "jev-low-confidence",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 0.41,
+          "meets_floor": false,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 311,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-test jev-low-confidence: Jev was below the 1 confidence floor (F1=in-scope-fix@0.41)\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-test]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check8/findings.txt\n"
+  },
+  {
+    "name": "TOON inconclusive test gets approval and follow-up instruction",
+    "passed": true,
+    "exit": 0,
+    "want": "approve",
+    "audit": {
+      "ts": "2026-10-17T11:06:52Z",
+      "purpose": "ask-user-gate",
+      "task": "check9",
+      "key": "nm-JEVLIVE-test",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "act",
+      "code": "decided",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "approve-followup",
+          "confidence": 1,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 304,
+      "sent": true
+    },
+    "output": "ACT nm-JEVLIVE-test: Jev decided approve F1 (F1=approve-followup@1)\nJev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-JEVLIVE-test, step test, round 1; F1=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-jev-approval-55847-16647:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/state/check9.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:06:52Z\n--\nJev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-JEVLIVE-test, step test, round 1; F1=approve-followup@1). Respond exactly: no-mistakes axi respond --step test --action approve --reason 'Jev decided: the gate cannot run the untested scenarios by design; recorded as a follow-up check in the PR description' - never pass --yes. When you write the PR description, list the finding's untested scenarios under a 'Follow-up check' heading. Keep processing every return until the next gate or outcome."
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-test]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check9/findings.txt\nresolved [key=nm-JEVLIVE-test] [at=1792235212]: answered: Jev decided this gate under ask-user-authority: approve findings F1 and record the unchecked scenarios as a follow-up check (gate nm-JEVLIVE-test, ste [truncated]\n"
+  },
+  {
+    "name": "Date-range context reaches real Jev unchanged",
+    "passed": true,
+    "exit": 0,
+    "want": "fix",
+    "audit": {
+      "ts": "2026-10-17T11:06:53Z",
+      "purpose": "ask-user-gate",
+      "task": "check10",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "act",
+      "code": "decided",
+      "jev_called": true,
+      "answers": [
+        {
+          "id": "F1",
+          "choice": "in-scope-fix",
+          "confidence": 1,
+          "meets_floor": true,
+          "valid": true
+        }
+      ],
+      "route": "typesafe",
+      "model": "jev-1.13.0",
+      "response_model": "jev-1.13.0",
+      "http": "200",
+      "latency_ms": 231,
+      "sent": true
+    },
+    "output": "ACT nm-JEVLIVE-review: Jev decided fix F1 (F1=in-scope-fix@1)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-jev-approval-55847-16647:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/state/check10.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-17T11:06:53Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check10/findings.txt\nresolved [key=nm-JEVLIVE-review] [at=1792235213]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-JEVLIVE-review, step review, round 1; F1=in-scope-fix@ [truncated]\n"
+  },
+  {
+    "name": "Phone contact stays local",
+    "passed": true,
+    "exit": 2,
+    "want": "privacy",
+    "audit": {
+      "ts": "2026-10-17T11:06:53Z",
+      "purpose": "ask-user-gate",
+      "task": "check11",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "privacy",
+      "jev_called": false,
+      "answers": [],
+      "route": null,
+      "model": null,
+      "response_model": null,
+      "http": null,
+      "latency_ms": null,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-review privacy: the contract or findings carry a secret-shaped value; nothing was sent\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check11/findings.txt\n"
+  },
+  {
+    "name": "Destructive finding stays human-owned",
+    "passed": true,
+    "exit": 2,
+    "want": "always-escalate",
+    "audit": {
+      "ts": "2026-10-17T11:06:53Z",
+      "purpose": "ask-user-gate",
+      "task": "check12",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "always-escalate",
+      "jev_called": false,
+      "answers": [],
+      "route": null,
+      "model": null,
+      "response_model": null,
+      "http": null,
+      "latency_ms": null,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-review always-escalate: a finding names a security, credential, destructive, irreversible, or data-loss concern\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check12/findings.txt\n"
+  },
+  {
+    "name": "Review round beyond cap stays human-owned",
+    "passed": true,
+    "exit": 2,
+    "want": "round-cap",
+    "audit": {
+      "ts": "2026-10-17T11:06:54Z",
+      "purpose": "ask-user-gate",
+      "task": "check13",
+      "key": "nm-JEVLIVE-review",
+      "round": 4,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "round-cap",
+      "jev_called": false,
+      "answers": [],
+      "route": null,
+      "model": null,
+      "response_model": null,
+      "http": null,
+      "latency_ms": null,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-review round-cap: review round 4 is past the round-3 cap; the captain decides\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check13/findings.txt\n"
+  },
+  {
+    "name": "Missing asked ID is rejected",
+    "passed": true,
+    "exit": 1,
+    "want": "record-error",
+    "audit": null,
+    "output": "fm-jev-ask-user: the snapshot's ids do not match findings=F1 (it does not list: F1)\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check14/findings.txt\n"
+  },
+  {
+    "name": "Duplicate snapshot IDs are rejected",
+    "passed": true,
+    "exit": 1,
+    "want": "record-error",
+    "audit": null,
+    "output": "fm-jev-ask-user: the snapshot repeats a finding id\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check15/findings.txt\n"
+  },
+  {
+    "name": "Missing Jev key escalates without sending",
+    "passed": true,
+    "exit": 2,
+    "want": "jev-unavailable",
+    "audit": {
+      "ts": "2026-10-17T11:06:54Z",
+      "purpose": "ask-user-gate",
+      "task": "check16",
+      "key": "nm-JEVLIVE-review",
+      "round": 1,
+      "findings": [
+        "F1"
+      ],
+      "outcome": "escalate",
+      "code": "jev-unavailable",
+      "jev_called": false,
+      "answers": [],
+      "route": null,
+      "model": null,
+      "response_model": null,
+      "http": null,
+      "latency_ms": null,
+      "sent": null
+    },
+    "output": "ESCALATE nm-JEVLIVE-review jev-unavailable: no Jev key is configured\n",
+    "inbox": [],
+    "status": "needs-decision [at=1791145829] [key=nm-JEVLIVE-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54RFHN24MTHTBZ0N0DVCS3X/.test-tmp/fm-lab.zR8ZPm/data/check16/findings.txt\n"
+  }
+]
