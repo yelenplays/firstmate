@@ -11,9 +11,10 @@
 # call inside a browser tool all reach this shim first.
 #
 # It refuses the launches that can only end in a visible browser window: an
-# http/https/file URL, a browser-renderable document (.html and friends), a
-# browser named with -a or -b. Everything else - `open .`, `open report.md`,
-# `open -a TextEdit`, `open -R` - is handed to the real `open` unchanged, which
+# http/https/file URL, a browser-renderable document (.html and friends) with no
+# application named, a browser named with -a or -b. Everything else - `open .`,
+# `open report.md`, `open -a TextEdit index.html`, `open -R` - is handed to the
+# real `open` unchanged, which
 # is what keeps ordinary file opening working inside a guarded pane.
 #
 # It refuses rather than forcing, because `open` has no headless form: the caller
@@ -87,11 +88,6 @@ for fm_bg_arg in "$@"; do
   esac
   case $fm_bg_arg in
   --args | --) break ;;
-  -R)
-    # -R reveals the target in Finder instead of opening it, so a .html path is
-    # a Finder selection, not a browser window.
-    fm_bg_reveal=1
-    ;;
   - | --*) ;;
   -?*)
     fm_bg_cluster=${fm_bg_arg#-}
@@ -99,6 +95,11 @@ for fm_bg_arg in "$@"; do
       fm_bg_flag=${fm_bg_cluster%"${fm_bg_cluster#?}"}
       fm_bg_cluster=${fm_bg_cluster#?}
       case $fm_bg_flag in
+      R)
+        # -R reveals the target in Finder instead of opening it, so a .html
+        # path is a Finder selection, not a browser window.
+        fm_bg_reveal=1
+        ;;
       a | b | s)
         if [ -n "$fm_bg_cluster" ]; then
           fm_bg_value=$fm_bg_cluster
@@ -150,10 +151,16 @@ for fm_bg_arg in "$@"; do
   -*) continue ;;
   esac
   [ "$fm_bg_reveal" -eq 0 ] || continue
-  if fm_bg_browser_target "$(fm_bg_lower "$fm_bg_arg")"; then
+  fm_bg_target=$(fm_bg_lower "$fm_bg_arg")
+  if fm_bg_browser_url "$fm_bg_target"; then
     if [ -n "$fm_bg_app" ]; then
       fm_bg_refuse "open -a \"$fm_bg_app\" $fm_bg_arg"
     fi
+    fm_bg_refuse "open $fm_bg_arg"
+  fi
+  # A browser document opened by a named application reaches that application,
+  # and the first pass already refused a named browser.
+  if [ -z "$fm_bg_app" ] && [ -z "$fm_bg_bundle" ] && fm_bg_browser_document "$fm_bg_target"; then
     fm_bg_refuse "open $fm_bg_arg"
   fi
 done

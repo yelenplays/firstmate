@@ -22,6 +22,10 @@
 #                        the preload beside it, so a checkout that later loses
 #                        the preload degrades to an unguarded Node process
 #                        instead of aborting every `node` with MODULE_NOT_FOUND
+#   BUN_OPTIONS=--preload=<loader>  the same loader for Bun, which ignores
+#                        NODE_OPTIONS; prepended like NODE_OPTIONS. The `=` form is
+#                        required: Bun reads a space-separated `--preload <path>`
+#                        in BUN_OPTIONS as the script argument of `bun run`
 #   BROWSER=<refuser>    the URL-opening hook Python's webbrowser, gh, and git
 #                        web--browse call first; it refuses the URL and stops
 #                        webbrowser before its direct /usr/bin/osascript pipe
@@ -30,8 +34,8 @@
 #                        serves and prints its URL instead of hitting the shim's
 #                        refusal path
 #
-# Everything is evaluated in the pane's own shell, so `$PATH` and `$NODE_OPTIONS`
-# expand there, not here.
+# Everything is evaluated in the pane's own shell, so `$PATH`, `$NODE_OPTIONS`,
+# and `$BUN_OPTIONS` expand there, not here.
 #
 # The snippet is deliberately a plain sequence of `export` statements and
 # nothing else - no `if`, no `case`, no `fi` - because the launch command text is
@@ -61,13 +65,14 @@ Usage: bin/fm-browser-guard-env.sh --command
 
   --command   Print the shell snippet that turns the agent browser guard on in a
               launched pane: the guard marker, the shim directory on PATH, and
-              the Node guard loader in NODE_OPTIONS. bin/fm-spawn.sh embeds it at the
-              head of every launch command.
+              the guard loader in NODE_OPTIONS and BUN_OPTIONS. bin/fm-spawn.sh
+              embeds it at the head of every launch command.
   --help      Print this help.
 
 The snippet is one line of plain export statements and carries no state of its
-own. It is safe to apply twice: a duplicate --require resolves through Node's
-module cache as a single load, and a duplicate shim directory on PATH is inert.
+own. It is safe to apply twice: a duplicate --require or --preload resolves
+through the module cache as a single load, and a duplicate shim directory on PATH
+is inert.
 EOF
 }
 
@@ -91,12 +96,21 @@ fm_bg_node_embeddable() {
   ! printf '%s' "$1" | LC_ALL=C grep -q '[^A-Za-z0-9._/+@,:= -]'
 }
 
+# fm_bg_bun_embeddable <path>: true when the path can be embedded in the
+# BUN_OPTIONS value. Bun splits BUN_OPTIONS on whitespace and keeps quotes
+# literally, so a path carrying a space or any quoting cannot be named there.
+fm_bg_bun_embeddable() {
+  [ -n "$1" ] || return 1
+  ! printf '%s' "$1" | LC_ALL=C grep -q '[^A-Za-z0-9._/+@,:=-]'
+}
+
 guard_command() {
-  local q_shim q_browser q_warning q_unusable
+  local q_shim q_browser q_warning q_unusable q_bun_unusable bun_export
   q_shim=$(fm_bg_quote "$SHIM_DIR")
   q_browser=$(fm_bg_quote "$BROWSER_CMD")
   q_warning=$(fm_bg_quote "fm-browser-guard: warning: the browser guard is not installed at $ROOT; agent browser launches in this pane are unguarded")
-  q_unusable=$(fm_bg_quote "fm-browser-guard: warning: $LOADER cannot be named in NODE_OPTIONS, so Node browser launches in this pane are unguarded")
+  q_unusable=$(fm_bg_quote "fm-browser-guard: warning: $LOADER cannot be named in NODE_OPTIONS or BUN_OPTIONS, so Node and Bun browser launches in this pane are unguarded")
+  q_bun_unusable=$(fm_bg_quote "fm-browser-guard: warning: $LOADER cannot be named in BUN_OPTIONS, so Bun browser launches in this pane are unguarded")
   if [ ! -r "$PRELOAD" ] || [ ! -r "$LOADER" ] || [ ! -x "$SHIM_DIR/open" ] || [ ! -x "$BROWSER_CMD" ]; then
     printf '%s\n' "printf '%s\\n' $q_warning >&2;"
     return 0
@@ -106,12 +120,18 @@ guard_command() {
     printf '%s\n' "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; printf '%s\\n' $q_unusable >&2;"
     return 0
   fi
+  # shellcheck disable=SC2016 # $BUN_OPTIONS expands in the pane shell, not here.
+  if fm_bg_bun_embeddable "$LOADER"; then
+    bun_export="export BUN_OPTIONS=\"--preload=$LOADER\${BUN_OPTIONS:+ \$BUN_OPTIONS}\";"
+  else
+    bun_export="printf '%s\\n' $q_bun_unusable >&2;"
+  fi
   # The NODE_OPTIONS value needs double quotes around the path, because that is
   # the only quoting Node's own parser understands; the shell-side double quotes
   # below are escaped so the pane shell writes them into the value.
   # shellcheck disable=SC2016 # every $ below expands in the pane shell, not here.
   printf '%s\n' \
-    "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; export NODE_OPTIONS=\"--require \\\"$LOADER\\\"\${NODE_OPTIONS:+ \$NODE_OPTIONS}\";"
+    "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; export NODE_OPTIONS=\"--require \\\"$LOADER\\\"\${NODE_OPTIONS:+ \$NODE_OPTIONS}\"; $bun_export"
 }
 
 case "${1:-}" in

@@ -6,11 +6,12 @@ The coverage below assumes an intact installation, the inherited guard environme
 
 ## Covered launches
 
-- A browser started through the patched Node launcher APIs or process calls described below runs headless.
+- A browser started through the patched Node launcher APIs or process calls described below runs headless, in a Node process and in a Bun process alike.
 - `open <url>`, `open -a "Google Chrome"`, `open -b <browser bundle>`, and `open <page.html>` are refused instead of opening a window, and the refusal is one line on stderr plus a non-zero exit.
+  A URL is refused whatever application is named beside it; a browser document handed to a named non-browser application, such as `open -a TextEdit index.html`, opens in that application.
 - `osascript` scripts that address a browser or ask for a web URL are refused, including the script-on-stdin form older Python's `webbrowser` module sends through `PATH`.
 - Python's `webbrowser.open` and other tools that honor `BROWSER` are refused in one line, including Python 3.13 and later, whose `webbrowser` pipes to `/usr/bin/osascript` by full path and so never reaches the `osascript` shim.
-- Ordinary file opening, `open -R`, non-browser applications, and non-browser AppleScript keep working unchanged.
+- Ordinary file opening, `open -R` (also inside a flag cluster such as `-gR`), non-browser applications, and non-browser AppleScript keep working unchanged.
 - The Node preload emits one `fm-browser-guard:` line for the first forced launch and one for the first allowed visible launch per process; later launches in that process do not repeat those notices.
   Each shim refusal or opt-out invocation emits its own notice.
 
@@ -19,14 +20,17 @@ The coverage below assumes an intact installation, the inherited guard environme
 Three layers, each covering what the one below it cannot.
 [`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) is the single owner of the environment text that turns them on, and `bin/fm-spawn.sh` embeds that text at the head of every launch command.
 
-1. **The launcher API** - `NODE_OPTIONS=--require` names the stable loader [`bin/fm-browser-guard-load.cjs`](../bin/fm-browser-guard-load.cjs), which try-requires [`bin/fm-browser-guard-preload.cjs`](../bin/fm-browser-guard-preload.cjs) beside it.
+1. **The launcher API** - `NODE_OPTIONS=--require` and `BUN_OPTIONS=--preload=` name the stable loader [`bin/fm-browser-guard-load.cjs`](../bin/fm-browser-guard-load.cjs), which try-requires [`bin/fm-browser-guard-preload.cjs`](../bin/fm-browser-guard-preload.cjs) beside it.
    The preload is loaded into every Node process, and appends a patch call to every CommonJS module compiled out of a playwright/puppeteer package and wraps `launch`, `launchPersistentContext`, and `launchServer` on the launcher class or the exported instance, so `headless: false` becomes `headless: true` before the library builds its argument list.
    Hooking `Module.prototype._compile` rather than `Module._load` is what also covers `import { chromium } from 'playwright-core'`, because an ESM import of a CommonJS package still compiles through it.
    The library then takes its own headless path - its own binary choice, its own flags - so the forced launch is exactly the launch that library performs when it is asked for headless.
+   Bun ignores `NODE_OPTIONS`, so `BUN_OPTIONS` carries the same loader; it must use the `=` form, because Bun reads a space-separated `--preload <path>` there as the script argument of `bun run`.
+   Bun does not compile modules through `Module.prototype._compile`, so this layer never applies under Bun and layer 2 is what forces a Bun-run launcher headless.
 2. **The browser process** - the same preload wraps `child_process.spawn`, `spawnSync`, `execFile` (including `util.promisify(execFile)`), and `execFileSync` and adds the library's own headless flag to a browser command line that is missing one: `--headless` for the Chromium family, `-headless` for Firefox, `--headless` for WebKit.
    It recognizes a browser by its binary name alone - Chrome, Chromium, Chrome for Testing, the headless shell, Edge, Brave and the other Chromium browsers, Firefox, and Playwright's WebKit - never by debugging flags, so an Electron app launched with `--remote-debugging-port` is left untouched, and a bare `spawn(chromePath)` with no argument list still gets the flag.
    This covers a launcher's ESM build (puppeteer-core ships one) and other Node tools that start a known browser binary through those direct process calls.
-   When one of those calls supplies a filtered child environment, the preload copies it and reattaches the guard exports without copying unrelated parent variables or mutating the caller's environment.
+   Under Bun it also wraps `Bun.spawn` and `Bun.spawnSync`, which start processes without going through `child_process`.
+   When one of those calls, `fork`, `exec`, or `execSync` supplies a filtered child environment, the preload copies it and reattaches the guard exports, including `NODE_OPTIONS` and `BUN_OPTIONS` naming the stable loader, without copying unrelated parent variables or mutating the caller's environment.
    Caller-supplied Node options are preserved, and reattachment is skipped when the parent process has the captain's opt-out set.
    This keeps enforcement across a `chrome-devtools-axi` MCP subprocess that rebuilds its environment.
 3. **The PATH shims** - [`bin/fm-browser-guard-bin/open`](../bin/fm-browser-guard-bin/open) and [`bin/fm-browser-guard-bin/osascript`](../bin/fm-browser-guard-bin/osascript) are symlinks to [`bin/fm-browser-guard-open.sh`](../bin/fm-browser-guard-open.sh) and [`bin/fm-browser-guard-osascript.sh`](../bin/fm-browser-guard-osascript.sh), which the guard puts first on the pane's `PATH`.
@@ -54,10 +58,10 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
 
 ## Boundaries
 
-- A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a native non-Node browser driver (a Rust build of `agent-browser`, or any other launcher that starts Chrome without Node and without the shims), a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a named script file passed to `osascript` (only `-e` statements and stdin scripts are read; a named script file's contents are not on the command line).
+- A launcher that is neither a Node or Bun process nor one of the two PATH shims is outside the guard: a Deno script (Deno ignores `NODE_OPTIONS` and has no preload variable), a native non-Node browser driver (a Rust build of `agent-browser`, or any other launcher that starts Chrome without Node and without the shims), a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a named script file passed to `osascript` (only `-e` statements and stdin scripts are read; a named script file's contents are not on the command line).
 - A browser binary renamed to a name the spawn layer does not recognize is outside layer 2.
   Layer 1 can still force it headless through a patched CommonJS launcher API, but an unpatched ESM launcher build has no such fallback.
-- Shell command strings are not rewritten: `child_process.exec`, `execSync`, and process calls with `shell: true` remain outside the browser-process layer even for literal browser commands.
+- Shell command strings are not rewritten: `child_process.exec`, `execSync`, and process calls with `shell: true` remain outside the browser-process layer's argument rewriting even for literal browser commands.
   They retain only the protections supplied by inherited guard exports and PATH shims.
 - A browser URL held in an AppleScript variable cannot be judged without evaluating the script, so the guard does not try.
 - The guard covers agents Firstmate launches.
@@ -65,13 +69,14 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
 - If the guard environment builder detects missing guard files, it emits a warning-only snippet and the worker continues unguarded rather than failing.
   File checks happen when the launch is built, not in the destination pane.
 - If a checkout loses the preload after a launch was built, Node processes using the launch snippet's stable loader continue unguarded instead of aborting with `MODULE_NOT_FOUND`.
-  Filtered child environments reattached by the process layer name the preload directly, so those Node children can still abort if it disappears.
-  A missing stable loader also aborts processes that require it; the build-time check protects fresh launches, not later checkout changes.
-- If the loader path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node layers while retaining the PATH shims and `BROWSER` hook.
+  Filtered child environments reattached by the process layer name the same stable loader.
+  A missing stable loader aborts Node and Bun processes that require it; the build-time check protects fresh launches, not later checkout changes.
+- If the loader path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node and Bun layers while retaining the PATH shims and `BROWSER` hook.
+  Bun splits `BUN_OPTIONS` on whitespace and keeps quotes literally, so a loader path with a space keeps the Node layers but warns and skips the Bun one.
   [`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) owns the path restrictions.
 
 ## Verification
 
 [`tests/fm-browser-guard.test.sh`](../tests/fm-browser-guard.test.sh) drives the real spawn, executes the launch command the pane received, and asserts that a headed browser request from inside that environment ends headless.
-It replays each launcher's recorded argument list from `tests/fixtures/browser-guard/`, exercises the launcher API through both an ESM and a CommonJS entry point, and covers the shims, the opt-out, idempotence, and the ordinary Node work the guard must not disturb.
+It replays each launcher's recorded argument list from `tests/fixtures/browser-guard/`, exercises the launcher API through both an ESM and a CommonJS entry point, and covers Bun when it is installed, the shims, the opt-out, idempotence, and the ordinary Node and Bun work the guard must not disturb.
 [`docs/verification/browser-guard.md`](verification/browser-guard.md) records the live end-to-end evidence against real Playwright and Puppeteer launches, with the versions and commands that produced it.

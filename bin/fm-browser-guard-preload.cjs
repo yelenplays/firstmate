@@ -296,14 +296,25 @@ function copyStatics(from, to) {
 
 // MCP transports and other launchers build allowlisted environments instead
 // of inheriting process.env. Reattach only the guard, not the parent's other
-// variables, so a Node server behind that boundary cannot launch headed Chrome.
+// variables, so a Node or Bun server behind that boundary cannot launch headed
+// Chrome. The child loads the same stable loader the launch environment names,
+// in the same NODE_OPTIONS and BUN_OPTIONS forms bin/fm-browser-guard-env.sh
+// writes, so a child of a guarded pane carries the loader once, not twice.
+function prependOption(value, option) {
+  const current = value || '';
+  return current.includes(option) ? current : option + (current ? ' ' + current : '');
+}
+
 function guardedOptions(options) {
   if (!options || typeof options !== 'object' || !options.env || headedAllowed()) return options;
   const path = require('path');
   const env = { ...options.env };
-  const preload = '--require "' + __filename + '"';
-  const nodeOptions = env.NODE_OPTIONS || '';
-  env.NODE_OPTIONS = nodeOptions.includes(preload) ? nodeOptions : preload + (nodeOptions ? ' ' + nodeOptions : '');
+  const loader = path.join(__dirname, 'fm-browser-guard-load.cjs');
+  env.NODE_OPTIONS = prependOption(env.NODE_OPTIONS, '--require "' + loader + '"');
+  // Bun splits BUN_OPTIONS on whitespace and keeps quotes, so a loader path
+  // outside this character set cannot be named there; the env snippet skips
+  // Bun on the same rule.
+  if (!/[^A-Za-z0-9._/+@,:=-]/.test(loader)) env.BUN_OPTIONS = prependOption(env.BUN_OPTIONS, '--preload=' + loader);
   env.FM_BROWSER_GUARD = '1';
   env.BROWSER = path.join(__dirname, 'fm-browser-guard-browser.sh');
   env.LAVISH_AXI_NO_OPEN = '1';
@@ -386,6 +397,81 @@ function installSpawnGuard() {
   }
 }
 
+// fork and execSync start their child through Node's module-internal spawn and
+// spawnSync, which never reach the wrappers above, so an explicit env passed to
+// either would drop the guard. They get only the guardedOptions step: a fork
+// runs Node and execSync runs a shell, so neither argv is a browser's. exec is
+// absent because it already calls the exported, wrapped execFile.
+function installOptionsGuard() {
+  const childProcess = require('child_process');
+  for (const name of ['fork', 'execSync']) {
+    const original = childProcess[name];
+    if (typeof original !== 'function') continue;
+    const wrapper = function () {
+      const argv = Array.prototype.slice.call(arguments);
+      try {
+        // fork(module, args, options) and fork(module, options);
+        // execSync(command, options).
+        const optionsIndex = name === 'fork' && Array.isArray(argv[1]) ? 2 : 1;
+        if (argv[optionsIndex] !== null && typeof argv[optionsIndex] === 'object' && !Array.isArray(argv[optionsIndex])) {
+          argv[optionsIndex] = guardedOptions(argv[optionsIndex]);
+        }
+      } catch (err) {
+        /* start exactly what the caller asked for */
+      }
+      return original.apply(this, argv);
+    };
+    copyStatics(original, wrapper);
+    try {
+      Object.defineProperty(childProcess, name, { value: wrapper, writable: true, configurable: true, enumerable: true });
+    } catch (err) {
+      /* leave the original in place */
+    }
+  }
+}
+
+// Bun's own Bun.spawn and Bun.spawnSync start processes without going through
+// child_process, so under Bun they get the same argv and env steps. Both take
+// either (cmd, options) or a single options object carrying `cmd`.
+function installBunSpawnGuard() {
+  const bun = globalThis.Bun;
+  if (!bun || typeof bun !== 'object') return;
+  for (const name of ['spawn', 'spawnSync']) {
+    const original = bun[name];
+    if (typeof original !== 'function') continue;
+    const wrapper = function () {
+      const argv = Array.prototype.slice.call(arguments);
+      try {
+        const single = !Array.isArray(argv[0]) && argv[0] !== null && typeof argv[0] === 'object';
+        const options = single ? argv[0] : argv[1];
+        const cmd = single ? options.cmd : argv[0];
+        let guarded = guardedOptions(options);
+        let command = cmd;
+        if (Array.isArray(cmd) && cmd.length > 0) {
+          const rewritten = guardedArgv(cmd[0], cmd.slice(1), null);
+          if (rewritten) command = [cmd[0]].concat(rewritten);
+        }
+        if (single) {
+          if (command !== cmd) guarded = { ...guarded, cmd: command };
+          argv[0] = guarded;
+        } else {
+          argv[0] = command;
+          if (guarded !== options) argv[1] = guarded;
+        }
+      } catch (err) {
+        /* spawn exactly what the caller asked for */
+      }
+      return original.apply(this, argv);
+    };
+    copyStatics(original, wrapper);
+    try {
+      bun[name] = wrapper;
+    } catch (err) {
+      /* leave the original in place */
+    }
+  }
+}
+
 // --- install ---------------------------------------------------------------
 
 try {
@@ -397,4 +483,14 @@ try {
   installSpawnGuard();
 } catch (err) {
   /* layer 1 and the PATH shims still stand */
+}
+try {
+  installOptionsGuard();
+} catch (err) {
+  /* the inherited environment still carries the guard */
+}
+try {
+  installBunSpawnGuard();
+} catch (err) {
+  /* child_process and the PATH shims still stand */
 }

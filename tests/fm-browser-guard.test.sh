@@ -157,6 +157,7 @@ install_browser_probe() {
 #!/bin/sh
 printf 'PATH_HEAD=%s\n' "\${PATH%%:*}"
 printf 'NODE_OPTIONS=%s\n' "\${NODE_OPTIONS:-}"
+printf 'BUN_OPTIONS=%s\n' "\${BUN_OPTIONS:-}"
 printf 'FM_BROWSER_GUARD=%s\n' "\${FM_BROWSER_GUARD:-}"
 printf 'LAVISH_AXI_NO_OPEN=%s\n' "\${LAVISH_AXI_NO_OPEN:-}"
 FM_STUB_LOG="$log" node "$replay" "$fixture" "$stub" >/dev/null 2>"$log.err"
@@ -186,6 +187,8 @@ assert_launch_guards() {
     "$label: the launch must put the guard's shim directory first on PATH"
   assert_contains "$out" "NODE_OPTIONS=--require \"$LOADER\"" \
     "$label: the launch must load the guard's stable loader into every Node process"
+  assert_contains "$out" "BUN_OPTIONS=--preload=$LOADER" \
+    "$label: the launch must load the guard's stable loader into every Bun process"
   assert_contains "$out" "FM_BROWSER_GUARD=1" \
     "$label: the launch must mark the pane as guarded"
   assert_contains "$out" "LAVISH_AXI_NO_OPEN=1" \
@@ -402,7 +405,7 @@ run_shim() {
   export FM_SHIM_LOG
   SHIM_ERR="$TMP_ROOT/shim.err"
   : > "$FM_SHIM_LOG"
-  PATH="$prefix:$PATH" "$tool" "$@" >/dev/null 2>"$SHIM_ERR"
+  PATH="$prefix:$PATH" "$tool" "$@" </dev/null >/dev/null 2>"$SHIM_ERR"
   SHIM_STATUS=$?
 }
 
@@ -487,6 +490,11 @@ test_open_shim_refuses_visible_windows() {
   assert_refused 'open report.html'
   run_shim "$prefix" open 'file:///tmp/report.html'
   assert_refused 'open file://'
+  # A URL reaches a browser whatever application is named beside it.
+  run_shim "$prefix" open -a TextEdit 'https://example.com'
+  assert_refused 'open -a TextEdit <url>'
+  run_shim "$prefix" open -b com.apple.TextEdit 'https://example.com'
+  assert_refused 'open -b com.apple.TextEdit <url>'
   pass "the open shim refuses every launch that could only end in a browser window"
 }
 
@@ -498,6 +506,14 @@ test_open_shim_passes_ordinary_opens() {
   assert_passed_through 'open report.md' 'CALL open [./report.md]'
   run_shim "$prefix" open -R ./report.html
   assert_passed_through 'open -R report.html' 'CALL open [-R] [./report.html]'
+  run_shim "$prefix" open -gR ./report.html
+  assert_passed_through 'open -gR report.html' 'CALL open [-gR] [./report.html]'
+  # A browser document handed to a named application that is not a browser is
+  # an ordinary file open in that application.
+  run_shim "$prefix" open -a TextEdit ./index.html
+  assert_passed_through 'open -a TextEdit index.html' 'CALL open [-a] [TextEdit] [./index.html]'
+  run_shim "$prefix" open -b com.apple.TextEdit ./index.html
+  assert_passed_through 'open -b com.apple.TextEdit index.html' 'CALL open [-b] [com.apple.TextEdit] [./index.html]'
   run_shim "$prefix" open -a TextEdit ./notes.txt
   assert_passed_through 'open -a TextEdit' 'CALL open [-a] [TextEdit] [./notes.txt]'
   run_shim "$prefix" open -a 'Archive Utility' ./bundle.zip
@@ -646,6 +662,88 @@ test_python_webbrowser_is_refused() {
   pass "Python's webbrowser is refused in a guarded pane and allowed through the opt-out"
 }
 
+# --- the Bun layer ----------------------------------------------------------
+
+# Bun ignores NODE_OPTIONS, so the guard reaches it through BUN_OPTIONS. Bun
+# does not compile modules through Module.prototype._compile, so the launcher
+# API patch never applies there; the spawn layer does, and it is what turns
+# Playwright's and Puppeteer's own browser spawn headless under Bun.
+test_bun_launches_are_forced_headless() {
+  local stub log out proj
+  if ! command -v bun >/dev/null 2>&1; then
+    pass "SKIP: bun is not installed, so the Bun layer is not exercised here"
+    return 0
+  fi
+  stub=$(make_browser_stub "$TMP_ROOT/bun-stub" chromium)
+  # Control first: Bun without the guard really does launch the headed argv.
+  rm -f "$REPLAY_LOG"
+  FM_STUB_LOG="$REPLAY_LOG" env -u BUN_OPTIONS bun "$REPLAY" "$FIXTURES/playwright-chromium-headed.args" "$stub" 2>/dev/null || true
+  assert_equals "$(cat "$FIXTURES/playwright-chromium-headed.args")" "$(stub_args "$REPLAY_LOG" 1)" \
+    "the control run under Bun without the guard must reach the browser headed"
+
+  rm -f "$REPLAY_LOG" "$REPLAY_ERR"
+  FM_STUB_LOG="$REPLAY_LOG" guarded bun "$REPLAY" "$FIXTURES/playwright-chromium-headed.args" "$stub" 2>"$REPLAY_ERR" || true
+  assert_equals "$(printf '%s\n--headless' "$(cat "$FIXTURES/playwright-chromium-headed.args")")" "$(stub_args "$REPLAY_LOG" 1)" \
+    "a recorded headed Playwright argv spawned from Bun must end headless"
+  assert_equals 1 "$(guard_lines "$REPLAY_ERR")" "the forced Bun launch must be reported in exactly one line"
+
+  for form in 'Bun.spawnSync([b, "--remote-debugging-port=0"])' 'Bun.spawnSync({ cmd: [b, "--remote-debugging-port=0"] })' 'await Bun.spawn([b, "--remote-debugging-port=0"]).exited'; do
+    log="$TMP_ROOT/bun-native.log"
+    rm -f "$log"
+    FM_STUB_LOG="$log" guarded bun -e "const b = process.argv[1]; $form" "$stub" >/dev/null 2>"$log.err" || true
+    assert_equals "$(printf '%s\n' --remote-debugging-port=0 --headless)" "$(stub_args "$log" 1)" \
+      "$form: Bun's own spawn of a browser must be forced headless"
+    assert_equals 1 "$(guard_lines "$log.err")" "$form: the forced launch must be reported once"
+  done
+
+  # shellcheck disable=SC2016 # the variables expand in the spawned shell.
+  out=$(guarded bun -e 'const r = Bun.spawnSync(["/bin/sh", "-c", "printf %s \"$FM_BROWSER_GUARD:$BUN_OPTIONS\""], { env: { PATH: "/usr/bin:/bin" } }); process.stdout.write(String(r.stdout))' 2>&1)
+  assert_equals "1:--preload=$LOADER" "$out" "an explicit Bun.spawn env must keep the guard"
+
+  rm -f "$REPLAY_LOG"
+  FM_ALLOW_HEADED_BROWSER=1 FM_STUB_LOG="$REPLAY_LOG" guarded bun "$REPLAY" "$FIXTURES/playwright-chromium-headed.args" "$stub" 2>/dev/null || true
+  assert_equals "$(cat "$FIXTURES/playwright-chromium-headed.args")" "$(stub_args "$REPLAY_LOG" 1)" \
+    "the captain's opt-out must reach a Bun launch too"
+
+  # The guard must not break ordinary Bun work. `bun run` is the one that
+  # matters: it reads a space-separated `--preload <path>` in BUN_OPTIONS as its
+  # own script argument, which is why the snippet uses the `=` form.
+  proj="$TMP_ROOT/bun-project"
+  mkdir -p "$proj"
+  printf '%s\n' '{"name":"bun-guard-probe","scripts":{"probe":"printf script-ran"}}' > "$proj/package.json"
+  printf '%s\n' 'process.stdout.write("file-ran")' > "$proj/main.mjs"
+  out=$(cd "$proj" && guarded bun run probe 2>/dev/null)
+  assert_contains "$out" 'script-ran' "bun run <package script> must still work under the guard"
+  out=$(cd "$proj" && guarded bun run ./main.mjs 2>&1)
+  assert_equals 'file-ran' "$out" "bun run <file> must still work and stay silent under the guard"
+  pass "Bun launches are forced headless through child_process and Bun.spawn, and bun run still works"
+}
+
+# fork and execSync spawn through Node's internal spawn, so an explicit env
+# passed to them must get the guard reattached the same way spawn does.
+test_fork_and_exec_sync_keep_the_guard() {
+  local driver out
+  driver="$TMP_ROOT/fork-driver.cjs"
+  cat > "$driver" <<'JS'
+const cp = require('node:child_process');
+if (process.argv[2] === 'child') {
+  process.stdout.write([process.env.FM_BROWSER_GUARD, process.env.NODE_OPTIONS].join('|'));
+} else {
+  const lines = [];
+  const child = cp.fork(__filename, ['child'], { env: { PATH: '/usr/bin:/bin' }, stdio: 'pipe' });
+  child.stdout.on('data', (d) => lines.push('fork=' + d));
+  child.on('exit', () => {
+    lines.push('execSync=' + cp.execSync('printf %s "$FM_BROWSER_GUARD|$NODE_OPTIONS"', { env: { PATH: '/usr/bin:/bin' } }));
+    process.stdout.write(lines.join('\n'));
+  });
+}
+JS
+  out=$(guarded node "$driver" 2>&1)
+  assert_contains "$out" "fork=1|--require \"$LOADER\"" "a fork with an explicit env must keep the guard"
+  assert_contains "$out" "execSync=1|--require \"$LOADER\"" "an execSync with an explicit env must keep the guard"
+  pass "fork and execSync with an explicit env keep the guard"
+}
+
 # --- the guard must not break a worker --------------------------------------
 
 test_filtered_subprocess_environment_keeps_the_guard() {
@@ -725,12 +823,16 @@ test_macos_brave_binary_is_forced_headless() {
 test_guard_environment_is_safe_to_apply_twice() {
   local snippet out stub
   snippet=$(guard_snippet) || fail "the guard environment snippet could not be built"
-  out=$(PATH=/usr/bin:/bin NODE_OPTIONS=--max-old-space-size=4096 /bin/sh -c \
-    "$snippet$snippet printf '%s\n' \"\$NODE_OPTIONS\"; printf '%s\n' \"\${PATH%%:*}\"")
+  out=$(PATH=/usr/bin:/bin NODE_OPTIONS=--max-old-space-size=4096 BUN_OPTIONS=--smol /bin/sh -c \
+    "$snippet$snippet printf '%s\n' \"\$NODE_OPTIONS\"; printf '%s\n' \"\${PATH%%:*}\"; printf '%s\n' \"\$BUN_OPTIONS\"")
   assert_equals "$SHIM_DIR" "$(printf '%s\n' "$out" | sed -n '2p')" \
     "the shim directory must lead PATH after two applications"
   assert_contains "$out" '--max-old-space-size=4096' \
     "an existing NODE_OPTIONS must survive the guard"
+  assert_contains "$(printf '%s\n' "$out" | sed -n '3p')" '--smol' \
+    "an existing BUN_OPTIONS must survive the guard"
+  assert_contains "$(printf '%s\n' "$out" | sed -n '3p')" "--preload=$LOADER" \
+    "the guard loader must be named in BUN_OPTIONS after two applications"
   assert_contains "$out" 'fm-browser-guard-load.cjs' \
     "the guard loader must still be named after two applications"
 
@@ -776,7 +878,9 @@ test_guard_survives_a_hostile_checkout_path() {
   snippet=$("$install/bin/fm-browser-guard-env.sh" --command) \
     || fail "the guard environment snippet could not be built from a hostile path"
   rm -f "$TMP_ROOT/SHOULD_NOT_EXIST"
-  out=$(PATH=/usr/bin:/bin /bin/sh -c "$snippet printf 'PATH_HEAD=%s\\n' \"\${PATH%%:*}\"; printf 'NODE_OPTIONS=%s\\n' \"\${NODE_OPTIONS:-unset}\"" 2>&1)
+  out=$(PATH=/usr/bin:/bin /bin/sh -c "$snippet printf 'PATH_HEAD=%s\\n' \"\${PATH%%:*}\"; printf 'NODE_OPTIONS=%s\\n' \"\${NODE_OPTIONS:-unset}\"; printf 'BUN_OPTIONS=%s\\n' \"\${BUN_OPTIONS:-unset}\"" 2>&1)
+  assert_equals 'unset' "$(printf '%s\n' "$out" | sed -n 's/^BUN_OPTIONS=//p')" \
+    "a path BUN_OPTIONS cannot represent must not produce a broken assignment"
   assert_contains "$out" "PATH_HEAD=$install/bin/fm-browser-guard-bin" \
     "a hostile path must still put the shim directory on PATH"
   assert_contains "$out" 'cannot be named in NODE_OPTIONS' \
@@ -786,6 +890,26 @@ test_guard_survives_a_hostile_checkout_path() {
   assert_absent "$TMP_ROOT/SHOULD_NOT_EXIST" \
     "shell syntax inside a path must never be executed by the snippet"
   pass "a hostile checkout path is quoted inertly and only the Node layer is skipped"
+}
+
+# Node can name a path with a space in NODE_OPTIONS, but Bun splits BUN_OPTIONS
+# on whitespace, so such a checkout keeps the Node layer, skips only the Bun one,
+# and says so in one line.
+test_space_in_checkout_path_skips_only_bun() {
+  local install snippet out
+  install="$TMP_ROOT/spaced root"
+  mkdir -p "$install"
+  cp -R "$ROOT/bin" "$install/bin"
+  snippet=$("$install/bin/fm-browser-guard-env.sh" --command) \
+    || fail "the guard environment snippet could not be built from a spaced path"
+  out=$(PATH=/usr/bin:/bin /bin/sh -c "$snippet printf 'NODE_OPTIONS=%s\\n' \"\${NODE_OPTIONS:-unset}\"; printf 'BUN_OPTIONS=%s\\n' \"\${BUN_OPTIONS:-unset}\"" 2>&1)
+  assert_contains "$out" "NODE_OPTIONS=--require \"$install/bin/fm-browser-guard-load.cjs\"" \
+    "a spaced path must still load the Node guard"
+  assert_equals 'unset' "$(printf '%s\n' "$out" | sed -n 's/^BUN_OPTIONS=//p')" \
+    "a spaced path must not produce a BUN_OPTIONS Bun would split"
+  assert_contains "$out" 'cannot be named in BUN_OPTIONS' \
+    "a skipped Bun layer must be named in one warning line"
+  pass "a checkout path with a space keeps the Node layer and skips only the Bun one, with a warning"
 }
 
 # A pane's launch snippet names an absolute loader path. If the preload that
@@ -838,6 +962,8 @@ for t in \
   test_osascript_shim_passes_other_scripts \
   test_shims_honor_the_opt_out \
   test_python_webbrowser_is_refused \
+  test_bun_launches_are_forced_headless \
+  test_fork_and_exec_sync_keep_the_guard \
   test_filtered_subprocess_environment_keeps_the_guard \
   test_guard_leaves_ordinary_node_work_alone \
   test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced \
@@ -845,6 +971,7 @@ for t in \
   test_guard_environment_is_safe_to_apply_twice \
   test_guard_warns_instead_of_failing_when_the_install_is_missing \
   test_guard_survives_a_hostile_checkout_path \
+  test_space_in_checkout_path_skips_only_bun \
   test_vanished_preload_does_not_break_node \
   test_guard_snippet_shape; do
   "$t"

@@ -81,12 +81,23 @@ fm_bg_browser_bundle() {
   return 1
 }
 
-# fm_bg_browser_target <lowercased target>: true when the target can only be
-# rendered by a browser. A path to an ordinary document stays false, which is
-# what keeps `open report.md` and `open invoice.pdf` working.
-fm_bg_browser_target() {
+# fm_bg_browser_url <lowercased target>: true when the target is a URL, which
+# `open` hands to a browser whatever application is named alongside it.
+fm_bg_browser_url() {
   case $1 in
     http://* | https://* | file://* | ftp://* | data:* | view-source:*) return 0 ;;
+  esac
+  return 1
+}
+
+# fm_bg_browser_document <lowercased target>: true when the target is a
+# document whose default handler is a browser. Opened with a non-browser
+# application named by -a or -b (an editor, say) it is just a file, so the
+# `open` shim only refuses it when no such application is named. A path to an
+# ordinary document stays false, which is what keeps `open report.md` and
+# `open invoice.pdf` working.
+fm_bg_browser_document() {
+  case $1 in
     *.html | *.htm | *.xhtml | *.shtml | *.svg | *.webarchive | *.webloc | *.url | *.mhtml) return 0 ;;
   esac
   return 1

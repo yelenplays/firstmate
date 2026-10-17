@@ -49,6 +49,32 @@ RESULT headless_ua=true
 RESULT process_headless_flag=true
 ```
 
+### The same requests under Bun
+
+Recorded 2026-10-17 with Bun 1.3.14, the same playwright-core 1.64.1 and puppeteer-core 25.14.0, and Chrome for Testing 153.0.8010.12 for both launchers.
+Bun ignores `NODE_OPTIONS`, so this is the `BUN_OPTIONS=--preload=` half of the guard, and the forcing comes from the process layer because Bun bypasses the launcher-API hook.
+Each script was first run against a recording stub as `executablePath` to confirm the recorded argv carried `--headless` before any real browser started.
+
+```sh
+/bin/sh -c "$snippet bun e2e-playwright.mjs"
+```
+
+```text
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT text=guarded-headless
+RESULT browser_product=Chrome/153.0.8010.12
+RESULT user_agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36
+```
+
+The Puppeteer script under Bun:
+
+```text
+fm-browser-guard: forced headless: google chrome for testing (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT text=guarded-headless
+RESULT headless_ua=true
+RESULT process_headless_flag=true
+```
+
 `HeadlessChrome` in the user agent is the browser's own report that it is running headless, and the process-table check confirms the launched process carries `--headless`.
 The control case, the same launcher without the guard environment, records a headed argv with no headless flag at all, which is the state the guard exists to remove.
 
@@ -56,6 +82,7 @@ The control case, the same launcher without the guard environment, records a hea
 
 - `chrome-devtools-axi` against the shared headless shell on `127.0.0.1:9223`: a guarded `newpage`, `pages`, `closepage`, and `stop` cycle completed normally, with the tab created in the shared shell rather than a new browser.
 - Node itself: `node -e`, a non-browser `spawnSync`, a shell-form `execSync`, and a promisified `execFile` all behave identically under the guard, and the preload writes nothing to stdout.
+- Bun itself: `bun run <package script>`, `bun run <file>`, `bun test`, `bun install`, and `bunx` all work with the guard's `BUN_OPTIONS`.
 - The PATH shims pass `open ./report.md`, `open -R ./report.html`, `open -a TextEdit`, and non-browser AppleScript through to the real tools with their arguments intact.
 
 ## Refresh
