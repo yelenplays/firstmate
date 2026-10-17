@@ -15,8 +15,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-browser-bridge-sweep-lib.sh` | Reap orphaned chrome-devtools-axi bridge trees whose owning task is proven dead, and remove their temporary-root browser profiles |
 | `fm-browser.sh` | Run one isolated browser action or a saved, verified browser route in a named session |
 | `fm-browser-guard-env.sh` | Print the launch environment text that puts a launched agent under the agent browser guard |
-| `fm-browser-guard-preload.cjs` | Force a Node-started browser headless at the launcher API and at the process spawn |
-| `fm-browser-guard-load.cjs` | Stable `NODE_OPTIONS` entry point that try-requires the preload so a vanished preload degrades to an unguarded Node process |
+| `fm-browser-guard-preload.cjs` | Enforce the [browser guard](browser-guard.md) in Node and Bun processes |
+| `fm-browser-guard-load.cjs` | Stable Node/Bun entry point for the [browser guard preload](browser-guard.md#how-it-works) |
 | `fm-browser-guard-open.sh` | Refuse the `open` calls that can only end in a visible browser window, reached as `open` through `fm-browser-guard-bin` |
 | `fm-browser-guard-osascript.sh` | Refuse the AppleScript scripts that would put a browser on screen, reached as `osascript` through `fm-browser-guard-bin` |
 | `fm-browser-guard-browser.sh` | Refuse the URL a `BROWSER`-honoring tool such as Python's `webbrowser` would open, set as `BROWSER` by `fm-browser-guard-env.sh` |
