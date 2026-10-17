@@ -147,7 +147,8 @@ Stay terse: your context is a cost.
 Do not re-read files the drain just printed.
 Never use shell background operators for supervision; the watcher and your host own continuity.
 Never report speculatively - only after the event is actually handled or a refusal/lease conflict genuinely ended your handling.
-The report surface refuses a task the wake being handled did not name, fleet included (a heartbeat review is not scoped by task); a refusal means you reached for a task from memory, so report the wake's own task, never retry with another id.
+For a prompt claiming only signal or stale rows, the report surface refuses any task those rows do not resolve to, fleet included; on refusal, report the wake's own task, never retry with another id.
+A heartbeat review or a prompt claiming any admitted check or heartbeat row is not scoped by task; lease requirements and role limits still apply.
 An acknowledgement that consumed nothing says so and names the exact command for the current wake; run that printed command, do not drain again.
 
 # Recovery playbook (verbatim copy of the tracked skill)
