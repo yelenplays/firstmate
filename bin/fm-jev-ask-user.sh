@@ -42,11 +42,11 @@
 # (answer: respond --action approve with a reason, and the worker lists the
 # untested scenarios as a follow-up check in the PR description). approve-followup
 # is offered only at a test-step gate whose snapshot carries a `live validation
-# verdict: inconclusive` asked finding and whose other findings are all `no-op`
-# context, because approval accepts the whole gate. Jev must judge that the scenarios cannot run
-# in the gate by design and no code defect is named. Any other answer, a mix of
-# the two, a transport failure, or a malformed
-# response escalates; there is no fallback to another judge. Every
+# verdict: inconclusive` asked finding and whose unasked findings are all
+# `no-op` context, because approval accepts the whole gate. ask-user-authority
+# owns the criteria for choosing either action. Any other answer, a mix of the
+# two, a transport failure, or a malformed response escalates; there is no
+# fallback to another judge. Every
 # always-escalate screen above runs before the call, so none can be approved.
 #
 # On act it prints the decision and sends it to the worker through
@@ -292,12 +292,8 @@ fi
 [ "$COMPACT" = "$JEV_STATE" ] || escalate privacy "the contract or findings carry a secret-shaped value; nothing was sent"
 
 # --- the Jev call ---------------------------------------------------------------
-# Approve is offered only where it can apply: a test-step gate where an asked
-# finding carries a `live validation verdict: inconclusive`, and every other
-# finding in the snapshot is non-acting `no-op` context. An approve answer
-# accepts the whole gate, so an unjudged actionable finding (auto-fix, another
-# ask-user id, or an unknown authority) keeps approve off the table. Any other
-# gate can only be fixed or escalated.
+# The header owns approval eligibility. Keep unjudged actionable findings
+# out of a whole-gate approval.
 FINDING_ROWS=$(printf '%s\n' "$FINDINGS" | awk '
   function flush() { if (id != "") printf "%s\t%s\t%d\n", id, act, inc; id = ""; act = ""; inc = 0 }
   /^id:[[:space:]]*/ { flush(); toon = 0; id = $0; sub(/^id:[[:space:]]*/, "", id); sub(/[[:space:]]+$/, "", id); next }
