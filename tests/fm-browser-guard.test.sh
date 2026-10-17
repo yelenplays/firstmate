@@ -627,6 +627,13 @@ test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced() {
     assert_equals '--headless' "$(stub_args "$log" 1)" "$form: a bare browser spawn must be forced headless"
     assert_equals 1 "$(guard_lines "$log.err")" "$form: the forced launch must be reported once"
   done
+  stub=$(make_browser_stub "$TMP_ROOT/promisified-stub" chrome)
+  log="$TMP_ROOT/promisified.log"
+  rm -f "$log"
+  FM_STUB_LOG="$log" guarded node -e 'const { execFile } = require("child_process"); require("util").promisify(execFile)(process.argv[1], ["--remote-debugging-port=0", "https://example.com"]).catch(() => {})' "$stub" >/dev/null 2>"$log.err" || true
+  assert_equals 1 "$(stub_launches "$log")" "a promisified browser execFile must start once"
+  assert_equals "$(printf '%s\n' --remote-debugging-port=0 https://example.com --headless)" "$(stub_args "$log" 1)" \
+    "a promisified browser execFile must be forced headless"
   pass "Electron launches are untouched and argument-less browser spawns are forced headless"
 }
 

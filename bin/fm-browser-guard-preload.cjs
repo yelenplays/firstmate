@@ -339,15 +339,6 @@ function copyStatics(from, to) {
       /* a non-copyable static is not worth failing over */
     }
   }
-  // execFile carries its promisified form on a symbol, and dropping it would
-  // silently change how every caller awaits it.
-  for (const sym of Object.getOwnPropertySymbols(from)) {
-    try {
-      Object.defineProperty(to, sym, Object.getOwnPropertyDescriptor(from, sym));
-    } catch (err) {
-      /* same */
-    }
-  }
 }
 
 function installSpawnGuard() {
@@ -384,6 +375,29 @@ function installSpawnGuard() {
       return original.apply(this, argv);
     };
     copyStatics(original, wrapper);
+    if (name === 'execFile') {
+      const util = require('util');
+      Object.defineProperty(wrapper, util.promisify.custom, {
+        configurable: true,
+        value: function () {
+          const callArgs = Array.prototype.slice.call(arguments);
+          let child;
+          const promise = new Promise((resolve, reject) => {
+            child = wrapper.apply(this, callArgs.concat((err, stdout, stderr) => {
+              if (err) {
+                err.stdout = stdout;
+                err.stderr = stderr;
+                reject(err);
+              } else {
+                resolve({ stdout, stderr });
+              }
+            }));
+          });
+          promise.child = child;
+          return promise;
+        },
+      });
+    }
     try {
       Object.defineProperty(childProcess, name, { value: wrapper, writable: true, configurable: true, enumerable: true });
     } catch (err) {
