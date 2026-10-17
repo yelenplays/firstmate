@@ -24,7 +24,9 @@
 //   fm-branch-dispatch.mjs offer [--afk]
 //     Read one actionable close's reason line from stdin and print
 //     branchOfferForWake's verdict: eligible=0|1 (whether the branch may take
-//     this close at all, trigger class included), then the same five lines
+//     this close at all, trigger class included; the shared owner admits exact
+//     unfinished-execution and rearm-resurface checks while retaining all
+//     other attended check/decision exclusions), then the same five lines
 //     `scope` prints for the scan it judged. --afk judges it under the away
 //     posture.
 //   fm-branch-dispatch.mjs wake-prompt --report <surface> [--mirror-file <path>] [--away [--readback-file <path>]]

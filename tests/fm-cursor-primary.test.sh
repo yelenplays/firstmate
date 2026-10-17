@@ -27,6 +27,9 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-cursor-primary)
+# Primary hook fixtures must not inherit a worker-slot cwd: the wrapper
+# correctly rejects that seat even when FM_HOME names a primary fixture.
+cd "$TMP_ROOT" || exit 1
 fm_git_identity fmtest fmtest@example.invalid
 
 FAKEBIN=$(fm_fakebin "$TMP_ROOT/fakebin")
