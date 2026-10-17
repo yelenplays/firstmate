@@ -1,0 +1,24 @@
+Real CLI planning against a newly seeded disposable lab task; no dependency mocks.
+Scope: plan output and persisted profile only; no real builder/reviewer worker.
+$ ['bin/fm-cross-review.sh', 'plan', 'cli-review', '--head', '557af10690e6d3f1dc01a4bf22e39c8a97bac558']
+task=cli-review
+head=557af10690e6d3f1dc01a4bf22e39c8a97bac558
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 557af10690e6d3f1dc01a4bf22e39c8a97bac558, and direct-PR mode runs no pipeline review
+reviewer_id=cli-review-xr-557af106
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+
+Persisted cross-review-model.json:
+{
+  "head": "557af10690e6d3f1dc01a4bf22e39c8a97bac558",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}

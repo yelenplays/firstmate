@@ -1,0 +1,65 @@
+Real fm-spawn.sh CLI; marked disposable home; real PATH; no backend, harness, quota or transport mocks.
+
+$ ['bin/fm-spawn.sh', 'raw-check-0', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'claude --model claude-opus-5-5 --effort high', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-1', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'claude --model="claude-opus-5-5[1m]" --effort=xhigh', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-2', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'pi --provider anthropic --model claude-opus-5-5 --thinking high', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-3', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'env WORKER=1 claude --model anthropic/claude-opus-5-5 --effort max', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-4', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'echo starting && claude --model claude-opus-5-5 --effort high', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-5', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'claude --model claude-opus-5-5 --effort medium', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-6', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'claude --model claude-opus-5-5', '--mode', 'local-only', '--yolo', 'off']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.
+
+$ ['bin/fm-spawn.sh', 'raw-check-7', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-project', 'claude --model claude-opus-5-5 --effort high', '--mode', 'local-only', '--yolo', 'off', '--captain-override', 'claude-opus-5-5 high explicitly approved']
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/manual-home
+error: raw launch commands naming claude-opus-5-5 are unsupported; use --harness <adapter> --model claude-opus-5-5 --effort medium (higher effort requires a named --captain-override)
+
+Task metadata absent after refusal; no worker launched.

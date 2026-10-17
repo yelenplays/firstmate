@@ -1,0 +1,29 @@
+Synthetic persisted-input behavioral proof, not a real worker cleanup.
+$ ['python3', 'bin/fm-model-ledger.py', '--state', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/ledger-proof/state', '--data', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/ledger-proof/data', 'ledger-proof']
+Write failure exit=1
+fm-model-ledger: cannot preserve task outcome: [Errno 21] Is a directory: '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54YCVS0RQYVBAHB4CQ8TGKR/.local-test/ledger-proof/data/model-ledger.jsonl'
+
+Metadata and status remain present.
+After fixing the output path and seeding a valid row, malformed/non-object rows, and an unterminated malformed tail:
+Valid historical row retained, malformed bytes retained, next record separated by newline.
+Generated minimal outcome:
+{
+  "task": "ledger-proof",
+  "spawn_gen": "s100.1.proof",
+  "recorded_at": "2026-10-17T12:55:55Z",
+  "kind": "ship",
+  "harness": "claude",
+  "model": "claude-opus-5-5",
+  "effort": "medium",
+  "provider": null,
+  "pool": "ordinary",
+  "final_state": "done",
+  "needs_decision_count": 1,
+  "blocked_count": 1,
+  "redispatches": 2.0,
+  "pipeline_review_rounds": null,
+  "cross_review_verdict": "success",
+  "claude_eq_tokens": 150.0
+}
+Second call exit=0; ledger bytes unchanged (idempotent).
+Private status text and report metadata absent from the ledger.

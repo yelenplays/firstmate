@@ -1,0 +1,14 @@
+Validated target HEAD: 72a0546ad7954c2330b0e3c0329a01c6ce8b837c
+command -v tmux: no executable on PATH. No host search or install attempted.
+command -v claude: /Users/yelen/.local/bin/claude
+command -v herdr: /opt/homebrew/bin/herdr
+
+Herdr session name: fm-lab-tb-gate-01m54
+prepare: exit 0; lab ownership tripwire written inside the worktree.
+provision: not attempted; no worker launch authorized to write Claude trust outside the worktree.
+teardown: exit 0; prepare-only tripwire verified and removed; no lab server or pane was created.
+
+Canonical Claude worker spawning registers trust in ${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json. The ordinary configuration points outside this worktree; this run did not write it, copy credentials, or try to treat an empty isolated Claude configuration as an authenticated login. Real-worker scenarios need a preauthenticated lab-local configuration, or explicit permission for the specific external trust writes. A tmux lab additionally requires tmux available on PATH; a Herdr worker must use the guarded named-session helper.
+
+All disposable lab homes, nested example repositories, fixture roots and manual drivers were removed from the worktree after validation. git status --short produced no output.
+No linters, formatters, static analysis, complete test suite, push, PR or CI phases were run.
