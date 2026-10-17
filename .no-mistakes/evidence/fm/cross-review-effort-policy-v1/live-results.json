@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Unconfigured OpenAI-built change prints medium Opus reviewer",
+    "pass": true
+  },
+  {
+    "name": "Configured high reviewer is clamped and persisted at medium",
+    "pass": true
+  },
+  {
+    "name": "Bare alias policy clamps the full-name reviewer",
+    "pass": true
+  },
+  {
+    "name": "Dated-suffix policy clamps the unsuffixed reviewer",
+    "pass": true
+  },
+  {
+    "name": "Omitted chain effort inherits the declared medium default",
+    "pass": true
+  },
+  {
+    "name": "Invalid chain effort refuses planning",
+    "pass": true
+  },
+  {
+    "name": "Malformed home policy refuses planning",
+    "pass": true
+  },
+  {
+    "name": "High spawn refused for claude-opus-5-5",
+    "pass": true
+  },
+  {
+    "name": "High spawn refused for opus",
+    "pass": true
+  },
+  {
+    "name": "High spawn refused for claude-opus-5-5-20260101",
+    "pass": true
+  },
+  {
+    "name": "High spawn refused for default",
+    "pass": true
+  },
+  {
+    "name": "High spawn refused for modelless",
+    "pass": true
+  }
+]

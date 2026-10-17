@@ -1,0 +1,12 @@
+ok - a launch above a model's effort envelope refuses before metadata
+ok - a launch inside the model's effort envelope proceeds normally
+ok - a captain override launches past the cap after naming the policy on stderr
+ok - a harness that cannot run an effort is never gated by the cap
+ok - an unreadable effort cap config fails closed
+ok - a dated model-name declaration gates the plain Opus launch
+ok - a bare alias declaration gates the full-name Opus launch by its envelope
+ok - an unrelated generation's declaration never gates another model
+ok - the effort cap matches the model's own name variants
+ok - the opus default gates a modelless claude launch and medium passes
+ok - a sonnet-family declaration does not gate a modelless claude launch
+ok - a modelless claude launch is capped by its opus default

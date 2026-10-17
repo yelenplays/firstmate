@@ -1,0 +1,8 @@
+ok - the fixed reviewer chain skips candidates from the builder family
+ok - a dispatch-envelope cap clamps the reviewer chain's declared effort
+ok - an effort inside the envelope is not clamped or disclosed
+ok - the home chain config names the candidates and their effort clamp
+ok - a dated model-name variant declaration caps the plain Opus reviewer
+ok - a bare alias declaration caps the full-name Opus reviewer
+ok - an unrelated generation's cap does not narrow another model
+ok - a malformed or out-of-ladder chain config refuses instead of narrowing silently

@@ -1,0 +1,241 @@
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+[exit 0]
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo init -q -b main
+[exit 0]
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo add example.txt
+[exit 0]
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo -c user.name=Validation -c user.email=validation@example.invalid commit -qm fixture
+[exit 0]
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo rev-parse HEAD
+563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+[exit 0]
+
+=== Regression reproduction: base version, no home policy ===
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/.phase-before-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c, and direct-PR mode runs no pipeline review
+reviewer_id=builder-xr-563ac28b
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=high
+reviewer_family=anthropic
+[exit 0]
+
+Base reproduced the reported unsafe high default; the same scenario below must print medium.
+
+=== No home policy: tracked default must be medium ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c, and direct-PR mode runs no pipeline review
+reviewer_id=builder-xr-563ac28b
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+[exit 0]
+
+persisted cross-review-model.json:
+{
+  "head": "563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}
+
+Home configuration cross-review-chain.json: [{"harness": "claude", "model": "claude-opus-5-5", "effort": "high"}]
+
+Home configuration crew-dispatch.json: {"rules": [{"when": "review", "use": {"harness": "claude", "model": "claude-opus-5-5", "effort": "medium"}}], "default": null}
+
+=== Home chain requests high; exact model policy clamps it ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c, and direct-PR mode runs no pipeline review
+reviewer_id=builder-xr-563ac28b
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+reviewer_effort_clamped=from high by the home effort policy (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json)
+[exit 0]
+
+persisted cross-review-model.json:
+{
+  "head": "563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}
+
+Home configuration crew-dispatch.json: {"rules": [{"when": "review", "use": {"harness": "claude", "model": "opus", "effort": "medium"}}], "default": null}
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c, and direct-PR mode runs no pipeline review
+reviewer_id=builder-xr-563ac28b
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+reviewer_effort_clamped=from high by the home effort policy (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json)
+[exit 0]
+
+persisted cross-review-model.json:
+{
+  "head": "563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}
+
+Home configuration crew-dispatch.json: {"rules": [{"when": "review", "use": {"harness": "claude", "model": "claude-opus-5-5-20260101", "effort": "medium"}}], "default": null}
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c, and direct-PR mode runs no pipeline review
+reviewer_id=builder-xr-563ac28b
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+reviewer_effort_clamped=from high by the home effort policy (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json)
+[exit 0]
+
+persisted cross-review-model.json:
+{
+  "head": "563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}
+
+Home configuration cross-review-chain.json: [{"harness": "claude", "model": "claude-opus-5-5"}]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c, and direct-PR mode runs no pipeline review
+reviewer_id=builder-xr-563ac28b
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+[exit 0]
+
+persisted cross-review-model.json:
+{
+  "head": "563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}
+
+Home configuration cross-review-chain.json: [{"harness": "claude", "model": "claude-opus-5-5", "effort": "whimsical"}]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+fm-cross-review: the reviewer candidate chain is unreadable or malformed: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/cross-review-chain.json
+[exit 1]
+
+Home configuration cross-review-chain.json: [{"harness": "claude", "model": "claude-opus-5-5", "effort": "high"}]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-cross-review.sh plan builder --head 563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+task=builder
+head=563ac28b5ced5fcee26ba18c6745d3ba0e1b9b8c
+builder_family=openai
+fm-cross-review: the reviewer chain cannot be clamped: malformed effort-cap rules file, or one declares an effort outside the low..ultra ladder: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json
+[exit 1]
+
+Home configuration crew-dispatch.json: {"rules": [{"when": "review", "use": {"harness": "claude", "model": "claude-opus-5-5", "effort": "medium"}}], "default": null}
+
+=== Real spawn entrypoint: refuse unsafe effort before endpoint provisioning ===
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-spawn.sh refuse-0 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo --scout --harness claude --backend tmux --effort high --model claude-opus-5-5
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: effort high exceeds the home's effort cap (medium) for claude/claude-opus-5-5 declared in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json; refusing the launch - lower --effort, or raise the model's profile effort_max in config/crew-dispatch.json
+[exit 1]
+
+Task metadata exists after refusal: False
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-spawn.sh refuse-1 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo --scout --harness claude --backend tmux --effort high --model opus
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: effort high exceeds the home's effort cap (medium) for claude/opus declared in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json; refusing the launch - lower --effort, or raise the model's profile effort_max in config/crew-dispatch.json
+[exit 1]
+
+Task metadata exists after refusal: False
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-spawn.sh refuse-2 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo --scout --harness claude --backend tmux --effort high --model claude-opus-5-5-20260101
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: effort high exceeds the home's effort cap (medium) for claude/claude-opus-5-5-20260101 declared in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json; refusing the launch - lower --effort, or raise the model's profile effort_max in config/crew-dispatch.json
+[exit 1]
+
+Task metadata exists after refusal: False
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-spawn.sh refuse-3 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo --scout --harness claude --backend tmux --effort high --model default
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: effort high exceeds the home's effort cap (medium) for claude/default declared in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json; refusing the launch - lower --effort, or raise the model's profile effort_max in config/crew-dispatch.json
+[exit 1]
+
+Task metadata exists after refusal: False
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/bin/fm-spawn.sh refuse-4 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/projects/demo --scout --harness claude --backend tmux --effort high
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: effort high exceeds the home's effort cap (medium) for claude/default declared in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54T9TCWS6G7A8QQXEB4XWMG/.phase-test-tmp/fm-lab.ziiie8qw/config/crew-dispatch.json; refusing the launch - lower --effort, or raise the model's profile effort_max in config/crew-dispatch.json
+[exit 1]
+
+Task metadata exists after refusal: False
+
+Cleanup: removed only the disposable marked lab home; no worker or terminal endpoint was provisioned.
