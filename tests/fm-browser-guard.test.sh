@@ -453,6 +453,16 @@ test_open_shim_refuses_visible_windows() {
   assert_refused 'open -a "Google Chrome"'
   run_shim "$prefix" open -b com.google.Chrome
   assert_refused 'open -b com.google.Chrome'
+  # getopt-style clusters: `-na` is `-n -a`, and the debuggable Chrome recipe
+  # is `open -na "Google Chrome" --args ...`.
+  run_shim "$prefix" open -na 'Google Chrome'
+  assert_refused 'open -na "Google Chrome"'
+  run_shim "$prefix" open -gna 'Brave Browser' 'https://example.com'
+  assert_refused 'open -gna "Brave Browser"'
+  run_shim "$prefix" open -nb com.google.Chrome
+  assert_refused 'open -nb com.google.Chrome'
+  run_shim "$prefix" open -na 'Google Chrome' --args --remote-debugging-port=9222 'https://example.com'
+  assert_refused 'open -na "Google Chrome" --args <url>'
   run_shim "$prefix" open ./report.html
   assert_refused 'open report.html'
   run_shim "$prefix" open 'file:///tmp/report.html'
@@ -472,6 +482,10 @@ test_open_shim_passes_ordinary_opens() {
   assert_passed_through 'open -a TextEdit' 'CALL open [-a] [TextEdit] [./notes.txt]'
   run_shim "$prefix" open -a 'Archive Utility' ./bundle.zip
   assert_passed_through 'open -a "Archive Utility"' 'CALL open [-a] [Archive Utility] [./bundle.zip]'
+  run_shim "$prefix" open -na TextEdit ./notes.txt
+  assert_passed_through 'open -na TextEdit' 'CALL open [-na] [TextEdit] [./notes.txt]'
+  run_shim "$prefix" open -ga 'Archive Utility' ./bundle.zip
+  assert_passed_through 'open -ga "Archive Utility"' 'CALL open [-ga] [Archive Utility] [./bundle.zip]'
   run_shim "$prefix" open .
   assert_passed_through 'open .' 'CALL open [.]'
   run_shim "$prefix" open ./invoice.pdf
@@ -505,6 +519,14 @@ test_osascript_shim_refuses_browser_scripts() {
   assert_refused 'osascript naming Chrome'
   run_shim "$prefix" osascript -e 'tell application "Safari" to activate'
   assert_refused 'osascript naming Safari'
+  run_shim "$prefix" osascript -e 'tell app "Google Chrome" to activate'
+  assert_refused 'osascript app abbreviation naming Chrome'
+  run_shim "$prefix" osascript -e 'tell application id "com.google.Chrome" to activate'
+  assert_refused 'osascript bundle id naming Chrome'
+  run_shim "$prefix" osascript -l JavaScript -e 'Application("Google Chrome").activate()'
+  assert_refused 'osascript JXA double-quoted browser name'
+  run_shim "$prefix" osascript -l JavaScript -e "Application('Brave Browser').activate()"
+  assert_refused 'osascript JXA single-quoted browser name'
   run_shim "$prefix" osascript -e 'open location "https://example.com"'
   assert_refused 'osascript open location'
   run_shim_stdin "$prefix" osascript 'open location "https://example.com"'
@@ -521,6 +543,15 @@ test_osascript_shim_passes_other_scripts() {
 STDIN '
   run_shim "$prefix" osascript -e 'tell application "TextEdit" to activate'
   assert_passed_through 'osascript TextEdit' 'CALL osascript [-e] [tell application "TextEdit" to activate]
+STDIN '
+  run_shim "$prefix" osascript -e 'tell app "TextEdit" to activate'
+  assert_passed_through 'osascript app abbreviation TextEdit' 'CALL osascript [-e] [tell app "TextEdit" to activate]
+STDIN '
+  run_shim "$prefix" osascript -e 'tell application id "com.apple.finder" to activate'
+  assert_passed_through 'osascript bundle id Finder' 'CALL osascript [-e] [tell application id "com.apple.finder" to activate]
+STDIN '
+  run_shim "$prefix" osascript -l JavaScript -e 'Application("Finder").activate()'
+  assert_passed_through 'osascript JXA Application("Finder")' 'CALL osascript [-l] [JavaScript] [-e] [Application("Finder").activate()]
 STDIN '
   run_shim "$prefix" osascript -e 'tell application "Finder" to open location "file:///tmp"'
   assert_passed_through 'osascript Finder reveal' 'CALL osascript [-e] [tell application "Finder" to open location "file:///tmp"]
@@ -637,6 +668,22 @@ test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced() {
   pass "Electron launches are untouched and argument-less browser spawns are forced headless"
 }
 
+# A macOS Brave install's browser binary basename is `Brave Browser` (with a
+# space), so the spawn layer must classify it as Chromium instead of skipping it
+# because of the gap between the words.
+test_macos_brave_binary_is_forced_headless() {
+  local stub log
+  stub=$(make_browser_stub "$TMP_ROOT/brave-stub" 'Brave Browser')
+  log="$TMP_ROOT/brave.log"
+  rm -f "$log"
+  FM_STUB_LOG="$log" guarded node -e 'require("child_process").spawnSync(process.argv[1], ["--remote-debugging-port=9222"])' "$stub" >/dev/null 2>"$log.err" || true
+  assert_equals 1 "$(stub_launches "$log")" "a macOS Brave Browser spawn must start once"
+  assert_equals "$(printf '%s\n' --remote-debugging-port=9222 --headless)" "$(stub_args "$log" 1)" \
+    "a macOS Brave Browser spawn must be forced headless"
+  assert_equals 1 "$(guard_lines "$log.err")" "the forced Brave launch must be reported once"
+  pass "the macOS Brave Browser binary is classified and forced headless"
+}
+
 test_guard_environment_is_safe_to_apply_twice() {
   local snippet out stub
   snippet=$(guard_snippet) || fail "the guard environment snippet could not be built"
@@ -735,6 +782,7 @@ for t in \
   test_python_webbrowser_is_refused \
   test_guard_leaves_ordinary_node_work_alone \
   test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced \
+  test_macos_brave_binary_is_forced_headless \
   test_guard_environment_is_safe_to_apply_twice \
   test_guard_warns_instead_of_failing_when_the_install_is_missing \
   test_guard_survives_a_hostile_checkout_path \

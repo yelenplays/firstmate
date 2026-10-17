@@ -60,34 +60,65 @@ fm_bg_reveal=0
 
 # First pass: the flags that name an application. The argument list itself is
 # never consumed here, because the real `open` still needs it verbatim.
-fm_bg_next=
+#
+# `open` takes getopt-style clusters, so `-na "Google Chrome"` means
+# `-n -a "Google Chrome"` and `-gna` means `-g -n -a`; the standard debuggable
+# Chrome recipe `open -na "Google Chrome" --args ...` is exactly that shape.
+# Each single-dash cluster is split, and the first `a`, `b`, or `s` in it takes
+# its value from the rest of the cluster when there is one, otherwise from the
+# next argument - the rule getopt itself applies.
+fm_bg_expect=
 for fm_bg_arg in "$@"; do
-  case $fm_bg_next in
+  case $fm_bg_expect in
   app)
     fm_bg_app=$fm_bg_arg
-    fm_bg_next=
+    fm_bg_expect=
     continue
     ;;
   bundle)
     fm_bg_bundle=$fm_bg_arg
-    fm_bg_next=
+    fm_bg_expect=
     continue
     ;;
   sdk)
-    fm_bg_next=
+    fm_bg_expect=
     continue
     ;;
   esac
   case $fm_bg_arg in
-  -a) fm_bg_next=app ;;
-  -b) fm_bg_next=bundle ;;
-  -s) fm_bg_next=sdk ;;
+  --args | --) break ;;
   -R)
     # -R reveals the target in Finder instead of opening it, so a .html path is
     # a Finder selection, not a browser window.
     fm_bg_reveal=1
     ;;
-  --args | --) break ;;
+  - | --*) ;;
+  -?*)
+    fm_bg_cluster=${fm_bg_arg#-}
+    while [ -n "$fm_bg_cluster" ]; do
+      fm_bg_flag=${fm_bg_cluster%"${fm_bg_cluster#?}"}
+      fm_bg_cluster=${fm_bg_cluster#?}
+      case $fm_bg_flag in
+      a | b | s)
+        if [ -n "$fm_bg_cluster" ]; then
+          fm_bg_value=$fm_bg_cluster
+          fm_bg_cluster=
+        else
+          fm_bg_value=
+          case $fm_bg_flag in
+          a) fm_bg_expect=app ;;
+          b) fm_bg_expect=bundle ;;
+          s) fm_bg_expect=sdk ;;
+          esac
+        fi
+        case $fm_bg_flag in
+        a) [ -z "$fm_bg_value" ] || fm_bg_app=$fm_bg_value ;;
+        b) [ -z "$fm_bg_value" ] || fm_bg_bundle=$fm_bg_value ;;
+        esac
+        ;;
+      esac
+    done
+    ;;
   esac
 done
 

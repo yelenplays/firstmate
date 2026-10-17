@@ -227,7 +227,7 @@ function installLauncherPatch() {
 // passes and means the new headless implementation on every Chrome that
 // supports it, so the forced launch matches the library's own headless launch
 // on old and new builds alike.
-const CHROMIUM_BINARY = /^(?:google chrome(?: (?:beta|dev|canary|for testing))?|chrome|chromium|chromium-browser|google-chrome|chrome-headless-shell|headless_shell|brave|brave-browser|msedge|microsoft edge|vivaldi|opera|thorium)$/;
+const CHROMIUM_BINARY = /^(?:google chrome(?: (?:beta|dev|canary|for testing))?|chrome|chromium|chromium-browser|google-chrome|chrome-headless-shell|headless_shell|brave|brave-browser|brave browser|msedge|microsoft edge|vivaldi|opera|thorium)$/;
 const FIREFOX_BINARY = /^(?:firefox|firefox-bin|firefox-esr|firefoxdeveloperedition|firefox-nightly|nightly|mozilla firefox)$/;
 const WEBKIT_BINARY = /^(?:pw_run\.sh|playwright|minibrowser)$/;
 

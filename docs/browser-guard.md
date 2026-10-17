@@ -51,11 +51,11 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
 
 ## Boundaries
 
-- A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a script file passed to `osascript` (only `-e` and stdin scripts are read).
+- A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a native non-Node browser driver (a Rust build of `agent-browser`, or any other launcher that starts Chrome without Node and without the shims), a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a script file passed to `osascript` (only `-e` and stdin scripts are read).
 - A browser binary renamed to a name the spawn layer does not recognize is outside layer 2; a Playwright or Puppeteer launch of it is still forced headless by layer 1.
 - A browser URL held in an AppleScript variable, or one assembled inside a shell string passed to `child_process.exec`, cannot be judged without evaluating the script, so the guard does not try.
 - The guard covers agents Firstmate launches.
-  The captain's own primary session is not guarded, so his own browser use and his login flows are unaffected.
+  The captain's own primary session is not guarded, so the captain's own browser use and login flows are unaffected.
 - If the guard environment builder detects missing guard files, it emits a warning-only snippet and the worker continues unguarded rather than failing.
   File checks happen when the launch is built, not in the destination pane.
 - If the preload path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node layers while retaining the PATH shims and `BROWSER` hook.

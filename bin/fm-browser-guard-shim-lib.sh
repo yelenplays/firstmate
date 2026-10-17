@@ -92,21 +92,49 @@ fm_bg_browser_target() {
   return 1
 }
 
-# fm_bg_browser_script <lowercased AppleScript source>: true when running it
-# would put a browser on screen, either by asking for a web URL ("open
+# fm_bg_browser_script <lowercased AppleScript/JXA source>: true when running
+# it would put a browser on screen, either by asking for a web URL ("open
 # location", which is how Python's webbrowser drives Safari and Chrome) or by
 # addressing a browser application directly. `open location` on a non-web URL is
 # left alone because it is how Finder reveals a path, and a URL held in a
 # variable cannot be judged at all - docs/browser-guard.md records that boundary.
+#
+# The application forms are matched by extracting the named application rather
+# than by spelling every browser into a pattern: `application "Name"`, the
+# `app "Name"` abbreviation, `application id "bundle.id"` (and `app id`), and
+# the JXA `Application("Name")` / `Application('Name')` calls all reach the same
+# name and bundle lists the `open` shim uses, so a new browser is added once.
 fm_bg_browser_script() {
   case $1 in
     *'open location "http'* | *'open location http'* | *'open "http'* | *'open http'*) return 0 ;;
   esac
-  case $1 in
-    *'application "google chrome'* | *'application "chromium'* | *'application "chrome'* | *'application "safari'* | *'application "firefox'* | *'application "mozilla firefox'* | *'application "brave'* | *'application "microsoft edge'* | *'application "msedge'* | *'application "opera'* | *'application "vivaldi'* | *'application "duckduckgo'* | *'application "waterfox'* | *'application "librewolf'* | *'application "tor browser'*) return 0 ;;
-  esac
-  case $1 in
-    *'application "arc"'* | *'application "dia"'* | *'application "orion"'* | *'application "zen"'* | *'application "zen browser"'* | *'application "comet"'* | *'application "sidekick"'* | *'application "the browser"'*) return 0 ;;
-  esac
+  # Bundle-identifier forms first, so the name pass below cannot mistake the
+  # `id` keyword for an application name.
+  fm_bg_rest=$1
+  while :; do
+    case $fm_bg_rest in
+      *'application id "'*) fm_bg_rest=${fm_bg_rest#*'application id "'} ;;
+      *'app id "'*) fm_bg_rest=${fm_bg_rest#*'app id "'} ;;
+      *) break ;;
+    esac
+    fm_bg_bundle=${fm_bg_rest%%'"'*}
+    fm_bg_browser_bundle "$fm_bg_bundle" && return 0
+  done
+  # Application-name forms: AppleScript's `application "Name"` and `app "Name"`,
+  # plus JXA's `Application("Name")` and `Application('Name')`.
+  for fm_bg_prefix in 'application(' 'application ' 'app '; do
+    for fm_bg_quote in '"' "'"; do
+      fm_bg_rest=$1
+      while :; do
+        case $fm_bg_rest in
+          *"$fm_bg_prefix$fm_bg_quote"*) fm_bg_rest=${fm_bg_rest#*"$fm_bg_prefix$fm_bg_quote"} ;;
+          *) break ;;
+        esac
+        fm_bg_name=${fm_bg_rest%%"$fm_bg_quote"*}
+        [ -n "$fm_bg_name" ] || continue
+        fm_bg_browser_application "$fm_bg_name" && return 0
+      done
+    done
+  done
   return 1
 }
