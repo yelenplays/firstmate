@@ -24,9 +24,8 @@
 #
 # Layout under <state-dir>:
 #   <task>.inbox/NNN.msg       one durable steer, numeric sequence, atomic rename
-#   <task>.inbox/handled/      the worker's `mv` here IS the acknowledgement
-#   <task>.inbox/.seq.lock     serializes sequence allocation across writers
-#                              (the session and the away daemon)
+#   <task>.inbox/handled/      moving a record here acknowledges its receipt
+#   <task>.inbox/.seq.lock     serializes writers and takers
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
 #   <task>.inbox/.delivered    last doorbell that reached the pane: "<msg>\t<epoch>";
@@ -35,6 +34,12 @@
 #                              so later polls suppress another escalation
 #   <task>.inbox/.retry-ring   name of a fire-and-forget record still owed its
 #                              one retry ring (fm_task_inbox_mark_retry)
+#
+# bin/fm-inbox.sh take <inbox-dir> prints pending numeric .msg records, each
+# with its path, then moves each printed record into handled/ in one call.
+# It serializes with writers and other takers using .seq.lock; output or move
+# failure stops without acknowledging the failed record. Empty/absent is a no-op.
+# Taking acknowledges receipt, not completion: the worker must act on the output.
 #
 # Record format (fm_task_inbox_write / fm_task_inbox_body):
 #   schema=fm-task-inbox.v1
@@ -46,9 +51,10 @@
 #    its from-firstmate marker and corr token verbatim in this body>
 #
 # Sequence numbers are never reused within a task: allocation scans both the
-# inbox root and handled/, so a message is processed at most once per worker
-# lifetime even if every doorbell is duplicated. Concurrent writers serialize
-# on .seq.lock; the worst racing outcome is ordering, never loss.
+# inbox root and handled/, so a successfully taken record is not returned again
+# even if every doorbell is duplicated. A failure before the acknowledgement
+# move may leave printed output to be retried; receipt never proves execution.
+# Concurrent writers and takers serialize on .seq.lock.
 #
 # Re-ring ladder (fm_task_inbox_due_action): an unhandled message older than
 # FM_TASK_INBOX_GRACE_SECS is due one delivery attempt per grace period; an
@@ -61,8 +67,8 @@
 # stuck-busy reason without typing. A busy pane whose doorbell for this record
 # demonstrably reached it (fm_task_inbox_record_delivered, written by every
 # ring that returned 0, the enqueue ring in bin/fm-send.sh included) is the
-# worker in the turn that processes the message - the record is acknowledged
-# only after it is acted on - so the caller holds that budget while the turn is
+# worker in the turn that receives the message - take acknowledges receipt
+# before acting on the output - so the caller holds that budget while the turn is
 # inside its own busy-turn bound and spends it only once the turn outlives it. A non-busy due check or acknowledgement resets
 # this budget. Fire-and-forget retries remain outside escalation. A positively
 # dead or missing endpoint skips delivery and the ladder and escalates directly.
@@ -348,10 +354,46 @@ fm_task_inbox_body() {  # <record-path>
   return 1
 }
 
+# Print and acknowledge the pending snapshot in numeric basename order.
+# Keep this with the inbox format owner; fm-inbox.sh only exposes the verb.
+fm_task_inbox_take() {  # <inbox-dir>
+  local dir=$1 lock names f status=0
+  [ -e "$dir" ] || return 0
+  [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  [ ! -L "$dir/handled" ] || return 1
+  mkdir -p "$dir/handled" || return 1
+  lock="$dir/.seq.lock"
+  fm_task_inbox_lock_acquire "$lock" || return 1
+  names=$(
+    for f in "$dir"/*.msg; do
+      [ -f "$f" ] && [ ! -L "$f" ] || continue
+      fm_task_inbox_seq_of "${f##*/}" >/dev/null || continue
+      printf '%s\n' "${f##*/}"
+    done | LC_ALL=C sort -n
+  ) || status=1
+  if [ "$status" -eq 0 ]; then
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      # Never overwrite an earlier acknowledgement, even after manual damage.
+      if [ -e "$dir/handled/$f" ] || [ -L "$dir/handled/$f" ] ||
+        ! { printf '=== %s ===\n' "$dir/$f" && cat "$dir/$f" && printf '\n'; } ||
+        ! mv "$dir/$f" "$dir/handled/$f"; then
+        status=1
+        break
+      fi
+    done <<EOF
+$names
+EOF
+  fi
+  fm_lock_release "$lock"
+  return "$status"
+}
+
 # The constant self-describing doorbell line for the inbox containing a record.
 # It names the inbox by the literal "$FM_TASK_INBOX", which bin/fm-spawn.sh
-# exports into every launch as the inbox's absolute path, so the worker can
-# resolve it from its own environment even after losing its brief context.
+# exports into every launch as the inbox's absolute path, with FM_TASK_INBOX_CLI
+# naming the code-root command, so the worker can resolve both independently
+# of its working directory and of an operational home without scripts.
 # The short `<task>.inbox` name follows as the fallback for a worker launched
 # before that export, whose brief carries the full path (bin/fm-dod-lib.sh
 # role contract, bin/fm-brief.sh inbox section). No absolute path is printed,
@@ -371,7 +413,7 @@ fm_task_inbox_doorbell_line() {  # <record-path>
     ''|*[![:print:]]*) return 1 ;;
   esac
   quoted=$(printf '%s' "$name" | sed "s/'/'\\\\''/g")
-  printf ": Firstmate instruction waiting: list \"\$FM_TASK_INBOX\"/*.msg in your '%s' steering inbox, read and act on each in numeric order, then mv each into its handled/." \
+  printf ": Firstmate instruction waiting: run \"\$FM_TASK_INBOX_CLI\" take \"\$FM_TASK_INBOX\" for '%s', then act on the output." \
     "$quoted"
 }
 

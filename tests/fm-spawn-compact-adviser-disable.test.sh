@@ -225,6 +225,60 @@ test_launch_exports_task_inbox() {
   pass "ship and secondmate launches export their absolute steering inbox as FM_TASK_INBOX"
 }
 
+# Execute Claude argv/env for both worker kinds and the excluded supervisor
+# kind, under both an ambient and a cleared launch environment.
+test_claude_worker_context_floor() {
+  local kind setting rec id sm out status launch seen
+  for kind in ship scout secondmate; do
+    for setting in absent enabled; do
+      id="floor-$kind-$setting"
+      rec=$(make_case "$id" claude "$id")
+      read_case "$rec"
+      [ "$setting" = absent ] || : > "$HOME_DIR/config/launch-env-allowlist"
+      case "$kind" in
+        ship) out=$(run_case_spawn "$id" "$PROJ_DIR" --mode no-mistakes --yolo off) ;;
+        scout) out=$(run_case_spawn "$id" "$PROJ_DIR" --scout) ;;
+        secondmate)
+          sm="$CASE_DIR/secondmate-home"
+          mkdir -p "$sm/bin" "$sm/data"
+          printf '# Firstmate\n' > "$sm/AGENTS.md"
+          printf '%s\n' "$id" > "$sm/.fm-secondmate-home"
+          printf 'charter for %s\n' "$id" > "$sm/data/charter.md"
+          printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$sm/.gitignore"
+          git -C "$sm" init -q -b main
+          out=$(run_case_spawn "$id" "$sm" --secondmate) ;;
+      esac
+      status=$?
+      expect_code 0 "$status" "$kind/$setting Claude spawn failed: $out"
+      cat > "$FAKEBIN_DIR/claude" <<'SH'
+#!/bin/sh
+printf 'window=%s\ncli=%s\n' "${CLAUDE_CODE_AUTO_COMPACT_WINDOW-unset}" "$FM_TASK_INBOX_CLI"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = --disallowedTools ]; then printf 'deny=%s\n' "$2"; fi
+  shift
+done
+SH
+      chmod +x "$FAKEBIN_DIR/claude"
+      launch=$(cat "$LAUNCH_LOG")
+      seen=$(env -i HOME="$TMP_ROOT/pane-home" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm \
+        CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000 /bin/sh -c "$launch") || fail 'Claude probe failed'
+      assert_contains "$seen" "cli=$ROOT/bin/fm-inbox.sh" 'take command must survive both allowlist postures'
+      if [ "$kind" = secondmate ]; then
+        case "$seen" in *deny=*) fail 'secondmate lost tools' ;; esac
+        if [ "$setting" = absent ]; then
+          assert_contains "$seen" 'window=300000' 'secondmate compact window must stay ambient'
+        else
+          assert_contains "$seen" 'window=unset' 'secondmate must not acquire a worker compact window'
+        fi
+      else
+        assert_contains "$seen" 'window=200000' 'worker compact window must override ambient settings'
+        assert_contains "$seen" 'deny=Artifact,Workflow,ScheduleWakeup,AskUserQuestion' 'worker denied-tool argv must be exact'
+      fi
+    done
+  done
+  pass 'Claude ships/scouts receive tool and compact limits, secondmates do not, with or without filtering'
+}
+
 # --- relaunch ---------------------------------------------------------------
 #
 # bin/fm-control.sh relaunch stops the agent and rebuilds the launch through
@@ -382,6 +436,7 @@ SH
   pass "a compound raw launch-command still starts its agent with the compact-adviser switch on"
 }
 
+test_claude_worker_context_floor
 test_ship_allowlist_absent
 test_ship_allowlist_enabled
 test_launch_command_carries_the_switch_without_the_pane_export
