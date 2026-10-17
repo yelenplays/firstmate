@@ -294,6 +294,25 @@ function copyStatics(from, to) {
   }
 }
 
+// MCP transports and other launchers build allowlisted environments instead
+// of inheriting process.env. Reattach only the guard, not the parent's other
+// variables, so a Node server behind that boundary cannot launch headed Chrome.
+function guardedOptions(options) {
+  if (!options || typeof options !== 'object' || !options.env || headedAllowed()) return options;
+  const path = require('path');
+  const env = { ...options.env };
+  const preload = '--require "' + __filename + '"';
+  const nodeOptions = env.NODE_OPTIONS || '';
+  env.NODE_OPTIONS = nodeOptions.includes(preload) ? nodeOptions : preload + (nodeOptions ? ' ' + nodeOptions : '');
+  env.FM_BROWSER_GUARD = '1';
+  env.BROWSER = path.join(__dirname, 'fm-browser-guard-browser.sh');
+  env.LAVISH_AXI_NO_OPEN = '1';
+  const shims = path.join(__dirname, 'fm-browser-guard-bin');
+  const childPath = env.PATH === undefined ? '/usr/bin:/bin' : env.PATH;
+  env.PATH = childPath.split(path.delimiter)[0] === shims ? childPath : shims + path.delimiter + childPath;
+  return { ...options, env };
+}
+
 function installSpawnGuard() {
   const childProcess = require('child_process');
   for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync']) {
@@ -304,6 +323,7 @@ function installSpawnGuard() {
       try {
         let args = argv[1];
         let options = argv[2];
+        let optionsIndex = 2;
         let insert = false;
         // spawn(cmd), spawn(cmd, options) and execFile(file, callback) omit the
         // argument list, so a bare browser launch still gets one to rewrite.
@@ -311,11 +331,16 @@ function installSpawnGuard() {
           if (args === undefined || args === null) {
             args = [];
           } else {
-            if (typeof args === 'object') options = args;
+            if (typeof args === 'object') {
+              options = args;
+              optionsIndex = 1;
+            }
             args = [];
             insert = true;
           }
         }
+        const guarded = guardedOptions(options);
+        if (guarded !== options) argv[optionsIndex] = guarded;
         const rewritten = guardedArgv(command, args, options);
         if (rewritten) {
           if (insert) argv.splice(1, 0, rewritten);

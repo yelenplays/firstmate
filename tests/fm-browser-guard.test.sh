@@ -616,6 +616,12 @@ test_python_webbrowser_is_refused() {
 
 # --- the guard must not break a worker --------------------------------------
 
+test_filtered_subprocess_environment_keeps_the_guard() {
+  guarded node "$FIXTURES/filtered-subprocess.cjs" "$TMP_ROOT/filtered-subprocess" \
+    || fail "a filtered MCP subprocess must not escape the browser guard"
+  pass "filtered subprocess environments retain browser enforcement without copying secrets"
+}
+
 test_guard_leaves_ordinary_node_work_alone() {
   local out status
   out=$(guarded node -e 'process.stdout.write("stdout-clean")' 2>"$TMP_ROOT/node.err")
@@ -780,6 +786,7 @@ for t in \
   test_osascript_shim_passes_other_scripts \
   test_shims_honor_the_opt_out \
   test_python_webbrowser_is_refused \
+  test_filtered_subprocess_environment_keeps_the_guard \
   test_guard_leaves_ordinary_node_work_alone \
   test_electron_launch_is_left_alone_and_bare_browser_spawn_is_forced \
   test_macos_brave_binary_is_forced_headless \
