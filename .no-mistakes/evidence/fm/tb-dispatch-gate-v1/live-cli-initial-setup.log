@@ -1,0 +1,60 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.test-tmp/fm-lab-token-8znbhy1a
+exit=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.test-tmp/fm-lab-token-8znbhy1a
+
+
+$ bin/fm-dispatch-resolve.sh /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.test-tmp/fm-lab-token-8znbhy1a/brief.md
+exit=0
+dispatch-resolve:
+  status: fallback
+  decided: default by default
+  typed: skipped (no rules to match)
+  model: default   latency_ms: 0   tokens: -/-
+  rule: default (No listed rule applies to this task.)   confidence: 1
+  probabilities: default=1
+  effort: - (declared fallback (classifier absent))
+  note: no rule matched
+  note: single eligible policy option; quota uncertainty disclosed
+  candidate: claude:claude-opus-5-5  provider=claude  effort=medium(range medium)  pred=unknown  -> eligible, unranked: Claude worker pool is not matched to the quota snapshot; quota and runway unknown: disclosed uncertainty
+  profile: --harness 'claude' --model 'claude-opus-5-5' --effort 'medium'
+  receipt: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.test-tmp/fm-lab-token-8znbhy1a/state/model-route/b1639eec9d446f6670483deccfca5e7bc48f0edf25854e3b19a5f5a56993cf0f.json
+
+
+$ bin/fm-cross-review.sh plan token-review --head bafe7598a9413e6a704d536674ed11e6ad7a970f
+exit=0
+task=token-review
+head=bafe7598a9413e6a704d536674ed11e6ad7a970f
+builder_family=openai
+action=spawn-reviewer
+kind=review
+reason=no one-shot review is recorded for bafe7598a9413e6a704d536674ed11e6ad7a970f, and direct-PR mode runs no pipeline review
+reviewer_id=token-review-xr-bafe7598
+reviewer_harness=claude
+reviewer_model=claude-opus-5-5
+reviewer_effort=medium
+reviewer_family=anthropic
+
+
+Persisted public reviewer plan:
+{
+  "head": "bafe7598a9413e6a704d536674ed11e6ad7a970f",
+  "profile": {
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "medium"
+  }
+}
+$ bin/fm-spawn.sh raw-opus-check /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP claude --model claude-opus-5-5 --effort high --backend tmux
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.test-tmp/fm-lab-token-8znbhy1a
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M553SQ300X5SAG5FSK2P04PP/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: ship spawns require --mode <no-mistakes|direct-PR|local-only>; resolve it at intake from the captain's instruction and the project's registered posture in data/projects.md
+
+Disposable CLI lab removed; no worker or session was created.

@@ -1,0 +1,8 @@
+Synthetic persisted-input check, NOT a live worker cleanup. All output below comes from the public recorder CLI.
+Record/retry 1: exit=0
+Record/retry 2: exit=0
+Generated valid JSONL records (original corrupt bytes remain untouched):
+{"task": "historical", "spawn_gen": "old"}
+{"task": "outcome", "spawn_gen": "s100.1.test", "recorded_at": "2026-10-17T14:56:09Z", "kind": "ship", "harness": "claude", "model": "claude-opus-5-5", "effort": "medium", "provider": null, "pool": null, "final_state": "done", "needs_decision_count": 1, "blocked_count": 1, "redispatches": 2.0, "pipeline_review_rounds": null, "cross_review_verdict": null, "claude_eq_tokens": 150.0}
+Missing metadata retry: exit=0; ledger bytes unchanged.
+Synthetic input directories removed.
