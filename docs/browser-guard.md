@@ -39,7 +39,6 @@ The guard environment also sets `LAVISH_AXI_NO_OPEN=1`, lavish-axi's own switch 
 A worker's visual review therefore still serves its artifact and prints its review URL, and the firstmate that owns the captain's attention opens it in the unguarded primary session instead of a worker pane forcing a window or hitting a refusal.
 
 The preload is loaded into every Node process a worker starts, including the harness itself, so installation and hook errors are caught to avoid breaking unrelated Node work, and diagnostics never write to stdout.
-`NODE_OPTIONS` names the stable loader rather than the preload directly, so a checkout that later loses the preload (a branch switch or revert in the home) degrades to an unguarded Node process instead of aborting every `node` in that pane with `MODULE_NOT_FOUND`.
 
 ## The captain's escape hatch
 
@@ -65,7 +64,9 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
   The captain's own primary session is not guarded, so the captain's own browser use and login flows are unaffected.
 - If the guard environment builder detects missing guard files, it emits a warning-only snippet and the worker continues unguarded rather than failing.
   File checks happen when the launch is built, not in the destination pane.
-- If a checkout loses the preload after a launch was built, the stable loader loads nothing and the pane's Node processes continue unguarded; only a checkout missing the loader itself would break them, which the build-time check above prevents for a fresh launch.
+- If a checkout loses the preload after a launch was built, Node processes using the launch snippet's stable loader continue unguarded instead of aborting with `MODULE_NOT_FOUND`.
+  Filtered child environments reattached by the process layer name the preload directly, so those Node children can still abort if it disappears.
+  A missing stable loader also aborts processes that require it; the build-time check protects fresh launches, not later checkout changes.
 - If the loader path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node layers while retaining the PATH shims and `BROWSER` hook.
   [`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) owns the path restrictions.
 
