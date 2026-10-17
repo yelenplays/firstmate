@@ -17,7 +17,7 @@
 # The snippet exports:
 #   FM_BROWSER_GUARD=1   the marker that says this pane is guarded
 #   PATH=<shims>:$PATH   the `open` and `osascript` shims ahead of the real tools
-#   NODE_OPTIONS=--require <preload>  the Node preload, appended to whatever
+#   NODE_OPTIONS=--require <preload>  the Node preload, prepended to whatever
 #                        NODE_OPTIONS the pane already carries
 #   BROWSER=<refuser>    the URL-opening hook Python's webbrowser, gh, and git
 #                        web--browse call first; it refuses the URL and stops

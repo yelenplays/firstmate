@@ -1,20 +1,18 @@
 # Agent browser guard
 
-The agent browser guard makes a visible browser window impossible for every crewmate, scout, and secondmate Firstmate launches.
-A worker that asks Playwright, Puppeteer, `open`, or AppleScript for a window still gets a headless launch, and the routes that have no headless form are refused in one line.
-This is enforcement at the launch layer rather than an instruction a worker has to remember: `bin/fm-spawn.sh` establishes it for every harness, on a fresh spawn and on a relaunch alike.
+The agent browser guard forces covered browser launches headless or refuses them when no headless form exists.
+`bin/fm-spawn.sh` establishes it for every crewmate, scout, and secondmate, on a fresh spawn and on a relaunch alike, without relying on a worker remembering an instruction.
+The coverage below assumes an intact installation, the inherited guard environment, and no captain opt-out; the [boundaries](#boundaries) describe routes it cannot enforce.
 
-The guard exists because a frontend worker's scratchpad scripts ran `chromium.launch({ headless: false })` through Playwright's "Google Chrome for Testing", so real windows appeared on the captain's Mac.
-An instruction-level rule in the brief include file came first; this document describes the layer that does not depend on any worker following it.
+## Covered launches
 
-## What is guaranteed
-
-- A browser started through Node - Playwright, Puppeteer, `chrome-devtools-mcp`, a driver, a raw `spawn` of a Chromium, Firefox, or WebKit binary - runs headless.
+- A browser started through the patched Node launcher APIs or process calls described below runs headless.
 - `open <url>`, `open -a "Google Chrome"`, `open -b <browser bundle>`, and `open <page.html>` are refused instead of opening a window, and the refusal is one line on stderr plus a non-zero exit.
 - `osascript` scripts that address a browser or ask for a web URL are refused, including the script-on-stdin form older Python's `webbrowser` module sends through `PATH`.
 - Python's `webbrowser.open` and other tools that honor `BROWSER` are refused in one line, including Python 3.13 and later, whose `webbrowser` pipes to `/usr/bin/osascript` by full path and so never reaches the `osascript` shim.
 - Ordinary file opening, `open -R`, non-browser applications, and non-browser AppleScript keep working unchanged.
-- Every forced launch and every refusal is visible in the worker's own transcript as a single `fm-browser-guard:` line.
+- The Node preload emits one `fm-browser-guard:` line for the first forced launch and one for the first allowed visible launch per process; later launches in that process do not repeat those notices.
+  Each shim refusal or opt-out invocation emits its own notice.
 
 ## How it works
 
@@ -25,7 +23,7 @@ Three layers, each covering what the one below it cannot.
    It appends a patch call to every CommonJS module compiled out of a playwright/puppeteer package and wraps `launch`, `launchPersistentContext`, and `launchServer` on the launcher class or the exported instance, so `headless: false` becomes `headless: true` before the library builds its argument list.
    Hooking `Module.prototype._compile` rather than `Module._load` is what also covers `import { chromium } from 'playwright-core'`, because an ESM import of a CommonJS package still compiles through it.
    The library then takes its own headless path - its own binary choice, its own flags - so the forced launch is exactly the launch that library performs when it is asked for headless.
-2. **The browser process** - the same preload wraps `child_process.spawn`, `spawnSync`, `execFile`, and `execFileSync` and adds the library's own headless flag to a browser command line that is missing one: `--headless` for the Chromium family, `-headless` for Firefox, `--headless` for WebKit.
+2. **The browser process** - the same preload wraps `child_process.spawn`, `spawnSync`, `execFile` (including `util.promisify(execFile)`), and `execFileSync` and adds the library's own headless flag to a browser command line that is missing one: `--headless` for the Chromium family, `-headless` for Firefox, `--headless` for WebKit.
    It recognizes a browser by its binary name alone - Chrome, Chromium, Chrome for Testing, the headless shell, Edge, Brave and the other Chromium browsers, Firefox, and Playwright's WebKit - never by debugging flags, so an Electron app launched with `--remote-debugging-port` is left untouched, and a bare `spawn(chromePath)` with no argument list still gets the flag.
    This is the layer that catches a launcher's ESM build (puppeteer-core ships one), a wrapper script, a driver, and any other tool that starts a known browser binary.
    It is also the reason a `chrome-devtools-axi` run that opts into a headed browser still cannot open one.
@@ -44,9 +42,12 @@ Its cost when it does not act is one filename test per compiled module and one c
 ## The captain's escape hatch
 
 `FM_ALLOW_HEADED_BROWSER=1` is the opt-out, and it is the captain's to set.
-Every layer reads it at use time, so exporting it into a live pane is enough, and each layer prints one line naming the variable when it honors it.
+Scope it to one command to allow only that command's launches; exporting it in a shell allows subsequent child commands until it is unset.
+It is not consumed after one launch.
+Every layer reads its own process environment at use time; changing a pane shell's exports does not change an already-running worker's environment.
+The notices described above name the opt-out when it is honored.
 Firstmate never sets it for a worker, and no config file or flag turns the guard off for a fleet.
-A worker that exports it in its own pane is visible in its transcript, which is the enforcement that makes this the captain's switch rather than a general permission.
+This is an environment-based backstop, not a sandbox preventing a worker from changing its own environment.
 
 ## Boundaries
 
@@ -55,7 +56,10 @@ A worker that exports it in its own pane is visible in its transcript, which is 
 - A browser URL held in an AppleScript variable, or one assembled inside a shell string passed to `child_process.exec`, cannot be judged without evaluating the script, so the guard does not try.
 - The guard covers agents Firstmate launches.
   The captain's own primary session is not guarded, so his own browser use and his login flows are unaffected.
-- On a host that never received the guard files - a stale remote secondmate home - the launch prints one warning line and continues unguarded rather than failing, because a missing install is not a policy decision.
+- If the guard environment builder detects missing guard files, it emits a warning-only snippet and the worker continues unguarded rather than failing.
+  File checks happen when the launch is built, not in the destination pane.
+- If the preload path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node layers while retaining the PATH shims and `BROWSER` hook.
+  [`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) owns the path restrictions.
 
 ## Verification
 

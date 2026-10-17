@@ -11,8 +11,8 @@
 # a shim finds the real binary it is standing in front of. docs/browser-guard.md
 # owns the contract; bin/fm-browser-guard-preload.cjs owns the Node half.
 
-# The captain's opt-out. Read at use time so a value exported into a live pane
-# is honored. Anything other than exactly 1 leaves the guard on.
+# The captain's opt-out is read from this shim process's inherited environment.
+# Anything other than exactly 1 leaves the guard on.
 fm_bg_opt_out() {
   [ "${FM_ALLOW_HEADED_BROWSER:-}" = 1 ]
 }

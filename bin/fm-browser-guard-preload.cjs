@@ -1,58 +1,11 @@
 'use strict';
 // fm-browser-guard-preload.cjs - the Node half of the agent browser guard.
 //
-// Firstmate launches every crewmate, scout, and secondmate with
-// NODE_OPTIONS=--require <this file> (bin/fm-browser-guard-env.sh owns the pane
-// environment text), so any Node process a worker starts - a scratchpad script,
-// `npx playwright test`, a puppeteer tool, chrome-devtools-mcp - loads this
-// preload before its own code. The preload forces every browser launch it can
-// reach to run headless, so a visible window cannot open on the captain's Mac
-// no matter what the launcher asked for. It is enforcement, not advice: a
-// worker never has to remember the rule, and a launcher that requests
-// `headless: false` still ends up headless.
-//
-// Three enforcement layers, each covering what the one below cannot:
-//
-//   1. Launcher API (Module.prototype._compile). Every CommonJS module compiled
-//      out of a playwright/puppeteer package gets a patch call appended to its
-//      source, and the patch wraps `launch`, `launchPersistentContext`, and
-//      `launchServer` on the launcher class prototype or the exported instance
-//      so `headless: false` becomes `headless: true` before the library ever
-//      builds its argument list. Hooking _compile rather than Module._load is
-//      what makes this work for `import { chromium } from 'playwright-core'`
-//      too: an ESM import of a CommonJS package still compiles it here, while
-//      Module._load never runs for it. The library then uses its own headless
-//      path - its own binary choice and its own flags - so the forced launch is
-//      exactly the launch that library performs when asked for headless.
-//   2. Process spawn (child_process spawn/spawnSync/execFile/execFileSync). The
-//      browser command line is rewritten to carry the library's own headless
-//      flag before the process starts. This is the backstop for launchers this
-//      preload does not recognize as a library: a wrapper script, a driver,
-//      or any other tool that starts a browser process. A browser is
-//      recognized by its binary name only, never by debugging flags, so an
-//      Electron app launched with --remote-debugging-port is left alone.
-//   3. PATH shims (bin/fm-browser-guard-bin/open, .../osascript), which cover
-//      the non-Node routes: `open <url>`, `open -a "Google Chrome"`, and
-//      AppleScript browser activation. They refuse instead of forcing, because
-//      no headless equivalent of those commands exists.
-//
-// Escapes: FM_ALLOW_HEADED_BROWSER=1 is the captain's opt-out. The guard prints
-// exactly one line when it forces a launch or honors that opt-out, so both are
-// visible in the worker's own transcript.
-//
-// Fail-safe posture: this file is loaded into EVERY Node process a worker
-// starts, including the harness itself, so it must never be able to break one.
-// All installation work is wrapped, every hook body is wrapped, nothing is
-// written to stdout, and a failure anywhere leaves the process running exactly
-// as it would have without the guard. The cost when it does not act is one
-// filename test per compiled module and one command test per spawn.
-//
-// Coverage boundary (docs/browser-guard.md owns the full contract): a launcher
-// that is neither a Node process nor one of the two PATH shims - a Python or
-// Java Selenium run driving chromedriver, an absolute-path browser binary
-// started from a shell, a script file passed to `osascript` - is outside this
-// guard. Every browser started through Node, `open`, or `osascript -e` is
-// inside it.
+// Loaded through NODE_OPTIONS by bin/fm-browser-guard-env.sh before worker
+// code, including the harness itself. Installation and hook failures must not
+// break unrelated Node work, and diagnostics must never write to stdout.
+// docs/browser-guard.md owns the enforcement layers, coverage boundaries,
+// opt-out, and notice policy; tests/fm-browser-guard.test.sh pins the behavior.
 
 const OPT_OUT_VAR = 'FM_ALLOW_HEADED_BROWSER';
 const PREFIX = 'fm-browser-guard: ';
@@ -61,8 +14,8 @@ const PATCH_GLOBAL = '__fmBrowserGuardPatch';
 let forcedNoted = false;
 let allowedNoted = false;
 
-// headedAllowed reads the opt-out on every decision rather than once at load,
-// so a captain who exports it in the pane after the worker started is honored.
+// Read on every decision so changes to this process's own environment apply;
+// an export in another process cannot update this already-running process.
 function headedAllowed() {
   try {
     return process.env[OPT_OUT_VAR] === '1';
@@ -376,6 +329,8 @@ function installSpawnGuard() {
     };
     copyStatics(original, wrapper);
     if (name === 'execFile') {
+      // Node's original promisify hook calls its internal execFile, bypassing
+      // this wrapper. Build the promise through the guarded callback path.
       const util = require('util');
       Object.defineProperty(wrapper, util.promisify.custom, {
         configurable: true,

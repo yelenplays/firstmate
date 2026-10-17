@@ -6538,17 +6538,10 @@ fi
 # compound raw launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox") FM_TASK_INBOX_CLI=$(shell_quote "$FM_ROOT/bin/fm-inbox.sh"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
-# Every agent this fleet launches also runs under the browser guard, which is
-# what makes a visible browser window impossible rather than merely discouraged:
-# a worker that asks Playwright, Puppeteer, `open`, or AppleScript for one still
-# gets a headless launch or a refusal, on every harness, without having to
-# remember anything. The snippet is an export statement inside the launch
-# command for the same reason COMPACT_ADVISER_DISABLE is: it survives the
-# launch-env-allowlist `env -i` wrapper, a compound raw launch, and a relaunch,
-# and a secondmate's own spawn re-adding it changes nothing. It carries its own
-# runtime check for the guard files, so a host that never received them warns in
-# the pane instead of failing the launch. bin/fm-browser-guard-env.sh owns the
-# snippet and docs/browser-guard.md the contract.
+# Embed the browser guard inside the launch command so it survives the later
+# launch-env-allowlist `env -i` wrapper and compound raw launches. The builder
+# checks files here, not in the destination pane. bin/fm-browser-guard-env.sh
+# owns the snippet; docs/browser-guard.md owns coverage and installation limits.
 BROWSER_GUARD_ENV=$("$SCRIPT_DIR/fm-browser-guard-env.sh" --command) || {
   echo "error: could not build the agent browser-guard environment for $ID" >&2
   exit 1

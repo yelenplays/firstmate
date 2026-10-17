@@ -1368,15 +1368,7 @@ This applies only to agents Firstmate launches; the captain's own primary Firstm
 
 ### Agent browser guard
 
-Every crewmate, scout, and secondmate Firstmate launches runs under the agent browser guard, so no agent-started browser can open a visible window on the captain's Mac.
-A worker's Playwright or Puppeteer launch that asks for `headless: false`, a `--headed` test run, `open <url>`, `open -a "Google Chrome"`, and an `osascript` script that addresses a browser all end headless or are refused in one line.
-Ordinary file opening, the shared headless browser behind `chrome-devtools-axi`, and the captain's own primary session are unaffected.
-
-The single setting is the captain's opt-out: `FM_ALLOW_HEADED_BROWSER=1`, exported into a pane, lets one visible launch through and prints one line naming it.
-Firstmate never sets it for a worker, and no config file or flag disables the guard for a fleet.
-
-[`docs/browser-guard.md`](browser-guard.md) owns the guarantee, the three enforcement layers, the boundaries, and the verification entry points.
-[`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) owns the launch environment text that `bin/fm-spawn.sh` embeds.
+[`Agent browser guard`](browser-guard.md) owns launched-worker browser coverage, the captain-only opt-out, installation limits, and verification entry points.
 
 ### Commit attribution
 
