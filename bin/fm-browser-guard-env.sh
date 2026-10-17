@@ -17,8 +17,11 @@
 # The snippet exports:
 #   FM_BROWSER_GUARD=1   the marker that says this pane is guarded
 #   PATH=<shims>:$PATH   the `open` and `osascript` shims ahead of the real tools
-#   NODE_OPTIONS=--require <preload>  the Node preload, prepended to whatever
-#                        NODE_OPTIONS the pane already carries
+#   NODE_OPTIONS=--require <loader>  the stable loader, prepended to whatever
+#                        NODE_OPTIONS the pane already carries; it try-requires
+#                        the preload beside it, so a checkout that later loses
+#                        the preload degrades to an unguarded Node process
+#                        instead of aborting every `node` with MODULE_NOT_FOUND
 #   BROWSER=<refuser>    the URL-opening hook Python's webbrowser, gh, and git
 #                        web--browse call first; it refuses the URL and stops
 #                        webbrowser before its direct /usr/bin/osascript pipe
@@ -49,6 +52,7 @@ set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SHIM_DIR="$ROOT/bin/fm-browser-guard-bin"
 PRELOAD="$ROOT/bin/fm-browser-guard-preload.cjs"
+LOADER="$ROOT/bin/fm-browser-guard-load.cjs"
 BROWSER_CMD="$ROOT/bin/fm-browser-guard-browser.sh"
 
 usage() {
@@ -57,7 +61,7 @@ Usage: bin/fm-browser-guard-env.sh --command
 
   --command   Print the shell snippet that turns the agent browser guard on in a
               launched pane: the guard marker, the shim directory on PATH, and
-              the Node preload in NODE_OPTIONS. bin/fm-spawn.sh embeds it at the
+              the Node guard loader in NODE_OPTIONS. bin/fm-spawn.sh embeds it at the
               head of every launch command.
   --help      Print this help.
 
@@ -92,12 +96,12 @@ guard_command() {
   q_shim=$(fm_bg_quote "$SHIM_DIR")
   q_browser=$(fm_bg_quote "$BROWSER_CMD")
   q_warning=$(fm_bg_quote "fm-browser-guard: warning: the browser guard is not installed at $ROOT; agent browser launches in this pane are unguarded")
-  q_unusable=$(fm_bg_quote "fm-browser-guard: warning: $PRELOAD cannot be named in NODE_OPTIONS, so Node browser launches in this pane are unguarded")
-  if [ ! -r "$PRELOAD" ] || [ ! -x "$SHIM_DIR/open" ] || [ ! -x "$BROWSER_CMD" ]; then
+  q_unusable=$(fm_bg_quote "fm-browser-guard: warning: $LOADER cannot be named in NODE_OPTIONS, so Node browser launches in this pane are unguarded")
+  if [ ! -r "$PRELOAD" ] || [ ! -r "$LOADER" ] || [ ! -x "$SHIM_DIR/open" ] || [ ! -x "$BROWSER_CMD" ]; then
     printf '%s\n' "printf '%s\\n' $q_warning >&2;"
     return 0
   fi
-  if ! fm_bg_node_embeddable "$PRELOAD"; then
+  if ! fm_bg_node_embeddable "$LOADER"; then
     # shellcheck disable=SC2016 # $PATH expands in the pane shell, not here.
     printf '%s\n' "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; printf '%s\\n' $q_unusable >&2;"
     return 0
@@ -107,7 +111,7 @@ guard_command() {
   # below are escaped so the pane shell writes them into the value.
   # shellcheck disable=SC2016 # every $ below expands in the pane shell, not here.
   printf '%s\n' \
-    "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; export NODE_OPTIONS=\"--require \\\"$PRELOAD\\\"\${NODE_OPTIONS:+ \$NODE_OPTIONS}\";"
+    "export FM_BROWSER_GUARD=1; export LAVISH_AXI_NO_OPEN=1; export BROWSER=$q_browser; export PATH=$q_shim:\$PATH; export NODE_OPTIONS=\"--require \\\"$LOADER\\\"\${NODE_OPTIONS:+ \$NODE_OPTIONS}\";"
 }
 
 case "${1:-}" in

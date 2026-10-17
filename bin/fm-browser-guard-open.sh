@@ -135,13 +135,15 @@ if [ -n "$fm_bg_bundle" ]; then
   fi
 fi
 
-# Second pass: the targets. Anything after --args belongs to the application
-# being launched, not to `open`.
+# Second pass: the targets. A bare `--` only ends option parsing - macOS `open`
+# still treats everything after it as a target - so only `--args` stops the
+# target checks, because those arguments belong to the application being
+# launched rather than to `open`.
 fm_bg_past_args=0
 for fm_bg_arg in "$@"; do
   [ "$fm_bg_past_args" -eq 0 ] || break
   case $fm_bg_arg in
-  --args | --)
+  --args)
     fm_bg_past_args=1
     continue
     ;;

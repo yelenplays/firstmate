@@ -19,8 +19,8 @@ The coverage below assumes an intact installation, the inherited guard environme
 Three layers, each covering what the one below it cannot.
 [`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) is the single owner of the environment text that turns them on, and `bin/fm-spawn.sh` embeds that text at the head of every launch command.
 
-1. **The launcher API** - [`bin/fm-browser-guard-preload.cjs`](../bin/fm-browser-guard-preload.cjs) is loaded into every Node process through `NODE_OPTIONS=--require`.
-   It appends a patch call to every CommonJS module compiled out of a playwright/puppeteer package and wraps `launch`, `launchPersistentContext`, and `launchServer` on the launcher class or the exported instance, so `headless: false` becomes `headless: true` before the library builds its argument list.
+1. **The launcher API** - `NODE_OPTIONS=--require` names the stable loader [`bin/fm-browser-guard-load.cjs`](../bin/fm-browser-guard-load.cjs), which try-requires [`bin/fm-browser-guard-preload.cjs`](../bin/fm-browser-guard-preload.cjs) beside it.
+   The preload is loaded into every Node process, and appends a patch call to every CommonJS module compiled out of a playwright/puppeteer package and wraps `launch`, `launchPersistentContext`, and `launchServer` on the launcher class or the exported instance, so `headless: false` becomes `headless: true` before the library builds its argument list.
    Hooking `Module.prototype._compile` rather than `Module._load` is what also covers `import { chromium } from 'playwright-core'`, because an ESM import of a CommonJS package still compiles through it.
    The library then takes its own headless path - its own binary choice, its own flags - so the forced launch is exactly the launch that library performs when it is asked for headless.
 2. **The browser process** - the same preload wraps `child_process.spawn`, `spawnSync`, `execFile` (including `util.promisify(execFile)`), and `execFileSync` and adds the library's own headless flag to a browser command line that is missing one: `--headless` for the Chromium family, `-headless` for Firefox, `--headless` for WebKit.
@@ -39,6 +39,7 @@ The guard environment also sets `LAVISH_AXI_NO_OPEN=1`, lavish-axi's own switch 
 A worker's visual review therefore still serves its artifact and prints its review URL, and the firstmate that owns the captain's attention opens it in the unguarded primary session instead of a worker pane forcing a window or hitting a refusal.
 
 The preload is loaded into every Node process a worker starts, including the harness itself, so installation and hook errors are caught to avoid breaking unrelated Node work, and diagnostics never write to stdout.
+`NODE_OPTIONS` names the stable loader rather than the preload directly, so a checkout that later loses the preload (a branch switch or revert in the home) degrades to an unguarded Node process instead of aborting every `node` in that pane with `MODULE_NOT_FOUND`.
 
 ## The captain's escape hatch
 
@@ -54,7 +55,7 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
 
 ## Boundaries
 
-- A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a native non-Node browser driver (a Rust build of `agent-browser`, or any other launcher that starts Chrome without Node and without the shims), a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a script file passed to `osascript` (only `-e` and stdin scripts are read).
+- A launcher that is neither a Node process nor one of the two PATH shims is outside the guard: a native non-Node browser driver (a Rust build of `agent-browser`, or any other launcher that starts Chrome without Node and without the shims), a Python or Java Selenium run driving `chromedriver`, an absolute-path browser binary started from a shell, or a named script file passed to `osascript` (only `-e` statements and stdin scripts are read; a named script file's contents are not on the command line).
 - A browser binary renamed to a name the spawn layer does not recognize is outside layer 2.
   Layer 1 can still force it headless through a patched CommonJS launcher API, but an unpatched ESM launcher build has no such fallback.
 - Shell command strings are not rewritten: `child_process.exec`, `execSync`, and process calls with `shell: true` remain outside the browser-process layer even for literal browser commands.
@@ -64,7 +65,8 @@ This is an environment-based backstop, not a sandbox preventing a worker from ch
   The captain's own primary session is not guarded, so the captain's own browser use and login flows are unaffected.
 - If the guard environment builder detects missing guard files, it emits a warning-only snippet and the worker continues unguarded rather than failing.
   File checks happen when the launch is built, not in the destination pane.
-- If the preload path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node layers while retaining the PATH shims and `BROWSER` hook.
+- If a checkout loses the preload after a launch was built, the stable loader loads nothing and the pane's Node processes continue unguarded; only a checkout missing the loader itself would break them, which the build-time check above prevents for a fresh launch.
+- If the loader path cannot be represented safely in `NODE_OPTIONS`, the launch warns and skips the Node layers while retaining the PATH shims and `BROWSER` hook.
   [`bin/fm-browser-guard-env.sh`](../bin/fm-browser-guard-env.sh) owns the path restrictions.
 
 ## Verification

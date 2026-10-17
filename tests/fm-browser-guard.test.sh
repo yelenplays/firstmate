@@ -21,7 +21,7 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
 GUARD_ENV="$ROOT/bin/fm-browser-guard-env.sh"
-PRELOAD="$ROOT/bin/fm-browser-guard-preload.cjs"
+LOADER="$ROOT/bin/fm-browser-guard-load.cjs"
 SHIM_DIR="$ROOT/bin/fm-browser-guard-bin"
 FIXTURES="$ROOT/tests/fixtures/browser-guard"
 TMP_ROOT=$(fm_test_tmproot fm-browser-guard)
@@ -184,8 +184,8 @@ assert_launch_guards() {
   local label=$1 out=$2 log=$3
   assert_contains "$out" "PATH_HEAD=$SHIM_DIR" \
     "$label: the launch must put the guard's shim directory first on PATH"
-  assert_contains "$out" "NODE_OPTIONS=--require \"$PRELOAD\"" \
-    "$label: the launch must load the guard preload into every Node process"
+  assert_contains "$out" "NODE_OPTIONS=--require \"$LOADER\"" \
+    "$label: the launch must load the guard's stable loader into every Node process"
   assert_contains "$out" "FM_BROWSER_GUARD=1" \
     "$label: the launch must mark the pane as guarded"
   assert_contains "$out" "LAVISH_AXI_NO_OPEN=1" \
@@ -418,6 +418,20 @@ run_shim_stdin() {
   SHIM_STATUS=$?
 }
 
+# run_shim_stdin_args <path-prefix> <tool> <script> <arg...>: the stdin form with
+# the caller's own tool arguments, which is how `osascript -` and
+# `osascript -l JavaScript` name a script that still arrives on stdin.
+run_shim_stdin_args() {
+  local prefix=$1 tool=$2 script=$3
+  shift 3
+  FM_SHIM_LOG="$TMP_ROOT/shim.log"
+  export FM_SHIM_LOG
+  SHIM_ERR="$TMP_ROOT/shim.err"
+  : > "$FM_SHIM_LOG"
+  printf '%s\n' "$script" | PATH="$prefix:$PATH" "$tool" "$@" >/dev/null 2>"$SHIM_ERR"
+  SHIM_STATUS=$?
+}
+
 assert_refused() {
   local label=$1
   assert_not_equals 0 "$SHIM_STATUS" "$label: the shim must refuse the launch"
@@ -463,6 +477,12 @@ test_open_shim_refuses_visible_windows() {
   assert_refused 'open -nb com.google.Chrome'
   run_shim "$prefix" open -na 'Google Chrome' --args --remote-debugging-port=9222 'https://example.com'
   assert_refused 'open -na "Google Chrome" --args <url>'
+  # A bare `--` ends option parsing but not target checking: macOS `open` still
+  # opens every later argument, so each one is still judged.
+  run_shim "$prefix" open -- ./report.html
+  assert_refused 'open -- report.html'
+  run_shim "$prefix" open -- 'https://example.com'
+  assert_refused 'open -- <url>'
   run_shim "$prefix" open ./report.html
   assert_refused 'open report.html'
   run_shim "$prefix" open 'file:///tmp/report.html'
@@ -486,6 +506,8 @@ test_open_shim_passes_ordinary_opens() {
   assert_passed_through 'open -na TextEdit' 'CALL open [-na] [TextEdit] [./notes.txt]'
   run_shim "$prefix" open -ga 'Archive Utility' ./bundle.zip
   assert_passed_through 'open -ga "Archive Utility"' 'CALL open [-ga] [Archive Utility] [./bundle.zip]'
+  run_shim "$prefix" open -- ./report.md
+  assert_passed_through 'open -- report.md' 'CALL open [--] [./report.md]'
   run_shim "$prefix" open .
   assert_passed_through 'open .' 'CALL open [.]'
   run_shim "$prefix" open ./invoice.pdf
@@ -531,6 +553,10 @@ test_osascript_shim_refuses_browser_scripts() {
   assert_refused 'osascript open location'
   run_shim_stdin "$prefix" osascript 'open location "https://example.com"'
   assert_refused 'osascript script on stdin (Python webbrowser)'
+  run_shim_stdin_args "$prefix" osascript 'open location "https://example.com"' -
+  assert_refused 'osascript - (script on stdin)'
+  run_shim_stdin_args "$prefix" osascript 'Application("Safari").activate()' -l JavaScript
+  assert_refused 'osascript -l JavaScript (script on stdin)'
   pass "the osascript shim refuses the AppleScript routes to a browser window"
 }
 
@@ -559,6 +585,12 @@ STDIN '
   run_shim_stdin "$prefix" osascript 'tell application "System Events" to keystroke "a"'
   assert_passed_through 'osascript stdin pass-through' 'CALL osascript
 STDIN tell application "System Events" to keystroke "a"'
+  run_shim_stdin_args "$prefix" osascript 'display notification "done"' -
+  assert_passed_through 'osascript - pass-through' 'CALL osascript [-]
+STDIN display notification "done"'
+  run_shim_stdin_args "$prefix" osascript 'display notification "done"' -l JavaScript
+  assert_passed_through 'osascript -l JavaScript pass-through' 'CALL osascript [-l] [JavaScript]
+STDIN display notification "done"'
   pass "scripts that are not browser launches reach the real osascript, stdin included"
 }
 
@@ -699,8 +731,8 @@ test_guard_environment_is_safe_to_apply_twice() {
     "the shim directory must lead PATH after two applications"
   assert_contains "$out" '--max-old-space-size=4096' \
     "an existing NODE_OPTIONS must survive the guard"
-  assert_contains "$out" 'fm-browser-guard-preload.cjs' \
-    "the preload must still be named after two applications"
+  assert_contains "$out" 'fm-browser-guard-load.cjs' \
+    "the guard loader must still be named after two applications"
 
   # A secondmate's own worker inherits the guard and its spawn adds it again, so
   # the twice-applied environment still has to force a headed launch headless.
@@ -756,6 +788,26 @@ test_guard_survives_a_hostile_checkout_path() {
   pass "a hostile checkout path is quoted inertly and only the Node layer is skipped"
 }
 
+# A pane's launch snippet names an absolute loader path. If the preload that
+# loader requires disappears from the checkout afterwards (a branch switch or
+# revert in the home), every `node` in that pane must keep working unguarded
+# instead of aborting with MODULE_NOT_FOUND.
+test_vanished_preload_does_not_break_node() {
+  local install snippet out status node_dir
+  install="$TMP_ROOT/vanished-preload"
+  mkdir -p "$install"
+  cp -R "$ROOT/bin" "$install/bin"
+  snippet=$("$install/bin/fm-browser-guard-env.sh" --command) \
+    || fail "the guard environment snippet could not be built from the install copy"
+  rm "$install/bin/fm-browser-guard-preload.cjs"
+  node_dir=$(dirname "$(command -v node)")
+  out=$(PATH="$node_dir:/usr/bin:/bin" /bin/sh -c "$snippet node -e 'process.stdout.write(\"survived\")'" 2>"$TMP_ROOT/vanished.err")
+  status=$?
+  assert_equals 0 "$status" "node must start when the preload vanished after the launch snippet was built"
+  assert_equals 'survived' "$out" "the unguarded node must still run its program"
+  pass "a vanished preload degrades to an unguarded Node process instead of MODULE_NOT_FOUND"
+}
+
 test_guard_snippet_shape() {
   local out status
   out=$("$GUARD_ENV" --command)
@@ -793,6 +845,7 @@ for t in \
   test_guard_environment_is_safe_to_apply_twice \
   test_guard_warns_instead_of_failing_when_the_install_is_missing \
   test_guard_survives_a_hostile_checkout_path \
+  test_vanished_preload_does_not_break_node \
   test_guard_snippet_shape; do
   "$t"
 done
