@@ -423,6 +423,10 @@
       "audience": "maintainer-architecture"
     },
     {
+      "path": "docs/browser-guard.md",
+      "audience": "maintainer-architecture"
+    },
+    {
       "path": "docs/calm-mode-feasibility.md",
       "audience": "maintainer-verification"
     },
@@ -612,6 +616,10 @@
     },
     {
       "path": "docs/verification/agy.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/verification/browser-guard.md",
       "audience": "maintainer-verification"
     },
     {
