@@ -6,6 +6,9 @@ Writes data/model-ledger.jsonl, once per task + spawn_gen, under an append lock.
 Only allowlisted scalar facts and event counts survive, never message/brief
 text, account-root paths, report paths, or other private metadata. Missing
 measurements are null, not zero. Secondmates are not task outcomes.
+Missing task metadata is a successful no-op that writes no ledger row; other
+metadata read errors still fail. This also permits cleanup to continue when
+metadata disappears after teardown admission, without weakening that admission.
 Re-dispatches are the relaunch count fm-spawn.sh records in the meta. Pipeline
 review rounds are the distinct (run, round) pairs with a completed review
 invocation that no-mistakes recorded read-only in its state database for the
