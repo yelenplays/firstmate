@@ -1043,7 +1043,8 @@ Every local secondmate launch path resolves it by id: `fm-spawn.sh --secondmate`
 For a config-resolved secondmate harness, the per-id pin replaces the shared pin.
 Changing a pin affects the next secondmate spawn, control-plane relaunch, liveness recovery, or `/updatefirstmate` restart; the relaunch profile rules are owned by [`docs/agent-control.md`](agent-control.md#transactional-relaunch).
 An explicit harness argument to `fm-spawn.sh` still overrides either config file for that spawn only.
-An explicit `--model` or `--effort` overrides the matching token from the governing secondmate pin; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
+An explicit `--model` or `--effort` overrides the matching token from the governing secondmate pin during profile resolution; launch still applies the [model-specific effort ceiling](../bin/fm-spawn.sh) owned by the spawn header.
+For a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
 Remote secondmate routes accept verified harness adapters only and reject raw launch commands.
 When `config/crew-dispatch.json` exists, crewmate and scout spawns require an explicit resolved harness instead of automatically falling back to `config/crew-harness`.
 
