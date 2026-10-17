@@ -1,0 +1,11 @@
+Regression probe uses an argv-recording stand-in, NOT a live browser.
+
+PRELOAD=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/pre-fix.cjs
+ARG=--remote-debugging-port=0
+ARG=https://example.invalid/
+
+PRELOAD=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/bin/fm-browser-guard-preload.cjs
+fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+ARG=--remote-debugging-port=0
+ARG=https://example.invalid/
+ARG=--headless

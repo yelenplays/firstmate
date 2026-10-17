@@ -1,0 +1,55 @@
+{"node":"v26.11.0","playwright":"1.64.1","puppeteer":"25.14.0","executablePath":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing","guard":"1"}
+fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+{"scenario":"Playwright launch","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
+{"scenario":"Playwright launchPersistentContext","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
+{"scenario":"Playwright launchServer","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
+{"scenario":"Puppeteer esm","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
+{"scenario":"Puppeteer commonjs","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36","headlessArguments":["--headless"],"passed":true}
+node:internal/errors:999
+  const err = new Error(message);
+              ^
+
+Error: Command failed: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --no-first-run --no-default-browser-check --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/promisified --dump-dom data:text/html,<script>document.write(navigator.userAgent)</script> --headless
+[18366:17936278:1017/145104.768916:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936275:1017/145104.769435:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936278:1017/145104.769737:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936275:1017/145104.769804:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936278:1017/145104.769945:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936275:1017/145104.769996:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936278:1017/145104.770119:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936275:1017/145104.770184:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936278:1017/145104.770353:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936275:1017/145104.770410:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936278:1017/145104.791829:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[18366:17936275:1017/145104.792565:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+Teardown watchdog expired; recording dump and terminating.
+
+    at genericNodeError (node:internal/errors:999:15)
+    at wrappedFn (node:internal/errors:544:14)
+    at ChildProcess.exithandler (node:child_process:420:12)
+    at ChildProcess.emit (node:events:514:20)
+    at maybeClose (node:internal/child_process:1156:16)
+    at Socket.<anonymous> (node:internal/child_process:526:11)
+    at Socket.emit (node:events:514:20)
+    at Pipe.<anonymous> (node:net:362:12) {
+  code: 2,
+  killed: false,
+  signal: null,
+  cmd: '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/browsers/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --no-first-run --no-default-browser-check --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M54XM20Z1TJPRFSH2CYY3NT2/.live-browser/promisified --dump-dom data:text/html,<script>document.write(navigator.userAgent)</script> --headless',
+  stdout: '<html><head><script>document.write(navigator.userAgent)</script></head><body>Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36</body></html>\n',
+  stderr: '[18366:17936278:1017/145104.768916:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936275:1017/145104.769435:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936278:1017/145104.769737:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936275:1017/145104.769804:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936278:1017/145104.769945:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936275:1017/145104.769996:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936278:1017/145104.770119:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936275:1017/145104.770184:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936278:1017/145104.770353:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936275:1017/145104.770410:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936278:1017/145104.791829:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[18366:17936275:1017/145104.792565:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    'Teardown watchdog expired; recording dump and terminating.\n'
+}
+
+Node.js v26.11.0

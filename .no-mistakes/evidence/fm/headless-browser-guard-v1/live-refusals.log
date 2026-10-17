@@ -1,0 +1,35 @@
+
+COMMAND: open https://example.invalid/guard-live
+fm-browser-guard: refused a visible browser window for open https://example.invalid/guard-live; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: open -a Google\ Chrome https://example.invalid/guard-live
+fm-browser-guard: refused a visible browser window for open -a "Google Chrome"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: open -b com.apple.Safari https://example.invalid/guard-live
+fm-browser-guard: refused a visible browser window for open -b "com.apple.Safari"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: open ./browser-guard-proof.html
+fm-browser-guard: refused a visible browser window for open ./browser-guard-proof.html; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: osascript -e tell\ application\ \"Safari\"\ to\ activate
+fm-browser-guard: refused a visible browser window for osascript -e tell application "Safari" to activate; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: osascript -e open\ location\ \"https://example.invalid/guard-live\"
+fm-browser-guard: refused a visible browser window for osascript -e open location "https://example.invalid/guard-live"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: osascript (stdin browser script)
+fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+EXIT=1
+
+COMMAND: python3 -I webbrowser.open
+fm-browser-guard: refused a visible browser window for BROWSER https://example.invalid/guard-live; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+webbrowser_result= True
+
+COMMAND: osascript -e "return 42" (non-browser passthrough)
+OUTPUT=42 EXIT=0
