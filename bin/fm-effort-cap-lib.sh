@@ -1,70 +1,30 @@
 # shellcheck shell=bash
-# fm-effort-cap-lib.sh - the shared effort-range source for homes that cap a
-# model's reasoning effort, reused by bin/fm-spawn.sh (launch refusal) and
-# bin/fm-cross-review.sh (reviewer effort clamp) so the two checks cannot
-# drift, and mirroring the ranges bin/fm-dispatch-resolve.sh clamps dispatch
-# answers into (docs/configuration.md "Firstmate retains the dispatch
-# decision").
-#
-# The source of truth is the home's config/crew-dispatch.json, the same rules
-# and default the dispatch resolver reads: a profile declares effort_min..
-# effort_max around its declared effort (a bare effort is a one-level range;
-# a profile without effort allows low..xhigh), with effort_floor raising the
-# lower bound. A consumer caps a concrete harness/model pair at the envelope
-# over the matching profiles: the union of the upper bounds the home declares
-# for that pair (so a home narrows a model by declaring narrower profiles),
-# and takes the most capable declared default when a consumer needs an effort
-# nobody declared for that pair.
-#
-# The top-level declaration list and every consumer read the same envelope, so
-# they cannot drift.
-#
-# docs/configuration.md "Effort caps for concrete launches" owns the operator
-# contract. This header owns the API:
+# fm-effort-cap-lib.sh - shared effort envelope for spawn and reviewer planning.
+# docs/configuration.md "Effort caps for concrete launches" owns profile
+# matching, envelope composition, defaults, and consumer policy.
+# This header owns the API:
 #
 #   fm_effort_caps_load <config-dir>
 #     Reads <config-dir>/crew-dispatch.json into FM_EFFORT_RANGE_JSON.
-#     An absent file loads no ranges and returns 0, so nothing changes for a
-#     home without dispatch rules. A present file that is unreadable, not a
-#     regular file, malformed, or declares an effort bound outside the
-#     low..ultra ladder or a floor above its own upper bound returns 1 with
-#     FM_EFFORT_RANGE_ERROR set; callers refuse or escalate rather than
-#     select around the home's own declaration. Requires jq only when the
-#     file is present (bootstrap already requires it for homes with dispatch
-#     rules).
+#     Returns 0 with an empty profile list when the file is absent.
+#     On a read or validation failure, returns 1 with FM_EFFORT_RANGE_ERROR;
+#     callers must not treat failure as an empty policy.
+#     FM_EFFORT_RANGE_FILE names the successfully loaded file, else is empty.
+#     Requires jq when a file is present.
 #   fm_effort_range_for <harness> [<model>]
-#     After a load: prints `min max default` for the envelope over every
-#     matching profile, or prints nothing when no profile matches. A profile
-#     matches when its harness equals <harness> and its model is variation-
-#     equal to <model>: for non-claude harnesses that is the exact string
-#     ("default" spelling included, which is otherwise modelless); for
-#     claude it also spans the model's own name variants, because a model
-#     name there names a family - the full form claude-<alias>-<n>..., its
-#     dated suffixes, the bare catalog alias (opus|sonnet|haiku|fable), and
-#     a modelless or `default` launch, which runs the account's Opus default
-#     and is therefore capped by the opus-family profiles. A modelless
-#     profile still governs only modelless spawns, never a concrete model.
-#     The envelope is the union of the declarations, not their
-#     intersection: its upper bound is the highest profile upper bound
-#     (effort_max, else effort, else xhigh) so a model stays launchable
-#     wherever any declaration allows it, its lower bound the lowest profile
-#     lower bound (effort_min/floor-raised), and the default the most capable
-#     declared default (a profile's declared effort raised to effort_floor
-#     when floor outranks it), for consumers that need an effort nobody else
-#     declared. A stricter home thus narrows a model by declaring tighter
-#     profiles.
+#     After a successful load, prints `min max default` for the matching
+#     envelope, or nothing when no profile matches. The default field is `-`
+#     when no matching effort or floor supplies one. Requires jq even when
+#     the loaded profile list is empty.
 #   fm_effort_rank <level>
-#     Prints the effort-ladder rank 0..5 (low..ultra); fails for anything
-#     else.
+#     Prints the zero-based FM_EFFORT_LADDER rank; fails for unknown levels.
 #   fm_effort_clamp <desired|''> <min> <max>
-#     Prints the non-empty desired level when it lies inside the range; the
-#     nearest ladder level inside the range otherwise, the lower one on a tie
-#     (the resolver's tie rule). An empty desired, an unknown level, or an
-#     inverted range prints nothing and fails with FM_EFFORT_RANGE_ERROR, so
-#     the caller decides its own undeclared-effort fallback.
+#     Prints the desired level when inside the range, otherwise the nearest
+#     level inside it. An empty desired, an unknown level, or an inverted
+#     range prints nothing and returns 1; only an inverted range sets
+#     FM_EFFORT_RANGE_ERROR. The caller owns undeclared-effort fallback.
 #   FM_EFFORT_LADDER
-#     whitespace-separated effort ladder (low..ultra), shared for callers'
-#     messages.
+#     Whitespace-separated effort levels, shared for callers' messages.
 
 FM_EFFORT_LADDER='low medium high xhigh max ultra'
 FM_EFFORT_RANGE_JSON=${FM_EFFORT_RANGE_JSON:-'{"profiles":[]}'}
@@ -130,8 +90,7 @@ fm_effort_caps_load() {
     FM_EFFORT_RANGE_ERROR='jq is required to read the effort-cap rules file; install jq or remove config/crew-dispatch.json'
     return 1
   }
-  # Flatten every profile (each rule's use plus the default) onto one list and
-  # fail closed on a shape or bound the resolver would reject.
+  # Include every declaration, not just the rule selected for this task.
   if ! FM_EFFORT_RANGE_JSON=$(jq -e -c '
     def effort_rank($e): (["low","medium","high","xhigh","max","ultra"] | index($e));
     def bound_ok($e): ($e == null) or (effort_rank($e) != null);
@@ -162,12 +121,8 @@ fm_effort_range_for() {
   jq -r --arg h "$1" --arg m "${2-}" '
     def L: ["low","medium","high","xhigh","max","ultra"];
     def rk($e): if $e == null then null else (L | index($e)) end;
-    # A declared or concrete model name matches its variants: the exact or
-    # "default" spelling is modelless, and a claude full name, its bare
-    # catalog alias, and its dated suffixes name the same family. A modelless
-    # claude launch runs the claude Opus default, so an opus-family profile
-    # caps it. Only these claude catalog names gain variant matching; every
-    # other harness matches its model exactly.
+    # Keep model normalization and variant matching shared by all consumers;
+    # the operator contract above owns which spellings share an envelope.
     def norm: . as $x | (($x // "") | ascii_downcase) as $l
       | if $l == "" or $l == "default" then null else $l end;
     def claude_alias($x): $x == "opus" or $x == "sonnet" or $x == "haiku" or $x == "fable";

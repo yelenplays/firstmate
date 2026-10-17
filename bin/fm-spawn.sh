@@ -485,13 +485,11 @@
 #   profile marked "private_ok": false exits 1 before provisioning unless
 #   bin/fm-private-guard-lib.sh proves the task non-private; docs/configuration.md
 #   "Private-material guard (config/private-markers)" owns the contract.
-# Effort cap (config/crew-dispatch.json): a launch whose resolved
-#   --harness/--model/--effort exceeds the home's declared effort envelope for
-#   that model exits 1 before provisioning, reviewers and every other task
-#   kind included; a harness with no effort knob is never gated and an explicit
-#   --captain-override bypasses with a named line. bin/fm-effort-cap-lib.sh
-#   owns the envelope; docs/configuration.md "Effort caps for concrete
-#   launches" owns the contract.
+# Effort cap: docs/configuration.md "Effort caps for concrete launches" owns
+#   the launch contract; bin/fm-effort-cap-lib.sh computes its envelope.
+#   An exceeded cap exits 1 before provisioning unless --captain-override
+#   <reason> explicitly authorizes it, printing `effort-cap override: ...`.
+#   That override does not waive policy-load failures or other launch gates.
 # Worker account pin (config/claude-account, config/pi-account):
 #   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
 #   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
@@ -2919,20 +2917,8 @@ if [ "$MODEL_DENYLIST_REFUSED" = 1 ]; then
   echo "error: $FM_MODEL_DENYLIST_ERROR; refusing the launch - pick a model that is not on the list" >&2
   exit 1
 fi
-# Effort cap (bin/fm-effort-cap-lib.sh; docs/configuration.md "Effort caps for
-# concrete launches"): the fully resolved model+effort must not exceed the
-# home's declared effort envelope for that harness/model pair in
-# config/crew-dispatch.json, the same ranges the dispatch resolver clamps
-# dispatch and cross-review answers into, so a hand-typed or printed effort
-# cannot outrun the model policy for any task kind, reviewers included. The
-# envelope follows the model's own name variants: a claude full name, its
-# dated suffixes, its bare catalog alias, and a modelless or `default`
-# claude launch (which runs the claude opus default) share one envelope, so
-# a cap cannot be dodged by re-spelling the model. The
-# check needs an effort axis: a harness with none (opencode, kimi, cursor)
-# is never gated, mirroring the resolver's unenforceable-effort disclosure.
-# --captain-override is the only bypass, named here and recorded through the
-# resolver's captain-authorized launch override below.
+# Gate the resolved axes before provisioning so direct launches cannot
+# bypass effort policy. The header points to the contract and shared owner.
 if [ -n "$EFFORT" ]; then
   case "$HARNESS" in
     opencode | kimi | cursor) ;;

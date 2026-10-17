@@ -49,12 +49,10 @@
 #     a review. A private vault change (bin/fm-wiki-lib.sh
 #     fm_wiki_change_private) always gets action=none: it stays on today's path
 #     and no new reviewer sees it. docs/configuration.md "Cross-family review"
-#     owns the candidate-chain policy and its home override
-#     (config/cross-review-chain.json); the first candidate whose family is
-#     proven by its catalog and disjoint from the builder's wins, and every
-#     candidate's effort is clamped into the home's crew-dispatch envelope
-#     (docs/configuration.md "Effort caps for concrete launches"), with plan
-#     printing `reviewer_effort_clamped=from <level>` when it moved. A spawn
+#     owns the candidate-chain policy and home override; its "Effort caps for
+#     concrete launches" section owns effort handling. When a declared effort
+#     moves, plan prints `reviewer_effort_clamped=from <level> by the home
+#     effort policy (<file>)`. A spawn
 #     plan also writes data/<task-id>/cross-review-model.json binding that
 #     profile to the head; a write failure only warns.
 #   fm-cross-review.sh brief <task-id> <reviewer-id> --head <sha> [--confirm]
@@ -526,19 +524,9 @@ reviewer_chain_file() {
   printf '%s\n' "$CONFIG/cross-review-chain.json"
 }
 
-# The reviewer candidate chain, one `harness model effort` line each. A home
-# may replace the tracked default with config/cross-review-chain.json, an
-# array of `{"harness": ..., "model": ..., "effort": <optional>}` entries; a
-# missing effort takes the matching dispatch profile's declared default in
-# bin/fm-effort-cap-lib.sh, and a candidate with no declared effort anywhere
-# is unusable. An unreadable or malformed file dies with its diagnostic
-# instead of a silently narrower chain. Every candidate's effort is then
-# clamped into the home's crew-dispatch envelope for that harness/model pair
-# (the same ranges bin/fm-dispatch-resolve.sh clamps dispatch answers into),
-# so a declared high effort cannot outrun the model policy the home already
-# fixed; bin/fm-spawn.sh's effort-cap refusal backstops the launch. The
-# tracked default keeps the Opus reviewer at medium (fail-safe: a home with
-# no effort policy never spawns an Opus reviewer at high; 2026-10-17).
+# Emit `harness model effort` lines; `-` defers effort to the shared envelope.
+# Keep a safe tracked default even for homes without an effort policy.
+# docs/configuration.md "Cross-family review" owns the home-chain schema.
 reviewer_candidates() {
   local chain
   chain=$(reviewer_chain_file)

@@ -1427,12 +1427,13 @@ The typed resolver resolves the rule's profile object or array under its documen
 
 - When the file exists, `fm-spawn.sh` enforces that contract by refusing crewmate and scout spawns that lack an explicit harness (`--harness`, a positional adapter, or a raw launch command).
 - Batch spawns satisfy the same requirement with a shared `--harness`.
-- Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
+- Secondmate spawns are exempt from the explicit-harness requirement; their pin resolution is described below.
 
 **Contract owners**
 
 The resolver and firstmate's dispatch intake apply these rules, then resolve the profile object or array under the operating contract in `AGENTS.md` section 4 and `quota-array-dispatch`, and pass only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
-Secondmate spawns are exempt and still resolve through their per-id pin when present, otherwise `config/secondmate-harness` and its optional model and effort tokens.
+Secondmate spawns resolve through their per-id pin when present, otherwise `config/secondmate-harness` and its optional model and effort tokens.
+All task kinds remain subject to [effort caps for concrete launches](#effort-caps-for-concrete-launches).
 This section is the single owner of the canonical schema and its per-field semantics.
 `AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
 
@@ -1471,9 +1472,10 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `effort_floor` | Optional scalar `low`, `medium`, `high`, `xhigh`, or `max`, supported by an effort-capable harness and model and not above the profile's `effort_max`, or `effort` when no upper bound is declared (`xhigh` when both are omitted); see [typed effort resolution](#firstmate-retains-the-dispatch-decision) below. |
 | Profile `effort_min` and `effort_max` | Optional; they need `effort` and widen it into a range, `effort_min <= effort <= effort_max` on `low < medium < high < xhigh < max < ultra`. |
 
-**Fields applied only by typed resolution**
+**Typed-resolution declarations**
 
-Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, `overflow`, and `effort_floor` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; firstmate's own intake reads them as ordinary hints.
+Rule `approval`, `min_confidence`, `floor`, and `beats`, and profile `provider`, `floor`, and `overflow` are optional declarations that [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; firstmate's own intake reads them as ordinary hints.
+Profile `effort_floor` also participates in the [concrete-launch effort envelope](#effort-caps-for-concrete-launches).
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1860,21 +1862,29 @@ Effort ranges and completion-runway eligibility are evaluated above; no last res
 
 ### Effort caps for concrete launches
 
-The dispatch resolver clamps an assessed effort into a profile's declared range, but nothing without a launch gate stops an effort printed or typed beside an already-resolved model from outrunning the policy.
-[`bin/fm-effort-cap-lib.sh`](../bin/fm-effort-cap-lib.sh) is the shared envelope over the home's `config/crew-dispatch.json` declarations, and two consumers use it so they cannot drift:
+[`bin/fm-effort-cap-lib.sh`](../bin/fm-effort-cap-lib.sh) derives a shared effort envelope from all rule and default profiles in the home's `config/crew-dispatch.json`, independent of which rule matched the task.
+This section owns the operator contract; the library header owns its API.
 
-- `bin/fm-spawn.sh` refuses any launch whose fully resolved `--harness`, `--model`, and `--effort` exceed the envelope for that harness/model pair - reviewers and every other task kind included, so a hand-typed or printed high effort cannot slip past the resolver's clamp by launching directly.
-  A harness without an effort knob (`opencode`, `kimi`, `cursor`) is never gated, mirroring the resolver's unenforceable-effort disclosure.
-  `--captain-override <reason>` is the only bypass: it is named on the spawn output ("effort-cap override: ...") and recorded through the resolver's captain-authorized launch override like any other override, but standing `yolo` and in-scope approval never widen it.
-  An unreadable or malformed `config/crew-dispatch.json` refuses the launch rather than launching past an unreadable effort policy.
-- `bin/fm-cross-review.sh plan` clamps every reviewer candidate's effort into the same envelope before printing the profile (see [cross-family review](#cross-family-review)).
+- `bin/fm-spawn.sh` refuses a non-empty resolved effort above the matching envelope's upper bound before provisioning, for every task kind, including reviewers and secondmates.
+  It skips this gate for `opencode`, `kimi`, and `cursor`, and does not inspect the harness default when effort is omitted.
+  An explicit captain-authorized override can bypass an exceeded cap, with a named diagnostic and the normal override record; standing `yolo` and in-scope approval do not authorize it.
+  When the gate runs, an unreadable or malformed effort policy refuses the launch even with an override.
+- `bin/fm-cross-review.sh plan` clamps each considered candidate's declared effort into the matching envelope before selecting a [cross-family reviewer](#cross-family-review).
+  An omitted candidate effort uses the highest matching `effort` or `effort_floor`; if neither is declared, the candidate is skipped.
+  A policy that cannot be loaded stops planning rather than selecting around it.
 
-A profile *matches* a launch when its harness equals the launch's and its model is variation-equal to the launch's model.
-For non-claude harnesses that is the exact string (the `default` spelling counts as modelless); for claude it also spans the model's own name variants, because a claude model name names a family: the full form `claude-<alias>-<n>...`, its dated suffixes (`claude-opus-5-5-20260101`), the bare catalog alias (`opus`, `sonnet`, `haiku`, `fable`), and a modelless or `default` launch, which runs the claude Opus default and is therefore also capped by the opus-family profiles.
-A modelless profile still governs only modelless spawns, never a concrete model.
-The envelope is `effort_max`, else `effort`, else `xhigh` (the resolver's undeclared default), and `effort_min`/`effort_floor` only ever raise the lower bound; the envelope across several matching profiles is their union, so a home narrows a model by declaring tighter profiles, never by adding declarations.
-A bare `effort: <level>` is the exact one-level range `<level>..<level>`: this is how a home states "this model runs at most at this effort", for example `{"harness": "claude", "model": "claude-opus-5-5", "effort": "medium"}` caps Claude Opus at medium, and `spawn` then refuses `--effort high` for it while accepting `medium`.
-A home without `config/crew-dispatch.json` has no caps: nothing changes for other homes, and no tracked default adds one.
+Profiles match only within the same harness.
+Model matching is case-insensitive and normally exact; omitted, empty, and `default` model values are equivalent.
+Bare Claude aliases (`opus`, `sonnet`, `haiku`, `fable`) also match their unprefixed full names (`claude-<alias>-...`), and a versioned name matches an extension of itself after a dash, such as `claude-opus-5-5` and `claude-opus-5-5-20260101`.
+Different full version names do not match merely because they share `opus`; use the bare alias to cover those versions.
+For effort-cap matching, a modelless `claude` launch is treated as Opus and additionally matches Opus profiles; a modelless profile still governs only modelless launches, never a concrete model.
+
+Each profile contributes its [declared effort range](#crew-dispatch-profiles-configcrew-dispatchjson), with `effort_floor` raising its lower bound.
+The combined envelope takes the lowest lower bound and highest upper bound across matching profiles, so adding a tighter profile does not narrow an existing broader declaration.
+For example, a rule using `{"harness": "claude", "model": "opus", "effort": "medium"}` caps Opus launches at medium only when no matching profile permits higher effort.
+Spawn enforces only the upper bound; reviewer planning uses both bounds.
+An absent rules file or no matching profile imposes no cap; an explicitly declared reviewer effort is then unchanged.
+Behavioral regression coverage is in [`tests/fm-cross-review.test.sh`](../tests/fm-cross-review.test.sh) and [`tests/fm-spawn-dispatch-profile.test.sh`](../tests/fm-spawn-dispatch-profile.test.sh).
 
 ### Optional model consultation records
 
@@ -2183,10 +2193,12 @@ A no-mistakes pipeline review of the exact head counts when the agent that ran i
 Vault changes excluded by `fm_wiki_change_private` in [`bin/fm-wiki-lib.sh`](../bin/fm-wiki-lib.sh) never get a new reviewer and stay on their existing path.
 An unknown builder family, or no candidate from another family, is reported for the captain to decide rather than guessed.
 
-The reviewed head's reviewer candidate chain is the tracked default `pi openai-codex/gpt-6.1-sol high`, then `claude claude-opus-5-5 medium` (a fail-safe: a home with no effort policy never spawns an Opus reviewer at high), so a Claude-built change goes to Sol and an OpenAI-built one to Opus; firstmate chooses the first whose catalog-proven family is disjoint from the builder's.
-A home may replace the chain with `config/cross-review-chain.json`, an array of `{"harness": ..., "model": ..., "effort": <optional>}` entries; a missing effort takes the matching dispatch profile's declared default (see [effort caps for concrete launches](#effort-caps-for-concrete-launches)), and a candidate with no declared effort anywhere is unusable, as is a chain whose file is unreadable or malformed (plan dies naming the file instead of silently narrowing).
-Every candidate's effort is clamped into the home's `config/crew-dispatch.json` envelope for that harness/model pair - the same effort-range source of truth the dispatch resolver clamps into - so a home that caps a model's effort also caps the effort a reviewer runs at, and plan prints `reviewer_effort_clamped=from <level>` when it had to move.
-The launch itself is refused like any other spawn when the printed effort already exceeds the cap ([effort caps for concrete launches](#effort-caps-for-concrete-launches)).
+The tracked reviewer chain tries Sol through Pi, then Opus through Claude, using the concrete model selectors and effort defaults in `reviewer_candidates` in [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh).
+Opus defaults to medium as a fail-safe when no home policy is configured.
+Firstmate chooses the first usable candidate whose catalog-proven family is disjoint from the builder's.
+A home may replace the chain with `config/cross-review-chain.json`, a non-empty array of objects with required non-empty `harness` and `model` strings and optional `effort` (`low`, `medium`, `high`, `xhigh`, `max`, or `ultra`).
+An unreadable or malformed chain stops planning with a diagnostic naming the file instead of silently narrowing the chain.
+[Effort caps for concrete launches](#effort-caps-for-concrete-launches) owns candidate clamping, omitted-effort handling, and the spawn backstop; the script header owns the clamp diagnostic.
 
 ## Memory store (config/memory-dir)
 
