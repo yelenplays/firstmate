@@ -1,0 +1,17 @@
+FM_BROWSER_GUARD=1
+NODE_OPTIONS=--require "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/bin/fm-browser-guard-preload.cjs"
+HEADED_REQUEST=1
+ALLOW_HEADED=unset
+page:
+  title: Browser guard live proof
+  url: "data:text/html,<title>Browser guard live proof</title><h1>Guarded request escaped headless enforcement</h1>"
+  refs: 2
+snapshot:
+uid=g2:1_0 RootWebArea "Browser guard live proof" url="data:text/html,<title>Browser guard live proof</title><h1>Guarded request escaped headless enforcement</h1>"
+  uid=g2:1_1 heading "Guarded request escaped headless enforcement" level="1"
+help[1]:
+  Use `chrome-devtools-axi eval <expr>` for JS expressions. For multi-statement code, pass a function: `eval "() => { ...; return result }"`
+result: "\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36\""
+help[1]:
+  Run `chrome-devtools-axi snapshot` to see current page state
+11729 11637 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --allow-pre-commit-input --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-crash-reporter --disable-default-apps --disable-dev-shm-usage --disable-hang-monitor --disable-infobars --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-search-engine-choice-screen --disable-sync --enable-automation --export-tagged-pdf --force-color-profile=srgb --generate-pdf-document-outline --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --disable-features=Translate,AcceptCHFrame,MediaRouter,OptimizationHints,WebUIReloadButton,WebUIOmniboxPopup,WebUIOmniboxAimPopup,ProcessPerSiteUpToMainFrameThreshold,IsolateSandboxedIframes --enable-features=PdfOopif --user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.test-runtime/chrome-profile --disable-extensions about:blank --use-mock-keychain --password-store=basic --hide-crash-restore-bubble --remote-debugging-pipe

@@ -1,0 +1,19 @@
+ok - every launch carries the guard environment, through the cleared allowlist environment too
+ok - every recorded headed launcher argv ends headless and every headless one is untouched
+ok - the launcher API is forced headless through an ESM and a CommonJS entry point
+ok - FM_ALLOW_HEADED_BROWSER=1 allows a visible window in every layer, with one notice line
+ok - the open shim refuses every launch that could only end in a browser window
+ok - ordinary file opening still reaches the real open with its arguments intact
+ok - the shims step over a nested guard directory instead of recursing into it
+ok - the osascript shim refuses the AppleScript routes to a browser window
+ok - scripts that are not browser launches reach the real osascript, stdin included
+ok - the captain's opt-out passes the PATH shims through with one notice line
+ok - Python's webbrowser is refused in a guarded pane and allowed through the opt-out
+ok - the guard leaves ordinary Node work, promisified execFile, and shell spawns untouched
+ok - Electron launches are untouched and argument-less browser spawns are forced headless
+ok - the macOS Brave Browser binary is classified and forced headless
+ok - the guard environment keeps an existing NODE_OPTIONS and is safe to apply twice
+ok - a host without the guard files warns once and still launches
+ok - a hostile checkout path is quoted inertly and only the Node layer is skipped
+ok - the guard environment script has one documented command and refuses anything else
+all fm-browser-guard tests passed

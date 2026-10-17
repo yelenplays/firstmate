@@ -1,0 +1,9 @@
+page:
+  title: Browser guard live proof
+  url: "data:text/html,<title>Browser guard live proof</title><h1>Guarded browser renders successfully</h1>"
+  refs: 2
+snapshot:
+uid=g1:1_0 RootWebArea "Browser guard live proof" url="data:text/html,<title>Browser guard live proof</title><h1>Guarded browser renders successfully</h1>"
+  uid=g1:1_1 heading "Guarded browser renders successfully" level="1"
+help[1]:
+  Use `chrome-devtools-axi eval <expr>` for JS expressions. For multi-statement code, pass a function: `eval "() => { ...; return result }"`

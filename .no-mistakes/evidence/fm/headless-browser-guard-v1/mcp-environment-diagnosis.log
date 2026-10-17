@@ -1,0 +1,4 @@
+{"variable":"FM_BROWSER_GUARD","parent":"1","mcpChild":null}
+{"variable":"NODE_OPTIONS","parent":"--require \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/bin/fm-browser-guard-preload.cjs\"","mcpChild":null}
+{"variable":"BROWSER","parent":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/bin/fm-browser-guard-browser.sh","mcpChild":null}
+{"variable":"LAVISH_AXI_NO_OPEN","parent":"1","mcpChild":null}

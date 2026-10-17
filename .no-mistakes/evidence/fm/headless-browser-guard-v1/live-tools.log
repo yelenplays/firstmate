@@ -1,0 +1,10 @@
+tmux: unavailable on PATH; no repository-local executable supplied
+electron: unavailable on PATH; no repository-local executable supplied
+0.1.30
+(node:20989) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Update available: 1.7.0 -> 1.11.0
+Run `npm install chrome-devtools-mcp@latest` to update.
+
+1.7.0

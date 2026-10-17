@@ -1,0 +1,330 @@
+VERSIONS {"node":"v26.11.0","playwright":"1.64.1","puppeteer":"25.14.0"}
+fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+cdpSession.send: Protocol error (Browser.getBrowserCommandLine): Command line not returned because --enable-automation not set.
+    at verify (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.browser-guard-live/launchers.mjs:27:32)
+    at async file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.browser-guard-live/launchers.mjs:35:3 {
+  log: [],
+  name: 'Error'
+}
+
+Node.js v26.11.0
+VERSIONS {"node":"v26.11.0","playwright":"1.64.1","puppeteer":"25.14.0"}
+fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT {"label":"Playwright-ESM","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Playwright-CommonJS","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Playwright-persistent","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Playwright-server","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Puppeteer-ESM","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+[87208:27846651:1017/164504.130163:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164504.133921:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87008:27846647:1017/164506.767865:ERROR:components/password_manager/core/browser/password_store/login_database_async_helper.cc:100] Encryption is not available.
+[87008:27846706:1017/164506.768089:ERROR:components/password_manager/core/browser/password_store/login_database_async_helper.cc:100] Encryption is not available.
+[87208:27846651:1017/164507.438060:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.439914:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846651:1017/164507.513426:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.513492:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846651:1017/164507.564028:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.564146:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87008:27846620:1017/164507.632360:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[87008:27846620:1017/164507.666411:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[87208:27846651:1017/164507.690544:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.691072:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846651:1017/164507.782553:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.782651:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846651:1017/164507.866839:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.866955:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846651:1017/164507.925582:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164507.925710:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846651:1017/164508.054125:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+[87208:27846910:1017/164508.054688:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670
+Created TensorFlow Lite XNNPACK delegate for CPU.
+[7919:27878219:1017/164522.893609:VERBOSE1:chrome/updater/updater.cc:374] Version: 152.0.7933.0, opt, ARM_64, command line: /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.80/Helpers/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --install --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[7919:27878219:1017/164522.894836:VERBOSE1:chrome/updater/updater.cc:377] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17282, parent pid: 87008
+[7919:27878219:1017/164522.898041:VERBOSE1:chrome/updater/updater.cc:382] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659200512B (387.113GiB) / 994662584320B (926.352GiB)
+[7919:27878219:1017/164522.898219:VERBOSE1:chrome/updater/updater.cc:386] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659200512B (387.113GiB) / 994662584320B (926.352GiB)
+[7919:27878219:1017/164522.899448:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log
+[7952:27878274:1017/164522.913829:VERBOSE1:chrome/updater/updater.cc:374] Version: 152.0.7933.0, opt, ARM_64, command line: /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.80/Helpers/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/yelen/Library/Application Support/Google/GoogleUpdater/152.0.7933.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[7952:27878274:1017/164522.914550:VERBOSE1:chrome/updater/updater.cc:377] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17282, parent pid: 1
+[7952:27878274:1017/164522.916787:VERBOSE1:chrome/updater/updater.cc:382] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659188224B (387.113GiB) / 994662584320B (926.352GiB)
+[7952:27878274:1017/164522.916811:VERBOSE1:chrome/updater/updater.cc:386] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659188224B (387.113GiB) / 994662584320B (926.352GiB)
+[7952:27878274:1017/164522.916912:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log
+[7919:27878219:1017/164522.918224:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.
+[7919:27878219:1017/164522.919249:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports
+[7919:27878219:1017/164522.919400:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports
+[7919:27878219:1017/164522.920141:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)
+[7919:27878219:1017/164522.920190:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/Chrome for Testing-headless/Crashpad/settings.dat: No such file or directory (2)
+[7919:27878219:1017/164522.921094:VERBOSE1:chrome/updater/updater.cc:105] Crash reporting initialized.
+[7919:27878219:1017/164522.922894:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion
+[7919:27878219:1017/164522.922967:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting
+[7919:27878322:1017/164522.929287:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164522.929329:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.
+[7919:27878219:1017/164522.929388:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected
+[7919:27878219:1017/164522.929415:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion
+[7919:27878219:1017/164522.929432:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting
+[7919:27878322:1017/164522.934681:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164522.934728:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.
+[7919:27878219:1017/164522.934771:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected
+[7919:27878219:1017/164522.934803:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion
+[7919:27878219:1017/164522.934819:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting
+[7919:27878322:1017/164522.941106:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164522.941164:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.
+[7919:27878219:1017/164522.941218:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected
+[7919:27878322:1017/164522.941508:VERBOSE2:chrome/updater/util/util.cc:341] DeleteExcept deleting: /Users/yelen/Library/Application Support/Google/GoogleUpdater/152.0.7933.0/GoogleUpdater.app
+[7919:27878322:1017/164523.010521:VERBOSE2:chrome/updater/mac/setup/mac_setup.mm:160] Skipping unnecessary update to /Users/yelen/Library/LaunchAgents/com.google.GoogleUpdater.wake.plist
+[7919:27878322:1017/164523.010622:VERBOSE2:chrome/updater/prefs.cc:113] CreateGlobalPrefsInternal
+[7919:27878322:1017/164523.011264:VERBOSE1:chrome/updater/prefs.cc:159] UpdaterPrefsImpl (global): /Users/yelen/Library/Application Support/Google/GoogleUpdater
+[7919:27878332:1017/164523.011374:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a ACTIVATE START event to the history log
+[7919:27878508:1017/164523.011380:VERBOSE1:chrome/updater/prefs.cc:251] Prefs committed.
+[7919:27878322:1017/164523.011449:VERBOSE1:chrome/updater/prefs.cc:164] ~UpdaterPrefsImpl: /Users/yelen/Library/Application Support/Google/GoogleUpdater
+[7919:27878508:1017/164523.011469:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a ACTIVATE END event to the history log
+[7919:27878219:1017/164523.011518:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:73] Hello
+[7919:27878322:1017/164523.227638:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164523.227702:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 1, scope: User, no updater exists.
+[7919:27878219:1017/164523.227754:VERBOSE2:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:119] No endpoint received.
+[7919:27878219:1017/164523.227846:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:73] Hello
+[7919:27878322:1017/164523.234195:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164523.234240:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 1, scope: User, no updater exists.
+[7919:27878219:1017/164523.234287:VERBOSE2:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:119] No endpoint received.
+[7919:27878219:1017/164523.234352:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:73] Hello
+[7919:27878322:1017/164523.241385:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164523.241428:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 1, scope: User, no updater exists.
+[7919:27878219:1017/164523.241490:VERBOSE2:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:119] No endpoint received.
+[7919:27878219:1017/164523.241531:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:441] ~UpdateServiceProxyMojoImpl
+[7919:27878219:1017/164523.241549:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:235] RegisterApp
+[7919:27878219:1017/164523.241561:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting
+[7919:27878322:1017/164523.248596:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164523.248640:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.
+[7919:27878219:1017/164523.248685:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected
+[7919:27878219:1017/164523.248703:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:235] RegisterApp
+[7919:27878219:1017/164523.248715:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting
+[7919:27878322:1017/164523.255930:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164523.255985:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.
+[7919:27878219:1017/164523.256038:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected
+[7919:27878219:1017/164523.256063:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:235] RegisterApp
+[7919:27878219:1017/164523.256078:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting
+[7919:27878322:1017/164523.263085:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory
+
+[7919:27878322:1017/164523.263525:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.
+[7919:27878219:1017/164523.263574:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected
+[7919:27878219:1017/164523.263615:VERBOSE2:chrome/updater/app/app_install.cc:302] Updater registration failed: 35
+[7919:27878322:1017/164523.263714:VERBOSE2:components/update_client/update_client.cc:305] SendPing
+[7919:27878322:1017/164523.263739:VERBOSE2:components/update_client/update_client.cc:157] RunTask
+[7919:27878322:1017/164523.263966:VERBOSE2:components/update_client/request_sender.cc:110] url: https://update.googleapis.com/service/update2/json
+[7919:27878322:1017/164523.263985:VERBOSE2:components/update_client/request_sender.cc:119] Sending Omaha request: {"request":{"@os":"mac","@updater":"GoogleUpdater","acceptformat":"crx3,download,puff,run,xz,zucc","apps":[{"appid":"{44fc7fe2-65ce-487c-93f4-edee46eeaaab}","enabled":true,"events":[{"errorcode":3,"eventresult":0,"eventtype":2,"previousversion":"152.0.7933.0"}],"installdate":0,"version":"152.0.7933.0"}],"arch":"arm64","dedup":"cr","hw":{"avx":false,"physmemory":24,"sse":false,"sse2":false,"sse3":false,"sse41":false,"sse42":false,"ssse3":false},"ismachine":false,"os":{"arch":"arm64","platform":"Mac OS X","version":"26.5.0"},"prodversion":"152.0.7933.0","protocol":"4.0","requestid":"{ba316d88-1c17-4b29-a373-c5fca80f2b40}","sessionid":"{25de6a85-e74d-442a-86a5-8daa398c7b95}","updaterversion":"152.0.7933.0"}}
+[7919:27878332:1017/164523.264147:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a POST_REQUEST START event to the history log
+[7919:27878322:1017/164523.266282:VERBOSE1:chrome/updater/net/network_fetcher_mac.mm:824] Posting data: {"request":{"@os":"mac","@updater":"GoogleUpdater","acceptformat":"crx3,download,puff,run,xz,zucc","apps":[{"appid":"{44fc7fe2-65ce-487c-93f4-edee46eeaaab}","enabled":true,"events":[{"errorcode":3,"eventresult":0,"eventtype":2,"previousversion":"152.0.7933.0"}],"installdate":0,"version":"152.0.7933.0"}],"arch":"arm64","dedup":"cr","hw":{"avx":false,"physmemory":24,"sse":false,"sse2":false,"sse3":false,"sse41":false,"sse42":false,"ssse3":false},"ismachine":false,"os":{"arch":"arm64","platform":"Mac OS X","version":"26.5.0"},"prodversion":"152.0.7933.0","protocol":"4.0","requestid":"{ba316d88-1c17-4b29-a373-c5fca80f2b40}","sessionid":"{25de6a85-e74d-442a-86a5-8daa398c7b95}","updaterversion":"152.0.7933.0"}}
+[7919:27878322:1017/164523.379480:VERBOSE1:components/update_client/request_sender.cc:203] Request completed from url: https://update.googleapis.com/service/update2/json
+[7919:27878322:1017/164523.379556:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a POST_REQUEST END event to the history log
+[7919:27878322:1017/164523.379574:VERBOSE2:components/update_client/request_sender.cc:151] Omaha response received: )]}'
+{"response":{"server":"prod","protocol":"4.0","daystart":{"elapsed_seconds":27923,"elapsed_days":7229},"apps":[{"appid":"{44fc7fe2-65ce-487c-93f4-edee46eeaaab}","status":"ok","events":[{"status":"ok"}]}]}}
+[7919:27878322:1017/164523.379587:VERBOSE2:components/update_client/request_sender.cc:259] TakeRequestSenderCallback
+[7919:27878322:1017/164523.379602:VERBOSE2:components/update_client/task_send_ping.cc:58] TaskComplete
+[7919:27878322:1017/164523.379619:VERBOSE2:components/update_client/update_client.cc:183] OnTaskComplete: tasks_.empty(): 1, task_queue_.empty(): 1, error: 0
+[7919:27878219:1017/164523.379654:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 3
+[7919:27878219:1017/164523.379676:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:441] ~UpdateServiceProxyMojoImpl
+[7919:27878219:1017/164523.380140:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log
+[7919:27878219:1017/164523.380169:VERBOSE1:chrome/updater/updater.cc:419] UpdaterMain (--install) returned 3.
+[7952:27878274:1017/164523.383723:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log
+[7952:27878274:1017/164523.383827:VERBOSE1:chrome/updater/updater.cc:419] UpdaterMain (--crash-handler) returned 0.
+[8670:27879490:1017/164523.480752:VERBOSE1:chrome/updater/updater.cc:375] Version: 157.0.8089.0, opt, ARM_64, command line: /Users/yelen/Library/Application Support/Google/GoogleUpdater/157.0.8089.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake-all --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[8670:27879490:1017/164523.481794:VERBOSE1:chrome/updater/updater.cc:378] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17283, parent pid: 87008
+[8670:27879490:1017/164523.485265:VERBOSE1:chrome/updater/updater.cc:383] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659233280B (387.113GiB) / 994662584320B (926.352GiB)
+[8670:27879490:1017/164523.485768:VERBOSE1:chrome/updater/updater.cc:387] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659233280B (387.113GiB) / 994662584320B (926.352GiB)
+[8670:27879490:1017/164523.486598:VERBOSE2:chrome/updater/event_history.cc:266] Emitted a UPDATER_PROCESS START event to the history log
+[8717:27879561:1017/164523.502752:VERBOSE1:chrome/updater/updater.cc:375] Version: 157.0.8089.0, opt, ARM_64, command line: /Users/yelen/Library/Application Support/Google/GoogleUpdater/157.0.8089.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/yelen/Library/Application Support/Google/GoogleUpdater/157.0.8089.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=157.0.8089.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[8717:27879561:1017/164523.521902:VERBOSE1:chrome/updater/updater.cc:378] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17283, parent pid: 1
+[8717:27879561:1017/164523.525686:VERBOSE1:chrome/updater/updater.cc:383] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659233280B (387.113GiB) / 994662584320B (926.352GiB)
+[8717:27879561:1017/164523.525736:VERBOSE1:chrome/updater/updater.cc:387] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659233280B (387.113GiB) / 994662584320B (926.352GiB)
+[8717:27879561:1017/164523.525837:VERBOSE2:chrome/updater/event_history.cc:266] Emitted a UPDATER_PROCESS START event to the history log
+[8670:27879490:1017/164523.527215:VERBOSE1:chrome/updater/crash_reporter.cc:123] Crash handler launched and ready.
+[8670:27879490:1017/164523.528501:VERBOSE1:chrome/updater/crash_client.cc:109] Found 0 completed crash reports
+[8670:27879490:1017/164523.528637:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports
+[8670:27879490:1017/164523.529668:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)
+[8670:27879490:1017/164523.529999:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/Chrome for Testing-headless/Crashpad/settings.dat: No such file or directory (2)
+[8670:27879490:1017/164523.530922:VERBOSE1:chrome/updater/updater.cc:107] Crash reporting initialized.
+[8670:27879669:1017/164523.532524:VERBOSE1:chrome/updater/app/app_wakeall.cc:58] Launching `/Users/yelen/Library/Application Support/Google/GoogleUpdater/157.0.8089.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake`
+[8776:27879675:1017/164523.548931:VERBOSE1:chrome/updater/updater.cc:375] Version: 157.0.8089.0, opt, ARM_64, command line: /Users/yelen/Library/Application Support/Google/GoogleUpdater/157.0.8089.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[8776:27879675:1017/164523.549928:VERBOSE1:chrome/updater/updater.cc:378] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17283, parent pid: 8670
+[8776:27879675:1017/164523.553794:VERBOSE1:chrome/updater/updater.cc:383] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659220992B (387.113GiB) / 994662584320B (926.352GiB)
+[8776:27879675:1017/164523.553854:VERBOSE1:chrome/updater/updater.cc:387] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659220992B (387.113GiB) / 994662584320B (926.352GiB)
+[8776:27879675:1017/164523.553958:VERBOSE2:chrome/updater/event_history.cc:266] Emitted a UPDATER_PROCESS START event to the history log
+node:internal/child_process:1175
+    result.error = new ErrnoException(result.error, 'spawnSync ' + options.file);
+                   ^
+
+<ref *1> Error: spawnSync /Applications/Google Chrome.app/Contents/MacOS/Google Chrome ETIMEDOUT
+    at Object.spawnSync (node:internal/child_process:1175:20)
+    at spawnSync (node:child_process:974:24)
+    at execFileSync (node:child_process:1017:15)
+    at wrapper (/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/bin/fm-browser-guard-preload.cjs:353:23)
+    at file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.browser-guard-live/launchers.mjs:45:23
+    at file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.browser-guard-live/launchers.mjs:49:19 {
+  errno: -60,
+  code: 'ETIMEDOUT',
+  syscall: 'spawnSync /Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  path: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  spawnargs: [
+    '--user-data-dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.browser-guard-live/spawn-profile',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--no-startup-window',
+    '--dump-dom',
+    'data:text/html,<h1>Real guarded process launch</h1><script>document.body.append(navigator.userAgent)</script>',
+    '--headless'
+  ],
+  error: [Circular *1],
+  status: 0,
+  signal: null,
+  output: [
+    null,
+    '',
+    '[87208:27846651:1017/164504.130163:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164504.133921:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87008:27846647:1017/164506.767865:ERROR:components/password_manager/core/browser/password_store/login_database_async_helper.cc:100] Encryption is not available.\n' +
+      '[87008:27846706:1017/164506.768089:ERROR:components/password_manager/core/browser/password_store/login_database_async_helper.cc:100] Encryption is not available.\n' +
+      '[87208:27846651:1017/164507.438060:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.439914:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846651:1017/164507.513426:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.513492:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846651:1017/164507.564028:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.564146:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87008:27846620:1017/164507.632360:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT\n' +
+      '[87008:27846620:1017/164507.666411:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n' +
+      '[87208:27846651:1017/164507.690544:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.691072:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846651:1017/164507.782553:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.782651:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846651:1017/164507.866839:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.866955:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846651:1017/164507.925582:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164507.925710:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846651:1017/164508.054125:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      '[87208:27846910:1017/164508.054688:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+      'Created TensorFlow Lite XNNPACK delegate for CPU.\n' +
+      '[7919:27878219:1017/164522.893609:VERBOSE1:chrome/updater/updater.cc:374] Version: 152.0.7933.0, opt, ARM_64, command line: /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.80/Helpers/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --install --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2\n' +
+      '[7919:27878219:1017/164522.894836:VERBOSE1:chrome/updater/updater.cc:377] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17282, parent pid: 87008\n' +
+      '[7919:27878219:1017/164522.898041:VERBOSE1:chrome/updater/updater.cc:382] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659200512B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+      '[7919:27878219:1017/164522.898219:VERBOSE1:chrome/updater/updater.cc:386] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659200512B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+      '[7919:27878219:1017/164522.899448:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n' +
+      '[7952:27878274:1017/164522.913829:VERBOSE1:chrome/updater/updater.cc:374] Version: 152.0.7933.0, opt, ARM_64, command line: /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.80/Helpers/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/yelen/Library/Application Support/Google/GoogleUpdater/152.0.7933.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2\n' +
+      '[7952:27878274:1017/164522.914550:VERBOSE1:chrome/updater/updater.cc:377] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17282, parent pid: 1\n' +
+      '[7952:27878274:1017/164522.916787:VERBOSE1:chrome/updater/updater.cc:382] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659188224B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+      '[7952:27878274:1017/164522.916811:VERBOSE1:chrome/updater/updater.cc:386] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659188224B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+      '[7952:27878274:1017/164522.916912:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n' +
+      '[7919:27878219:1017/164522.918224:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.\n' +
+      '[7919:27878219:1017/164522.919249:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports\n' +
+      '[7919:27878219:1017/164522.919400:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports\n' +
+      '[7919:27878219:1017/164522.920141:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)\n' +
+      '[7919:27878219:1017/164522.920190:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/Chrome for Testing-headless/Crashpad/settings.dat: No such file or directory (2)\n' +
+      '[7919:27878219:1017/164522.921094:VERBOSE1:chrome/updater/updater.cc:105] Crash reporting initialized.\n' +
+      '[7919:27878219:1017/164522.922894:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion\n' +
+      '[7919:27878219:1017/164522.922967:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting\n' +
+      '[7919:27878322:1017/164522.929287:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory\n' +
+      '\n' +
+      '[7919:27878322:1017/164522.929329:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.\n' +
+      '[7919:27878219:1017/164522.929388:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected\n' +
+      '[7919:27878219:1017/164522.929415:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion\n' +
+      '[7919:27878219:1017/164522.929432:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting\n' +
+      '[7919:27878322:1017/164522.934681:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory\n' +
+      '\n' +
+      '[7919:27878322:1017/164522.934728:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.\n' +
+      '[7919:27878219:1017/164522.934771:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected\n' +
+      '[7919:27878219:1017/164522.934803:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion\n' +
+      '[7919:27878219:1017/164522.934819:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting\n' +
+      '[7919:27878322:1017/164522.941106:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory\n' +
+      '\n' +
+      '[7919:27878322:1017/164522.941164:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.\n' +
+      '[7919:27878219:1017/164522.941218:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected\n' +
+      '[7919:27878322:1017/164522.941508:VERBOSE2:chrome/updater/util/util.cc:341] DeleteExcept deleting: /Users/yelen/Library/Application Support/Google/GoogleUpdater/152.0.7933.0/GoogleUpdater.app\n' +
+      '[7919:27878322:1017/164523.010521:VERBOSE2:chrome/updater/mac/setup/mac_setup.mm:160] Skipping unnecessary update to /Users/yelen/Library/LaunchAgents/com.google.GoogleUpdater.wake.plist\n' +
+      '[7919:27878322:1017/164523.010622:VERBOSE2:chrome/updater/prefs.cc:113] CreateGlobalPrefsInternal\n' +
+      '[7919:27878322:1017/164523.011264:VERBOSE1:chrome/updater/prefs.cc:159] UpdaterPrefsImpl (global): /Users/yelen/Library/Application Support/Google/GoogleUpdater\n' +
+      '[7919:27878332:1017/164523.011374:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a ACTIVATE START event to the history log\n' +
+      '[7919:27878508:1017/164523.011380:VERBOSE1:chrome/updater/prefs.cc:251] Prefs committed.\n' +
+      '[7919:27878322:1017/164523.011449:VERBOSE1:chrome/updater/prefs.cc:164] ~UpdaterPrefsImpl: /Users/yelen/Library/Application Support/Google/GoogleUpdater\n' +
+      '[7919:27878508:1017/164523.011469:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a ACTIVATE END event to the history log\n' +
+      '[7919:27878219:1017/164523.011518:VERBOSE1:chrome/updater/ipc/update_servi'... 12698 more characters
+  ],
+  pid: 87008,
+  stdout: '',
+  stderr: '[87208:27846651:1017/164504.130163:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164504.133921:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87008:27846647:1017/164506.767865:ERROR:components/password_manager/core/browser/password_store/login_database_async_helper.cc:100] Encryption is not available.\n' +
+    '[87008:27846706:1017/164506.768089:ERROR:components/password_manager/core/browser/password_store/login_database_async_helper.cc:100] Encryption is not available.\n' +
+    '[87208:27846651:1017/164507.438060:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.439914:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846651:1017/164507.513426:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.513492:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846651:1017/164507.564028:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.564146:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87008:27846620:1017/164507.632360:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT\n' +
+    '[87008:27846620:1017/164507.666411:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n' +
+    '[87208:27846651:1017/164507.690544:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.691072:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846651:1017/164507.782553:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.782651:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846651:1017/164507.866839:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.866955:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846651:1017/164507.925582:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164507.925710:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846651:1017/164508.054125:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    '[87208:27846910:1017/164508.054688:ERROR:ui/display/mac/cv_display_link_mac.mm:188] CVDisplayLinkCreateWithCGDisplay failed. CVReturn: -6670\n' +
+    'Created TensorFlow Lite XNNPACK delegate for CPU.\n' +
+    '[7919:27878219:1017/164522.893609:VERBOSE1:chrome/updater/updater.cc:374] Version: 152.0.7933.0, opt, ARM_64, command line: /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.80/Helpers/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --install --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2\n' +
+    '[7919:27878219:1017/164522.894836:VERBOSE1:chrome/updater/updater.cc:377] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17282, parent pid: 87008\n' +
+    '[7919:27878219:1017/164522.898041:VERBOSE1:chrome/updater/updater.cc:382] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659200512B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+    '[7919:27878219:1017/164522.898219:VERBOSE1:chrome/updater/updater.cc:386] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659200512B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+    '[7919:27878219:1017/164522.899448:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n' +
+    '[7952:27878274:1017/164522.913829:VERBOSE1:chrome/updater/updater.cc:374] Version: 152.0.7933.0, opt, ARM_64, command line: /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.80/Helpers/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/yelen/Library/Application Support/Google/GoogleUpdater/152.0.7933.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=152.0.7933.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2\n' +
+    '[7952:27878274:1017/164522.914550:VERBOSE1:chrome/updater/updater.cc:377] OS version: 26.5.0, arch: arm64, System uptime (seconds): 17282, parent pid: 1\n' +
+    '[7952:27878274:1017/164522.916787:VERBOSE1:chrome/updater/updater.cc:382] Available disk space in install directory (/Users/yelen/Library/Application Support/Google/GoogleUpdater): 415659188224B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+    '[7952:27878274:1017/164522.916811:VERBOSE1:chrome/updater/updater.cc:386] Available disk space in temporary directory (/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/): 415659188224B (387.113GiB) / 994662584320B (926.352GiB)\n' +
+    '[7952:27878274:1017/164522.916912:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n' +
+    '[7919:27878219:1017/164522.918224:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.\n' +
+    '[7919:27878219:1017/164522.919249:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports\n' +
+    '[7919:27878219:1017/164522.919400:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports\n' +
+    '[7919:27878219:1017/164522.920141:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)\n' +
+    '[7919:27878219:1017/164522.920190:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/yelen/Library/Application Support/Google/Chrome for Testing-headless/Crashpad/settings.dat: No such file or directory (2)\n' +
+    '[7919:27878219:1017/164522.921094:VERBOSE1:chrome/updater/updater.cc:105] Crash reporting initialized.\n' +
+    '[7919:27878219:1017/164522.922894:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion\n' +
+    '[7919:27878219:1017/164522.922967:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting\n' +
+    '[7919:27878322:1017/164522.929287:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory\n' +
+    '\n' +
+    '[7919:27878322:1017/164522.929329:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.\n' +
+    '[7919:27878219:1017/164522.929388:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected\n' +
+    '[7919:27878219:1017/164522.929415:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion\n' +
+    '[7919:27878219:1017/164522.929432:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting\n' +
+    '[7919:27878322:1017/164522.934681:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory\n' +
+    '\n' +
+    '[7919:27878322:1017/164522.934728:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.\n' +
+    '[7919:27878219:1017/164522.934771:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected\n' +
+    '[7919:27878219:1017/164522.934803:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:194] GetVersion\n' +
+    '[7919:27878219:1017/164522.934819:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:446] EnsureConnecting\n' +
+    '[7919:27878322:1017/164522.941106:VERBOSE1:chrome/updater/ipc/update_service_dialer_mac.cc:37] DialUpdateService launcher failure: launcher: posix_spawn failed: No such file or directory\n' +
+    '\n' +
+    '[7919:27878322:1017/164522.941164:VERBOSE1:chrome/updater/ipc/update_service_dialer_posix.cc:56] Failed to connect to remote mojo service, is_internal_service: 0, scope: User, no updater exists.\n' +
+    '[7919:27878219:1017/164522.941218:VERBOSE1:chrome/updater/ipc/update_service_proxy_mojo.cc:395] OnConnected\n' +
+    '[7919:27878322:1017/164522.941508:VERBOSE2:chrome/updater/util/util.cc:341] DeleteExcept deleting: /Users/yelen/Library/Application Support/Google/GoogleUpdater/152.0.7933.0/GoogleUpdater.app\n' +
+    '[7919:27878322:1017/164523.010521:VERBOSE2:chrome/updater/mac/setup/mac_setup.mm:160] Skipping unnecessary update to /Users/yelen/Library/LaunchAgents/com.google.GoogleUpdater.wake.plist\n' +
+    '[7919:27878322:1017/164523.010622:VERBOSE2:chrome/updater/prefs.cc:113] CreateGlobalPrefsInternal\n' +
+    '[7919:27878322:1017/164523.011264:VERBOSE1:chrome/updater/prefs.cc:159] UpdaterPrefsImpl (global): /Users/yelen/Library/Application Support/Google/GoogleUpdater\n' +
+    '[7919:27878332:1017/164523.011374:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a ACTIVATE START event to the history log\n' +
+    '[7919:27878508:1017/164523.011380:VERBOSE1:chrome/updater/prefs.cc:251] Prefs committed.\n' +
+    '[7919:27878322:1017/164523.011449:VERBOSE1:chrome/updater/prefs.cc:164] ~UpdaterPrefsImpl: /Users/yelen/Library/Application Support/Google/GoogleUpdater\n' +
+    '[7919:27878508:1017/164523.011469:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a ACTIVATE END event to the history log\n' +
+    '[7919:27878219:1017/164523.011518:VERBOSE1:chrome/updater/ipc/update_servi'... 12698 more characters
+}
+
+Node.js v26.11.0

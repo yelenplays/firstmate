@@ -1,0 +1,7 @@
+VERSIONS {"node":"v26.11.0","playwright":"1.64.1","puppeteer":"25.14.0"}
+fm-browser-guard: forced headless: playwright-core asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT {"label":"Playwright-ESM","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Playwright-CommonJS","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Playwright-persistent","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Playwright-server","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}
+RESULT {"label":"Puppeteer-ESM","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","button":"Interaction verified","product":"Chrome/155.0.8059.80","headlessArgs":["--headless"]}

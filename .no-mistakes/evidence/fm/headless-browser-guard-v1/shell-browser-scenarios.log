@@ -1,0 +1,21 @@
+open=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/bin/fm-browser-guard-bin/open
+osascript=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/bin/fm-browser-guard-bin/osascript
+URL through open: exit=1
+fm-browser-guard: refused a visible browser window for open https://example.invalid/fm-guard-live; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+Browser application through clustered open flags: exit=1
+fm-browser-guard: refused a visible browser window for open -a "Google Chrome"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+Browser bundle through open: exit=1
+fm-browser-guard: refused a visible browser window for open -b "com.apple.Safari"; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+Local HTML document: exit=1
+fm-browser-guard: refused a visible browser window for open /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5537NAX29QD2WFNCS7QW5PP/.test-runtime/browser-proof.html; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+Browser AppleScript: exit=1
+fm-browser-guard: refused a visible browser window for osascript -e tell application "Safari" to activate; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+Browser AppleScript on stdin: exit=1
+fm-browser-guard: refused a visible browser window for osascript (script on stdin); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+JXA browser request: exit=1
+fm-browser-guard: refused a visible browser window for osascript -l JavaScript -e Application("Google Chrome").activate(); use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+fm-browser-guard: refused a visible browser window for BROWSER https://example.invalid/fm-guard-live; use a headless browser and relay the URL instead, or set FM_ALLOW_HEADED_BROWSER=1 to allow one (captain only)
+Python webbrowser handled request: True
+Harmless AppleScript result=42
+ordinary subprocess unaffected
+SHELL_BROWSER_SCENARIOS_PASSED

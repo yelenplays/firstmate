@@ -1,0 +1,24 @@
+{
+  "onscreenWindows" : [
+    {
+      "kCGWindowAlpha" : 1,
+      "kCGWindowBounds" : {
+        "Height" : 1043,
+        "Width" : 1440,
+        "X" : -1898,
+        "Y" : 22
+      },
+      "kCGWindowIsOnscreen" : true,
+      "kCGWindowLayer" : 0,
+      "kCGWindowMemoryUsage" : 2368,
+      "kCGWindowName" : "Browser guard live proof",
+      "kCGWindowNumber" : 1469,
+      "kCGWindowOwnerName" : "Google Chrome",
+      "kCGWindowOwnerPID" : 11729,
+      "kCGWindowSharingState" : 1,
+      "kCGWindowStoreType" : 1
+    }
+  ],
+  "pid" : 11729,
+  "screenCapturePermission" : true
+}

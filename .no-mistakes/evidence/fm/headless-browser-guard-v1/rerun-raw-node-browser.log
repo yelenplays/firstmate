@@ -1,0 +1,4 @@
+fm-browser-guard: forced headless: google chrome (chromium) asked for a visible window; set FM_ALLOW_HEADED_BROWSER=1 to allow it (captain only)
+RESULT {"mode":"spawn","pid":54030,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","headlessFlag":true,"visibleWindows":0}
+RESULT {"mode":"promisified-execFile","pid":58329,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","headlessFlag":true,"visibleWindows":0}
+RESULT {"mode":"filtered-env-execFile","pid":60503,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36","headlessFlag":true,"visibleWindows":0}
