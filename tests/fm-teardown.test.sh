@@ -865,6 +865,29 @@ test_model_ledger_missing_meta_is_not_fatal() {
   if python3 "$ROOT/bin/fm-model-ledger.py" --state "$case_dir/state" --data "$case_dir/data" task-x1 2>/dev/null; then
     fail 'genuine write errors must still fail'
   fi
+  local late_dir real_python rc=0
+  late_dir=$(make_case model-ledger-late-meta-loss)
+  write_meta "$late_dir" local-only ship
+  wt_commit "$late_dir" 'late meta loss fixture'
+  add_fork_with_pushed_branch "$late_dir"
+  printf 'done: finished\n' > "$late_dir/state/task-x1.status"
+  real_python=$(command -v python3)
+  cat > "$late_dir/fakebin/python3" <<EOF
+#!/usr/bin/env bash
+case "\${1:-}" in
+  */fm-spend-ledger.py)
+    rm -f "$late_dir/state/task-x1.meta"
+    : > "$late_dir/meta-removed"
+    exit 0 ;;
+esac
+exec "$real_python" "\$@"
+EOF
+  chmod +x "$late_dir/fakebin/python3"
+  run_teardown "$late_dir" > "$late_dir/stdout" 2> "$late_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "teardown must stay non-fatal when meta vanishes before the ledger step: $(cat "$late_dir/stderr")"
+  [ -e "$late_dir/meta-removed" ] || fail 'late meta removal did not happen'
+  [ ! -s "$late_dir/data/model-ledger.jsonl" ] || fail 'late meta loss must not write a ledger row'
+  assert_absent "$late_dir/state/task-x1.status" 'late meta loss still retires status'
   pass 'model ledger ignores missing meta but keeps write errors fatal'
 }
 
