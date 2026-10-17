@@ -22,6 +22,9 @@ REPORT="$ROOT/bin/fm-branch-report.sh"
 DISPATCH="$ROOT/bin/fm-branch-dispatch.mjs"
 CONTRACT="$ROOT/bin/fm-afk-contract.sh"
 LEASE="$ROOT/bin/fm-lease.sh"
+# A handled turn verifies its stored outcomes after acknowledgement; allow
+# several contended shell/store locks, using 0.1s condition samples as below.
+OUTCOME_WAIT_POLLS=500
 
 command -v node >/dev/null 2>&1 || { printf 'skip: node absent\n'; exit 0; }
 command -v perl >/dev/null 2>&1 || { printf 'skip: perl absent\n'; exit 0; }
@@ -988,14 +991,14 @@ test_attended_informational_completion_is_deferred_but_failure_wakes_main() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "information: watcher never started"
   append_status "$home" 'finished requested measurement'
-  wait_until 250 handled_at_least "$home" 1 || fail "information: outcome was not handled"
+  wait_until "$OUTCOME_WAIT_POLLS" handled_at_least "$home" 1 || fail "information: outcome was not handled"
   [ ! -s "$home/host.rc" ] || fail "informational completion woke main"
   assert_absent "$home/state/.branch-outcomes-cursor" "deferral marked information read"
   drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
   assert_contains "$drained" 'requested measurement finished successfully' "next main drain lost informational completion"
   echo information-failure > "$home/stub-mode"
   append_status "$home" 'failed required validation'
-  wait_until 250 host_exited "$home" || fail "failure after information never woke main"
+  wait_until "$OUTCOME_WAIT_POLLS" host_exited "$home" || fail "failure after information never woke main"
   assert_re '^supervision-host: branch-outcome: ' "$home/host.out" "failure should open main processing"
   drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
   assert_contains "$drained" 'required validation failed; intervention needed' "main drain lost failure"
@@ -1010,9 +1013,7 @@ test_attended_captain_outcome_reaches_main_through_branch_outcomes() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "captain: the host never started a watcher cycle"
   append_status "$home" 'ready for review'
-  # Store verification follows the engine's acknowledgement and can pay for
-  # several contended shell/store locks on a loaded runner.
-  wait_until 500 host_exited "$home" || fail "captain: the captain outcome did not wake main: $(cat "$home/state/.supervision-host.log")"
+  wait_until "$OUTCOME_WAIT_POLLS" host_exited "$home" || fail "captain: the captain outcome did not wake main: $(cat "$home/state/.supervision-host.log")"
   expect_code 0 "$(cat "$home/host.rc")" "a captain-outcome exit must exit 0 for the owner to deliver"
   assert_re '^supervision-host: branch-outcome: .*\(store rows 1\); run bin/fm-wake-drain.sh' "$home/host.out" \
     "the exit must name the captain outcome's store row and send main to its drain"
