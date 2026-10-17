@@ -80,7 +80,7 @@ Before choosing among a matched profile array yourself, load `quota-array-dispat
 Account for every candidate's evidence and uncertainty as that skill lists, never omitting one, guessing, falling back silently, or calling the result quota-informed without it; missing quota or authentication evidence is disclosed uncertainty, never a login escalation, and never launch another harness's CLI to judge a candidate.
 Preserve malformed profile configuration as an actionable error rather than selecting around it.
 When every candidate is tight, keep the captain's strongest-reasoning class or stop and report, never silently downgrading to conserve quota; break genuine ties without array-order or harness bias.
-`harness-adapters` owns the effort fallback: explicit captain and configured effort win; otherwise low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, never max without explicit captain preference, and no model-specific variants.
+`harness-adapters` owns the effort fallback: explicit captain and configured effort win; otherwise low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, never max without explicit captain preference; all remain subject to `bin/fm-spawn.sh`'s model-specific effort ceiling.
 
 `secondmate-provisioning` owns secondmate harness pins and inherited local material, and `harness-adapters` their harness consequences.
 Dispatch only on a backend `fm-spawn` validates as spawn-capable; pass an explicit `--backend` only under that task's own authority, never as later-task precedent ([`docs/configuration.md`](docs/configuration.md) "Runtime backend").

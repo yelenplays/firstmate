@@ -635,6 +635,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/verification/lint-partition-headroom.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/matt-pocock-runtime-reach.md",
       "audience": "maintainer-verification"
     },

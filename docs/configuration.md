@@ -80,7 +80,7 @@ Each effective `FM_HOME` contains private operational directories.
 
 - Project and secondmate registries.
 - Captain preferences and optional shared captain preferences.
-- Learnings, backlog, briefs, scout reports, and the optional per-task no-mistakes pipeline-spend ledger.
+- Learnings, backlog, briefs, scout reports, the [model-outcome ledger](../bin/fm-model-ledger.py), and the optional per-task no-mistakes pipeline-spend ledger.
 - Explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 
 `state/` holds runtime records:
@@ -748,8 +748,8 @@ The flag is a home-local preference and is not inherited by secondmate homes.
 ## No-mistakes pipeline spend (config/pipeline-spend)
 
 The optional local, gitignored `config/pipeline-spend` presence flag opts this home into recording per-task no-mistakes pipeline spend in `data/pipeline-spend.jsonl` when teardown cleans up a ship task.
-When the flag is absent, teardown skips recording and the recorder exits before reading task metadata, no-mistakes state, or the spend ledger.
-An existing ledger is left untouched while recording is disabled.
+When the flag is absent, the pipeline-spend recorder exits before reading task metadata, no-mistakes state, or the spend ledger; this does not disable the separate [model-outcome recorder](../bin/fm-model-ledger.py) used at task cleanup.
+An existing pipeline-spend ledger is left untouched while its recording is disabled.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
@@ -1043,7 +1043,8 @@ Every local secondmate launch path resolves it by id: `fm-spawn.sh --secondmate`
 For a config-resolved secondmate harness, the per-id pin replaces the shared pin.
 Changing a pin affects the next secondmate spawn, control-plane relaunch, liveness recovery, or `/updatefirstmate` restart; the relaunch profile rules are owned by [`docs/agent-control.md`](agent-control.md#transactional-relaunch).
 An explicit harness argument to `fm-spawn.sh` still overrides either config file for that spawn only.
-An explicit `--model` or `--effort` overrides the matching token from the governing secondmate pin; for a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
+An explicit `--model` or `--effort` overrides the matching token from the governing secondmate pin during profile resolution; launch still applies the [model-specific effort ceiling](../bin/fm-spawn.sh) owned by the spawn header.
+For a local route, an explicit harness or raw launch command starts with clean model and effort defaults unless those flags are also passed.
 Remote secondmate routes accept verified harness adapters only and reject raw launch commands.
 When `config/crew-dispatch.json` exists, crewmate and scout spawns require an explicit resolved harness instead of automatically falling back to `config/crew-harness`.
 
@@ -1779,7 +1780,7 @@ After the answer, code applies all remaining checks and ranking:
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 
-- An expanded provider with no matching account row leaves the candidate eligible but unranked.
+- An expanded provider with no matching account row leaves the candidate eligible but unranked; native Claude worker-root matching follows the same [eligibility contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 - Known applicable rows from a provider with partial quota semantics remain rankable; rows whose own status is not known remain unrankable.
 
 ### Confidence and fallback rules
@@ -1849,11 +1850,11 @@ The same Jev response carries a typed Choice classifying the reasoning effort th
 The assessed class is clamped into the profile's declared effort range (see "Crew dispatch profiles"), so `max` still needs an explicit declaration, and then moved to the nearest level the harness supports inside the range, the lower one on a tie; a clamp is shown as `[clamped from <class>]` on the candidate line and logged, and never refuses a candidate.
 A missing, malformed, or low-confidence (below 0.5) effort answer falls back to the range default with the fallback disclosed on the `effort:` line.
 The profile's optional `effort_floor` raises the range's lower bound and any lower assessed or fallback value, including when no effort was declared, without exceeding the upper bound.
-The resolved value governs the launch, runoff identity, and predicted burn.
+The resolved value governs runoff identity and predicted burn; launch additionally applies the model-specific effort ceiling and named-override requirements in [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header, including for configured profiles and relaunches.
 A harness without an effort knob keeps the class as a disclosed, unenforced note and emits no `--effort` flag for it.
 Token/point predictions are advisory, not a quota veto; they never convert historical task volume into a fabricated account limit.
 Duration comparison applies only to a known `projected_exhaustion` runway, never to `through_reset`.
-`bin/fm-spend-ledger.py` reads native Claude assistant usage as well as Pi transcripts and uses provider-specific medians, never another provider's task duration.
+[`bin/fm-spend-ledger.py`](../bin/fm-spend-ledger.py)'s header owns active-request duration measurement over native Claude and Pi transcripts and its provider-specific medians, never another provider's task duration.
 Missing or uncertain calibration stays disclosed uncertainty.
 Missing or unreadable ledger evidence never fabricates a limit: the candidate keeps its rank and its line shows `pred=unknown`.
 By accepted design, a printed profile line does not enforce catalog/authentication gates or replace the captain-approval gate or `fm-spawn.sh` validation.
@@ -1863,7 +1864,8 @@ Effort ranges and completion-runway eligibility are evaluated above; no last res
 ### Effort caps for concrete launches
 
 [`bin/fm-effort-cap-lib.sh`](../bin/fm-effort-cap-lib.sh) derives a shared effort envelope from all rule and default profiles in the home's `config/crew-dispatch.json`, independent of which rule matched the task.
-This section owns the operator contract; the library header owns its API.
+This section owns the configuration-derived envelope; the library header owns its API.
+The independent model-specific ceiling and its named-override requirements remain owned by [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header.
 
 - `bin/fm-spawn.sh` refuses a non-empty resolved effort above the matching envelope's upper bound before provisioning, for every task kind, including reviewers and secondmates.
   It skips this gate for `opencode`, `kimi`, and `cursor`, and does not inspect the harness default when effort is omitted.
@@ -1881,9 +1883,9 @@ For effort-cap matching, a modelless `claude` launch is treated as Opus and addi
 
 Each profile contributes its [declared effort range](#crew-dispatch-profiles-configcrew-dispatchjson), with `effort_floor` raising its lower bound.
 The combined envelope takes the lowest lower bound and highest upper bound across matching profiles, so adding a tighter profile does not narrow an existing broader declaration.
-For example, a rule using `{"harness": "claude", "model": "opus", "effort": "medium"}` caps Opus launches at medium only when no matching profile permits higher effort.
+For example, a rule using `{"harness": "claude", "model": "opus", "effort": "medium"}` sets the Opus envelope's upper bound to medium only when no matching profile permits higher effort.
 Spawn enforces only the upper bound; reviewer planning uses both bounds.
-An absent rules file or no matching profile imposes no cap; an explicitly declared reviewer effort is then unchanged.
+An absent rules file or no matching profile imposes no configuration-derived cap; reviewer planning then leaves an explicitly declared effort unchanged, while launch still applies the independent model-specific ceiling.
 Behavioral regression coverage is in [`tests/fm-cross-review.test.sh`](../tests/fm-cross-review.test.sh) and [`tests/fm-spawn-dispatch-profile.test.sh`](../tests/fm-spawn-dispatch-profile.test.sh).
 
 ### Optional model consultation records
@@ -1897,7 +1899,7 @@ A record is consultation evidence, not merge, task, catalog or authentication au
 
 The resolver and spawn support an explicitly captain-authorized profile with a free-text override reason; each script's help owns the flags.
 That reason and `captain_override: true` are recorded as a deterministic policy, including after an approval rule returned no profile, without waiving model bans or widening task authority.
-Relaunches need no override or receipt and retain their existing profile-resolution rules.
+Relaunches need no consultation receipt and retain their existing profile-resolution rules, subject to the spawn effort ceiling [above](#firstmate-retains-the-dispatch-decision).
 `fm-cross-review.sh` preserves the head-bound model plan, and optionally records the choice against the generated reviewer instructions rather than the builder's brief.
 Workers use the native no-mistakes executable without an added PATH-local model gate.
 The [never-use model list](#never-use-model-list-configmodel-denylistjson) remains the unchanged owner of bans and captain-model-rules injection.
