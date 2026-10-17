@@ -177,12 +177,10 @@ const UNSAFE_SCOPE: UnreadWakeScope = {
 // itself - it only consumes the exact sequence-number snapshot this function
 // (via writeEligibleRowsSnapshot) hands it.
 //
-// A check-kind row - merge-confirmation polls, Relay mentions, credential/auth
-// failures, and every other legitimately main-only class - never vetoes a scan
-// in either mode. It is simply excluded from eligibleSeqs and left queued for
-// main, which is woken for it on that check's own watcher cycle (except the
-// two residual engine checks below and their execution-notifier rows), so nothing
-// starves by being left behind.
+// An attended main-only check row never vetoes a scan. It stays queued for
+// main's own triggering close rather than riding unrelated branch work into
+// main. docs/pi-supervision-branch.md "Wake dispatch" owns which checks the
+// branch may claim instead.
 //
 // A signal row marked "needs-decision:" by the watcher, a second-mate signal
 // whose presented span owns a decision (spanIsDecisionOwned), or a stale row
@@ -463,7 +461,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean, afk = fals
     if (kind === "signal") {
       const payload = fields[4] ?? "";
       if (/^needs-decision:/.test(payload)) {
-        // Main-owned exactly like a check-kind row above while attended: a
+        // Main-owned exactly like a main-only check row while attended: a
         // needs-decision status append surfaced through the actionable signal
         // path is excluded from what the branch may claim without vetoing the
         // scan (docs/pi-supervision-branch.md "Autonomy"). Away, the branch

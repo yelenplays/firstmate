@@ -97,7 +97,7 @@ A successful row grant transfers ownership of exactly the currently branch-eligi
 What is never offered, or falls back to main:
 
 - While attended, check-kind triggering closes stay on main except the exact `check: unfinished-execution` and `check: rearm-resurface` reconciliation triggers.
-  Those two may claim residual check rows and the execution notifier's `execution:<task>` rows; merge-confirmation polls, Relay mentions, credential/auth failures, and every other check remain main-only.
+  Residual check rows and the execution notifier's `execution:<task>` rows are branch-ownable on any eligible wake, including a heartbeat; merge-confirmation polls, Relay mentions, credential/auth failures, and every other check remain main-only.
   Decision-owned signals and stale rows keep their existing exclusions; a broken queue still prevents branch handling.
   A residual close with an empty queue settles quietly without a model turn, while a residual close with queued main-only checks or decision rows goes to main so recovery cannot strand them.
 - When a triggering close has no acceptor (extension absent, branch broken), it keeps today's wake-to-main path.
@@ -183,14 +183,14 @@ A settled provider error, or a settled prompt with no report, releases the grant
 
 #### Report scoping
 
-While a signal or stale prompt is open, `fm_branch_report` accepts only the tasks that prompt's claimed rows resolve to:
+For a prompt claiming only signal or stale rows, `fm_branch_report` accepts only the tasks those rows resolve to:
 
 - A signal row resolves by its status-log key.
 - A stale row resolves through the task record naming that endpoint.
 
 A report for any other task id, `fleet` included, is refused before the store is touched.
 That way, a task remembered from an earlier wake cannot become a delivered outcome.
-A heartbeat review is not scoped by task.
+A heartbeat review or a prompt claiming any eligible check or heartbeat row is not scoped by task.
 
 The branch's guarded commands never tell it to drain queued rows mid-handling.
 For that actor, `bin/fm-guard.sh` keeps the queued-wakes warning silent.
@@ -475,11 +475,12 @@ The branch accepts it without a project only when every branch-ownable row obser
 
 - Heartbeat-kind.
 - A resolvable task-local signal or stale event.
+- A branch-ownable check row under [Wake dispatch](#wake-dispatch).
 
 ### Co-present main-owned rows
 
-A heartbeat is never vetoed or ridden into main by a co-present check row or decision-owned signal/stale row.
-Those rows are main-owned while attended.
+A heartbeat is never vetoed or ridden into main by a co-present main-only check row or decision-owned signal/stale row.
+Those excluded rows stay on main while attended.
 They are excluded from what the branch may claim and left queued for main.
 Main is woken for each on its own watcher cycle, so nothing starves by being left behind.
 Under the away-posture record the branch claims them too ("Postures" below).

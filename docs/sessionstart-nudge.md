@@ -401,6 +401,7 @@ It proves the nudge wrapper's silence for these cases:
 It also proves the nudge wrapper's exact U+2063 `FIRSTMATE_OP:`-prefixed, `session-start`-typed one-line output.
 
 It separately proves the run wrapper's silence for the gate environment and an unmarked linked worktree, including the internal Pi prerequisite's explicit silent stand-down.
+Its worker-seat regression covers task identity, plain-clone Treehouse slots, the actual cwd and hook-payload cwd when invoking a primary's installed runner, and the genuine secondmate-home exception.
 It proves the run wrapper creates a missing state directory on a fresh primary and delivers the full digest, while an unmarked linked worktree gets none.
 It proves a fresh primary whose state directory cannot be created reports that on one stderr line and stands down without a digest.
 
