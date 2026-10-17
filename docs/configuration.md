@@ -1864,7 +1864,8 @@ Effort ranges and completion-runway eligibility are evaluated above; no last res
 ### Effort caps for concrete launches
 
 [`bin/fm-effort-cap-lib.sh`](../bin/fm-effort-cap-lib.sh) derives a shared effort envelope from all rule and default profiles in the home's `config/crew-dispatch.json`, independent of which rule matched the task.
-This section owns the operator contract; the library header owns its API.
+This section owns the configuration-derived envelope; the library header owns its API.
+The independent model-specific ceiling and its named-override requirements remain owned by [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header.
 
 - `bin/fm-spawn.sh` refuses a non-empty resolved effort above the matching envelope's upper bound before provisioning, for every task kind, including reviewers and secondmates.
   It skips this gate for `opencode`, `kimi`, and `cursor`, and does not inspect the harness default when effort is omitted.
@@ -1882,9 +1883,9 @@ For effort-cap matching, a modelless `claude` launch is treated as Opus and addi
 
 Each profile contributes its [declared effort range](#crew-dispatch-profiles-configcrew-dispatchjson), with `effort_floor` raising its lower bound.
 The combined envelope takes the lowest lower bound and highest upper bound across matching profiles, so adding a tighter profile does not narrow an existing broader declaration.
-For example, a rule using `{"harness": "claude", "model": "opus", "effort": "medium"}` caps Opus launches at medium only when no matching profile permits higher effort.
+For example, a rule using `{"harness": "claude", "model": "opus", "effort": "medium"}` sets the Opus envelope's upper bound to medium only when no matching profile permits higher effort.
 Spawn enforces only the upper bound; reviewer planning uses both bounds.
-An absent rules file or no matching profile imposes no cap; an explicitly declared reviewer effort is then unchanged.
+An absent rules file or no matching profile imposes no configuration-derived cap; reviewer planning then leaves an explicitly declared effort unchanged, while launch still applies the independent model-specific ceiling.
 Behavioral regression coverage is in [`tests/fm-cross-review.test.sh`](../tests/fm-cross-review.test.sh) and [`tests/fm-spawn-dispatch-profile.test.sh`](../tests/fm-spawn-dispatch-profile.test.sh).
 
 ### Optional model consultation records
