@@ -63,9 +63,9 @@ fm_path_is_lockfile() { # <path>
 }
 
 fm_path_is_linguist_skipped() { # <path>
-  local path attribute value
-  while IFS= read -r -d '' path &&
-    IFS= read -r -d '' attribute &&
+  local _ value
+  while IFS= read -r -d '' _ &&
+    IFS= read -r -d '' _ &&
     IFS= read -r -d '' value; do
     [ "$value" = set ] && return 0
   done < <(git check-attr --cached -z linguist-generated linguist-vendored -- "$1")
