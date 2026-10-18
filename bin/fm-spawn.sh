@@ -6538,6 +6538,15 @@ fi
 # compound raw launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox") FM_TASK_INBOX_CLI=$(shell_quote "$FM_ROOT/bin/fm-inbox.sh"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
+# Embed the browser guard inside the launch command so it survives the later
+# launch-env-allowlist `env -i` wrapper and compound raw launches. The builder
+# checks files here, not in the destination pane. bin/fm-browser-guard-env.sh
+# owns the snippet; docs/browser-guard.md owns coverage and installation limits.
+BROWSER_GUARD_ENV=$("$SCRIPT_DIR/fm-browser-guard-env.sh" --command) || {
+  echo "error: could not build the agent browser-guard environment for $ID" >&2
+  exit 1
+}
+LAUNCH="$BROWSER_GUARD_ENV $LAUNCH"
 if [ -n "$QOS_PREFIX" ]; then
   LAUNCH="export FM_QOS_APPLIED=utility; $LAUNCH"
 fi

@@ -770,6 +770,8 @@ tests/fm-bootstrap-network-parallel.test.sh 30424
 tests/fm-bootstrap.test.sh 50965
 tests/fm-branch-supervision.test.sh 22979
 tests/fm-browser-bridge-sweep.test.sh 83900
+# The browser-guard value is a local green sample pending its first CI artifact.
+tests/fm-browser-guard.test.sh 31510
 tests/fm-busy-adapter-wiring.test.sh 31642
 tests/fm-busy-state.test.sh 3185
 tests/fm-calm-claude-mod-live-e2e.test.sh 47

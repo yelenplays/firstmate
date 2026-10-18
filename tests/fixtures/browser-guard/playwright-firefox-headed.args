@@ -1,0 +1,7 @@
+-no-remote
+-wait-for-browser
+-foreground
+-profile
+/var/folders/9d/8w50jhgd79x63rgbq_5cyyvm0000gn/T/playwright_firefoxdev_profile-khOBeU
+-juggler-pipe
+-silent
