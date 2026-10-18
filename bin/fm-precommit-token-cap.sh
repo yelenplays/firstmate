@@ -60,8 +60,13 @@ fm_path_is_lockfile() { # <path>
 }
 
 fm_path_is_linguist_skipped() { # <path>
-  git check-attr --cached -z linguist-generated linguist-vendored -- "$1" |
-    tr '\0' '\n' | grep -qx set
+  local path attribute value
+  while IFS= read -r -d '' path &&
+    IFS= read -r -d '' attribute &&
+    IFS= read -r -d '' value; do
+    [ "$value" = set ] && return 0
+  done < <(git check-attr --cached -z linguist-generated linguist-vendored -- "$1")
+  return 1
 }
 
 fm_blob_is_binary() { # <blob>

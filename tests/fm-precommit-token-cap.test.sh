@@ -210,6 +210,19 @@ test_unstaged_linguist_attributes_do_not_exempt_files() {
   pass "untracked and modified attributes cannot exempt staged authored files"
 }
 
+test_filename_set_does_not_exempt_authored_files() {
+  local dir out head_before
+  dir="$TMP_ROOT/filename-set"
+  make_cap_repo "$dir"
+  head_before=$(git -C "$dir" rev-parse HEAD)
+  big "$dir/set" 21000
+  git -C "$dir" add set
+  out=$(committed "authored set refused") && fail "the filename set bypassed the cap: $out"
+  assert_contains "$out" "set: 21000 bytes = 5250 tokens" "the refusal did not name the oversized authored file"
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$head_before" ] || fail "the refused commit changed HEAD"
+  pass "a filename matching an attribute value does not exempt authored files"
+}
+
 test_linguist_attributes_are_skipped() {
   local dir
   dir="$TMP_ROOT/linguist"
@@ -300,6 +313,7 @@ test_multiple_failings_are_listed_in_one_message() {
   pass "one message lists every failing file with its own token count"
 }
 
+test_filename_set_does_not_exempt_authored_files
 test_new_oversized_file_is_blocked
 test_existing_oversized_unchanged_or_shrunk_passes
 test_existing_oversized_grown_is_blocked
