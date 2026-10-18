@@ -145,6 +145,12 @@ Where a case's assertion is not about the timeout itself, give that window headr
 Tests that need a real optional backend or an explicit opt-in (real herdr/zellij/cmux smoke tests, the live Pi regression) skip themselves and print the tool or environment gate needed to enable them, so the portable suite remains safe on machines without those tools.
 The [Herdr backend guide](docs/herdr-backend.md#destructive-lab-safety) owns the lane's isolation boundary, while [runtime backend verification](docs/verification/runtime-backends.md#herdr) owns active empirical evidence; live harness credential tests remain opt-in.
 
+## Git hooks
+
+Run `git config core.hooksPath .githooks` once per clone to install the repository's tracked pre-commit hook.
+It runs `bin/fm-precommit-token-cap.sh`, which refuses agent-authored staged files over 5,000 tokens (tokens = bytes/4, so more than 20,000 bytes) and lets an already-oversized tracked file shrink or stay but never grow.
+Lockfiles, binaries, generated and linguist-marked files are skipped, and its refusal message carries concrete split instructions.
+
 ## Questions
 
 Open an issue, or talk to me on [Discord](https://discord.gg/Wsy2NpnZDu).
