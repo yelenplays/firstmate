@@ -70,7 +70,7 @@ fm_blob_is_binary() { # <blob>
 }
 
 fm_blob_is_generated() { # <blob>
-  git cat-file blob "$1" | head -n 20 | grep -qiE '@generated|do not edit'
+  git cat-file blob "$1" | head -n 20 | grep -qE '@generated|^[[:space:]]*(#|//|/\*|\*|;|--|<!--).*DO NOT EDIT'
 }
 
 fm_is_skipped() { # <path> <blob>
@@ -85,8 +85,6 @@ main() {
   local top
   top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
   cd "$top" || exit 1
-
-  local -a fail_paths=() fail_sizes=() fail_notes=()
 
   local -a fail_paths=() fail_sizes=() fail_notes=()
 
