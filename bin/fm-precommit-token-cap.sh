@@ -60,7 +60,7 @@ fm_path_is_lockfile() { # <path>
 }
 
 fm_path_is_linguist_skipped() { # <path>
-  git check-attr -z linguist-generated linguist-vendored -- "$1" |
+  git check-attr --cached -z linguist-generated linguist-vendored -- "$1" |
     tr '\0' '\n' | grep -qx set
 }
 
@@ -70,7 +70,7 @@ fm_blob_is_binary() { # <blob>
 }
 
 fm_blob_is_generated() { # <blob>
-  git cat-file blob "$1" | head -n 20 | grep -qE '@generated|^[[:space:]]*(#|//|/\*|\*|;|--|<!--).*DO NOT EDIT'
+  git cat-file blob "$1" | head -n 20 | grep -qE '@generated|^[[:space:]]*(#|//|/\*|\*|;|--|<!--)[[:space:]]*(DO NOT EDIT|Code generated .*DO NOT EDIT)'
 }
 
 fm_is_skipped() { # <path> <blob>
