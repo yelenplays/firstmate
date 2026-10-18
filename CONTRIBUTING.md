@@ -148,8 +148,7 @@ The [Herdr backend guide](docs/herdr-backend.md#destructive-lab-safety) owns the
 ## Git hooks
 
 Run `git config core.hooksPath .githooks` once per clone to install the repository's tracked pre-commit hook.
-It runs `bin/fm-precommit-token-cap.sh`, which refuses agent-authored staged files over 5,000 tokens (tokens = bytes/4, so more than 20,000 bytes) and lets an already-oversized tracked file shrink or stay but never grow.
-Lockfiles, binaries, generated and linguist-marked files are skipped, and its refusal message carries concrete split instructions.
+The [token-cap script header](bin/fm-precommit-token-cap.sh) owns the staged-file size rules, exemptions, and existing-file ratchet; refusal messages carry concrete split instructions.
 
 ## Questions
 

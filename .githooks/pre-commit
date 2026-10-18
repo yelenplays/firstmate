@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Tracked repository pre-commit hook for the token cap. Install once per clone
-# with `git config core.hooksPath .githooks` and it refuses agent-authored
-# staged files over the cap; the logic and its rules live in the script below.
+# Tracked token-cap dispatcher; the script below owns the staged-file rules.
+# See CONTRIBUTING.md's "Git hooks" section for installation.
 exec "$(cd "$(dirname "$0")/.." && pwd -P)/bin/fm-precommit-token-cap.sh" "$@"

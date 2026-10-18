@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Pre-commit token cap: refuse agent-authored staged files over 5,000 tokens.
-# Wired as a tracked hook script at bin/fm-precommit-token-cap.sh, dispatched by
-# the tracked .githooks/pre-commit wrapper that `git config core.hooksPath
-# .githooks` installs (the one install step, documented in CONTRIBUTING.md).
+# Pre-commit token cap for staged files, dispatched by .githooks/pre-commit.
+# CONTRIBUTING.md's "Git hooks" section owns installation.
 #
 # Usage:
 #   fm-precommit-token-cap.sh
@@ -17,15 +15,20 @@
 # A staged file that already exceeded the limit at HEAD fails only when its
 # staged size is larger than its HEAD size - the ratchet: existing oversized
 # files may stay the same or shrink, but never grow. New files and files
-# crossing the limit fail. A rename or copy measures against the source
-# path's HEAD size. Deleted files and staged deletions never fail.
+# crossing the limit fail. A Git-detected rename measures against the source
+# path's HEAD size. Staged deletions never fail.
 #
 # SKIPS, one obvious place to extend: fm_is_skipped below plus the
-# LOCKFILE_BASENAMES list just before it. A staged file is skipped when it is
-# binary by git's own rule (a NUL byte within the first 8000 bytes of the
-# blob), a lockfile by basename, marked linguist-generated or
-# linguist-vendored in .gitattributes, or its first 20 lines carry a standard
-# generated marker (@generated, DO NOT EDIT).
+# LOCKFILE_BASENAMES list just before it. Authorship is not detected: these
+# exemptions approximate non-agent-authored content; all other staged files
+# are subject to the cap, including human-authored files.
+# A staged file is skipped when it is binary (a NUL byte within the first
+# 8000 bytes), a lockfile by basename, or has linguist-generated or
+# linguist-vendored set according to git check-attr --cached.
+# Generated markers are case-sensitive and must occur in the first 20 lines:
+# @generated anywhere, or a comment beginning DO NOT EDIT or Code generated
+# ...DO NOT EDIT after one of #, //, /*, *, ;, --, or <!-- and optional whitespace.
+# Incidental "do not edit" prose elsewhere does not qualify.
 set -u
 unset CDPATH
 
