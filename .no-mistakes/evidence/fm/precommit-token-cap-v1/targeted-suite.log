@@ -1,0 +1,19 @@
+FM_TEST_BEGIN 2026-10-18T20:26:11Z tests/fm-precommit-token-cap.test.sh family=unclassified expected_gate_skip=none
+ok - a new oversized staged file is refused with the full split message
+ok - an existing oversized file passes at the same size and when shrunk
+ok - an existing oversized file that grows is refused and names its HEAD size
+ok - a staged file crossing the limit from below is refused even though it existed at HEAD
+ok - oversized lockfiles commit; the same repo still refuses a big script
+ok - an oversized binary file commits; a text file the same size still refuses
+ok - a generated marker on the first lines skips the cap; a plain file still refuses
+ok - .gitattributes linguist marks skip the cap; unmarked files still refuse
+ok - renames ratchet against the source path's HEAD size
+ok - a staged deletion of an oversized file commits
+ok - the cap measures the index blob, never the working tree
+ok - oversized untracked files stay out of the verdict; staged files still fail
+ok - one message lists every failing file with its own token count
+# all fm-precommit-token-cap tests passed
+FM_TEST_END 2026-10-18T20:26:19Z tests/fm-precommit-token-cap.test.sh exit=0 duration_ms=8158 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=8241
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=8158 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-precommit-token-cap.test.sh duration_ms=8158

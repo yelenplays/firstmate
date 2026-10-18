@@ -1,0 +1,16 @@
+ok - a new oversized staged file is refused with the full split message
+ok - an existing oversized file passes at the same size and when shrunk
+ok - an existing oversized file that grows is refused and names its HEAD size
+ok - a staged file crossing the limit from below is refused even though it existed at HEAD
+ok - oversized lockfiles commit; the same repo still refuses a big script
+ok - an oversized binary file commits; a text file the same size still refuses
+ok - a generated marker on the first lines skips the cap; a plain file still refuses
+ok - incidental do-not-edit prose does not exempt authored files
+ok - untracked and modified attributes cannot exempt staged authored files
+ok - .gitattributes linguist marks skip the cap; unmarked files still refuse
+ok - renames ratchet against the source path's HEAD size
+ok - a staged deletion of an oversized file commits
+ok - the cap measures the index blob, never the working tree
+ok - oversized untracked files stay out of the verdict; staged files still fail
+ok - one message lists every failing file with its own token count
+# all fm-precommit-token-cap tests passed

@@ -1,0 +1,65 @@
+[
+  {
+    "name": "Exact byte boundary and actionable splitting instructions",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Legacy oversized files ratchet and crossing limit",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Only staged blobs count",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Lockfile binary codegen and staged attribute exemptions",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Incidental do-not-edit prose is not generated",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Unstaged attributes cannot bypass staged-only enforcement",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Oversized rename growth and deletion",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "One refusal lists all oversized unusual paths",
+    "result": "pass",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": ""
+  },
+  {
+    "name": "Authored filename matching attribute value is not exempt",
+    "result": "fail",
+    "live": true,
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
+    "reason": "oversized commit accepted: authored file named set must not be exempt"
+  }
+]

@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Enforce the exact bytes/4 limit on initial, new, and crossing files",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Enforce the exact bytes/4 limit on initial, new, and crossing files",
+    "reason": ""
+  },
+  {
+    "name": "Allow legacy same-size edits and shrinking, but reject one-byte regrowth",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Allow legacy same-size edits and shrinking, but reject one-byte regrowth",
+    "reason": ""
+  },
+  {
+    "name": "Measure staged blobs only despite opposite worktree and untracked sizes",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Measure staged blobs only despite opposite worktree and untracked sizes",
+    "reason": ""
+  },
+  {
+    "name": "Commit lockfiles, binaries, generated headers, and indexed linguist exemptions",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Commit lockfiles, binaries, generated headers, and indexed linguist exemptions",
+    "reason": ""
+  },
+  {
+    "name": "Reject oversized handwritten files with incidental do-not-edit prose",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Reject oversized handwritten files with incidental do-not-edit prose",
+    "reason": ""
+  },
+  {
+    "name": "Reject exemption attempts from untracked or unstaged attributes",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Reject exemption attempts from untracked or unstaged attributes",
+    "reason": ""
+  },
+  {
+    "name": "Reject oversized authored file named set",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Reject oversized authored file named set",
+    "reason": ""
+  },
+  {
+    "name": "Allow legacy rename and deletion but reject rename with growth",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Allow legacy rename and deletion but reject rename with growth",
+    "reason": ""
+  },
+  {
+    "name": "Follow split guidance and successfully recommit sibling modules",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Follow split guidance and successfully recommit sibling modules",
+    "reason": ""
+  },
+  {
+    "name": "Handle unusual filenames, multiple failures, and UTF-8 byte sizes",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Handle unusual filenames, multiple failures, and UTF-8 byte sizes",
+    "reason": ""
+  },
+  {
+    "name": "Reject oversized staged content when committing from a subdirectory",
+    "result": "pass",
+    "live": true,
+    "evidence": "token-cap-live-transcript.log: Reject oversized staged content when committing from a subdirectory",
+    "reason": ""
+  }
+]

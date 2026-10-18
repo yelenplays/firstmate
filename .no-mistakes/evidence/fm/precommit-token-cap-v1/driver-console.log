@@ -1,0 +1,449 @@
+
+=== boundary ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'new.txt': 20001 bytes; header=''
+$ git 'add' 'new.txt'
+exit=0
+
+$ git 'commit' '-m' 'New 20001-byte file refuses on unborn branch'
+exit=1
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  new.txt: 20001 bytes = 5001 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ new.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+OBSERVED New 20001-byte file refuses on unborn branch: accepted=False, HEAD changed=False; expected accepted=False; PASS
+Write 'new.txt': 20000 bytes; header=''
+$ git 'add' 'new.txt'
+exit=0
+
+$ git 'commit' '-m' 'Exactly 20000 bytes commits'
+exit=0
+[master (root-commit) f8679e3] Exactly 20000 bytes commits
+ 1 file changed, 1 insertion(+)
+ create mode 100644 new.txt
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 7eded2aa2b98c9f0d9d4bb82c277cbbd09dcd044   20000	new.txt
+
+OBSERVED Exactly 20000 bytes commits: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'new.txt': 20001 bytes; header=''
+$ git 'add' 'new.txt'
+exit=0
+
+$ git 'commit' '-m' 'Existing capped file cannot cross 20000 bytes'
+exit=1
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  new.txt: 20001 bytes = 5001 tokens (limit 5000) (grew from 20000 bytes = 5000 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ new.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+OBSERVED Existing capped file cannot cross 20000 bytes: accepted=False, HEAD changed=False; expected accepted=False; PASS
+Write 'part-a.txt': 10000 bytes; header=''
+Write 'part-b.txt': 10001 bytes; header=''
+Replace oversized new.txt with thin linked entry and split content into sibling files.
+$ git 'add' 'new.txt' 'part-a.txt' 'part-b.txt'
+exit=0
+
+$ git 'commit' '-m' 'Following split instructions makes refused content committable'
+exit=0
+[master 792bf94] Following split instructions makes refused content committable
+ 3 files changed, 3 insertions(+), 1 deletion(-)
+ create mode 100644 part-a.txt
+ create mode 100644 part-b.txt
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob c75d6751856bacc291bd7d1a090bad18bbe2b776      47	new.txt
+100644 blob f2776bdd898efa83318efbab7e2b183836ab69ea   10000	part-a.txt
+100644 blob 283a84575e8ddad23d1aa2d07506383d0f8a6915   10001	part-b.txt
+
+OBSERVED Following split instructions makes refused content committable: accepted=True, HEAD changed=True; expected accepted=True; PASS
+
+=== staged-only ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'file.txt': 1000 bytes; header=''
+$ git 'add' 'file.txt'
+exit=0
+
+Write 'file.txt': 35000 bytes; header=''
+Write 'untracked.txt': 35000 bytes; header=''
+$ git 'commit' '-m' 'Small staged blob commits despite oversized working and untracked files'
+exit=0
+[master (root-commit) d14ad0b] Small staged blob commits despite oversized working and untracked files
+ 1 file changed, 1 insertion(+)
+ create mode 100644 file.txt
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 14c7dfdd4258dec5c0e9d2e919bd249bd674be1f    1000	file.txt
+
+OBSERVED Small staged blob commits despite oversized working and untracked files: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'file.txt': 26000 bytes; header=''
+$ git 'add' 'file.txt'
+exit=0
+
+Write 'file.txt': 1000 bytes; header=''
+$ git 'commit' '-m' 'Oversized staged blob refuses despite small working file'
+exit=1
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  file.txt: 26000 bytes = 6500 tokens (limit 5000) (grew from 1000 bytes = 250 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ file.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+OBSERVED Oversized staged blob refuses despite small working file: accepted=False, HEAD changed=False; expected accepted=False; PASS
+
+=== ratchet ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'large.txt': 25000 bytes; header=''
+$ git 'add' 'large.txt'
+exit=0
+
+$ git 'commit' '-m' 'Seed pre-existing oversized file without verification' '--no-verify'
+exit=0
+[master (root-commit) 60b4539] Seed pre-existing oversized file without verification
+ 1 file changed, 1 insertion(+)
+ create mode 100644 large.txt
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 049083748d9f0c1f9cd97474794f720b97a86c88   25000	large.txt
+
+OBSERVED Seed pre-existing oversized file without verification: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'large.txt': 25000 bytes; header='# same-size edit\n'
+$ git 'add' 'large.txt'
+exit=0
+
+$ git 'commit' '-m' 'Same-size oversized edit commits'
+exit=0
+[master 01645f2] Same-size oversized edit commits
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 22d1e11647b3774df08508dadac47ac25f373bd9   25000	large.txt
+
+OBSERVED Same-size oversized edit commits: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'large.txt': 24000 bytes; header=''
+$ git 'add' 'large.txt'
+exit=0
+
+$ git 'commit' '-m' 'Shrinking oversized edit commits'
+exit=0
+[master 37c0ebd] Shrinking oversized edit commits
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 3357a9cefd57535a1aa29fcd4b2383be41c6d9cb   24000	large.txt
+
+OBSERVED Shrinking oversized edit commits: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'large.txt': 24001 bytes; header=''
+$ git 'add' 'large.txt'
+exit=0
+
+$ git 'commit' '-m' 'One-byte growth of oversized file refuses'
+exit=1
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  large.txt: 24001 bytes = 6001 tokens (limit 5000) (grew from 24000 bytes = 6000 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ large.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+OBSERVED One-byte growth of oversized file refuses: accepted=False, HEAD changed=False; expected accepted=False; PASS
+$ git 'restore' '--staged' 'large.txt'
+exit=0
+
+Write 'large.txt': 24000 bytes; header=''
+$ git 'mv' 'large.txt' 'renamed.txt'
+exit=0
+
+$ git 'commit' '-m' 'Pure rename preserves oversized allowance'
+exit=0
+[master 3bface3] Pure rename preserves oversized allowance
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename large.txt => renamed.txt (100%)
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 3357a9cefd57535a1aa29fcd4b2383be41c6d9cb   24000	renamed.txt
+
+OBSERVED Pure rename preserves oversized allowance: accepted=True, HEAD changed=True; expected accepted=True; PASS
+$ git 'rm' 'renamed.txt'
+exit=0
+rm 'renamed.txt'
+
+$ git 'commit' '-m' 'Deleting oversized file commits'
+exit=0
+[master e9ed403] Deleting oversized file commits
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 renamed.txt
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+
+OBSERVED Deleting oversized file commits: accepted=True, HEAD changed=True; expected accepted=True; PASS
+
+=== exemptions ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'package-lock.json': 30000 bytes; header=''
+Write 'generated.js': 30000 bytes; header='// Code generated by fixture. DO NOT EDIT.\n'
+Write 'generated.py': 30000 bytes; header='# @generated\n'
+Write 'vendor/tool.js': 30000 bytes; header=''
+Write binary.dat: 30000 NUL bytes; .gitattributes: vendor/** linguist-vendored
+$ git 'add' 'package-lock.json' 'generated.js' 'generated.py' 'vendor/tool.js' '.gitattributes' 'binary.dat'
+exit=0
+
+$ git 'commit' '-m' 'Lockfiles binary and explicitly generated or vendored files commit'
+exit=0
+[master (root-commit) 20eb0ea] Lockfiles binary and explicitly generated or vendored files commit
+ 6 files changed, 7 insertions(+)
+ create mode 100644 .gitattributes
+ create mode 100644 binary.dat
+ create mode 100644 generated.js
+ create mode 100644 generated.py
+ create mode 100644 package-lock.json
+ create mode 100644 vendor/tool.js
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob fdbf5aa583d8b8ac569dc96d42ab381048ba8d82      28	.gitattributes
+100644 blob 26a7576a43cfc45c988f1befeea028cb63af6f66   30000	binary.dat
+100644 blob 2c6b4050f3d7202e0ef37a6eaa7978c52efc6d32   30000	generated.js
+100644 blob cb3e792f37080c68349a101d3e19fb0fb831f45d   30000	generated.py
+100644 blob c65b121f148b6cceee45da466977aa8c84c716e4   30000	package-lock.json
+100644 blob c65b121f148b6cceee45da466977aa8c84c716e4   30000	vendor/tool.js
+
+OBSERVED Lockfiles binary and explicitly generated or vendored files commit: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'normal.js': 30000 bytes; header=''
+$ git 'add' 'normal.js'
+exit=0
+
+$ git 'commit' '-m' 'Exempt files do not disable cap on normal source'
+exit=1
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  normal.js: 30000 bytes = 7500 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ normal.js | 1 +
+ 1 file changed, 1 insertion(+)
+
+OBSERVED Exempt files do not disable cap on normal source: accepted=False, HEAD changed=False; expected accepted=False; PASS
+
+=== lowercase-prose ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'handwritten.py': 21000 bytes; header='# When updating this file, do not edit the table below.\n'
+$ git 'add' 'handwritten.py'
+exit=0
+
+$ git 'commit' '-m' 'lowercase-prose: incidental instructions must not bypass cap'
+exit=1
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  handwritten.py: 21000 bytes = 5250 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ handwritten.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+OBSERVED lowercase-prose: incidental instructions must not bypass cap: accepted=False, HEAD changed=False; expected accepted=False; PASS
+
+=== uppercase-prose ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'handwritten.py': 21000 bytes; header='# When updating this file, DO NOT EDIT the table below.\n'
+$ git 'add' 'handwritten.py'
+exit=0
+
+$ git 'commit' '-m' 'uppercase-prose: incidental instructions must not bypass cap'
+exit=0
+[master (root-commit) 8ecdb04] uppercase-prose: incidental instructions must not bypass cap
+ 1 file changed, 2 insertions(+)
+ create mode 100644 handwritten.py
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob 952da26af923956b86df94ad97a220221d10d199   21000	handwritten.py
+
+OBSERVED uppercase-prose: incidental instructions must not bypass cap: accepted=True, HEAD changed=True; expected accepted=False; FAIL
+
+=== unstaged-attributes ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'small.txt': 1 bytes; header=''
+$ git 'add' 'small.txt'
+exit=0
+
+$ git 'commit' '-m' 'Seed normal repository'
+exit=0
+[master (root-commit) d295524] Seed normal repository
+ 1 file changed, 1 insertion(+)
+ create mode 100644 small.txt
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob c1b0730e0133447badcfd47fd144e254807b06e1       1	small.txt
+
+OBSERVED Seed normal repository: accepted=True, HEAD changed=True; expected accepted=True; PASS
+Write 'handwritten.py': 21000 bytes; header=''
+$ git 'add' 'handwritten.py'
+exit=0
+
+Write UNSTAGED .gitattributes: handwritten.py linguist-generated
+$ git 'status' '--short'
+exit=0
+A  handwritten.py
+?? .gitattributes
+?? .githooks/
+?? bin/
+
+$ git 'commit' '-m' 'Unstaged generated attribute must not exempt staged authored source'
+exit=0
+[master 8f8c8ef] Unstaged generated attribute must not exempt staged authored source
+ 1 file changed, 1 insertion(+)
+ create mode 100644 handwritten.py
+
+$ git 'ls-tree' '-rl' 'HEAD'
+exit=0
+100644 blob b51c8abe37345da4431aaa556018be0b69a9733a   21000	handwritten.py
+100644 blob c1b0730e0133447badcfd47fd144e254807b06e1       1	small.txt
+
+OBSERVED Unstaged generated attribute must not exempt staged authored source: accepted=True, HEAD changed=True; expected accepted=False; FAIL
+
+=== multi-path ===
+$ git 'init' '-q'
+exit=0
+
+$ git 'config' 'core.hooksPath' '.githooks'
+exit=0
+
+Write 'one file.txt': 21000 bytes; header=''
+Write 'two\nlines.txt': 22000 bytes; header=''
+$ git 'add' 'one file.txt' 'two\nlines.txt'
+exit=0
+
+$ git 'commit' '-m' 'Multiple oversized paths refuse together including spaces and newline'
+exit=1
+precommit-token-cap: 2 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  one file.txt: 21000 bytes = 5250 tokens (limit 5000)
+  two
+lines.txt: 22000 bytes = 5500 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+
+$ git 'diff' '--cached' '--stat'
+exit=0
+ one file.txt     | 1 +
+ "two\nlines.txt" | 1 +
+ 2 files changed, 2 insertions(+)
+
+OBSERVED Multiple oversized paths refuse together including spaces and newline: accepted=False, HEAD changed=False; expected accepted=False; PASS
+
+All fixture repositories removed. Results saved to live-results.json.
