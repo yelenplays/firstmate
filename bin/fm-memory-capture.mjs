@@ -54,7 +54,6 @@ facts about the captain's life and situation (relationships, health, living situ
 Skip task chatter, PR or build status, tool output, plans already carried out, and anything only relevant to the current turn.
 Each memory: a short topic title (reuse an existing title from the provided list exactly when the fact updates that memory), a category (preferences, entities, or events), and a self-contained fact of one to three sentences that names the date it was said.
 Write the fact in the language the captain used.
-Set sensitivity to private for personal life, health, relationships, family, living situation, and money; otherwise normal.
 Set now to true when the fact describes a current, perishable state or focus that later messages may refer to without naming it (a relationship change, a health phase, a move, this week's focus); then give now_summary as one sentence a fresh session needs, and expires as the YYYY-MM-DD date after which it stops being current (usually two weeks after it was said).
 Return an empty list when nothing qualifies. Never invent facts.`;
 
@@ -69,12 +68,11 @@ const OUTPUT_SCHEMA = {
           topic: { type: 'string' },
           category: { type: 'string', enum: ['preferences', 'entities', 'events'] },
           fact: { type: 'string' },
-          sensitivity: { type: 'string', enum: ['normal', 'private'] },
           now: { type: 'boolean' },
           now_summary: { type: 'string' },
           expires: { type: 'string' },
         },
-        required: ['topic', 'category', 'fact', 'sensitivity', 'now'],
+        required: ['topic', 'category', 'fact', 'now'],
       },
     },
   },
@@ -379,7 +377,10 @@ function main() {
     const topic = String(mem.topic || '').trim();
     const fact = String(mem.fact || '').trim();
     if (!topic || !fact) continue;
-    const sensitivity = mem.sensitivity === 'private' ? 'private' : '';
+    // All chat-derived memories are private, including work summaries: the
+    // model can carry personal context into a fact it considers non-personal.
+    // Only an explicit operator write may publish context to other harnesses.
+    const sensitivity = 'private';
     const wrote = writeVerified(opts.bin, store, { category: mem.category, topic, body: fact, sensitivity });
     if (!wrote.ok) {
       record.ok = false;

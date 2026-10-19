@@ -43,6 +43,10 @@ if [ -n "${FAKE_CLAUDE_HOLD:-}" ] && [ -e "$FAKE_CLAUDE_HOLD" ]; then
   while [ -e "$FAKE_CLAUDE_HOLD" ]; do sleep 0.05; done
 fi
 [ "${FAKE_CLAUDE_FAIL:-}" = 1 ] && { echo 'not json'; exit 1; }
+if [ -n "${FAKE_CLAUDE_RESULT:-}" ]; then
+  cat "$FAKE_CLAUDE_RESULT"
+  exit 0
+fi
 cat <<'JSON'
 {"type":"result","is_error":false,"total_cost_usd":0.0012,
  "usage":{"input_tokens":5,"cache_creation_input_tokens":900,"cache_read_input_tokens":0,"output_tokens":120},
@@ -271,6 +275,50 @@ test_now_hook_delivers_current_context_only_in_primary_scope() {
   pass 'separate NOW hook delivers current private context only in primary scope on every SessionStart'
 }
 
+# Replay the real extractor's privacy failure: a work-derived fact and NOW
+# summary carried financial details but were labeled normal. The financial
+# event was separately private; privacy must not depend on either label.
+test_private_derivations_never_reach_public_now() {
+  local out public owner labels result="$TMP_ROOT/private-derivation.json" store
+  for labels in mixed all-normal unlabeled; do
+    fresh_home
+    store="$HOME_DIR/data/memories"
+    jq -nc --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '{type:"user",origin:{kind:"human"},uuid:"privacy-human",timestamp:$at,message:{content:"My bank account was frozen; remember that deploy reviews need to happen in the mornings while I resolve it. This is synthetic lab validation data."}}' > "$TRANSCRIPT"
+    journal
+    # Updating a previously public topic must not retain its public visibility.
+    run_env "$ROOT/bin/fm-memory.sh" remember --category preferences \
+      'Deploy review schedule' 'Deploy reviews used to happen in the afternoons.' >/dev/null || fail 'existing topic fixture failed'
+    run_env "$ROOT/bin/fm-memory.sh" remember --category now \
+      'Deploy review schedule' 'Deploy reviews are in the afternoons.' >/dev/null || fail 'existing NOW fixture failed'
+    run_env "$ROOT/bin/fm-memory.sh" remember --category now \
+      'Public release focus' 'PUBLIC-RELEASE-FOCUS' >/dev/null || fail 'public NOW fixture failed'
+    jq -nc --arg labels "$labels" '{type:"result",is_error:false,structured_output:{memories:([
+      {topic:"Deploy review schedule",category:"preferences",fact:"The captain asked that deploy reviews be held in the mornings while they deal with the frozen bank account.",sensitivity:"normal",now:true,now_summary:"Deploy reviews should be scheduled in the mornings while the captain resolves the bank account freeze.",expires:"2999-01-01"}
+    ] + (if $labels == "mixed" then [
+      {topic:"Bank account freeze",category:"events",fact:"The captain said their bank account was frozen.",sensitivity:"private",now:true,now_summary:"The captain is resolving a bank account freeze.",expires:"2999-01-01"}
+    ] else [] end))}} | if $labels == "unlabeled" then del(.structured_output.memories[].sensitivity) else . end' > "$result"
+    out=$(FAKE_CLAUDE_RESULT="$result" run_env "$CAPTURE" run --trigger sessionend) || fail "privacy capture failed: $out"
+    public=$(run_env "$ROOT/bin/fm-memory.sh" now --exclude-private) || fail 'public NOW failed'
+    assert_contains "$public" 'PUBLIC-RELEASE-FOCUS' 'public NOW no longer returns explicitly public context'
+    assert_not_contains "$public" 'bank account' "financial context leaked through a derived work summary ($labels labels)"
+    assert_not_contains "$public" 'frozen' "financial context leaked through public NOW ($labels labels)"
+    owner=$(run_env "$ROOT/bin/fm-memory.sh" now) || fail 'owner NOW failed'
+    assert_contains "$owner" 'Deploy reviews should be scheduled in the mornings' 'privacy fix discarded useful current context'
+    assert_contains "$owner" 'bank account freeze' 'private context was lost rather than protected'
+    assert_grep 'sensitivity: private' "$store/preferences/deploy-review-schedule.md" 'derived durable memory was not protected'
+    assert_grep 'sensitivity: private' "$store/now/deploy-review-schedule.md" 'derived NOW entry was not protected'
+    assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" 'privacy-human' 'verified private capture did not advance the watermark'
+  done
+  pass 'private derivations remain available to Claude but never reach public NOW, regardless of model labels'
+}
+
+if [ "${1:-}" = --private-derivation-only ]; then
+  test_private_derivations_never_reach_public_now
+  exit 0
+fi
+
+test_private_derivations_never_reach_public_now
 test_now_hook_delivers_current_context_only_in_primary_scope
 test_capture_filters_writes_and_verifies
 test_long_messages_reach_the_model_whole

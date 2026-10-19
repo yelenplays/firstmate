@@ -48,6 +48,8 @@ It drops recognized wake prompts and acknowledgements, strips pasted blocks and 
 A very long captain message is split into consecutive parts rather than cut, so no captain word is retired by the watermark without reaching the model.
 Short factual messages remain eligible.
 Every retained turn goes to the configured Claude Haiku or Sonnet model and to no other service: Jev accepts task facts only, and no word filter can prove a chat turn is free of personal data.
+All automatically captured memories and NOW summaries are marked private, including work-related derivations: a model's sensitivity label cannot prove they contain no personal context.
+They remain available to Claude but are excluded from other harnesses' startup digests; publishing public context requires an explicit `remember` write.
 If no turns remain after filtering, the extractor skips the model.
 Each memory is written through `remember`, read back, and recalled by topic before it counts, and the watermark advances only when every write verified.
 A boundary that fires while an earlier run is still extracting leaves a pending marker, and the earlier run drains it with a fresh pass over the newer turns before it exits, so a SessionEnd that overlaps a PreCompact run is captured before the next session starts.
