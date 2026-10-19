@@ -20,12 +20,16 @@
 # state/<id>.status (bin/fm-classify-lib.sh), and the merge marker
 # state/<id>.pr-poll-merge-notified:
 #   merged    the merge marker exists                    -> ✅ merged
-#   finished  a scout's last event is done:, or a local-only task's
-#                                                        -> ✅ finished
+#   finished  a scout's, a local-only task's, or a ship task's last event is
+#             done: and no PR is named                   -> ✅ finished
 #   ready     a ship task's last event is done: naming a PR, auto-merge is not
 #             on (yolo= is not on), and the PR is not merged -> 🙋 approval needed
-#   stuck     the last event is failed:                  -> ⚠️ stuck
-# A no-mistakes handoff done: without a PR owes nothing yet. Secondmates owe
+#   stuck     the last event is failed:, or an auto-merge task's PR is closed
+#             unmerged, or it is still unmerged FM_UPDATES_STALE seconds
+#             (default 86400) after its done: event      -> ⚠️ stuck
+# An auto-merge task's PR state is read through one bounded gh call once its
+# grace period passed: merged without a marker owes merged, open and fresh
+# owes nothing yet. Secondmates owe
 # nothing here; their own homes report. An outcome is owed only after
 # FM_UPDATES_GRACE seconds (default 900) since its event, so the supervisor's own
 # richer post goes first and this is the backstop, not a duplicate.
@@ -58,7 +62,7 @@
 # `fm-slack-bridge.sh settings`.
 #
 # Environment: FM_HOME, FM_STATE_OVERRIDE, FM_DATA_OVERRIDE, FM_UPDATES_GRACE,
-# FM_UPDATES_DEADLINE (epoch by which `tick` must stop starting posts),
+# FM_UPDATES_STALE, FM_UPDATES_DEADLINE (epoch by which `tick` must stop starting posts),
 # FM_SLACK_BRIDGE_NOW (epoch override for tests).
 set -u
 export LC_ALL=C
@@ -75,6 +79,8 @@ POST_SECS=12
 
 # shellcheck source=bin/fm-classify-lib.sh
 . "$SCRIPT_DIR/fm-classify-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
 
 usage() {
   cat <<'EOF'
@@ -105,6 +111,19 @@ grace_secs() {
     ''|*[!0-9]*) printf '900\n' ;;
     *) printf '%s\n' "$FM_UPDATES_GRACE" ;;
   esac
+}
+
+stale_secs() {
+  case "${FM_UPDATES_STALE:-}" in
+    ''|*[!0-9]*) printf '86400\n' ;;
+    *) printf '%s\n' "$FM_UPDATES_STALE" ;;
+  esac
+}
+
+# The PR's state (OPEN, MERGED, CLOSED) through one bounded gh call; empty when
+# it cannot be read.
+pr_state() {  # <pr-url>
+  fm_gh_run_timed 5 gh pr view "$1" --json state -q .state 2>/dev/null | sed -n 1p
 }
 
 # ------------------------------------------------------------- settings
@@ -206,12 +225,31 @@ task_outcome() {  # <task>
           O_KIND=finished
           O_NEXT=$(say "Done and kept on this computer. Nothing to do." "Fertig und auf diesem Rechner übernommen. Nichts zu tun.")
           O_FINAL=1
-        elif [ -n "$pr" ] && [ "$yolo" != on ]; then
+        elif [ -z "$pr" ]; then
+          O_KIND=finished
+          O_NEXT=$(say "Done. Nothing to do." "Fertig. Nichts zu tun.")
+          O_FINAL=1
+        elif [ "$yolo" != on ]; then
           O_KIND=ready
           O_URL=$pr
           O_NEXT=$(say "Look at it, then reply merge or hold in the thread." "Schau es dir an und antworte im Thread mit merge oder warten.")
         else
-          return 1
+          at=$(status_line_at_epoch "$line") || at=$(fm_updates_mtime "$STATE/$id.status")
+          [ $(( $(now_epoch) - ${at:-0} )) -ge "$(grace_secs)" ] || return 1
+          O_URL=$pr
+          case "$(pr_state "$pr")" in
+            MERGED)
+              O_KIND=merged
+              O_NEXT=$(say "Merged. Nothing to do." "Ist übernommen. Nichts zu tun.")
+              O_FINAL=1
+              ;;
+            CLOSED) O_KIND=stuck ;;
+            *)
+              [ $(( $(now_epoch) - ${at:-0} )) -ge "$(stale_secs)" ] || return 1
+              O_KIND=stuck
+              ;;
+          esac
+          [ "$O_KIND" != stuck ] || O_NEXT=$(say "Firstmate is looking into it; nothing to do for now." "Firstmate kümmert sich darum; du musst gerade nichts tun.")
         fi
         ;;
       failed)
@@ -350,7 +388,7 @@ captain_calls() {
 
 DIGEST_LINES=()
 digest_compose() {
-  local now since id needs=0 running=0 names='' title finished merged live calls
+  local now since id verb needs=0 running=0 names='' title finished merged live calls
   now=$(now_epoch)
   since=$((now - 86400))
   calls=$(captain_calls)
@@ -371,6 +409,8 @@ EOF
       continue
     fi
     [ "$(meta_get "$STATE/$id.meta" kind)" != secondmate ] || continue
+    status_line_verb "$(last_status_line "$STATE/$id.status")" verb
+    [ "$verb" = working ] || continue
     running=$((running + 1))
   done <<EOF
 $(task_ids)

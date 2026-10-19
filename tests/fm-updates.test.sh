@@ -49,6 +49,12 @@ case "$1 ${2:-}" in
 esac
 SH
   chmod +x "$home/fakebin/slack-axi"
+  cat > "$home/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+[ -n "${FM_TEST_PR_STATE:-}" ] || exit 1
+printf '%s\n' "$FM_TEST_PR_STATE"
+SH
+  chmod +x "$home/fakebin/gh"
   printf '## In flight\n' > "$home/data/backlog.md"
   printf '%s\n' "$home"
 }
@@ -126,11 +132,12 @@ test_backstop_reports_each_missed_outcome_once() {
   assert_contains "$out" "unreported lay-hero ready: Neue Startseite" "an approval nobody asked for is listed"
   assert_contains "$out" "unreported broken-task stuck: Kaputter Import" "a failed task is listed as stuck"
   assert_contains "$out" "unreported mylina-live merged: Akzent-Test" "an unreported merge is listed"
-  assert_equals 4 "$(printf '%s\n' "$out" | grep -c .)" \
-    "auto-merge waits, a handoff without a PR, running work, and a second mate owe nothing"
+  assert_contains "$out" "unreported handoff-ship finished: Handoff ship" "a ship task done without a PR owes a finished report"
+  assert_equals 5 "$(printf '%s\n' "$out" | grep -c .)" \
+    "a fresh auto-merge task, running work, and a second mate owe nothing"
 
   out=$(run "$home" "$NOW" "$UPDATES" tick) || fail "tick must succeed: $out"
-  assert_equals 4 "$(printf '%s\n' "$out" | grep -c '^posted ')" "the tick posts every owed outcome"
+  assert_equals 5 "$(printf '%s\n' "$out" | grep -c '^posted ')" "the tick posts every owed outcome"
   # shellcheck disable=SC2016 # JavaScript, not shell
   drafts "$home" | node -e '
     const posts = require("fs").readFileSync(0, "utf-8").split("\n").filter(Boolean).map(JSON.parse);
@@ -152,6 +159,30 @@ test_backstop_reports_each_missed_outcome_once() {
   assert_equals "" "$out" "a second tick posts nothing"
   assert_equals "$before" "$(draft_count "$home")" "no outcome is posted twice"
   pass "fm-updates: the backstop reports every missed outcome exactly once"
+}
+
+test_auto_merge_task_never_sits_unreported() {
+  local home out
+  home=$(make_home automerge)
+  write_config "$home"
+  add_task "$home" auto-ship "Auto ship" $'kind=ship\nyolo=on\npr=https://github.com/o/a/pull/4' "done [at=$OLD]: PR https://github.com/o/a/pull/4"
+  out=$(run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_equals "" "$out" "an unreadable PR inside the bound owes nothing yet"
+  out=$(FM_TEST_PR_STATE=OPEN run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_equals "" "$out" "an open fresh PR owes nothing yet"
+  out=$(FM_TEST_PR_STATE=MERGED run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_equals "unreported auto-ship merged: Auto ship" "$out" "a merged PR without a marker owes merged"
+  out=$(FM_TEST_PR_STATE=CLOSED run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_equals "unreported auto-ship stuck: Auto ship" "$out" "a PR closed unmerged owes stuck"
+  out=$(FM_TEST_PR_STATE=OPEN run "$home" "$((OLD + 86400))" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_equals "unreported auto-ship stuck: Auto ship" "$out" "an open PR past the bound owes stuck"
+  out=$(run "$home" "$((OLD + 86400))" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_equals "unreported auto-ship stuck: Auto ship" "$out" "an unreadable PR past the bound owes stuck"
+  out=$(FM_TEST_PR_STATE=MERGED run "$home" "$NOW" "$UPDATES" tick) || fail "tick must succeed: $out"
+  assert_equals "posted auto-ship merged" "$out" "the tick reports the merge"
+  out=$(FM_TEST_PR_STATE=MERGED run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_contains "$out" "cleanup-due auto-ship: merged and reported" "a reported merge is then due for cleanup"
+  pass "fm-updates: an auto-merge task is reported once merged, closed, or stale"
 }
 
 test_cleanup_due_is_listed_until_closed() {
@@ -253,7 +284,7 @@ test_morning_digest_posts_once_in_five_lines() {
   printf 'v1\tC0UPDATES1\t1791140000.000010\tlive\t%s\tmylina: live\n' "$((morning - 600))" >> "$home/state/slack-bridge/posts"
   printf 'v1\tC0UPDATES1\t1791140000.000011\tmerged\t%s\told\n' "$((morning - 3 * 86400))" >> "$home/state/slack-bridge/posts"
   # Everything owed was reported already, so this morning's tick posts only the digest.
-  for pair in bochum-rank:finished lay-hero:ready broken-task:stuck mylina-live:merged; do
+  for pair in bochum-rank:finished handoff-ship:finished lay-hero:ready broken-task:stuck mylina-live:merged; do
     printf 'v1\t%s\ts-%s\t%s\t0\tC0UPDATES1\t1791140000.000001\n' "${pair%%:*}" "${pair%%:*}" "${pair#*:}" \
       >> "$home/state/slack-bridge/outcomes"
   done
@@ -271,7 +302,7 @@ test_morning_digest_posts_once_in_five_lines() {
       "*☀️ Guten Morgen - dein Überblick*",
       "🙋 Wartet auf dich: 1 - Neue Startseite",
       "✅ Letzte 24 Stunden: 0 fertig, 1 übernommen, 1 live",
-      "⏳ Läuft gerade: 3",
+      "⏳ Läuft gerade: 1",
       "🔗 <https://deck.example.com/board|Öffnen>",
     ];
     if (digest[0][1] !== want.join("\n")) { console.error(digest[0][1]); process.exit(1); }
@@ -303,6 +334,7 @@ test_drain_lists_report_and_close() {
 }
 
 test_backstop_reports_each_missed_outcome_once
+test_auto_merge_task_never_sits_unreported
 test_cleanup_due_is_listed_until_closed
 test_supervisor_post_is_never_duplicated
 test_settle_reports_before_cleanup

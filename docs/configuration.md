@@ -2588,13 +2588,14 @@ Without a bot, a reply stays local and its output is unchanged.
 **Report, then close**
 
 Every finished task is reported once and then closed, from durable state rather than a one-shot signal.
-`bin/fm-updates.sh` reads each task's record, last status event, and merge marker: a recorded merge owes `merged`, a finished scout or local-only task owes `finished`, a ship task done with a PR and without auto-merge owes `ready`, and a failed task owes `stuck`.
+`bin/fm-updates.sh` reads each task's record, last status event, and merge marker: a recorded merge owes `merged`, a finished scout, local-only task, or ship task without a PR owes `finished`, a ship task done with a PR and without auto-merge owes `ready`, and a failed task owes `stuck`.
+An auto-merge task done with a PR is checked through one bounded `gh` call once its grace period passed: a merged PR without a merge marker owes `merged`, and a PR closed unmerged, or still unmerged after `FM_UPDATES_STALE` seconds (default 86400), owes `stuck`.
 Each bridge poll posts every outcome still owed 15 minutes after its event (`FM_UPDATES_GRACE`, default 900 seconds), so firstmate's own post with `--task` goes first and the poll is only the backstop.
 Cleanup of a task posts its owed outcome first and keeps the task's record when that post fails.
 Every wake drain lists, under REPORT AND CLOSE, each outcome still unreported and each merged, finished, or local-only task that is reported but not yet cleaned up, until its record is gone.
 Without the bridge, chat is the report, so those tasks are listed for cleanup at once.
 
-The morning digest posts once a local day to the updates channel, within four hours after `digest-hour`: what needs the captain (captain-held calls and owed approvals), what finished, merged, or went live in the last 24 hours, how many workers are running, and the `board-url` link, in at most five lines.
+The morning digest posts once a local day to the updates channel, within four hours after `digest-hour`: what needs the captain (captain-held calls and owed approvals), what finished, merged, or went live in the last 24 hours, how many workers are running (those whose last status is working), and the `board-url` link, in at most five lines.
 `bin/fm-updates.sh digest --print` shows it without posting.
 
 **Receiving**
