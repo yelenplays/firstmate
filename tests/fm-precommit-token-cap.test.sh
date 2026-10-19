@@ -238,6 +238,80 @@ test_linguist_attributes_are_skipped() {
   pass ".gitattributes linguist marks skip the cap; unmarked files still refuse"
 }
 
+test_linguist_true_spelling_exempts_files() {
+  local dir
+  dir="$TMP_ROOT/linguist-true"
+  make_cap_repo "$dir"
+  printf '*.gen linguist-generated=true\n*.vendor.js linguist-vendored=true\n' >"$dir/.gitattributes"
+  git -C "$dir" add .gitattributes
+  assert_equals true "$(git -C "$dir" check-attr --cached -z linguist-generated -- a.gen | tr '\0' '\n' | tail -n 1)" \
+    "check-attr must report the explicit true spelling for the test to exercise it"
+  big "$dir/a.gen" 21000
+  big "$dir/b.vendor.js" 21000 b
+  git -C "$dir" add a.gen b.vendor.js
+  committed "explicit true linguist attrs pass" || fail "explicitly true linguist exemptions were refused"
+  wired_probe_refuses "$dir"
+  pass "linguist-generated=true and linguist-vendored=true exempt oversized files"
+}
+
+test_linguist_false_spelling_is_not_an_exemption() {
+  local dir out head_before
+  dir="$TMP_ROOT/linguist-false"
+  make_cap_repo "$dir"
+  head_before=$(git -C "$dir" rev-parse HEAD)
+  printf '*.gen linguist-generated=false\n' >"$dir/.gitattributes"
+  big "$dir/a.gen" 21000
+  git -C "$dir" add .gitattributes a.gen
+  out=$(committed "explicit false refused") && fail "linguist-generated=false exempted an oversized file: $out"
+  assert_contains "$out" "a.gen: 21000 bytes = 5250 tokens" "the refusal did not name the oversized file"
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$head_before" ] || fail "the refused commit changed HEAD"
+  pass "linguist-generated=false stays under the cap"
+}
+
+test_attribute_forced_binary_is_skipped() {
+  local dir
+  dir="$TMP_ROOT/forced-binary"
+  make_cap_repo "$dir"
+  printf '*.fbin -diff\n*.mm binary\n' >"$dir/.gitattributes"
+  big "$dir/text.fbin" 21000
+  big "$dir/text.mm" 21000 b
+  git -C "$dir" add .gitattributes text.fbin text.mm
+  committed "attribute-forced binary passes" || fail "attribute-forced binary files were refused"
+  wired_probe_refuses "$dir"
+  pass "diff-attribute-forced binary classification skips the cap; unmarked files still refuse"
+}
+
+test_binary_text_attribute_control() {
+  local dir numstat
+  dir="$TMP_ROOT/forced-text-nul"
+  make_cap_repo "$dir"
+  printf '*.ctext text\n' >"$dir/.gitattributes"
+  { head -c 100 /dev/zero | tr '\0' 'n'; printf '\000'; head -c 21000 /dev/zero | tr '\0' 'o'; } >"$dir/nul.ctext"
+  git -C "$dir" add .gitattributes nul.ctext
+  # git itself still classes the NUL blob binary through numstat, so capture
+  # that verdict before the commit consumes the staged diff.
+  numstat=$(git -C "$dir" diff --cached --numstat | tr '\t' ' ')
+  committed "text attribute does not force text classification" ||
+    fail "a NUL blob was judged text-only because of the text attribute: the control failed"
+  assert_contains "$numstat" "- - nul.ctext" "git's numstat did not report the NUL file binary, invalidating the control"
+  wired_probe_refuses "$dir"
+  pass "the text attribute never flips a NUL blob to text-only classification"
+}
+
+test_unstaged_binary_attributes_do_not_exempt_files() {
+  local dir out head_before
+  dir="$TMP_ROOT/unstaged-binary-attr"
+  make_cap_repo "$dir"
+  head_before=$(git -C "$dir" rev-parse HEAD)
+  printf 'handwritten.py -diff\n' >"$dir/.gitattributes"
+  big "$dir/handwritten.py" 21000
+  git -C "$dir" add handwritten.py
+  out=$(committed "unstaged binary attr refused") && fail "unstaged attributes granted a binary exemption: $out"
+  assert_contains "$out" "handwritten.py: 21000 bytes" "the refusal did not name the staged oversized file"
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$head_before" ] || fail "the refused commit changed HEAD"
+  pass "worktree-only binary attribute assignments cannot exempt staged files"
+}
+
 test_rename_measures_against_the_source_head_size() {
   local dir out
   dir="$TMP_ROOT/rename"
@@ -324,6 +398,11 @@ test_generated_markers_are_skipped
 test_incidental_do_not_edit_prose_is_not_generated
 test_unstaged_linguist_attributes_do_not_exempt_files
 test_linguist_attributes_are_skipped
+test_linguist_true_spelling_exempts_files
+test_linguist_false_spelling_is_not_an_exemption
+test_attribute_forced_binary_is_skipped
+test_binary_text_attribute_control
+test_unstaged_binary_attributes_do_not_exempt_files
 test_rename_measures_against_the_source_head_size
 test_staged_deletion_never_fails
 test_only_staged_content_counts

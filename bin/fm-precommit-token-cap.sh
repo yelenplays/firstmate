@@ -67,14 +67,18 @@ fm_path_is_linguist_skipped() { # <path>
   while IFS= read -r -d '' _ &&
     IFS= read -r -d '' _ &&
     IFS= read -r -d '' value; do
-    [ "$value" = set ] && return 0
+    case "$value" in
+    set | true | TRUE | True) return 0 ;;
+    esac
   done < <(git check-attr --cached -z linguist-generated linguist-vendored -- "$1")
   return 1
 }
 
-fm_blob_is_binary() { # <blob>
-  # git's own binary rule: a NUL byte within the first 8000 bytes.
-  git cat-file blob "$1" | head -c 8000 | od -An -tx1 | grep -q ' 00'
+fm_blob_is_binary() { # <path> <blob>
+  if [ "$(git check-attr --cached -z diff -- "$1" | tr '\0' '\n' | tail -n 1)" = unset ]; then
+    return 0
+  fi
+  git cat-file blob "$2" | head -c 8000 | od -An -tx1 | grep -q ' 00'
 }
 
 fm_blob_is_generated() { # <blob>
@@ -84,7 +88,7 @@ fm_blob_is_generated() { # <blob>
 fm_is_skipped() { # <path> <blob>
   fm_path_is_lockfile "$1" && return 0
   fm_path_is_linguist_skipped "$1" && return 0
-  fm_blob_is_binary "$2" && return 0
+  fm_blob_is_binary "$1" "$2" && return 0
   fm_blob_is_generated "$2" && return 0
   return 1
 }
