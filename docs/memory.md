@@ -16,8 +16,9 @@ A memory is one markdown file with frontmatter and a topic title; [`bin/fm-memor
 The OpenViking categories carry over: `preferences`, `entities`, `events`; `remember` normalizes the singular names.
 A fourth category, `now`, holds short-lived current captain context, such as an open personal or project situation a follow-up may refer to implicitly.
 Automatically captured `now` entries carry an `expires` date; manually written entries may omit it and remain current indefinitely.
-An expired entry stays on disk and in recall but is no longer printed by `now`.
+An expired entry stays on disk but is no longer printed by `now`.
 `sensitivity: private` marks an entry that a non-Claude primary harness must not see in its session-start digest.
+Neither expiry nor sensitivity filters `recall`; these metadata control startup presentation, not access to the store.
 The BM25 index is `<store>/.index.json`, a disposable cache owned by [`bin/fm-memory-bm25.mjs`](../bin/fm-memory-bm25.mjs) that self-rebuilds whenever the tree drifts from its recorded manifest, so recall never answers from stale bytes.
 Recall scores the title and body only: the frontmatter block stays structured metadata and is never indexed, so a metadata word or a date is not a ranking signal.
 During OpenViking migration, legacy session history and other non-memory Markdown files are copied to `$FM_HOME/data/memory-archive/`, not to the searchable memory store.
@@ -28,7 +29,7 @@ See `bin/fm-memory.sh --help` for exact syntax.
 
 - `remember` writes or updates a memory from arguments or stdin.
 - `recall` ranks memories by BM25, with a JSON envelope available for recall-injection consumers.
-- `now` prints current entries newest first under a size cap. Claude receives the NOW block through a separate SessionStart hook; other harnesses include non-private entries in every full or slim startup digest.
+- `now` prints current entries newest first under a size cap; [automatic capture](#automatic-capture) describes startup delivery.
 - `merge-from` copies memories missing from this store without overwriting; differing files at the same relative path are conflicts for an operator to settle.
 - `list`, `stats`, `dir`, and `reindex` inspect the store and manage the index.
 
@@ -39,24 +40,28 @@ The project `.claude/settings.json` chains it after `bin/fm-history.sh capture` 
 The automatic hook stands down outside the primary main session; its header owns the scope guards and manual-run caveat, and [configuration](configuration.md#automatic-capture-configmemory-capture) owns the disable and model settings.
 
 A separate Claude SessionStart hook calls `bin/fm-memory-capture.sh now` on every source, including compact.
-It prints only a header and current entries capped at 6000 characters (about 1.5K tokens), keeping NOW inline even when Claude saves the larger startup digest and shows only a preview.
+It prints only a header and bounded current entries (about 1.5K tokens by default), keeping NOW inline even when Claude saves the larger startup digest and shows only a preview.
+The [`fm-memory.sh` header](../bin/fm-memory.sh) owns the size controls.
 It uses the capture hook's primary-session scope guards, but disabling capture does not suppress already-captured context; an empty store prints nothing.
-The Claude digest omits NOW to avoid duplicate tokens. Other harnesses keep the digest block with private entries excluded.
+The Claude digest omits NOW to avoid duplicate tokens.
+Other harnesses keep the digest block with private entries excluded.
 
 Each run reads journaled captain turns after its watermark, starting with all available journaled turns when no watermark exists.
 It drops recognized wake prompts and acknowledgements, strips pasted blocks and configured no-op replies, and keeps each captain message whole with its paired reply clipped as context; tool output is excluded by journal capture.
-A very long captain message is split into consecutive parts rather than cut, so no captain word is retired by the watermark without reaching the model.
+After filtering, a very long captain message is split losslessly into consecutive labeled parts rather than clipped.
 Short factual messages remain eligible.
 Every retained turn goes to the configured Claude Haiku or Sonnet model and to no other service: Jev accepts task facts only, and no word filter can prove a chat turn is free of personal data.
 All automatically captured memories and NOW summaries are marked private, including work-related derivations: a model's sensitivity label cannot prove they contain no personal context.
 They remain available to Claude but are excluded from other harnesses' startup digests; publishing public context requires an explicit `remember` write.
 If no turns remain after filtering, the extractor skips the model.
 Each memory is written through `remember`, read back, and recalled by topic before it counts, and the watermark advances only when every write verified.
-A boundary that fires while an earlier run is still extracting leaves a pending marker, and the earlier run drains it with a fresh pass over the newer turns before it exits, so a SessionEnd that overlaps a PreCompact run is captured before the next session starts.
+A boundary that fires while an earlier run is still extracting leaves a pending marker.
+After a successful pass, the lock holder drains pending boundaries with fresh passes over newer turns and rechecks after releasing the lock.
+A failed pass leaves newer pending boundaries for a later run; unverified turns remain behind the watermark for retry.
+Capture is detached, so a new session can start before extraction finishes; its NOW hook reads only memories already written.
 Two failed runs in a row append one `failed` line to `state/memory-capture.status`, which wakes firstmate, and the next good run appends `resolved`.
 The script header owns flags, state files, and per-run usage records; `bin/fm-memory-capture.sh status` summarizes them.
 These records account for extraction, not total main-session savings; compare total usage with the opt-in [auto-compaction window](configuration.md#auto-compaction-window-configclaude-autocompact) before claiming a net reduction.
-The primary launcher applies a numeric window through inline `--settings`, since a settings-file environment value overrides `--autocompact`; caller-supplied window or settings flags suppress the launcher override.
 The recall-injection hook is unchanged.
 [`tests/fm-memory-capture.test.sh`](../tests/fm-memory-capture.test.sh) covers capture routing, long messages, overlapping boundaries, writes, watermarking, and recovery with recording stand-ins; [`tests/fm-memory-filter-budget.test.sh`](../tests/fm-memory-filter-budget.test.sh) covers short facts and the complete NOW output cap.
 

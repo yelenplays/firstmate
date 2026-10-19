@@ -1146,7 +1146,8 @@ A settings-file `env.CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides both the process
 If the caller supplies `--autocompact`, `--autocompact=<value>`, `--settings`, or `--settings=<value>`, the launcher adds no window arguments: the caller owns those settings.
 An unreadable or invalid file refuses to launch even when the caller supplies a window.
 Earlier compaction is the opt-in usage-saving lever for [automatic memory capture](memory.md#automatic-capture); capture does not enable it or change user settings outside this repo.
-A primary started with plain `claude` can pass the same inline `--settings` itself. A caller's bare `--autocompact <value>` can still be overridden by a settings-file environment value.
+A primary started with plain `claude` can pass the same inline `--settings` itself.
+A caller's bare `--autocompact <value>` can still be overridden by a settings-file environment value.
 
 ## Worker tool exclusions (config/crew-exclude-tools)
 
@@ -2227,7 +2228,7 @@ The file is home-local and not part of secondmate inherited configuration.
 ### Automatic capture (config/memory-capture)
 
 Automatic capture of captain turns into the store is on by default for the primary home's main Claude session; [`docs/memory.md`](memory.md#automatic-capture) owns what it does.
-The optional local, gitignored `config/memory-capture` turns it off when its first non-comment line is `off`; `FM_MEMORY_CAPTURE=off` does the same for one process.
+The optional local, gitignored `config/memory-capture` turns it off when its first non-empty, non-comment line is `off`, `0`, or `false`; the same values in `FM_MEMORY_CAPTURE` disable it for one process.
 `FM_MEMORY_CAPTURE_MODEL` overrides the default `claude-haiku-5-5` and accepts only a Claude Haiku or Sonnet model; use Sonnet only if Haiku misses facts, not as an automatic fallback.
 The file is home-local and not inherited into secondmate homes, which capture nothing in this version.
 

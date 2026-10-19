@@ -35,12 +35,9 @@
 # records. --no-watermark only preserves the saved watermark; memory writes
 # and run/failure records still occur.
 #
-# A boundary that arrives while another run holds the lock leaves a pending
-# marker and returns; the run holding the lock drains every pending boundary
-# with a fresh watermark run before it lets go, and re-checks after releasing
-# so a boundary landing in that gap is never stranded. --after, --until-day,
-# and --no-watermark runs are replays, not boundaries: they set no marker, but
-# still drain any marker they find when they finish.
+# docs/memory.md owns pending-boundary draining and retry behavior.
+# --after, --until-day, and --no-watermark runs are replays, not boundaries:
+# they set no marker, but after success still drain markers they find.
 #
 # `status` prints the watermark, the failure streak, and the last runs.
 # docs/configuration.md "Automatic capture" owns disable and model settings.

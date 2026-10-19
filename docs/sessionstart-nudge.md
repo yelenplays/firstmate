@@ -241,8 +241,9 @@ Each subsection below gives one harness surface's tier, its tracked transport, a
 ### Claude
 
 Claude is a run-tier harness.
-`.claude/settings.json` registers one unmatched `SessionStart` hook, invoked through `CLAUDE_PROJECT_DIR` with a 180s timeout.
+`.claude/settings.json` registers an unmatched digest `SessionStart` hook, invoked through `CLAUDE_PROJECT_DIR` with a 180s timeout.
 The wrapper reads `source` from the hook payload.
+A separate unmatched `SessionStart` hook delivers [current memory context](memory.md#automatic-capture) independently of the digest.
 Native stdout context injection is supported.
 Claude caps one hook output string at 10,000 characters.
 Above the cap the model receives a preview of the first 2,000 characters plus the path of a saved file, and is not asked to read that file.
