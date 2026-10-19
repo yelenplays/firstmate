@@ -57,13 +57,15 @@ make_fake_root() {
   ln -s "$TEARDOWN" "$fake/bin/fm-teardown.sh"
   ln -s "$ROOT/bin/fm-model-ledger.py" "$fake/bin/fm-model-ledger.py"
   ln -s "$ROOT/bin/fm-spend-ledger.py" "$fake/bin/fm-spend-ledger.py"
-  # History is unrelated to this tasktmp cleanup contract; keep this fake root's
-  # required teardown side effect inert.
-  cat > "$fake/bin/fm-history.sh" <<'SH'
+  # History and Slack reporting are unrelated to tasktmp cleanup; provide both
+  # required teardown helpers without touching live history or Slack.
+  for helper in fm-history.sh fm-updates.sh; do
+    cat > "$fake/bin/$helper" <<'SH'
 #!/usr/bin/env bash
 exit 0
 SH
-  chmod +x "$fake/bin/fm-history.sh"
+    chmod +x "$fake/bin/$helper"
+  done
   # fm-backend.sh is real, while its adapter is stubbed so this temp-cleanup
   # test cannot depend on or mutate a host tmux server. Teardown still refuses
   # unless every sibling the real tmux adapter sources is present.
@@ -183,12 +185,14 @@ test_teardown_skips_gracefully_without_tasktmp() {
   ln -s "$TEARDOWN" "$fake/bin/fm-teardown.sh"
   ln -s "$ROOT/bin/fm-model-ledger.py" "$fake/bin/fm-model-ledger.py"
   ln -s "$ROOT/bin/fm-spend-ledger.py" "$fake/bin/fm-spend-ledger.py"
-  # This fake root exercises only the legacy tasktmp path, not history storage.
-  cat > "$fake/bin/fm-history.sh" <<'SH'
+  # This fake root exercises only the legacy tasktmp path, not history or Slack.
+  for helper in fm-history.sh fm-updates.sh; do
+    cat > "$fake/bin/$helper" <<'SH'
 #!/usr/bin/env bash
 exit 0
 SH
-  chmod +x "$fake/bin/fm-history.sh"
+    chmod +x "$fake/bin/$helper"
+  done
   ln -s "$ROOT/bin/fm-backend.sh" "$fake/bin/fm-backend.sh"
   cat > "$fake/bin/backends/tmux.sh" <<'SH'
 fm_backend_tmux_kill() { return 0; }

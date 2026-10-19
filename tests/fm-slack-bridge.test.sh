@@ -43,7 +43,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs
 const args = process.argv.slice(2);
 const log = process.env.FM_TEST_SLACK_LOG;
 if (log) appendFileSync(log, JSON.stringify(args) + "\n");
-const ids = { "#fm-yelen": "C0REPORT01", "#entscheidungen": "C0DECIDE01", "#fm-handoff": "C0HANDOFF1" };
+const ids = { "#fm-yelen": "C0REPORT01", "#entscheidungen": "C0DECIDE01", "#fm-handoff": "C0HANDOFF1", "#updates": "C0UPDATES1" };
 const counter = process.env.FM_TEST_SLACK_COUNTER;
 if (args[0] === "draft" && args[1] === "send") {
   if (process.env.FM_TEST_SLACK_SEND_FAIL === "1") { console.log("error: channel_not_found"); process.exit(1); }
@@ -160,13 +160,13 @@ test_post_sends_and_records() {
     || fail "post must succeed: $out"
   assert_contains "$out" "posted report C0REPORT01 1791140000.000001" "post names the channel id and dotted ts"
   assert_grep $'v1\tC0REPORT01\t1791140000.000001\treport\t' "$home/state/slack-bridge/posts" "the post is recorded with its channel id and ts"
-  assert_grep '"draft","#fm-yelen","PR ready for review\n🔗 <https://github.com/o/r/pull/7|PR #7>"' "$home/slack.log" \
-    "the report goes to the report channel with its URL as a labelled link"
+  assert_grep '"draft","#fm-yelen","*📋 PR ready for review*\n🔗 <https://github.com/o/r/pull/7|PR #7>"' "$home/slack.log" \
+    "the report goes to the report channel in the short shape with its URL as a labelled link"
   assert_grep '["draft","send","d_test0001"]' "$home/slack.log" "the draft is sent"
 
   out=$(bridge "$home" post decision -- "-1 on option B; recommend A" 2>&1) || fail "decision post must succeed: $out"
   assert_contains "$out" "posted decision" "a decision post succeeds"
-  assert_grep '"draft","#entscheidungen","'$'\xe2\x80\x8b''-1 on option B; recommend A"' "$home/slack.log" \
+  assert_grep '"draft","#entscheidungen","*🙋 -1 on option B; recommend A*"' "$home/slack.log" \
     "a decision goes to the decisions channel and a leading dash survives as text"
 
   FM_TEST_SLACK_SEND_FAIL=1 bridge "$home" post report "lost" >"$home/fail.out" 2>&1 \
@@ -502,10 +502,10 @@ test_bot_posts_instead_of_slack_axi() {
     || fail "bot post must succeed: $out"
   assert_contains "$out" "posted report C0REPORT01 1791140500.000001" "the bot post names the channel id and ts"
   assert_grep $'v1\tC0REPORT01\t1791140500.000001\treport\t' "$home/state/slack-bridge/posts" "the bot post is recorded"
-  assert_contains "$(posted_requests "$home")" "C0REPORT01 - PR ready for review"$'\n'"🔗 <https://github.com/o/r/pull/7|PR #7>" \
+  assert_contains "$(posted_requests "$home")" "C0REPORT01 - *📋 PR ready for review*"$'\n'"🔗 <https://github.com/o/r/pull/7|PR #7>" \
     "the bot posts the text and labelled link top-level in the report channel"
   out=$(bot_bridge "$home" post decision -- "-1 on option B; recommend A" 2>&1) || fail "bot decision post must succeed: $out"
-  assert_contains "$(posted_requests "$home")" "C0DECIDE01 - -1 on option B; recommend A" "a bot needs no leading-dash workaround"
+  assert_contains "$(posted_requests "$home")" "C0DECIDE01 - *🙋 -1 on option B; recommend A*" "a bot needs no leading-dash workaround"
   assert_absent "$home/slack.log" "a bot home never calls slack-axi"
   assert_no_token "$home" "$out"
   pass "fm-slack-bridge: a bot posts instead of slack-axi"
@@ -989,11 +989,11 @@ test_structured_post_layouts() {
     const decision = drafts.filter((args) => args[1] === "#entscheidungen").map((args) => args[2]);
     const report = drafts.filter((args) => args[1] === "#fm-yelen").map((args) => args[2]);
     ok(decision.length === 2 && report.length === 3);
-    ok(decision[0] === "*🧭 Decision · Gmail Swipe*\n*Ship the gesture now or with the undo bar?*\nUndo bar is half done.\nGesture alone is tested &amp; green.\n➡️ *a* · Ship gesture now  _(recommended)_\n◻️ *b* · Wait for both\n🔗 <https://github.com/o/gmail-swipe/pull/11|PR #11>\n_Reply in thread: a / b_");
-    ok(decision[1] === "*🧭 Decision · first\\*mate*\n*\\*urgent\\**\nkeep \\_this\\_ literal \\~too\\~ \\`please\\`\n➡️ *a* · \\*approve\\*  _(recommended)_\n🔗 <https://example.com/x|Open link>\n_Reply in thread: a_");
-    ok(report[0] === "*🔀 Ready for review · firstmate*\n*Slack posts are readable*\n➡️ *merge* · Merge it  _(recommended)_\n◻️ *hold* · Hold for review\n🔗 <https://github.com/o/firstmate/pull/127|PR #127>\n_Reply in thread: merge / hold_");
-    ok(report[1] === "✅ *Merged* · firstmate\n*Slack posts are readable*  🔗 <https://github.com/o/firstmate/issues/15|Open link>");
-    ok(report[2] === "plain words");
+    ok(decision[0] === "*🙋 Gmail Swipe · Ship the gesture now or with the undo bar?*\nUndo bar is half done. Gesture alone is tested &amp; green.\n➡️ *a* · Ship gesture now  _(recommended)_\n◻️ *b* · Wait for both\n🔗 <https://github.com/o/gmail-swipe/pull/11|PR #11>\n_Reply in thread: a / b_");
+    ok(decision[1] === "*🙋 first\\*mate · \\*urgent\\**\nkeep \\_this\\_ literal \\~too\\~ \\`please\\`\n➡️ *a* · \\*approve\\*  _(recommended)_\n🔗 <https://example.com/x|Open link>\n_Reply in thread: a_");
+    ok(report[0] === "*🙋 firstmate · Slack posts are readable*\n➡️ *merge* · Merge it  _(recommended)_\n◻️ *hold* · Hold for review\n🔗 <https://github.com/o/firstmate/pull/127|PR #127>\n_Reply in thread: merge / hold_");
+    ok(report[1] === "*✅ firstmate · Slack posts are readable*\n🔗 <https://github.com/o/firstmate/issues/15|Open link>");
+    ok(report[2] === "*📋 plain words*");
   ' "$home/slack.log" || fail "slack-axi drafts contain readable structured and free-text layouts with literal caller markers"
   pass "fm-slack-bridge: slack-axi posts readable structured and free-text layouts"
 }
@@ -1031,35 +1031,35 @@ CASES
     if (result.status !== 2 || !result.stderr.includes("a decision with options needs --recommend")) process.exit(1);
   ' "$ROOT/bin/fm-slack-render.mjs" || fail "the renderer refuses a decision with options but no recommendation"
 
-  local amp200 amp150 amp300 long_text url rc
-  amp200=$(printf '%200s' '' | tr ' ' '&')
+  local amp150 long_text url rc
   amp150=$(printf '%150s' '' | tr ' ' '&')
-  amp300=$(printf '%300s' '' | tr ' ' '&')
   rc=0
-  bridge "$home" post decision --title q --option "a=$amp200" --option "b=$amp200" \
-    --option "c=$amp200" --option "d=$amp200" --recommend a >/dev/null 2>&1 || rc=$?
-  assert_equals 2 "$rc" "escaped options exceeding a section limit are refused"
+  bridge "$home" post decision --title q --option a=1 --option b=2 --option c=3 \
+    --option d=4 --option e=5 --option f=6 --recommend a >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "more than five options are refused"
   rc=0
-  bridge "$home" post report --title "$amp150" --context "$amp300" --context "$amp300" \
-    >/dev/null 2>&1 || rc=$?
-  assert_equals 2 "$rc" "an escaped summary exceeding a section limit is refused"
-  rc=0
-  bridge "$home" post merged --title "$amp150" --context "$amp300" --context "$amp300" \
-    >/dev/null 2>&1 || rc=$?
-  assert_equals 2 "$rc" "an oversized merged section is refused"
-  url="https://$(printf '%3000s' '' | tr ' ' 'a')"
+  bridge "$home" post decision --title "Ship now? Or wait?" >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "a post with more than one question is refused"
+  url="https://$(printf '%600s' '' | tr ' ' 'a')"
   rc=0
   bridge "$home" post report --title q --url "$url" >/dev/null 2>&1 || rc=$?
-  assert_equals 2 "$rc" "an oversized link section is refused"
-  rc=0
-  bridge "$home" post decision --title "$amp150" --context "$amp200" \
-    --option "a=$amp200" --option "b=$amp200" --recommend a >/dev/null 2>&1 || rc=$?
-  assert_equals 2 "$rc" "a combined fallback exceeding the message limit is refused"
+  assert_equals 2 "$rc" "an oversized link is refused"
+  bridge "$home" post report --title "$amp150" --context "$amp150" --context "$amp150" \
+    >/dev/null 2>&1 || fail "an overlong title and context are cut, not refused"
   long_text=$(printf '%3001s' '' | tr ' ' x)
-  rc=0
-  bridge "$home" post report "$long_text" >/dev/null 2>&1 || rc=$?
-  assert_equals 2 "$rc" "an oversized free-text fallback is refused"
-  pass "fm-slack-bridge: structured posts refuse invalid and oversized rendered messages"
+  bridge "$home" post report "$long_text" >/dev/null 2>&1 || fail "an overlong free text is cut, not refused"
+  # shellcheck disable=SC2016 # JavaScript, not shell
+  node -e '
+    const drafts = require("fs").readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse)
+      .filter((args) => args[0] === "draft" && args[1] !== "send").map((args) => args[2]);
+    const [cutPost, cutText] = drafts.slice(-2);
+    const lines = cutPost.split("\n");
+    const plain = (line) => line.replace(/&amp;/g, "&");
+    if (lines.length !== 2 || plain(lines[0]) !== `*📋 ${"&".repeat(89)}…*`) process.exit(1);
+    if (plain(lines[1]) !== `${"&".repeat(150)} ${"&".repeat(8)}…`) process.exit(1);
+    if (cutText !== `*📋 ${"x".repeat(89)}…*`) process.exit(1);
+  ' "$home/slack.log" || fail "overlong lines are cut to the shape's caps with an ellipsis"
+  pass "fm-slack-bridge: posts refuse invalid input and cut overlong lines to the short shape"
 }
 
 test_structured_post_through_slack_axi_uses_the_fallback() {
@@ -1072,7 +1072,7 @@ test_structured_post_through_slack_axi_uses_the_fallback() {
   node -e '
     const fs = require("fs");
     const draft = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse).find((a) => a[0] === "draft" && a[1] === "#entscheidungen");
-    if (!draft || draft[2] !== "*🧭 Decision · lay*\n*Pick the hero image?*\n◻️ *a* · Sunset\n➡️ *b* · Studio  _(recommended)_\n_Reply in thread: a / b_") process.exit(1);
+    if (!draft || draft[2] !== "*🙋 lay · Pick the hero image?*\n◻️ *a* · Sunset\n➡️ *b* · Studio  _(recommended)_\n_Reply in thread: a / b_") process.exit(1);
   ' "$home/slack.log" || fail "slack-axi posts the mrkdwn fallback to the decisions channel"
   assert_grep $'\tdecision\t' "$home/state/slack-bridge/posts" "the structured post is recorded"
   pass "fm-slack-bridge: slack-axi posts the structured layout as its mrkdwn fallback"
@@ -1095,14 +1095,14 @@ test_bot_structured_post_sends_blocks_and_keeps_thread_replies() {
     const fs = require("fs");
     const r = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse).find((x) => x.method === "chat.postMessage");
     const blocks = JSON.parse(r.params.blocks);
-    if (blocks[0].type !== "header" || blocks[0].text.text !== "🔀 Ready for review · firstmate") process.exit(1);
-    if (!r.params.text.startsWith("*🔀 Ready for review · firstmate*")) process.exit(1);
+    if (blocks[0].type !== "section" || !blocks[0].text.text.startsWith("*🙋 firstmate · Slack posts are readable*")) process.exit(1);
+    if (!r.params.text.startsWith("*🙋 firstmate · Slack posts are readable*")) process.exit(1);
     const decision = fs.readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse)
       .find((x) => x.method === "chat.postMessage" && x.params.channel === "C0DECIDE01");
     const decisionBlocks = JSON.parse(decision.params.blocks);
-    if (!decisionBlocks.some((b) => b.type === "section" && b.text.text.includes("*\\*urgent\\**"))) process.exit(1);
+    if (!decisionBlocks.some((b) => b.type === "section" && b.text.text.includes("· \\*urgent\\**"))) process.exit(1);
     if (!decisionBlocks.some((b) => b.type === "section" && b.text.text.includes("➡️ *a* · \\*approve\\*"))) process.exit(1);
-    if (!decision.params.text.includes("*\\*urgent\\**")) process.exit(1);
+    if (!decision.params.text.includes("· \\*urgent\\**")) process.exit(1);
     if (r.params.unfurl_links !== "false") process.exit(1);
   ' "$home/bot-requests.jsonl" || fail "the bot sends Block Kit blocks with the fallback text"
   cat > "$home/bot-fixture.json" <<JSON
@@ -1119,6 +1119,81 @@ JSON
   grep -qx merge "$note" || fail "the captain's answer arrives as typed"
   assert_no_token "$home" "$out"
   pass "fm-slack-bridge: a bot sends structured posts as blocks and their thread replies still arrive"
+}
+
+test_updates_channel_routing_and_mirror() {
+  local home out err
+  home=$(make_home updates-routing)
+  write_config "$home"
+  printf '%s\n' 'updates-channel=#updates' 'language=de' >> "$home/config/slack-bridge"
+  for kind in merged finished live stuck; do
+    bridge "$home" post "$kind" --project MyLINA --title "Akzent-Test $kind" >/dev/null 2>&1 \
+      || fail "a $kind post must succeed"
+  done
+  bridge "$home" post report --title "Wochenbericht" >/dev/null 2>&1 || fail "a report must succeed"
+  out=$(bridge "$home" post decision --project Lay --title "Welches Titelbild nehmen wir?" \
+    --option a=Sonnenuntergang --option b=Studio --recommend b 2>&1) || fail "a decision must succeed: $out"
+  assert_contains "$out" "posted decision C0DECIDE01" "the decision goes to the decisions channel"
+  assert_contains "$out" "posted mirror #updates" "the decision gets a one-line #updates entry"
+  err=$(bridge "$home" post finished --project Bochum --title "Ranking-Messung fertig" \
+    --context "Der crewmate heartbeat im worktree steht; siehe state/x.status" 2>&1 >/dev/null) \
+    || fail "a post with internal terms must still post"
+  assert_contains "$err" "rewrote internal terms into plain words" "rewritten terms are named"
+  # shellcheck disable=SC2016 # JavaScript, not shell
+  node -e '
+    const drafts = require("fs").readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse)
+      .filter((a) => a[0] === "draft" && a[1] !== "send");
+    const ok = (c, why) => { if (!c) { console.error(why); process.exit(1); } };
+    const byTitle = (t) => drafts.filter((a) => a[2].includes(t));
+    for (const [kind, emoji] of [["merged", "✅"], ["finished", "✅"], ["live", "🚀"], ["stuck", "⚠️"]]) {
+      const d = byTitle(`Akzent-Test ${kind}`);
+      ok(d.length === 1 && d[0][1] === "#updates" && d[0][2] === `*${emoji} MyLINA · Akzent-Test ${kind}*`, `${kind} goes to #updates`);
+    }
+    ok(byTitle("Wochenbericht")[0][1] === "#fm-yelen", "a report stays in the report channel");
+    const ask = byTitle("Welches Titelbild");
+    ok(ask.length === 2 && ask[0][1] === "#entscheidungen" && ask[1][1] === "#updates", "the ask and its #updates entry");
+    ok(ask[0][2] === "*🙋 Lay · Welches Titelbild nehmen wir?*\n◻️ *a* · Sonnenuntergang\n➡️ *b* · Studio  _(empfohlen)_\n_Antworte im Thread: a / b_", "German fixed words");
+    ok(ask[1][2] === "*🙋 Lay · Welches Titelbild nehmen wir?*\nAntworte dort: <#C0DECIDE01>", "the entry points at the decision");
+    ok(byTitle("Ranking-Messung")[0][2] === "*✅ Bochum · Ranking-Messung fertig*\nDer Helfer Überwachung im lokale Kopie steht; siehe (lokale Datei)", "internal terms are rewritten");
+  ' "$home/slack.log" || fail "outcomes go to #updates, asks get a one-line entry, and the words are plain German"
+  local rc=0
+  bridge "$home" post digest --title Morgen --line 1 --line 2 --line 3 --line 4 --url https://deck.example.com >/dev/null 2>&1 || rc=$?
+  assert_equals 2 "$rc" "a digest longer than five lines with its link is refused"
+  out=$(bridge "$home" settings) || fail "settings must succeed"
+  assert_contains "$out" "bridge=on" "settings say the bridge is on"
+  assert_contains "$out" "updates-channel=#updates" "settings name the updates channel"
+  assert_contains "$out" "language=de" "settings name the language"
+  printf 'language=fr\n' >> "$home/config/slack-bridge"
+  out=$(bridge "$home" settings) || fail "settings must succeed on a bad config"
+  assert_equals "bridge=off" "$out" "an invalid config reads as off"
+  pass "fm-slack-bridge: outcomes go to #updates and asks get a one-line #updates entry"
+}
+
+test_bot_posts_to_the_configured_updates_channel() {
+  local home out rc
+  home=$(make_bot_home bot-updates)
+  write_bot_config "$home"
+  rc=0
+  printf '%s\n' 'updates-channel=#updates' >> "$home/config/slack-bridge"
+  out=$(bot_bridge "$home" post merged --title "x" 2>&1) || rc=$?
+  expect_code 1 "$rc" "a bot needs the updates channel as an id"
+  assert_contains "$out" "needs every channel as a channel id" "the #name is refused for a bot"
+  write_bot_config "$home"
+  printf '%s\n' 'updates-channel=C0UPDATES1' >> "$home/config/slack-bridge"
+  out=$(bot_bridge "$home" post merged --project Lay --title "Checkout fix live" \
+    --url https://github.com/o/lay/pull/9 2>&1) || fail "a merged post must succeed: $out"
+  assert_contains "$out" "posted merged C0UPDATES1" "the merge goes to the configured channel"
+  rc=0
+  out=$(bot_bridge "$home" create-channel 2>&1) || rc=$?
+  expect_code 2 "$rc" "the bridge never creates a channel"
+  # shellcheck disable=SC2016 # JavaScript, not shell
+  node -e '
+    const rows = require("fs").readFileSync(process.argv[1], "utf-8").split("\n").filter(Boolean).map(JSON.parse);
+    if (!rows.some((r) => r.method === "chat.postMessage" && r.params.channel === "C0UPDATES1")) process.exit(1);
+    if (rows.some((r) => r.method.startsWith("conversations.create") || r.method.startsWith("conversations.invite"))) process.exit(1);
+  ' "$home/bot-requests.jsonl" || fail "the bot posts to the configured #updates id and never creates or invites"
+  assert_no_token "$home" "$out"
+  pass "fm-slack-bridge: a bot posts to the updates channel id from config and never creates one"
 }
 
 test_bridge_is_off_without_config
@@ -1147,3 +1222,5 @@ test_structured_post_layouts
 test_structured_post_refuses_bad_input
 test_structured_post_through_slack_axi_uses_the_fallback
 test_bot_structured_post_sends_blocks_and_keeps_thread_replies
+test_updates_channel_routing_and_mirror
+test_bot_posts_to_the_configured_updates_channel

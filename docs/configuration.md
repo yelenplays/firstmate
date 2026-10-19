@@ -2474,7 +2474,7 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 ## Slack bridge (config/slack-bridge)
 
 The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
-Out, firstmate posts captain-facing outcomes: PRs ready for review, merge asks, and merge results to the report channel, and decisions to the decisions channel.
+Out, firstmate posts short captain-facing outcomes and approval asks; **Posting** below owns their channel routing.
 In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
 With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot or tag it in the report or decisions channel, and firstmate's answers go back into the same DM or thread.
 
@@ -2490,10 +2490,20 @@ This section is the single owner of the config schema.
 The file holds one `key=value` per line, and a line starting with `#` is a comment; a comment never follows a value on the same line, because channel names start with `#`.
 
 ```sh
-# PRs ready for review, merge asks, merge results; a #name or channel id
+# PRs ready for review, merge asks, and other reports; a #name or channel id
 report-channel=#fm-reports
 # decisions; a #name or channel id
 decisions-channel=#fm-decisions
+# optional; outcomes and ask pointers; absent uses report-channel for outcomes
+# and disables automatic morning digests
+updates-channel=#updates
+# optional, en or de, default en; fixed words and plain-word rewrites, not translation
+language=de
+# optional, 0..23, default 8; the local hour after which the morning digest posts
+digest-hour=8
+# optional https:// URL; an existing Deck board, linked by the digest and
+# automatic outcome posts without a PR link; Firstmate does not build the board
+board-url=https://deck.example.com/board
 # optional; other people's requests to this fleet
 handoff-channel=#fm-handoff
 # the Slack user id whose thread replies count as the captain's word
@@ -2507,6 +2517,7 @@ bot-keychain-service=firstmate-slack-bot
 ```
 
 `slack-axi channels --match <name>` shows a channel's id, and `slack-axi members <channel>` shows each member's user id.
+The bridge never creates a channel: the captain creates the updates channel in Slack, invites the bot (`/invite @<bot name>`) when there is one, and puts its id in `updates-channel`, like the other channels.
 With `bot-keychain-service`, every channel must be a channel id, because the bot has no scope to look up `#names`.
 
 **Who counts as the captain**
@@ -2525,7 +2536,7 @@ With a bot configured, `bin/fm-slack-bot.mjs` reads author ids from the Slack We
 
 **Posting**
 
-Firstmate posts one item per message in the structured form, which lays the post out for reading at a glance:
+Firstmate posts one item per message in the structured form:
 
 ```sh
 bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
@@ -2535,15 +2546,25 @@ bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
   --url https://github.com/o/gmail-swipe/pull/11
 ```
 
-The kind picks the layout and channel: `decision` goes to the decisions channel, while `ready` (a PR ready for review or a merge ask), `merged` (a merge result), and `report` (anything else) go to the report channel.
+The kind picks the channel:
 
-Each post shows a header with the kind and project, the title in bold, at most two context lines, the options with the recommended one marked, the link, and a "Reply in thread" footer naming the option keys; a `merged` post is one compact line pair.
+| Kind | Channel |
+| --- | --- |
+| `finished`, `merged`, `live`, `stuck`, `digest` | updates |
+| `decision` | decisions, plus a short updates pointer |
+| `ready` (a PR ready for review or a merge ask) | report, plus a short updates pointer |
+| `report` (anything else) | report |
+
+Without `updates-channel`, the updates kinds go to the report channel and asks get no extra entry.
+
+Write the outcome and next action in the reader's language; `language=de` supplies German fixed words and jargon replacements but does not translate caller-supplied prose.
+[`bin/fm-slack-render.mjs`](../bin/fm-slack-render.mjs) owns the short layouts, labelled links, plain-word rewrites, and input limits.
 A structured `decision` with options must include `--recommend <key>` naming one of them; a yes/no decision without options does not need it.
-A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `Open link` otherwise, never a raw URL.
-`bin/fm-slack-render.mjs` owns the layouts and their limits.
 With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
 Answers stay thread replies, DMs, and mentions; there are no buttons, because the bot has no Socket Mode connection or public request URL.
-The free-text form, `post report|decision [--url <https-url>] <text>`, still works for older callers.
+The free-text form still works for older callers; [`bin/fm-slack-bridge.sh`](../bin/fm-slack-bridge.sh)'s header and help own posting syntax and outcome-record mechanics.
+Use `--task <id>` for task outcomes so the backstop recognizes Firstmate's own report.
+For asks, `posted` stays false until both the original and any required updates pointer landed; retrying the same task-bound post sends only the missing destination.
 Every post is sent as a `slack-axi` draft it then sends or as the bot, and its channel id and message ts are recorded in `state/slack-bridge/posts`.
 Every post is top-level; without a bot that also keeps the bridge out of threads, because the logged-in account's thread replies are what counts as captain input.
 
@@ -2555,7 +2576,29 @@ With a bot, `bin/fm-inbox.sh reply <note-id> <text>` on a `slack-captain` note a
 Before posting, it checks the destination DM or thread for that marker; if Slack accepted a post but its response was lost, the retry finds the existing bot message and records it rather than posting a duplicate.
 If the check or post fails, the reply stays recorded, `reply` exits 3, and `send-reply` can be retried.
 Without a bot, a reply stays local and its output is unchanged.
-`bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it. It checks the bot token and posts clearly labeled one-time setup tests to both channels and the captain's DM; these can be ignored or deleted. See [Slack bot setup](slack-bot.md) for the setup steps.
+`bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it.
+It checks the bot token and posts clearly labeled one-time setup tests to the report and decisions channels and the captain's DM; these can be ignored or deleted.
+See [Slack bot setup](slack-bot.md) for the setup steps and optional-channel checks.
+
+**Report, then close**
+
+Finished tasks are reported from durable state rather than a one-shot signal, then Firstmate runs guarded cleanup when no approval or recovery remains.
+`bin/fm-updates.sh` reads each task's record, last status event, and merge marker: a recorded merge owes `merged`, a finished scout, local-only task, or ship task without a PR owes `finished`, a ship task done with a PR and without auto-merge owes `ready`, and a failed task owes `stuck`.
+An auto-merge task done with a PR is checked through one bounded `gh` call once its grace period passed: a merged PR without a merge marker owes `merged`, and a PR closed unmerged, or still unmerged after `FM_UPDATES_STALE` seconds (default 86400), owes `stuck`.
+An unreadable PR state also falls back to that stale bound.
+Bridge polls attempt outcomes still owed 15 minutes after their event (`FM_UPDATES_GRACE`, default 900 seconds), so Firstmate's own task-bound post goes first and the poll is only the backstop.
+Local outcomes are attempted before PR lookups; deferred lookups rotate across polls, with remaining work retried as the poll budget permits.
+Ordinary task cleanup posts its owed outcome before staging a replayable close receipt and retains the task records when posting fails; secondmate retirement and explicitly approved discard with `--force` skip this step.
+The backstop never bypasses landed-work, approval, or scout-completion guards.
+Every wake drain lists, under REPORT AND CLOSE, each outcome still unreported after its grace period and each reported final result awaiting cleanup, until its record is gone.
+Tasks reported as `ready` or `stuck` need approval or recovery rather than immediate cleanup.
+Without the bridge, chat is the report, so final results are listed for cleanup at once.
+
+With `updates-channel` configured and polling active, the morning digest posts once a local day within four hours after `digest-hour`, before midnight; a missed window is skipped.
+It shows what needs the captain (captain-held calls and approvals derived from task state), finished/merged/live posts recorded in the last 24 hours, and workers whose last status verb is `working` (never `done` or `failed`), plus the optional `board-url` link, in at most five lines.
+Secondmates are excluded from worker counts; their own homes report.
+`bin/fm-updates.sh digest --print` shows it without posting.
+Regressions cover [outcome classification and digest counts](../tests/fm-updates.test.sh), [delivery retries and lookup fairness](../tests/fm-updates-adversarial.test.sh), and [report-before-close recovery](../tests/fm-updates-teardown.test.sh); these use transport doubles, not live Slack evidence.
 
 **Receiving**
 
@@ -2566,13 +2609,14 @@ By default, the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence
 Optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules.
 The bridge records that setting in `state/slack-bridge.check-every`.
 Invalid or duplicate values are refused.
+Each poll also runs the report-then-close backstop and the morning digest above in the time left under `FM_CHECK_TIMEOUT`.
 Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies, bot DMs, and bot mentions) or `slack-request`, which writes the durable note and its single `check` wake.
 A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
 Bot DM history is paged to completion before its cursor advances; a failed read or delivery leaves the cursor in place so unread messages are retried.
 A poll that delivered anything prints one line so the watcher wakes firstmate.
 A failing poll prints one line only when its diagnostic changes.
 A quiet poll prints nothing.
-`FM_SLACK_BRIDGE_BUDGET` (default 20, valid 5..25) bounds one poll and is cut down to fit `FM_CHECK_TIMEOUT`.
+`FM_SLACK_BRIDGE_BUDGET` (default 20, valid 5..25) bounds the inbound read, not outcome posting, and is cut down to fit the watcher's overall `FM_CHECK_TIMEOUT`.
 `bin/fm-slack-bridge.sh disarm` removes the standing check and keeps the records.
 
 The bridge reads each post's thread for replies only during the configured `watch-days` window (default 7 days, maximum 30 days).
@@ -3468,7 +3512,7 @@ FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
-FM_SLACK_BRIDGE_BUDGET=20   # seconds allowed for one Slack bridge poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
+FM_SLACK_BRIDGE_BUDGET=20   # inbound Slack read budget; see "Slack bridge" above
 FM_SLACK_BRIDGE_NOW=        # test override for the Slack bridge clock
 FM_TOOL_UPDATE_INTERVAL=900   # seconds between watched-tool probe sweeps; 0 probes on every run, other values must be 60..86400
 FM_TOOL_UPDATE_PROBE_SECS=5   # 1..30 seconds allowed for one version or git probe

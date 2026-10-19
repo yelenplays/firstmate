@@ -1018,6 +1018,14 @@ print_status_presentation() {  # [<deduped-raw-rows>]
     printf 'UNFINISHED EXECUTION: reconciliation unavailable; obligations retained\n' >&2
     rc=1
   fi
+  # Report, then close (bin/fm-updates.sh): finished work never reported, or
+  # reported and still waiting for cleanup, is listed on every drain until its
+  # record is gone, so nothing finished sits idle unseen.
+  local closing
+  closing=$(fm_run_timed 15 env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-updates.sh" scan 2>/dev/null) || closing=
+  if [ -n "$closing" ]; then
+    printf 'REPORT AND CLOSE (finished work: report it, then clean it up; listed on every drain until closed):\n%s\n' "$closing"
+  fi
   return "$rc"
 }
 

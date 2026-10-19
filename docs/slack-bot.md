@@ -36,7 +36,7 @@ Rules for the agent running this guide:
 | A Slack workspace where you may install an app | [you] | Some workspaces need an admin to approve the install. |
 | The bot's name, at most 35 characters | [Jev] | Step 1. |
 | Your Slack member id (`U...`) | [agent] or [you] | Step 5. |
-| The report and decisions channel ids (`C...`, or `G...` for private) | [agent] or [you] | Step 5. |
+| The report and decisions channel ids, plus an updates channel if wanted (`C...`, or `G...` for private) | [agent] or [you] | Step 5. |
 
 ## Setup
 
@@ -45,7 +45,7 @@ Rules for the agent running this guide:
 Two closed-set picks, batched into one Jev call:
 
 - Bot name: `"<First name>'s Firstmate"` is the default; another name only if the person asked for one.
-- Channel type: whether the report or decisions channel is private (`yes` adds `--private-channels` and the `groups:history` scope; `no` keeps the minimal public scopes).
+- Channel type: whether any configured channel, including optional updates or handoff, is private (`yes` adds `--private-channels` and the `groups:history` scope; `no` keeps the minimal public scopes).
 
 Check: both answers are known before step 2.
 
@@ -117,7 +117,7 @@ The first column of `channels` is the channel id; `members` shows member ids (`U
 - Channel id: open the channel name; the id is at the bottom of the About tab.
 
 A bot has no scope to look up channels by `#name`, so a bot setup needs channel ids.
-Check: one `U...` id and two `C...` or `G...` ids are known (the two may be the same channel).
+Check: one `U...` id and the report and decisions channel ids are known (the two may be the same channel), plus ids for any optional channels.
 
 ### 6. Write the config - [agent]
 
@@ -132,6 +132,7 @@ poll-seconds=60
 ```
 
 `captain-user` is the person's own member id: only their messages reach this home, matched by exact id, never by display name.
+For an updates feed, German fixed words, and a Deck link, apply the optional settings in [Slack bridge configuration](configuration.md#slack-bridge-configslack-bridge) before inviting the bot.
 Check: `bin/fm-slack-bridge.sh check` prints nothing about the config (an invalid value prints one `slack:` line naming it).
 
 ### 7. Invite the bot - [you]
@@ -139,7 +140,8 @@ Check: `bin/fm-slack-bridge.sh check` prints nothing about the config (an invali
 **Stop point [you]:** in each configured channel, send `/invite @Marco's Firstmate`, using the bot's name.
 The bot reads and posts only in channels it is a member of, plus its DM with you.
 
-Check: step 8's `verify` posts to both channels without `not_in_channel`.
+Check: step 8's `verify` posts to the report and decisions channels without `not_in_channel`.
+It does not test optional updates or handoff channels; confirm the bot is a member of each in Slack.
 
 ### 8. Arm and verify - [agent], then [you]
 

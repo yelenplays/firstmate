@@ -4,9 +4,11 @@
 # Usage:
 #   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
 #                      [--option <key>=<text>]... [--recommend <key>]
-#                      [--url <https-url>]
+#                      [--url <https-url>] [--line <line>]... [--task <id>]
 #   fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
 #   fm-slack-bridge.sh post report|decision [--url <https-url>] -   (text from stdin)
+#   fm-slack-bridge.sh posted --task <id> <kind>
+#   fm-slack-bridge.sh settings
 #   fm-slack-bridge.sh check
 #   fm-slack-bridge.sh arm
 #   fm-slack-bridge.sh disarm
@@ -21,17 +23,16 @@
 # posts and reads as that bot, with the bot token read from the macOS Keychain
 # item of that service name, and the person can also DM the bot.
 #
-# Out: `post` sends one captain-facing message to the decisions channel for
-# `decision` (one decision; options require a recommendation), or to the report channel
-# for `ready` (a PR ready for review or a merge ask), `merged` (a merge result),
-# and `report` (anything else), through slack-axi (draft, then `draft send`) or
-# the bot. The structured form (--title and its companions) is what firstmate
-# sends: one item per post, laid out by bin/fm-slack-render.mjs, which owns the
-# layouts and their limits (at most two --context lines). The bot posts it as
-# Block Kit with a plain-text fallback; slack-axi posts the fallback, which is
-# Slack mrkdwn with the same layout. The free-text form (report or decision
-# with positional or stdin text) stays for old callers. --url becomes a
-# labelled link (GitHub PRs as "PR #<n>"), never a raw URL.
+# Out: `post` sends one captain-facing item through slack-axi (draft, then
+# `draft send`) or the bot. docs/configuration.md "Slack bridge" owns routing;
+# bin/fm-slack-render.mjs owns layouts, plain-word rewrites, and input limits.
+# --task <id> records the post in state/slack-bridge/outcomes, keyed by task
+# incarnation and outcome kind; `posted` checks all required destinations.
+# The record format and ask-pointer retry mechanics are documented at
+# outcome_has below. The structured form (--title and its companions) is what
+# firstmate sends. The free-text form (report or decision with positional or
+# stdin text) stays for old callers. The bot posts Block Kit with a plain-text
+# fallback; slack-axi posts the fallback, Slack mrkdwn with the same layout.
 # `post` appends the posted channel id and message ts
 # to state/slack-bridge/posts, which is the only set of threads `check` reads.
 # Every post is top-level. Without a bot the bridge never replies inside a
@@ -56,7 +57,9 @@
 # wake, so a crash between delivery and the local delivered record is healed by
 # the next poll rather than duplicated. A poll that delivered anything prints
 # one line so the watcher wakes firstmate; a failing poll prints one line only
-# when its diagnostic changed; otherwise `check` is silent. Each delivered
+# when its diagnostic changed; otherwise `check` is silent. Each poll then runs
+# bin/fm-updates.sh tick in the time left, which posts every finished task's
+# owed outcome and the once-a-day morning digest. Each delivered
 # captain message also records its reply route (channel and thread) in
 # state/slack-bridge/routes.
 #
@@ -106,6 +109,7 @@ CONFIG_DIR="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 CONFIG_FILE="$CONFIG_DIR/slack-bridge"
 BRIDGE_STATE="$STATE/slack-bridge"
 POSTS="$BRIDGE_STATE/posts"
+OUTCOMES="$BRIDGE_STATE/outcomes"
 DELIVERED="$BRIDGE_STATE/delivered"
 HANDOFF_CURSOR="$BRIDGE_STATE/handoff-cursor"
 DM_CURSOR="$BRIDGE_STATE/dm-cursor"
@@ -124,6 +128,7 @@ BOT="$SCRIPT_DIR/fm-slack-bot.mjs"
 RENDERER="$SCRIPT_DIR/fm-slack-render.mjs"
 INBOX_BIN="$SCRIPT_DIR/fm-inbox.sh"
 REGISTER_BIN="$SCRIPT_DIR/fm-check-register.sh"
+UPDATES_BIN="$SCRIPT_DIR/fm-updates.sh"
 MAX_LINE=240
 
 # shellcheck source=bin/fm-timeout-lib.sh
@@ -140,13 +145,18 @@ usage() {
 Usage:
   fm-slack-bridge.sh post <kind> --title <line> [--project <name>] [--context <line>]...
                      [--option <key>=<text>]... [--recommend <key>]
-                     [--url <https-url>]
-                               post one item laid out for scanning; kind is decision (decisions
-                               channel), ready (PR ready or merge ask), merged, or report;
-                               decisions with options need --recommend; at most two --context lines
+                     [--url <https-url>] [--line <line>]... [--task <id>]
+                               post one short item: decision (decisions channel), ready (PR ready
+                               or merge ask) or report (report channel), finished, merged, live,
+                               stuck, or digest (updates channel); decisions with options need
+                               --recommend; at most two --context lines; --line is digest-only;
+                               --task posts a task's outcome kind at most once
   fm-slack-bridge.sh post report|decision [--url <https-url>] [--] <text>...
                                free-text form for old callers (- reads the text from stdin)
-  fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs and mentions, and handoff requests to the captain inbox
+  fm-slack-bridge.sh posted --task <id> <kind>   exit 0 when that task's outcome kind was posted
+  fm-slack-bridge.sh settings  print bridge=on|off and the updates settings
+  fm-slack-bridge.sh check     deliver new captain thread replies, bot DMs and mentions, and handoff requests to the captain inbox,
+                               then post owed task outcomes and the morning digest
   fm-slack-bridge.sh arm       write and register state/slack-bridge.check.sh
   fm-slack-bridge.sh disarm    remove the check shim and its trust binding
   fm-slack-bridge.sh send-reply <note-id>   post the recorded reply to a slack-captain note back through the bot
@@ -172,6 +182,10 @@ now_epoch() {
 
 CFG_REPORT=
 CFG_DECISIONS=
+CFG_UPDATES=
+CFG_LANGUAGE=en
+CFG_DIGEST_HOUR=8
+CFG_BOARD=
 CFG_HANDOFF=
 CFG_CAPTAIN=
 CFG_BOT=
@@ -208,6 +222,10 @@ config_load() {
       report-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_REPORT=$value ;;
       decisions-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_DECISIONS=$value ;;
       handoff-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_HANDOFF=$value ;;
+      updates-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_UPDATES=$value ;;
+      language) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_LANGUAGE=$value ;;
+      digest-hour) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_DIGEST_HOUR=$value ;;
+      board-url) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_BOARD=$value ;;
       captain-user) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_CAPTAIN=$value ;;
       bot-keychain-service)
         value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}
@@ -230,10 +248,19 @@ config_load() {
     CFG_ERROR="config/slack-bridge needs decisions-channel as a channel id or #name"
   elif [ -n "$CFG_HANDOFF" ] && ! valid_channel_ref "$CFG_HANDOFF"; then
     CFG_ERROR="config/slack-bridge handoff-channel must be a channel id or #name"
+  elif [ -n "$CFG_UPDATES" ] && ! valid_channel_ref "$CFG_UPDATES"; then
+    CFG_ERROR="config/slack-bridge updates-channel must be a channel id or #name"
+  elif [ "$CFG_LANGUAGE" != en ] && [ "$CFG_LANGUAGE" != de ]; then
+    CFG_ERROR="config/slack-bridge language must be en or de"
+  elif ! [[ "$CFG_DIGEST_HOUR" =~ ^(1?[0-9]|2[0-3])$ ]]; then
+    CFG_ERROR="config/slack-bridge digest-hour must be a whole hour from 0 to 23"
+  elif [ -n "$CFG_BOARD" ] && ! [[ "$CFG_BOARD" =~ ^https://[^[:space:]\<\>\|]+$ ]]; then
+    CFG_ERROR="config/slack-bridge board-url must be one https:// URL"
   elif ! [[ "$CFG_CAPTAIN" =~ ^[UW][A-Z0-9]{2,}$ ]]; then
     CFG_ERROR="config/slack-bridge needs captain-user as a Slack user id (U...)"
   elif [ -n "$CFG_BOT" ] && { ! valid_channel_id "$CFG_REPORT" || ! valid_channel_id "$CFG_DECISIONS" \
-    || { [ -n "$CFG_HANDOFF" ] && ! valid_channel_id "$CFG_HANDOFF"; }; }; then
+    || { [ -n "$CFG_HANDOFF" ] && ! valid_channel_id "$CFG_HANDOFF"; } \
+    || { [ -n "$CFG_UPDATES" ] && ! valid_channel_id "$CFG_UPDATES"; }; }; then
     CFG_ERROR="config/slack-bridge with a bot needs every channel as a channel id (C...), because the bot has no scope to look up #names"
   elif ! [[ "$CFG_WATCH_DAYS" =~ ^[0-9]+$ ]] || [ "$CFG_WATCH_DAYS" -lt 1 ] || [ "$CFG_WATCH_DAYS" -gt 30 ]; then
     CFG_ERROR="config/slack-bridge watch-days must be a whole number from 1 to 30"
@@ -345,7 +372,7 @@ ZWSP=$'\xe2\x80\x8b'
 RENDER_TEXT=
 RENDER_BLOCKS_B64=
 render_post() {  # <spec-json>
-  local out rc=0 text_b64
+  local out rc=0 text_b64 rewrote
   command -v node >/dev/null 2>&1 || die "node is not installed, so posts cannot be rendered"
   out=$(printf '%s' "$1" | node "$RENDERER" lines 2>&1) || rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -357,23 +384,25 @@ render_post() {  # <spec-json>
   [ -n "$text_b64" ] && [ -n "$RENDER_BLOCKS_B64" ] || die "the renderer returned no message"
   RENDER_TEXT=$(b64_decode "$text_b64"; printf .)
   RENDER_TEXT=${RENDER_TEXT%.}
+  rewrote=$(printf '%s\n' "$out" | sed -n 's/^rewrote \([a-z ,-]*\)$/\1/p' | sed -n 1p)
+  [ -z "$rewrote" ] || printf 'fm-slack-bridge: rewrote internal terms into plain words: %s\n' "$rewrote" >&2
 }
 
 json_b64() { printf '"%s"' "$(b64_line "$1")"; }
 
 action_post() {
-  local kind=${1:-} url="" title="" project="" text="" recommend=""
-  local spec summary channel out draft channel_id sent ts rc item key
-  local -a contexts=() option_keys=() option_texts=()
+  local kind=${1:-} url="" title="" project="" text="" recommend="" task=""
+  local spec summary channel item key gen primary_posted=0
+  local -a contexts=() option_keys=() option_texts=() lines=()
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
   case "$kind" in
-    report|decision|ready|merged) ;;
-    *) printf 'fm-slack-bridge: post kind must be report, decision, ready, or merged\n' >&2; exit 2 ;;
+    report|decision|ready|merged|finished|live|stuck|digest) ;;
+    *) printf 'fm-slack-bridge: post kind must be report, decision, ready, merged, finished, live, stuck, or digest\n' >&2; exit 2 ;;
   esac
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --url|--title|--project|--context|--option|--recommend)
+      --url|--title|--project|--context|--option|--recommend|--line|--task)
         [ "$#" -ge 2 ] || { printf 'fm-slack-bridge: %s needs a value\n' "$1" >&2; exit 2; }
         case "$1" in
           --url)
@@ -383,6 +412,11 @@ action_post() {
           --title) title=$2 ;;
           --project) project=$2 ;;
           --context) contexts+=("$2") ;;
+          --line) lines+=("$2") ;;
+          --task)
+            task=$2
+            [[ "$task" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { printf 'fm-slack-bridge: --task must be a task id\n' >&2; exit 2; }
+            ;;
           --option)
             case "$2" in
               *=*) ;;
@@ -428,6 +462,14 @@ action_post() {
       done
       spec="$spec]"
     fi
+    if [ "${#lines[@]}" -gt 0 ]; then
+      spec="$spec,\"lines_b64\":["
+      for item in "${!lines[@]}"; do
+        [ "$item" -eq 0 ] || spec="$spec,"
+        spec="$spec$(json_b64 "${lines[$item]}")"
+      done
+      spec="$spec]"
+    fi
     if [ "$kind" = decision ] && [ "${#option_keys[@]}" -gt 0 ] && [ -z "$recommend" ]; then
       printf 'fm-slack-bridge: a decision with options needs --recommend\n' >&2
       exit 2
@@ -443,10 +485,12 @@ action_post() {
     [ -z "$recommend" ] || spec="$spec,\"recommend\":\"$recommend\""
   else
     case "$kind" in
-      ready|merged) printf 'fm-slack-bridge: a %s post needs --title\n' "$kind" >&2; exit 2 ;;
+      report|decision) ;;
+      *) printf 'fm-slack-bridge: a %s post needs --title\n' "$kind" >&2; exit 2 ;;
     esac
     [ -z "$project" ] && [ "${#contexts[@]}" -eq 0 ] && [ "${#option_keys[@]}" -eq 0 ] && [ -z "$recommend" ] \
-      || { printf 'fm-slack-bridge: --project, --context, --option, and --recommend need --title\n' >&2; exit 2; }
+      && [ "${#lines[@]}" -eq 0 ] \
+      || { printf 'fm-slack-bridge: --project, --context, --line, --option, and --recommend need --title\n' >&2; exit 2; }
     [ -n "${text//[[:space:]]/}" ] || { printf 'fm-slack-bridge: refusing to post an empty message\n' >&2; exit 2; }
     spec="{\"kind\":\"$kind\",\"text_b64\":$(json_b64 "$text")"
   fi
@@ -454,7 +498,6 @@ action_post() {
   # how a delivered thread reply says what it answers.
   if [ -n "$title" ]; then summary="${project:+$project: }$title"; else summary=$text; fi
   [ -z "$url" ] || spec="$spec,\"url_b64\":$(json_b64 "$url")"
-  spec="$spec}"
   if ! config_load; then
     printf 'slack bridge off: no config/slack-bridge\n'
     return 0
@@ -462,14 +505,114 @@ action_post() {
   [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
   [ -n "$CFG_BOT" ] || command -v slack-axi >/dev/null 2>&1 || die "slack-axi is not installed on PATH"
   state_prepare || die "cannot prepare $BRIDGE_STATE"
-  render_post "$spec"
-  text=$RENDER_TEXT
+  gen=
+  if [ -n "$task" ]; then
+    gen=$(task_gen "$task")
+    if outcome_has "$task" "$gen" "$kind"; then
+      primary_posted=1
+    fi
+  fi
+  spec="$spec,\"lang\":\"$CFG_LANGUAGE\""
+  render_post "$spec}"
+  case "$kind" in
+    decision) channel=$CFG_DECISIONS ;;
+    merged|finished|live|stuck|digest) channel=${CFG_UPDATES:-$CFG_REPORT} ;;
+    *) channel=$CFG_REPORT ;;
+  esac
+  if [ "$primary_posted" -eq 0 ]; then
+    send_post "$channel" "$kind" "$summary"
+    if [ -n "$task" ]; then
+      printf 'v1\t%s\t%s\t%s\t%s\t%s\t%s\n' "$task" "${gen:--}" "$kind" "$(now_epoch)" "$SENT_CHANNEL" "$SENT_TS" >> "$OUTCOMES" \
+        || die "posted $SENT_CHANNEL $SENT_TS but could not record the outcome in $OUTCOMES"
+    fi
+    printf 'posted %s %s %s\n' "$kind" "$SENT_CHANNEL" "$SENT_TS"
+  else
+    SENT_CHANNEL=$(awk -F '\t' -v t="$task" -v g="$gen" -v k="$kind" \
+      '$1 == "v1" && $2 == t && $3 == g && $4 == k { print $6; exit }' "$OUTCOMES")
+    printf 'already posted %s for %s\n' "$kind" "$task"
+  fi
+  # An ask lives in its own channel and gets a one-line pointer in #updates,
+  # so #updates alone shows everything that needs the captain.
+  case "$kind" in decision|ready) ;; *) return 0 ;; esac
+  [ -n "$CFG_UPDATES" ] && [ "$CFG_UPDATES" != "$channel" ] || return 0
+  if [ -n "$task" ] && outcome_has "$task" "$gen" "$kind-mirror"; then
+    return 0
+  fi
+  spec="{\"kind\":\"$kind\",\"title_b64\":$(json_b64 "${title:-${text%%$'\n'*}}")"
+  [ -z "$project" ] || spec="$spec,\"project_b64\":$(json_b64 "$project")"
+  [ -z "$url" ] || spec="$spec,\"url_b64\":$(json_b64 "$url")"
+  spec="$spec,\"mirror\":\"$SENT_CHANNEL\",\"lang\":\"$CFG_LANGUAGE\"}"
+  if (
+    render_post "$spec" || exit $?
+    send_post "$CFG_UPDATES" mirror "$summary"
+    if [ -n "$task" ]; then
+      printf 'v1\t%s\t%s\t%s-mirror\t%s\t%s\t%s\n' "$task" "$gen" "$kind" "$(now_epoch)" "$SENT_CHANNEL" "$SENT_TS" >> "$OUTCOMES" \
+        || die "could not record the #updates entry in $OUTCOMES"
+    fi
+  ) >/dev/null; then
+    printf 'posted mirror %s\n' "$CFG_UPDATES"
+  else
+    printf 'slack: the #updates entry for this %s could not be posted; the %s post itself landed\n' "$kind" "$kind"
+  fi
+}
+
+# The task's spawn incarnation, so a relaunched task reports its new result.
+task_gen() {  # <task>
+  local gen
+  gen=$(sed -n 's/^spawn_gen=//p' "$STATE/$1.meta" 2>/dev/null | sed -n 1p)
+  [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || gen=-
+  printf '%s\n' "$gen"
+}
+
+# state/slack-bridge/outcomes: one "v1 <task> <spawn-gen> <kind> <epoch>
+# <channel> <ts>" line per destination posted with --task. Ask pointers use
+# <kind>-mirror, so `posted` stays false until both destinations landed.
+outcome_has() {  # <task> <gen> <kind>
+  [ -f "$OUTCOMES" ] && awk -F '\t' -v t="$1" -v g="$2" -v k="$3" \
+    '$1 == "v1" && $2 == t && $3 == g && $4 == k { f = 1 } END { exit !f }' "$OUTCOMES"
+}
+
+action_posted() {
+  local task="" kind
+  [ "${1:-}" = --task ] && [ "$#" -eq 3 ] || { printf 'fm-slack-bridge: usage: posted --task <id> <kind>\n' >&2; exit 2; }
+  task=$2
+  kind=$3
+  [[ "$task" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { printf 'fm-slack-bridge: --task must be a task id\n' >&2; exit 2; }
+  local gen channel
+  gen=$(task_gen "$task")
+  outcome_has "$task" "$gen" "$kind" || return 1
+  case "$kind" in decision|ready) ;; *) return 0 ;; esac
+  config_load && [ -z "$CFG_ERROR" ] || return 1
   if [ "$kind" = decision ]; then channel=$CFG_DECISIONS; else channel=$CFG_REPORT; fi
+  [ -n "$CFG_UPDATES" ] && [ "$CFG_UPDATES" != "$channel" ] || return 0
+  outcome_has "$task" "$gen" "$kind-mirror"
+}
+
+# The settings bin/fm-updates.sh needs, one key=value per line; "bridge=off"
+# alone when the bridge is off or its config is invalid.
+action_settings() {
+  if ! config_load || [ -n "$CFG_ERROR" ]; then
+    printf 'bridge=off\n'
+    return 0
+  fi
+  printf '%s\n' bridge=on "language=$CFG_LANGUAGE" "updates-channel=$CFG_UPDATES" \
+    "digest-hour=$CFG_DIGEST_HOUR" "board-url=$CFG_BOARD"
+}
+
+# Send one rendered post (RENDER_TEXT, RENDER_BLOCKS_B64) to <channel> and
+# record it in the posts file. Sets SENT_CHANNEL and SENT_TS; dies on failure.
+SENT_CHANNEL=
+SENT_TS=
+send_post() {  # <channel> <kind> <summary>
+  local channel=$1 kind=$2 summary=$3 text=$RENDER_TEXT out draft channel_id sent ts rc
+  SENT_CHANNEL=
+  SENT_TS=
   if [ -n "$CFG_BOT" ]; then
     bot_post "$channel" "$text" "" "$RENDER_BLOCKS_B64" || die "the Slack bot could not post to $channel: $BOT_ERROR"
     record_post "$BOT_CHANNEL" "$BOT_TS" "$kind" "$summary" \
       || die "posted $BOT_CHANNEL $BOT_TS but could not record it in $POSTS"
-    printf 'posted %s %s %s\n' "$kind" "$BOT_CHANNEL" "$BOT_TS"
+    SENT_CHANNEL=$BOT_CHANNEL
+    SENT_TS=$BOT_TS
     return 0
   fi
   # slack-axi posts text only, so it sends the renderer's mrkdwn fallback,
@@ -499,7 +642,8 @@ action_post() {
   fi
   record_post "$channel_id" "$ts" "$kind" "$summary" \
     || die "posted $channel_id $ts but could not record it in $POSTS"
-  printf 'posted %s %s %s\n' "$kind" "$channel_id" "$ts"
+  SENT_CHANNEL=$channel_id
+  SENT_TS=$ts
 }
 
 # ---------------------------------------------------------------- check
@@ -534,8 +678,8 @@ report_problem() {
 }
 
 budget_secs() {
-  local timeout=${FM_CHECK_TIMEOUT:-30} budget=${FM_SLACK_BRIDGE_BUDGET:-20} max
-  case "$timeout" in ''|*[!0-9]*|0) timeout=30 ;; esac
+  local timeout budget=${FM_SLACK_BRIDGE_BUDGET:-20} max
+  timeout=$(check_timeout)
   case "$budget" in ''|*[!0-9]*) budget=20 ;; esac
   [ "$budget" -ge 5 ] && [ "$budget" -le 25 ] || budget=20
   max=$((timeout - 5))
@@ -593,7 +737,55 @@ deliver_captain() {  # <request-id> <channel> <thread-ts|-> <body>
   deliver "$1" slack-captain "$4"
 }
 
+# One watcher poll: inbound replies first, then the outcome backstop and the
+# morning digest (bin/fm-updates.sh tick) in the time left under the
+# watcher's per-check bound.
+CHECK_READY=0
+CHECK_ERRF=
 action_check() {
+  local started deadline out posted='' line failed
+  started=$(now_epoch)
+  trap '[ -z "$CHECK_ERRF" ] || rm -f -- "$CHECK_ERRF"' EXIT
+  check_inbound
+  [ "$CHECK_READY" -eq 1 ] || return 0
+  deadline=$((started + $(check_timeout) - 3))
+  out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_UPDATES_DEADLINE="$deadline" "$UPDATES_BIN" tick 2>/dev/null) || true
+  # Its own diagnostic record, so an inbound poll that clears its own never
+  # makes a lasting posting failure print again on every poll.
+  REPORT_RECORD="$BRIDGE_STATE/last-updates-report"
+  failed=
+  while IFS= read -r line; do
+    case "$line" in
+      'posted '*) posted="$posted${posted:+, }${line#posted }" ;;
+      'failed '*) failed=${line#failed } ;;
+    esac
+  done <<EOF
+$out
+EOF
+  if [ -n "$failed" ]; then
+    report_problem "a missed outcome could not be posted to Slack ($failed); the next poll retries"
+  else
+    report_write "" || true
+  fi
+  if [ -n "$posted" ]; then
+    fm_cap_line_var "slack: posted missed outcome(s) and digest to Slack: $posted" "$MAX_LINE"
+    printf '%s\n' "$FM_LINE_CAP_LINE"
+  fi
+  return 0
+}
+
+check_timeout() {
+  local timeout=${FM_CHECK_TIMEOUT:-30}
+  case "$timeout" in ''|*[!0-9]*|0) timeout=30 ;; esac
+  printf '%s\n' "$timeout"
+}
+
+# Scratch files a poll killed by the watcher's bound could not remove.
+sweep_scratch() {
+  find "$BRIDGE_STATE" -maxdepth 1 -type f \( -name '.read-err.*' -o -name '.bot-err.*' \) -mmin +60 -exec rm -f -- {} + 2>/dev/null || true
+}
+
+check_inbound() {
   local now window_start budget request handoff_id cursor dm_cursor rc out line errf reader prefix
   local kind channel parent ts user bot subtype text_b64 name_b64 text name summary rid body
   local captain=0 requests=0 failed=0 max_handoff='' max_dm='' mention_cursor mention_mark='' mention_channels
@@ -605,6 +797,8 @@ action_check() {
     return 0
   fi
   check_every_sync || { report_problem "cannot update $CHECK_EVERY"; return 0; }
+  sweep_scratch
+  CHECK_READY=1
   if ! command -v node >/dev/null 2>&1; then
     report_problem "node is not installed, so inbound Slack replies stay off"
     return 0
@@ -691,10 +885,12 @@ action_check() {
   fi
   budget=$(budget_secs)
   errf=$(umask 077; mktemp "$BRIDGE_STATE/.read-err.XXXXXX") || { report_problem "cannot create a scratch file in $BRIDGE_STATE"; return 0; }
+  CHECK_ERRF=$errf
   rc=0
   out=$(printf '%s' "$request" | fm_run_timed "$budget" node "${reader[@]}" 2>"$errf") || rc=$?
   line=$(sed -n "s/^$prefix: //p" "$errf" | sed -n 1p)
   rm -f -- "$errf"
+  CHECK_ERRF=
   if [ "$rc" -eq 124 ]; then
     report_problem "Slack read did not finish within the ${budget}s budget"
     return 0
@@ -1079,6 +1275,8 @@ action_disarm() {
 case "${1:-}" in
   post) shift; action_post "$@" ;;
   check) action_check ;;
+  posted) shift; action_posted "$@" ;;
+  settings) action_settings ;;
   arm) action_arm ;;
   disarm) action_disarm ;;
   send-reply) shift; action_send_reply "$@" ;;

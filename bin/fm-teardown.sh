@@ -3593,6 +3593,18 @@ if [ "$BACKEND" = herdr ]; then
   TEARDOWN_HERDR_PANE=$FM_BACKEND_HERDR_PANE
 fi
 
+# Report before staging a replayable close: startup replay may retire the task
+# record even when a later cleanup step fails. A failed Slack delivery must
+# leave no close receipt that could erase the result before it can be retried.
+# A discard approved with --force owes no report.
+if [ "$KIND" != secondmate ] && [ "$FORCE" != --force ]; then
+  if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+      "$SCRIPT_DIR/fm-updates.sh" settle "$ID"; then
+    echo "error: $ID's outcome has not been reported to Slack; retaining every durable task record so a rerun can retry the report" >&2
+    exit 1
+  fi
+fi
+
 BACKLOG_CLOSED=0
 BACKLOG_TRANSITION=$TEARDOWN_BACKLOG_TRANSITION
 BACKLOG_TRANSITION_FLAGS=()
