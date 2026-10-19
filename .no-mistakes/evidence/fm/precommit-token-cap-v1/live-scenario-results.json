@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Exact cap, initial commit, and crossing the limit",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Existing oversized files may stay or shrink but cannot regrow",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Only staged bytes influence the commit",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Lockfiles, generated, vendored, and binary content remain committable",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Incidental prose and out-of-window markers cannot bypass the cap",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Only staged exemption attributes count",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Renames, deletions, multibyte content, and spaced filenames",
+    "result": "pass",
+    "live": true
+  }
+]

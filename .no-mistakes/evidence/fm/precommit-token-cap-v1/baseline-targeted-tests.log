@@ -1,0 +1,37 @@
+FM_TEST_BEGIN 2026-10-19T09:43:42Z tests/fm-precommit-token-cap-rule.test.sh family=unclassified expected_gate_skip=none
+ok - a new oversized staged file is refused with the full split message
+ok - an existing oversized file passes at the same size and when shrunk
+ok - an existing oversized file that grows is refused and names its HEAD size
+ok - a staged file crossing the limit from below is refused even though it existed at HEAD
+ok - renames ratchet against the source path's HEAD size
+ok - a staged deletion of an oversized file commits
+ok - the cap measures the index blob, never the working tree
+ok - oversized untracked files stay out of the verdict; staged files still fail
+ok - one message lists every failing file with its own token count
+# all fm-precommit-token-cap rule tests passed
+FM_TEST_END 2026-10-19T09:43:48Z tests/fm-precommit-token-cap-rule.test.sh exit=0 duration_ms=5399 gate_skip=false
+FM_TEST_BEGIN 2026-10-19T09:43:48Z tests/fm-precommit-token-cap-exemptions.test.sh family=unclassified expected_gate_skip=none
+ok - a filename matching an attribute value does not exempt authored files
+ok - oversized lockfiles commit; the same repo still refuses a big script
+ok - an oversized binary file commits; a text file the same size still refuses
+ok - a generated marker on the first lines skips the cap; a plain file still refuses
+ok - incidental do-not-edit prose does not exempt authored files
+ok - untracked and modified attributes cannot exempt staged authored files
+ok - .gitattributes linguist marks skip the cap; unmarked files still refuse
+ok - linguist-generated=true and linguist-vendored=true exempt oversized files
+ok - linguist-generated=false stays under the cap
+ok - diff-attribute-forced binary classification skips the cap; unmarked files still refuse
+ok - the text attribute never flips a NUL blob to text-only classification
+ok - a set diff attribute forces text classification, so the NUL blob stays under the cap
+ok - a named diff driver with diff.<driver>.binary=true skips the cap; unmarked files still refuse
+ok - diff.<driver>.binary=false forces text like a set diff attribute; the cap still refuses
+ok - an unconfigured diff driver falls back to git's NUL content heuristic
+ok - worktree-only attribute flips cannot reclassify staged forced-text files
+ok - worktree-only diff-driver assignments cannot exempt staged files
+ok - worktree-only binary attribute assignments cannot exempt staged files
+# all fm-precommit-token-cap exemption tests passed
+FM_TEST_END 2026-10-19T09:43:58Z tests/fm-precommit-token-cap-exemptions.test.sh exit=0 duration_ms=10030 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=15561
+FM_TEST_SUMMARY_FAMILY family=unclassified count=2 duration_ms=15429 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-precommit-token-cap-exemptions.test.sh duration_ms=10030
+FM_TEST_SLOWEST rank=2 script=tests/fm-precommit-token-cap-rule.test.sh duration_ms=5399
