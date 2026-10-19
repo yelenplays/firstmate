@@ -2,9 +2,10 @@
 # Behavior tests for bin/fm-memory-capture.sh and bin/fm-memory-capture.mjs.
 #
 # Drives the real capture against a scratch home whose journal is built by the
-# real bin/fm-history.sh from a fixture transcript. Jev and the Claude CLI are
-# recording stand-ins, so the tests pin the deterministic filter, the privacy
-# split between Jev and the model, write-then-verify, the watermark, the
+# real bin/fm-history.sh from a fixture transcript. The Claude CLI is a
+# recording stand-in and curl a recording trap, so the tests pin the
+# deterministic filter, that captain words reach only the Claude model and
+# arrive whole, write-then-verify, the watermark, overlapping boundaries, the
 # failure alert, and the hook scope guards without network or tokens.
 set -u
 
@@ -22,28 +23,25 @@ CAPTURE="$ROOT/bin/fm-memory-capture.sh"
 TZ=Europe/Berlin
 export TZ
 
-# Jev stand-in: records each request and answers by keyword, or fails when
-# FAKE_JEV_FAIL=1.
-cat > "$FAKEBIN/fake-jev" <<'SH'
+# curl trap: any outbound HTTP call from the capture is recorded and refused.
+cat > "$FAKEBIN/curl" <<'SH'
 #!/usr/bin/env bash
-input=$(cat)
-printf '%s\n' "$input" >> "$FAKE_REC/jev.stdin"
-[ "${FAKE_JEV_FAIL:-}" = 1 ] && { echo 'jev: no key' >&2; exit 1; }
-printf '%s' "$input" | jq -r '.questions[].id' | while read -r id; do
-  line=$(printf '%s' "$input" | jq -r '.state' | grep -o "$id: [^|]*" | head -n 1)
-  case "$line" in
-    *"plain dash"*) printf '%s: preference p=0.9 conf=0.9\n' "$id" ;;
-    *) printf '%s: none p=0.9 conf=0.9\n' "$id" ;;
-  esac
-done
+cat > /dev/null
+printf '%s\n' "$*" >> "$FAKE_REC/curl.calls"
+exit 7
 SH
 
 # Claude CLI stand-in: records argv and stdin, then prints a canned result.
+# While the FAKE_CLAUDE_HOLD file exists it marks itself started and waits.
 cat > "$FAKEBIN/fake-claude" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$FAKE_REC/claude.args"
 cat >> "$FAKE_REC/claude.stdin"
 printf 'x\n' >> "$FAKE_REC/claude.calls"
+if [ -n "${FAKE_CLAUDE_HOLD:-}" ] && [ -e "$FAKE_CLAUDE_HOLD" ]; then
+  : > "$FAKE_REC/claude.started"
+  while [ -e "$FAKE_CLAUDE_HOLD" ]; do sleep 0.05; done
+fi
 [ "${FAKE_CLAUDE_FAIL:-}" = 1 ] && { echo 'not json'; exit 1; }
 cat <<'JSON'
 {"type":"result","is_error":false,"total_cost_usd":0.0012,
@@ -54,27 +52,34 @@ cat <<'JSON'
  ]}}
 JSON
 SH
-chmod +x "$FAKEBIN/fake-jev" "$FAKEBIN/fake-claude"
+chmod +x "$FAKEBIN/curl" "$FAKEBIN/fake-claude"
+
+TRANSCRIPT="$TMP_ROOT/transcript.jsonl"
+
+turn() {  # <id> <minute> <captain text> <reply text>
+  jq -nc --arg id "$1" --arg t "2026-09-24T10:$2:00Z" --arg text "$3" \
+    '{type:"user",origin:{kind:"human"},uuid:$id,timestamp:$t,message:{content:$text}}'
+  jq -nc --arg id "$1-r" --arg t "2026-09-24T10:$2:30Z" --arg text "$4" \
+    '{type:"assistant",uuid:$id,timestamp:$t,message:{content:[{type:"text",text:$text}],stop_reason:"end_turn"}}'
+}
+
+journal() {
+  run_env "$ROOT/bin/fm-history.sh" capture --transcript "$TRANSCRIPT" >/dev/null \
+    || fail 'fixture journal capture failed'
+}
 
 fresh_home() {
   rm -rf "$HOME_DIR" "$REC"
   mkdir -p "$HOME_DIR/data" "$HOME_DIR/state" "$HOME_DIR/config" "$REC"
-  local transcript="$TMP_ROOT/transcript.jsonl"
   {
-    turn() {  # <id> <minute> <captain text> <reply text>
-      jq -nc --arg id "$1" --arg t "2026-09-24T10:$2:00Z" --arg text "$3" \
-        '{type:"user",origin:{kind:"human"},uuid:$id,timestamp:$t,message:{content:$text}}'
-      jq -nc --arg id "$1-r" --arg t "2026-09-24T10:$2:30Z" --arg text "$4" \
-        '{type:"assistant",uuid:$id,timestamp:$t,message:{content:[{type:"text",text:$text}],stop_reason:"end_turn"}}'
-    }
     turn c1 01 'Please always use plain dash in commit messages from now on.' 'Noted, plain dashes in every commit.'
     turn c2 02 'merge it' 'Merged.'
     turn c3 03 'My girlfriend and I broke up yesterday and I am moving out of the flat.' 'I am sorry, Captain. I will keep things light this week.'
     turn c4 04 ': Firstmate instruction waiting: list the inbox and act on it' 'Captain, shipshape.'
     turn c5 05 'The deploy script for the docs site fixes the lint issue now.' 'Good, the lint lane is green again.'
-  } > "$transcript"
-  run_env "$ROOT/bin/fm-history.sh" capture --transcript "$transcript" >/dev/null \
-    || fail 'fixture journal capture failed'
+    turn c6 06 'My bank account was frozen; add a reminder to the backlog and fix the test config.' 'Added to the backlog.'
+  } > "$TRANSCRIPT"
+  journal
 }
 
 run_env() {
@@ -82,24 +87,22 @@ run_env() {
     PATH="$FAKEBIN:$PATH" FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     FM_STATE_OVERRIDE="$HOME_DIR/state" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
     FM_MEMORY_DIR="$HOME_DIR/data/memories" FM_CLAUDE_BIN="$FAKEBIN/fake-claude" \
-    FM_MEMORY_CAPTURE_JEV_BIN="$FAKEBIN/fake-jev" FAKE_REC="$REC" "$@"
+    FAKE_REC="$REC" "$@"
 }
 
-test_capture_splits_privacy_writes_and_verifies() {
+test_capture_filters_writes_and_verifies() {
   local out store="$HOME_DIR/data/memories"
   fresh_home
   out=$(run_env "$CAPTURE" run --trigger precompact) || fail "capture run failed: $out"
-  assert_contains "$out" '"turns":5' 'the run did not read all five journaled turns'
+  assert_contains "$out" '"turns":6' 'the run did not read all six journaled turns'
   assert_contains "$out" '"dropped":2' 'the one-word answer and the wake prompt were not dropped'
-  assert_contains "$out" '"jev_units":2' 'only the two work-shaped turns should reach Jev'
-  assert_contains "$out" '"jev_none":1' 'Jev did not skip the turn without a durable fact'
+  assert_contains "$out" '"units":4' 'every retained turn must reach the model'
   assert_contains "$out" '"model_calls":1' 'the model was not called exactly once'
-  assert_not_contains "$(cat "$REC/jev.stdin")" 'girlfriend' 'a personal turn reached Jev'
-  assert_not_contains "$(cat "$REC/jev.stdin")" 'moving out' 'a personal turn reached Jev'
+  assert_absent "$REC/curl.calls" 'captain words left through an HTTP call'
   assert_contains "$(cat "$REC/claude.stdin")" 'broke up yesterday' 'the personal turn did not reach the model'
-  assert_contains "$(cat "$REC/claude.stdin")" 'plain dash in commit messages' 'the Jev-selected turn did not reach the model'
-  assert_contains "$(cat "$REC/claude.stdin")" '(triage: preference)' 'the Jev category hint was not passed on'
-  assert_not_contains "$(cat "$REC/claude.stdin")" 'docs site' 'a turn Jev ruled out still reached the model'
+  assert_contains "$(cat "$REC/claude.stdin")" 'plain dash in commit messages' 'the preference turn did not reach the model'
+  assert_contains "$(cat "$REC/claude.stdin")" 'docs site' 'a work turn did not reach the model'
+  assert_contains "$(cat "$REC/claude.stdin")" 'bank account was frozen' 'a mixed work and personal turn did not reach the model'
   assert_not_contains "$(cat "$REC/claude.stdin")" 'merge it' 'a one-word answer reached the model'
   assert_not_contains "$(cat "$REC/claude.stdin")" 'instruction waiting' 'a wake prompt reached the model'
   assert_contains "$(cat "$REC/claude.args")" 'claude-haiku-5-5' 'the model was not pinned to Haiku'
@@ -108,21 +111,63 @@ test_capture_splits_privacy_writes_and_verifies() {
   assert_grep 'sensitivity: private' "$store/events/breakup-and-move.md" 'the personal event was not marked private'
   assert_grep 'expires: 2026-10-08' "$store/now/breakup-and-move.md" 'the now entry lost its expiry'
   assert_grep 'going through a breakup' "$store/now/breakup-and-move.md" 'the now entry lost its summary'
-  assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" '"id":"c5"' 'the watermark did not advance to the last turn'
+  assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" '"id":"c6"' 'the watermark did not advance to the last turn'
   out=$(run_env "$CAPTURE" run --trigger sessionend) || fail "second run failed: $out"
   assert_contains "$out" '"turns":0' 'a second run re-read captured turns'
   [ "$(wc -l < "$REC/claude.calls" | tr -d ' ')" = 1 ] || fail 'a run with nothing new called the model'
   [ "$(wc -l < "$HOME_DIR/state/memory-capture/runs.jsonl" | tr -d ' ')" = 2 ] || fail 'each run must append one record'
-  pass 'capture keeps personal turns from Jev, writes verified memories and a now entry, and advances once'
+  pass 'capture sends every retained turn only to the model, writes verified memories and a now entry, and advances once'
 }
 
-test_jev_failure_falls_back_to_the_model() {
-  local out
+# The only durable fact sits past the old 2400-character clip in one message
+# and past a 12000-character chunk boundary in another; both must reach the
+# model before the watermark retires their turns.
+test_long_messages_reach_the_model_whole() {
+  local out filler long short
   fresh_home
-  out=$(FAKE_JEV_FAIL=1 run_env "$CAPTURE" run) || fail "capture with Jev down failed: $out"
-  assert_contains "$out" '"jev_escalated":2' 'Jev failures were not counted as undecided'
-  assert_contains "$(cat "$REC/claude.stdin")" 'docs site' 'an undecided turn did not fall back to the model'
-  pass 'a Jev failure sends the undecided turns to the model instead of dropping them'
+  filler=$(printf 'The requirements walk through the release checklist in detail. %.0s' $(seq 1 200))
+  short="${filler:0:2680} From now on always use tabs instead of spaces."
+  long="${filler} From now on always sign release notes with the crew name."
+  {
+    turn c7 07 "$short" 'Understood.'
+    turn c8 08 "$long" 'Understood.'
+  } >> "$TRANSCRIPT"
+  journal
+  out=$(run_env "$CAPTURE" run --trigger precompact) || fail "capture run failed: $out"
+  assert_contains "$(cat "$REC/claude.stdin")" 'always use tabs instead of spaces' 'a fact past 2400 characters never reached the model'
+  assert_contains "$(cat "$REC/claude.stdin")" 'sign release notes with the crew name' 'a fact past the chunk boundary never reached the model'
+  assert_contains "$(cat "$REC/claude.stdin")" '(message part 2/2)' 'a long message was not split into labeled parts'
+  assert_not_contains "$(cat "$REC/claude.stdin")" '[...]' 'a captain message was clipped'
+  assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" '"id":"c8"' 'the watermark did not advance past the long turns'
+  pass 'long captain messages reach the model whole before the watermark retires them'
+}
+
+# A SessionEnd that fires while a PreCompact run is mid-extraction must be
+# drained by that run, not left for a future boundary.
+test_overlapping_boundary_is_drained() {
+  local out bg i=0 runs
+  fresh_home
+  : > "$REC/hold"
+  FAKE_CLAUDE_HOLD="$REC/hold" run_env "$CAPTURE" run --trigger precompact > "$REC/bg.out" 2>&1 &
+  bg=$!
+  while [ ! -e "$REC/claude.started" ] && [ "$i" -lt 200 ]; do sleep 0.05; i=$((i + 1)); done
+  [ -e "$REC/claude.started" ] || { rm -f "$REC/hold"; wait "$bg"; fail 'the first run never reached the model'; }
+  turn c9 09 'Remember that the release freeze starts on Friday.' 'Noted.' >> "$TRANSCRIPT"
+  journal
+  out=$(run_env "$CAPTURE" run --trigger sessionend) || fail "overlapping boundary failed: $out"
+  assert_contains "$out" 'drain this boundary' 'the overlapping boundary did not report the hand-off'
+  [ -e "$HOME_DIR/state/memory-capture/pending" ] || fail 'the overlapping boundary left no pending marker'
+  rm -f "$REC/hold"
+  wait "$bg" || fail "the first run failed: $(cat "$REC/bg.out")"
+  runs="$HOME_DIR/state/memory-capture/runs.jsonl"
+  [ "$(wc -l < "$runs" | tr -d ' ')" = 2 ] || fail "expected the first run and one drain run: $(cat "$runs")"
+  assert_contains "$(tail -n 1 "$runs")" '"trigger":"sessionend"' 'the drain run did not carry the SessionEnd trigger'
+  assert_contains "$(tail -n 1 "$runs")" '"turns":1' 'the drain run did not read exactly the newer turn'
+  assert_contains "$(cat "$REC/claude.stdin")" 'release freeze starts on Friday' 'the SessionEnd turn never reached the model'
+  assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" '"id":"c9"' 'the watermark stopped before the SessionEnd turn'
+  assert_absent "$HOME_DIR/state/memory-capture/pending" 'the drained boundary left its marker behind'
+  assert_absent "$HOME_DIR/state/memory-capture/lock" 'the run lock was left behind'
+  pass 'a boundary that overlaps a running capture is drained before that run exits'
 }
 
 test_non_anthropic_model_is_refused() {
@@ -147,7 +192,7 @@ test_two_failures_alert_once_and_recovery_resolves() {
   assert_absent "$HOME_DIR/state/memory-capture/watermark.json" 'a failed run advanced the watermark'
   run_env "$CAPTURE" run >/dev/null || fail 'the recovery run failed'
   grep -Eq '^resolved \[at=[0-9]+\]: memory capture recovered' "$status" || fail 'recovery did not resolve the alert'
-  assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" '"id":"c5"' 'recovery did not capture the queued turns'
+  assert_contains "$(cat "$HOME_DIR/state/memory-capture/watermark.json")" '"id":"c6"' 'recovery did not capture the queued turns'
   pass 'two failed runs alert once, keep turns queued, and the next good run resolves'
 }
 
@@ -183,8 +228,9 @@ test_hook_stands_down_outside_the_primary_main_session() {
   pass 'the hook runs only for the primary home main session and returns before the capture'
 }
 
-test_capture_splits_privacy_writes_and_verifies
-test_jev_failure_falls_back_to_the_model
+test_capture_filters_writes_and_verifies
+test_long_messages_reach_the_model_whole
+test_overlapping_boundary_is_drained
 test_non_anthropic_model_is_refused
 test_two_failures_alert_once_and_recovery_resolves
 test_hook_stands_down_outside_the_primary_main_session

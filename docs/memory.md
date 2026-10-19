@@ -39,18 +39,18 @@ The project `.claude/settings.json` chains it after `bin/fm-history.sh capture` 
 The automatic hook stands down outside the primary main session; its header owns the scope guards and manual-run caveat, and [configuration](configuration.md#automatic-capture-configmemory-capture) owns the disable and model settings.
 
 Each run reads journaled captain turns after its watermark, starting with all available journaled turns when no watermark exists.
-It drops recognized wake prompts and acknowledgements, strips pasted blocks and configured no-op replies, and keeps bounded captain messages with their paired replies; tool output is excluded by journal capture.
+It drops recognized wake prompts and acknowledgements, strips pasted blocks and configured no-op replies, and keeps each captain message whole with its paired reply clipped as context; tool output is excluded by journal capture.
+A very long captain message is split into consecutive parts rather than cut, so no captain word is retired by the watermark without reaching the model.
 Short factual messages remain eligible.
-Work-shaped turns with no recognized personal word and no `config/private-markers` match go first to Jev, which picks none, preference, entity, event, or now without spending Claude tokens; a turn Jev rates none costs nothing further.
-Every other retained turn, and every turn Jev escalates or cannot answer, goes to the configured Claude Haiku or Sonnet model.
-If no turns remain after filtering and triage, the extractor skips the model.
-The Jev privacy split is a deterministic word-and-marker filter, not a semantic privacy guarantee; recognized personal or configured-private content bypasses Jev.
+Every retained turn goes to the configured Claude Haiku or Sonnet model and to no other service: Jev accepts task facts only, and no word filter can prove a chat turn is free of personal data.
+If no turns remain after filtering, the extractor skips the model.
 Each memory is written through `remember`, read back, and recalled by topic before it counts, and the watermark advances only when every write verified.
+A boundary that fires while an earlier run is still extracting leaves a pending marker, and the earlier run drains it with a fresh pass over the newer turns before it exits, so a SessionEnd that overlaps a PreCompact run is captured before the next session starts.
 Two failed runs in a row append one `failed` line to `state/memory-capture.status`, which wakes firstmate, and the next good run appends `resolved`.
 The script header owns flags, state files, and per-run usage records; `bin/fm-memory-capture.sh status` summarizes them.
 These records account for extraction, not total main-session savings; compare total usage with the opt-in [auto-compaction window](configuration.md#auto-compaction-window-configclaude-autocompact) before claiming a net reduction.
 The recall-injection hook is unchanged.
-[`tests/fm-memory-capture.test.sh`](../tests/fm-memory-capture.test.sh) covers capture routing, writes, watermarking, and recovery with recording stand-ins; [`tests/fm-memory-filter-budget.test.sh`](../tests/fm-memory-filter-budget.test.sh) covers short facts and the complete NOW output cap.
+[`tests/fm-memory-capture.test.sh`](../tests/fm-memory-capture.test.sh) covers capture routing, long messages, overlapping boundaries, writes, watermarking, and recovery with recording stand-ins; [`tests/fm-memory-filter-budget.test.sh`](../tests/fm-memory-filter-budget.test.sh) covers short facts and the complete NOW output cap.
 
 ## Migrating from OpenViking
 

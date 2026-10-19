@@ -2227,7 +2227,6 @@ The file is home-local and not part of secondmate inherited configuration.
 Automatic capture of captain turns into the store is on by default for the primary home's main Claude session; [`docs/memory.md`](memory.md#automatic-capture) owns what it does.
 The optional local, gitignored `config/memory-capture` turns it off when its first non-comment line is `off`; `FM_MEMORY_CAPTURE=off` does the same for one process.
 `FM_MEMORY_CAPTURE_MODEL` overrides the default `claude-haiku-5-5` and accepts only a Claude Haiku or Sonnet model; use Sonnet only if Haiku misses facts, not as an automatic fallback.
-`FM_MEMORY_CAPTURE_JEV=off` bypasses Jev for turns that survive the deterministic pre-filter, not for discarded turns.
 The file is home-local and not inherited into secondmate homes, which capture nothing in this version.
 
 ## Toolchain
@@ -3517,7 +3516,6 @@ FM_WIKI_CATALOG=        # private wiki-tool catalog JSON path; else config/wiki-
 FM_MEMORY_DIR=          # memory store directory; else config/memory-dir, else $FM_HOME/data/memories (docs/configuration.md "Memory store")
 FM_MEMORY_CAPTURE=      # off disables automatic memory capture; else config/memory-capture (docs/configuration.md "Automatic capture")
 FM_MEMORY_CAPTURE_MODEL=claude-haiku-5-5  # capture model; Claude Haiku or Sonnet only (same section)
-FM_MEMORY_CAPTURE_JEV=  # off skips the Jev first pass in capture (same section)
 FM_OV_HOME=             # OpenViking home override for migration/retire scripts; default ~/.openviking (docs/memory.md)
 FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
 FM_JEV_SKILL_SELECT=shadow # skill selection mode; activation and safe-query requirements: "Jev skill selector" above

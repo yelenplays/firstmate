@@ -23,24 +23,31 @@
 # docs/memory.md "Automatic capture" owns filtering, privacy, verified writes,
 # watermark advancement, and failure/recovery behavior.
 # --after overrides the saved watermark; --until-day limits the last day read.
-# --dry-run filters and may call Jev, but does not call Claude, write memories,
-# update the watermark, or append run/failure records. It still creates the
-# state directory and transient lock. --no-watermark only preserves the saved
-# watermark; memory writes and run/failure records still occur.
+# --dry-run filters and plans model calls, but does not call Claude, write
+# memories, update the watermark, take the run lock, or append run/failure
+# records. --no-watermark only preserves the saved watermark; memory writes
+# and run/failure records still occur.
+#
+# A boundary that arrives while another run holds the lock leaves a pending
+# marker and returns; the run holding the lock drains every pending boundary
+# with a fresh watermark run before it lets go, and re-checks after releasing
+# so a boundary landing in that gap is never stranded. --after, --until-day,
+# and --no-watermark runs are replays, not boundaries: they set no marker, but
+# still drain any marker they find when they finish.
 #
 # `status` prints the watermark, the failure streak, and the last runs.
 # docs/configuration.md "Automatic capture" owns disable and model settings.
 #
 # State: state/memory-capture/ holds watermark.json (fm-memory-capture-mark.v1),
 # runs.jsonl (one fm-memory-capture-run.v1 record per run, with token usage,
-# cost, and Jev call counts), failures, log, and the run lock.
+# cost), failures, log, pending, and the run lock.
 # model_calls is a planned call count in dry-run output; model_cost_usd counts
-# Claude extraction only, not Jev spend or the primary session's total usage.
+# Claude extraction only, not the primary session's total usage.
 # Failure/recovery events append to state/memory-capture.status.
 #
 # Environment: FM_HOME, FM_STATE_OVERRIDE, FM_CONFIG_OVERRIDE,
 # FM_ROOT_OVERRIDE, FM_MEMORY_DIR, FM_MEMORY_CAPTURE, FM_MEMORY_CAPTURE_MODEL,
-# FM_MEMORY_CAPTURE_JEV, FM_MEMORY_CAPTURE_JEV_BIN, FM_CLAUDE_BIN.
+# FM_CLAUDE_BIN.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -150,16 +157,39 @@ record_outcome() {
   fi
 }
 
+# One extraction pass; prints its record and returns the extractor's exit.
+extract_once() {
+  local out rc why dry=$1
+  shift
+  out=$(node "$SCRIPT_DIR/fm-memory-capture.mjs" run --bin "$SCRIPT_DIR" --state "$CAPTURE_DIR" "$@")
+  rc=$?
+  printf '%s\n' "$out"
+  [ "$dry" = 1 ] && return "$rc"
+  why=$(printf '%s' "$out" | tail -n 1 | jq -r '.why // empty' 2>/dev/null || true)
+  [ "$rc" -eq 0 ] || [ -n "$why" ] || why="extractor exit $rc"
+  record_outcome "$rc" "$why"
+  return "$rc"
+}
+
 cmd_run() {
   local -a args=()
+  local trigger=manual boundary=1 dry=0 rc=0 first=1
   while [ $# -gt 0 ]; do
     case "$1" in
-      --trigger|--after|--until-day)
+      --trigger)
         [ $# -ge 2 ] || die "$1 needs a value"
+        trigger=$2
         args+=("$1" "$2")
         shift 2
         ;;
-      --dry-run|--no-watermark) args+=("$1"); shift ;;
+      --after|--until-day)
+        [ $# -ge 2 ] || die "$1 needs a value"
+        boundary=0
+        args+=("$1" "$2")
+        shift 2
+        ;;
+      --dry-run) boundary=0; dry=1; args+=("$1"); shift ;;
+      --no-watermark) boundary=0; args+=("$1"); shift ;;
       -h|--help) usage; exit 0 ;;
       *) die "unexpected argument: $1" ;;
     esac
@@ -167,20 +197,34 @@ cmd_run() {
   command -v node >/dev/null 2>&1 || die 'node is required'
   mkdir -p "$CAPTURE_DIR" || die "cannot create $CAPTURE_DIR"
   chmod 700 "$CAPTURE_DIR" 2>/dev/null || true
-  if ! acquire_lock; then
-    printf 'fm-memory-capture: another capture run is active; this boundary is covered by it or the next one\n'
-    exit 0
+  if [ "$dry" = 1 ]; then
+    extract_once 1 "${args[@]}"
+    exit
   fi
-  trap release_lock EXIT
-  local out rc why
-  out=$(node "$SCRIPT_DIR/fm-memory-capture.mjs" run --bin "$SCRIPT_DIR" --state "$CAPTURE_DIR" \
-    --config "$CONFIG" "${args[@]}")
-  rc=$?
-  printf '%s\n' "$out"
-  case " ${args[*]} " in *" --dry-run "*) exit "$rc" ;; esac
-  why=$(printf '%s' "$out" | tail -n 1 | jq -r '.why // empty' 2>/dev/null || true)
-  [ "$rc" -eq 0 ] || [ -n "$why" ] || why="extractor exit $rc"
-  record_outcome "$rc" "$why"
+  [ "$boundary" = 1 ] && printf '%s\n' "$trigger" > "$CAPTURE_DIR/pending"
+  while acquire_lock; do
+    trap release_lock EXIT
+    if [ "$first" = 1 ]; then
+      first=0
+      [ "$boundary" = 1 ] && rm -f "$CAPTURE_DIR/pending"
+      extract_once 0 ${args[@]+"${args[@]}"} || rc=$?
+    fi
+    while [ "$rc" -eq 0 ] && [ -e "$CAPTURE_DIR/pending" ]; do
+      trigger=$(cat "$CAPTURE_DIR/pending" 2>/dev/null || true)
+      rm -f "$CAPTURE_DIR/pending"
+      extract_once 0 --trigger "${trigger:-pending}" || rc=$?
+    done
+    release_lock
+    trap - EXIT
+    # A failed run leaves later boundaries pending for the next one; otherwise
+    # take the lock again only for a marker that landed after the last check.
+    [ "$rc" -eq 0 ] && [ -e "$CAPTURE_DIR/pending" ] || exit "$rc"
+  done
+  if [ "$first" = 1 ] && [ "$boundary" = 1 ]; then
+    printf 'fm-memory-capture: another capture run is active; it will drain this boundary before it exits\n'
+  elif [ "$first" = 1 ]; then
+    die 'another capture run is active; retry the replay when it finishes' 1
+  fi
   exit "$rc"
 }
 
@@ -192,7 +236,7 @@ cmd_status() {
   printf 'failure streak: %s\n' "$(cat "$CAPTURE_DIR/failures" 2>/dev/null || printf 0)"
   if [ -f "$CAPTURE_DIR/runs.jsonl" ]; then
     printf 'last runs:\n'
-    tail -n 5 "$CAPTURE_DIR/runs.jsonl" | jq -rc '"  \(.at) \(.trigger) ok=\(.ok) turns=\(.turns) units=\(.units) jev_calls=\(.jev_calls) model_calls=\(.model_calls) memories=\(.memories) now=\(.now_entries) cost_usd=\(.model_cost_usd) \(.why)"' 2>/dev/null || true
+    tail -n 5 "$CAPTURE_DIR/runs.jsonl" | jq -rc '"  \(.at) \(.trigger) ok=\(.ok) turns=\(.turns) units=\(.units) model_calls=\(.model_calls) memories=\(.memories) now=\(.now_entries) cost_usd=\(.model_cost_usd) \(.why)"' 2>/dev/null || true
   fi
 }
 

@@ -88,7 +88,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-wiki-ask.sh` | Config-gated wiki-tool ask; classifies no-match and missing-source only (docs/configuration.md) |
 | `fm-memory.sh` | Plain-markdown memory store: remember, BM25 recall, now entries, merge-from, list, reindex (docs/memory.md) |
 | [`fm-memory-capture.sh`](../bin/fm-memory-capture.sh) | Automatic capture of captain turns into the memory store at PreCompact and SessionEnd ([memory](memory.md#automatic-capture)) |
-| `fm-memory-capture.mjs` | Filter, Jev triage, model extraction, and verified writes behind fm-memory-capture.sh |
+| `fm-memory-capture.mjs` | Filter, model extraction, and verified writes behind fm-memory-capture.sh |
 | [`fm-history.sh`](../bin/fm-history.sh) | Capture and search the private conversation journal and generate task cards and daily Logbooks ([configuration](configuration.md#operational-home-layout-and-state)) |
 | [`fm-logbook-refresh.sh`](../bin/fm-logbook-refresh.sh) | Best-effort Logbook generation and configured Deck refresh ([configuration](configuration.md#private-deck-checkout-configdeck-path)) |
 | `fm-memory-bm25.mjs` | BM25 index and query engine behind fm-memory.sh; owns the index format and staleness rule |

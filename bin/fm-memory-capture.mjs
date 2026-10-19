@@ -6,15 +6,18 @@
 // This file implements one extraction run.
 //
 // Usage (normally through the shell wrapper):
-//   node fm-memory-capture.mjs run --bin <dir> --state <dir> --config <dir>
+//   node fm-memory-capture.mjs run --bin <dir> --state <dir>
 //        --trigger <precompact|sessionend|manual> [--dry-run] [--after <day>/<id>]
 //        [--until-day <YYYY-MM-DD>] [--no-watermark]
 //
 // Environment: FM_MEMORY_CAPTURE_MODEL (default claude-haiku-5-5; only
 // claude-haiku-* and claude-sonnet-* are accepted), FM_CLAUDE_BIN (default
-// claude), FM_MEMORY_CAPTURE_JEV (off disables the Jev pass),
-// FM_MEMORY_CAPTURE_JEV_BIN (default bin/fm-jev.sh), and
-// FM_MEMORY_DIR and the other variables fm-memory.sh and fm-history.sh read.
+// claude), and FM_MEMORY_DIR and the other variables fm-memory.sh and
+// fm-history.sh read.
+//
+// Captain words go to that Claude model and nowhere else: Jev and other hosted
+// classifiers accept task facts only, and no word filter can prove a chat turn
+// holds no personal data.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -23,10 +26,10 @@ import { spawnSync } from 'node:child_process';
 
 const DEFAULT_MODEL = 'claude-haiku-5-5';
 const MODEL_RE = /^claude-(haiku|sonnet)-[a-z0-9-]+$/;
-const JEV_REQUEST_BYTES = 3900;
-const JEV_BATCH_UNITS = 5;
-const JEV_UNIT_CHARS = 420;
-const CAPTAIN_CHARS = 2400;
+// A captain message longer than one chunk becomes several consecutive units
+// so every character reaches the model; only the reply, which is context for
+// the captain's words, is clipped.
+const CAPTAIN_CHUNK_CHARS = 12000;
 const REPLY_CHARS = 1200;
 const HAIKU_BATCH_CHARS = 60000;
 const NOW_DEFAULT_DAYS = 14;
@@ -43,36 +46,6 @@ const WAKE_PATTERNS = [
   /^<command-(message|name)>/,
   /^<local-command-/,
   /^\s*<task-notification>/,
-];
-
-// A unit that mentions any of these stays away from Jev and goes to the
-// Anthropic model only. The list is deliberately broad: a false hit costs a
-// few model tokens, a miss would send personal words to a hosted classifier.
-const PERSONAL_RE = new RegExp([
-  'girl ?friend', 'boy ?friend', 'partner', 'relationship', 'break ?up', 'broke up', 'dating', 'divorce',
-  'love', 'heart', 'feel', 'sad', 'depress', 'anxi', 'lonely', 'cry', 'tears', 'therap', 'doctor',
-  'health', 'sick', 'ill\\b', 'hospital', 'medic', 'pill', 'diagnos', 'treatment', 'pain', 'sleep',
-  'mood', 'mental', 'family', 'mother', '\\bmom\\b', '\\bmum\\b', 'father', '\\bdad\\b', 'sister',
-  'brother', 'parent', 'friend', 'moved', 'move out', 'apartment', '\\bflat\\b', 'rent\\b', 'debt',
-  'salary', 'birthday', 'wedding', 'pregnan', 'alcohol', 'drunk', 'drug', 'grief', 'funeral',
-  'lecturer', 'professor', '\\buni\\b', 'university', 'exam', 'girl', 'her\\b', '\\bshe\\b', '\\bhim\\b',
-  'freundin', 'freund', 'beziehung', 'schluss', 'getrennt', 'trennung', 'liebe', 'gefühl', 'gefuehl',
-  'traurig', 'einsam', 'weinen', 'therapie', 'arzt', 'ärzt', 'krank', 'gesund', 'medikament',
-  'tablette', 'diagnose', 'behandlung', 'schmerz', 'schlaf', 'stimmung', 'psych', 'familie', 'mutter',
-  'mama', 'vater', 'papa', 'schwester', 'bruder', 'eltern', 'umzug', 'umgezogen', 'wohnung', 'miete',
-  'schulden', 'gehalt', 'dozent', 'vorlesung', 'prüfung', 'pruefung', 'klausur', 'geburtstag',
-  'hochzeit', 'schwanger', '\\bsie\\b', '\\bihr\\b',
-].join('|'), 'i');
-
-// A unit is Jev-eligible only when it also reads as fleet work.
-const WORK_RE = /\b(pr|prs|repo|branch|merge|commit|crew|crewmate|secondmate|firstmate|scout|pipeline|no-mistakes|jev|haiku|sonnet|opus|model|config|script|hook|tests?|lint|ci|deploy|wiki|skill|backlog|tokens?|quota|prompt|agent|api|github|issue|bug|fix|build|release|server|daemon|herdr|pi|codex|claude|dispatch|worktree)\b|bin\/|\.sh\b|\.md\b|\.json\b/i;
-
-const JEV_OPTS = [
-  'none=nothing worth remembering next week',
-  'preference=standing rule or working style',
-  'entity=lasting project or tool fact',
-  'event=dated decision worth keeping',
-  'now=current perishable focus',
 ];
 
 const SYSTEM_PROMPT = `You extract durable memories from a captain's conversation with their AI first mate.
@@ -116,7 +89,7 @@ function fail(message) {
 function parseArgs(argv) {
   const opts = { dryRun: false, noWatermark: false, after: '', untilDay: '', trigger: 'manual' };
   const [mode, ...rest] = argv;
-  if (mode !== 'run') fail('usage: fm-memory-capture.mjs run --bin <dir> --state <dir> --config <dir> ...');
+  if (mode !== 'run') fail('usage: fm-memory-capture.mjs run --bin <dir> --state <dir> ...');
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     const next = () => {
@@ -125,7 +98,6 @@ function parseArgs(argv) {
     };
     if (arg === '--bin') opts.bin = next();
     else if (arg === '--state') opts.state = next();
-    else if (arg === '--config') opts.config = next();
     else if (arg === '--trigger') opts.trigger = next();
     else if (arg === '--after') opts.after = next();
     else if (arg === '--until-day') opts.untilDay = next();
@@ -133,7 +105,7 @@ function parseArgs(argv) {
     else if (arg === '--no-watermark') opts.noWatermark = true;
     else fail(`unknown argument: ${arg}`);
   }
-  if (!opts.bin || !opts.state || !opts.config) fail('--bin, --state, and --config are required');
+  if (!opts.bin || !opts.state) fail('--bin and --state are required');
   return opts;
 }
 
@@ -167,20 +139,6 @@ function noopReplies(binDir) {
   return replies;
 }
 
-function privateMarkers(configDir) {
-  const file = path.join(configDir, 'private-markers');
-  try {
-    const st = fs.lstatSync(file);
-    if (!st.isFile()) return [];
-    return fs.readFileSync(file, 'utf8').split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('#'))
-      .map((line) => line.toLowerCase().replace(/[\s_-]+/g, ' '));
-  } catch {
-    return [];
-  }
-}
-
 function stripPasted(text) {
   return text.replace(/<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content>/g, '[pasted content omitted]');
 }
@@ -189,8 +147,27 @@ function clip(text, limit) {
   return text.length <= limit ? text : `${text.slice(0, limit)} [...]`;
 }
 
+// Splits text into consecutive pieces of at most `limit` characters, cutting
+// at the last whitespace inside each window when there is one. Joining the
+// pieces gives back the text exactly.
+export function chunk(text, limit) {
+  const pieces = [];
+  let rest = text;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf(' ', limit);
+    const nl = rest.lastIndexOf('\n', limit);
+    if (nl > cut) cut = nl;
+    if (cut <= 0) cut = limit;
+    pieces.push(rest.slice(0, cut));
+    rest = rest.slice(cut);
+  }
+  pieces.push(rest);
+  return pieces;
+}
+
 // Deterministic pre-filter: drop plumbing and recognized acknowledgements,
-// strip pasted material and the configured no-op reply, and clip what remains.
+// strip pasted material and the configured no-op reply, split long captain
+// messages into lossless chunks, and clip the paired reply.
 export function buildUnits(turns, noop) {
   const units = [];
   let dropped = 0;
@@ -203,75 +180,19 @@ export function buildUnits(turns, noop) {
     }
     let reply = (turn.reply || '').trim();
     if (noop.has(reply)) reply = '';
-    units.push({
-      day: turn.day,
-      time: turn.time,
-      id: turn.id,
-      captain: clip(captain, CAPTAIN_CHARS),
-      reply: clip(stripPasted(reply), REPLY_CHARS),
+    const parts = chunk(captain, CAPTAIN_CHUNK_CHARS);
+    parts.forEach((part, k) => {
+      units.push({
+        day: turn.day,
+        time: turn.time,
+        id: turn.id,
+        part: parts.length > 1 ? `${k + 1}/${parts.length}` : '',
+        captain: part,
+        reply: k === parts.length - 1 ? clip(stripPasted(reply), REPLY_CHARS) : '',
+      });
     });
   }
   return { units, dropped };
-}
-
-export function jevEligible(unit, markers) {
-  const text = `${unit.captain}\n${unit.reply}`;
-  const folded = text.toLowerCase().replace(/[\s_-]+/g, ' ');
-  if (markers.some((marker) => folded.includes(marker))) return false;
-  if (PERSONAL_RE.test(text)) return false;
-  return WORK_RE.test(text);
-}
-
-function jevText(unit) {
-  const reply = unit.reply ? ` | reply: ${unit.reply.slice(0, 120)}` : '';
-  return `${unit.captain.slice(0, JEV_UNIT_CHARS - reply.length)}${reply}`.replace(/\s+/g, ' ');
-}
-
-// Keep each question tied to its unit id even when several share one state.
-function jevRequest(units, batch) {
-  return {
-    state: `Lines from an operator chat with a coding fleet, one per id.${batch.map((idx) => ` U${idx}: ${jevText(units[idx])}`).join('')}`,
-    questions: batch.map((idx) => ({
-      id: `U${idx}`,
-      type: 'pick',
-      q: `Memory kind of U${idx}?`,
-      opts: JEV_OPTS,
-    })),
-  };
-}
-
-// Packs eligible units into Jev batches under the request byte cap and
-// returns {kinds: Map(unitIndex -> kind|null), calls, escalated}. A null kind
-// means Jev could not decide; the caller sends that unit to the model.
-function jevTriage(binDir, units, indexes) {
-  const kinds = new Map();
-  let calls = 0;
-  let escalated = 0;
-  let i = 0;
-  while (i < indexes.length) {
-    const batch = [indexes[i++]];
-    while (i < indexes.length && batch.length < JEV_BATCH_UNITS
-      && Buffer.byteLength(JSON.stringify(jevRequest(units, [...batch, indexes[i]]))) <= JEV_REQUEST_BYTES) {
-      batch.push(indexes[i++]);
-    }
-    calls++;
-    const jevBin = process.env.FM_MEMORY_CAPTURE_JEV_BIN || path.join(binDir, 'fm-jev.sh');
-    const res = run(jevBin, ['batch'], JSON.stringify(jevRequest(units, batch)), {}, 60000);
-    const answers = new Map();
-    if (res.code === 0 || res.code === 2) {
-      for (const line of res.stdout.split('\n')) {
-        const m = line.match(/^U(\d+): (\S+)/);
-        if (!m) continue;
-        answers.set(Number(m[1]), m[2] === 'ESCALATE' ? null : m[2]);
-      }
-    }
-    for (const idx of batch) {
-      const kind = answers.has(idx) ? answers.get(idx) : null;
-      if (kind === null) escalated++;
-      kinds.set(idx, kind);
-    }
-  }
-  return { kinds, calls, escalated };
 }
 
 function storeTopics(binDir) {
@@ -280,8 +201,8 @@ function storeTopics(binDir) {
   return res.stdout.split('\n').filter(Boolean).slice(0, 400);
 }
 
-function unitBlock(unit, hint) {
-  const lines = [`[${unit.day} ${unit.time}]${hint ? ` (triage: ${hint})` : ''}`, `captain: ${unit.captain}`];
+function unitBlock(unit) {
+  const lines = [`[${unit.day} ${unit.time}]${unit.part ? ` (message part ${unit.part})` : ''}`, `captain: ${unit.captain}`];
   if (unit.reply) lines.push(`first mate: ${unit.reply}`);
   return lines.join('\n');
 }
@@ -375,7 +296,6 @@ function main() {
   const model = process.env.FM_MEMORY_CAPTURE_MODEL || DEFAULT_MODEL;
   if (!MODEL_RE.test(model)) fail(`refusing model ${model}: captain words only go to an Anthropic Claude model`);
   const claudeBin = process.env.FM_CLAUDE_BIN || 'claude';
-  const jevOn = !/^(off|0|false)$/i.test(process.env.FM_MEMORY_CAPTURE_JEV || '');
   const markFile = path.join(opts.state, 'watermark.json');
   const mark = readJson(markFile, {});
   const after = opts.after || (mark.day ? `${mark.day}/${mark.id || ''}` : '');
@@ -392,11 +312,6 @@ function main() {
     turns: turns.length,
     dropped: 0,
     units: 0,
-    jev_units: 0,
-    jev_calls: 0,
-    jev_none: 0,
-    jev_escalated: 0,
-    model_units: 0,
     model_calls: 0,
     model_usage: { input: 0, cache_write: 0, cache_read: 0, output: 0 },
     model_cost_usd: 0,
@@ -419,30 +334,15 @@ function main() {
   const { units, dropped } = buildUnits(turns, noopReplies(opts.bin));
   record.dropped = dropped;
   record.units = units.length;
-  const markers = privateMarkers(opts.config);
-  const eligible = jevOn ? units.map((u, i) => (jevEligible(u, markers) ? i : -1)).filter((i) => i >= 0) : [];
-  record.jev_units = eligible.length;
-  const hints = new Map();
-  const skip = new Set();
-  if (eligible.length) {
-    const triage = jevTriage(opts.bin, units, eligible);
-    record.jev_calls = triage.calls;
-    record.jev_escalated = triage.escalated;
-    for (const [idx, kind] of triage.kinds) {
-      if (kind === 'none') { skip.add(idx); record.jev_none++; } else if (kind) hints.set(idx, kind);
-    }
-  }
-  const selected = units.map((u, i) => i).filter((i) => !skip.has(i));
-  record.model_units = selected.length;
-  if (!selected.length) finish(lastTurn);
+  if (!units.length) finish(lastTurn);
 
   const topics = storeTopics(opts.bin);
   const header = `Existing memory titles (category/slug):\n${topics.join('\n') || '(none)'}\n\nConversation turns:\n`;
   const batches = [];
   let current = [];
   let size = 0;
-  for (const idx of selected) {
-    const block = unitBlock(units[idx], hints.get(idx));
+  for (const unit of units) {
+    const block = unitBlock(unit);
     if (current.length && size + block.length > HAIKU_BATCH_CHARS) {
       batches.push(current);
       current = [];
