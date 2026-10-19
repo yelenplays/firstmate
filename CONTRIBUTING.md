@@ -147,7 +147,9 @@ The [Herdr backend guide](docs/herdr-backend.md#destructive-lab-safety) owns the
 
 ## Git hooks
 
-Run `git config core.hooksPath .githooks` once per clone to install the repository's tracked pre-commit hook.
+For a clone without existing hooks, run `git config core.hooksPath .githooks` once to install the repository's tracked pre-commit hook.
+`core.hooksPath` selects the directory for every hook, so replacing it can disable existing commit or pre-push guards.
+If hooks are already installed, preserve their directory and chain this repository's `.githooks/pre-commit` from its pre-commit hook, propagating a nonzero exit status to refuse the commit.
 The [token-cap script header](bin/fm-precommit-token-cap.sh) owns the staged-file size rules, exemptions, and existing-file ratchet; refusal messages carry concrete split instructions.
 
 ## Questions
