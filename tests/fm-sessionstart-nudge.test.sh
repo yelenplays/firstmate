@@ -29,6 +29,9 @@ fi
 unset NO_MISTAKES_GATE
 
 TMP_ROOT=$(fm_test_tmproot fm-sessionstart-nudge)
+# Most cases simulate supervisor seats, not the worker slot running this suite.
+# The worker-cwd case below enters its own slot explicitly.
+cd "$TMP_ROOT" || exit 1
 NUDGE="$ROOT/bin/fm-sessionstart-nudge.sh"
 RUN="$ROOT/bin/fm-sessionstart-run.sh"
 # shellcheck source=/dev/null
@@ -1011,6 +1014,33 @@ test_run_reads_source_from_the_hook_payload() {
   pass "run wrapper: the hook payload's source field drives routing with no explicit argument"
 }
 
+test_run_worker_seats_are_silent() {
+  local root="$TMP_ROOT/run-worker-home" slot="$TMP_ROOT/.treehouse/project-pool/12/firstmate"
+  local out status=0
+  make_run_primary "$root"
+  make_run_primary "$slot"
+  # A hook installed at the primary's absolute path still receives the worker
+  # cwd in its payload. A pool slot can be a plain clone, not a linked worktree.
+  out=$(printf '{"source":"compact","cwd":"%s"}' "$slot" | run_hook "$root" 2>&1) || status=$?
+  expect_code 0 "$status" "worker-shaped SessionStart payload"
+  [ -z "$out" ] || fail "worker payload received the primary digest: $out"
+  assert_absent "$root/state/.lock" "worker payload acquired the primary lock"
+  expect_silent_zero "plain-clone task slot" run_hook "$slot" --source startup
+  # shellcheck disable=SC2016 # Expand in the worker-shaped child, not this fixture shell.
+  expect_silent_zero "worker cwd with primary runner" bash -c 'cd "$1"; shift; "$@"' _ "$slot" \
+    env FM_ROOT_OVERRIDE="$root" FM_HOME="$root" PATH="$RUN_PATH" "$RUN" --source startup
+  expect_silent_zero "worker task environment" env FM_TASK_ID=worker FM_ROOT_OVERRIDE="$root" \
+    FM_HOME="$root" PATH="$RUN_PATH" "$RUN" --source startup
+  assert_absent "$slot/state/.lock" "plain-clone task slot acquired a lock"
+  # Explicit worker identity wins even over a stale secondmate marker.
+  printf 'secondmate\n' > "$slot/.fm-secondmate-home"
+  expect_silent_zero "worker with copied marker" env FM_TASK_ID=worker FM_ROOT_OVERRIDE="$slot" \
+    FM_HOME="$slot" PATH="$RUN_PATH" "$RUN" --source startup
+  out=$(run_hook "$slot" --source startup </dev/null)
+  assert_contains "$out" "$FULL_BANNER$slot" "a genuine marked slot home lost startup"
+  pass "run wrapper: worker env, payload and plain-clone slots stay silent; marked homes still start"
+}
+
 test_run_unknown_source_takes_the_helm() {
   local root="$TMP_ROOT/run-unknown" out status=0
   make_run_primary "$root"
@@ -1108,6 +1138,7 @@ test_run_reports_a_failed_session_start_as_digest_text() {
 }
 
 test_genuine_primary_nudges
+test_run_worker_seats_are_silent
 test_gate_env_is_silent
 test_gate_common_dir_is_silent
 test_unmarked_linked_worktree_is_silent

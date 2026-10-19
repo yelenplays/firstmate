@@ -115,6 +115,22 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/afk/references/daemon.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/secondmate-provisioning/references/setup.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/secondmate-provisioning/references/inheritance.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/secondmate-provisioning/references/lifecycle.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/ahoy/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -319,6 +335,10 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/resolving-merge-conflicts/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/secondmate-provisioning/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -400,6 +420,10 @@
     },
     {
       "path": "docs/arm-pretool-check.md",
+      "audience": "maintainer-architecture"
+    },
+    {
+      "path": "docs/browser-guard.md",
       "audience": "maintainer-architecture"
     },
     {
@@ -595,6 +619,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/verification/browser-guard.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/commandcode.md",
       "audience": "maintainer-verification"
     },
@@ -612,6 +640,10 @@
     },
     {
       "path": "docs/verification/lint-option-a.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/verification/lint-partition-headroom.md",
       "audience": "maintainer-verification"
     },
     {

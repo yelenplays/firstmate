@@ -3,7 +3,7 @@
 Audience: maintainer verification.
 
 Records how each supported harness reaches Matt Pocock's skill suite, and the evidence behind the pointer bridge that lets a runtime without Claude plugin discovery load the installed original rather than any copy.
-Firstmate copies no upstream skill content, so this record pins what was validated rather than what is vendored.
+Plugin pointers copy no upstream skill content; the retired conflict skill has the explicit bundled compatibility route documented below.
 
 The runtime discovery rows were verified 2026-08-28 on macOS 25.5.0 with `claude` 2.1.228, `grok` 1.0.5, `kimi` 0.36.1, `codex` 0.145.0, and `pi` 0.84.2, except where a section names a later date.
 
@@ -52,10 +52,11 @@ Claude lists only the 27 declared skills, the `engineering` and `productivity` o
 The observed listing includes all 38 source-tree skills, not only the 27 declared plugin skills.
 The [loader header](../../bin/fm-matt-skill.sh) owns its discovery options, and the [generator header](../../bin/fm-matt-pointers.sh) owns partial-install, audit, and prune behavior; regression coverage is linked below.
 
-## The loader prints the installed original, proven by digest
+## Installed skills: the loader prints the original, proven by digest
 
 A pointer's body carries no procedure.
-Its first instruction runs `bin/fm-matt-skill.sh <skill>`, which prints the installed original behind an identity header.
+For installed plugin skills, its first instruction runs `bin/fm-matt-skill.sh <skill>`, which prints the installed original behind an identity header.
+For the retired conflict skill, see [compatibility evidence](#retired-conflict-skill-compatibility).
 The header's `skill_file_sha256` is the discriminator: no source other than the resolved file can produce it.
 
 ```sh
@@ -76,13 +77,57 @@ resolved_by=bin/fm-skill-path.sh
 09eb147f793e4647949edd32dbad278f0554dfb56e0d46b699cd4c2c55bf0357
 ```
 
-`resolved_by` is always `bin/fm-skill-path.sh`.
-That script is the repo's single owner of plugin-skill resolution, enablement, and skill listing, and the loader carries no resolver of its own: without that owner beside it the loader exits 127 with nothing on stdout rather than guessing a path.
+For installed plugin skills, `resolved_by` is `bin/fm-skill-path.sh`.
+That script is the repo's single owner of plugin-skill resolution, enablement, and skill listing: without that owner beside it the loader exits 127 with nothing on stdout rather than guessing a path.
+
+## Retired conflict skill compatibility
+
+Verified 2026-10-16 against the enabled `mattpocock-skills@mattpocock` 1.3.1 install at commit `49dd158d1076134a641b33efb035946536778336`.
+The generic plugin resolver still correctly refuses that name with exit 5.
+The [Matt loader header](../../bin/fm-matt-skill.sh) owns the narrow compatibility exception for existing callers, including older generated `matt-resolving-merge-conflicts` pointers.
+The [bundled skill](../../.agents/skills/resolving-merge-conflicts/SKILL.md) owns the maintained procedure and its attribution.
+
+```sh
+bin/fm-skill-path.sh mattpocock-skills resolving-merge-conflicts --include-undeclared
+# exit 5: skill is neither declared nor present outside a deprecated bucket
+bin/fm-matt-skill.sh resolving-merge-conflicts --check
+```
+
+Observed loader output, exit 0 (digest and absolute repository path omitted):
+
+```text
+===== FIRSTMATE: BUNDLED COMPATIBILITY SKILL =====
+source=bundled; adapted from Matt Pocock, maintained by Firstmate
+skill=resolving-merge-conflicts
+author=Matt Pocock
+license=MIT
+upstream=https://github.com/mattpocock/skills
+plugin=none
+scope=repository
+resolved_version=bundled
+resolved_commit=none
+validated_plugin=none
+validated_version=none
+validated_commit=none
+pin=bundled
+resolved_by=repository-compatibility
+```
+
+`test_loader_restores_retired_conflict_skill` in `tests/fm-matt-pointers.test.sh` exercises body, path, support files, identity, strict-pin refusal, an upstream return taking precedence, and integrity/enablement refusals through the loader executable.
+`test_pointer_step_one_reaches_retired_conflict_skill` in the same suite executes a generated pointer's Step 1 command with the skill name changed to `resolving-merge-conflicts`, preserving its plugin pins, and also exercises the unpinned loader invocation.
+`test_bundled_pointer_survives_audit_and_prune` installs the conflict pointer while upstream still offers it, removes that upstream skill, then audits and prunes the installed pointer through the generator CLI.
+It requires `BUNDLED` with exit 0 from `--check`, `--prune --dry-run`, and `--prune`, preserves the pointer and marker byte-for-byte, and executes the kept pointer's load command.
+Missing pointer bodies, unusable recorded loaders, and an upstream integrity refusal remain failures.
+The [generator header](../../bin/fm-matt-pointers.sh) owns compatibility classification for audit and prune.
+These are caller-route regressions, not live no-mistakes rebase or CI-repair runs.
+This compatibility path prints Markdown through the same CLI for every runtime and backend; it introduces no harness-specific discovery or lifecycle behavior.
+The runtime discovery rows below are unchanged, not newly validated by this loader test.
 
 ## Validated pin
 
 No script hardcodes a validated version.
-Each generated pointer passes the plugin, version, and commit it was generated from, and the loader compares them with the enabled install.
+Each generated pointer passes the plugin, version, and commit it was generated from.
+The [loader header](../../bin/fm-matt-skill.sh) owns pin comparison, drift reporting, strict-mode behavior, and the bundled exception.
 
 ```sh
 bin/fm-matt-skill.sh diagnosing-bugs --check \
@@ -115,8 +160,6 @@ Observed:
 fm-matt-skill.sh: resolved mattpocock-skills@mattpocock version '1.3.1' commit '49dd158d1076134a641b33efb035946536778336', not the validated mattpocock-skills@claude-plugins-official version '1.2.3' commit '2ab958093e83e0ec752e6c1c5932da465bf23e0c'
 exit=6
 ```
-
-The [loader header](../../bin/fm-matt-skill.sh) owns pin comparison, drift reporting, and strict-mode behavior.
 
 ## The bridge names an executable the repo ships
 

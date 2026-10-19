@@ -1579,12 +1579,22 @@ git -C "$RACE_ROOT" commit -qm 'remote supervisor fixture'
 cat > "$RACE_ROOT/bin/fm-remote-job-worker.sh" <<'SH'
 #!/bin/bash
 case "${1:-}" in
-  --serve) sleep 4; exit 1 ;;
+  --serve) : > "$FM_REMOTE_JOB_STATE_ROOT/serving.$PPID"; sleep 4; exit 1 ;;
   '') printf '%s\n' "$$" >> "$FM_TEST_SUPERVISOR_PID_LOG"; sleep 1; exec "$(dirname "$0")/fm-remote-job-supervisor-under-test.sh" ;;
   *) exit 2 ;;
 esac
 SH
 chmod +x "$RACE_ROOT/bin/fm-remote-job-worker.sh" "$RACE_SUPERVISOR"
+# exec and owner publication precede the shutdown trap. The serving child is
+# launched only after that trap is installed, so synchronize TERM with it.
+race_wait_for_serving() {
+  local pid=$1 attempt
+  for attempt in $(seq 1 100); do
+    [ ! -f "$RACE_STATE/serving.$pid" ] || return 0
+    sleep 0.05
+  done
+  fail "supervisor $pid did not start its serving child"
+}
 RACE_RELEASE_BIN="$TMP_ROOT/supervisor-release-bin"
 RACE_RELEASE_READY="$TMP_ROOT/supervisor-release-ready"
 RACE_RELEASE_CONTINUE="$TMP_ROOT/supervisor-release-continue"
@@ -1638,11 +1648,12 @@ for _ in $(seq 1 100); do
         ;;
     esac
   done
-  [ "$RACE_ACTIVE_SUPERVISORS" -eq 1 ] && break
+  if [ "$RACE_ACTIVE_SUPERVISORS" -eq 1 ] && [ -f "$RACE_STATE/serving.$RACE_ACTIVE_SUPERVISOR_PID" ]; then break; fi
   sleep 0.1
 done
 [ "$RACE_ACTIVE_SUPERVISORS" -eq 1 ] \
   || fail "concurrent Linux starts left $RACE_ACTIVE_SUPERVISORS active restart supervisors"
+race_wait_for_serving "$RACE_ACTIVE_SUPERVISOR_PID"
 pass "concurrent Linux starts admit one restart supervisor per account queue"
 for _ in $(seq 1 10); do
   kill -TERM "$RACE_ACTIVE_SUPERVISOR_PID" 2>/dev/null || true
@@ -1697,6 +1708,7 @@ done
   || fail "the replacement did not claim ownership after the prior supervisor exited"
 command=$(fm_remote_job_process_command "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true)
 case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "the replacement exited after claiming ownership" ;; esac
+race_wait_for_serving "$RACE_RELEASE_CONTENDER_PID"
 pass "guard contention starts a replacement after owner release"
 kill -TERM "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true
 wait "$RACE_RELEASE_CONTENDER_PID" 2>/dev/null || true
@@ -1720,6 +1732,7 @@ done
   || fail "the supervisor did not recover a stale lock: $(<"$TMP_ROOT/stale-supervisor.out")"
 command=$(fm_remote_job_process_command "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true)
 case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "stale owner record does not match a live supervisor" ;; esac
+race_wait_for_serving "$RACE_STALE_SUPERVISOR_PID"
 pass "a supervisor reclaims stale ownership after an abnormal exit"
 kill -TERM "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true
 wait "$RACE_STALE_SUPERVISOR_PID" 2>/dev/null || true
@@ -1741,6 +1754,7 @@ done
   || fail "the supervisor did not recover an aged ownerless lock: $(<"$TMP_ROOT/ownerless-supervisor.out")"
 command=$(fm_remote_job_process_command "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true)
 case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "recovered ownerless lock does not match a live supervisor" ;; esac
+race_wait_for_serving "$RACE_OWNERLESS_SUPERVISOR_PID"
 pass "a supervisor reclaims an aged ownerless lock after publication grace"
 kill -TERM "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true
 wait "$RACE_OWNERLESS_SUPERVISOR_PID" 2>/dev/null || true
@@ -1814,6 +1828,7 @@ wait "$RACE_RECLAIMER_PID" 2>/dev/null || fail "the competing startup did not ve
   || fail "the competing startup removed the published owner"
 command=$(fm_remote_job_process_command "$RACE_PAUSED_SUPERVISOR_PID" 2>/dev/null || true)
 case "$command" in *"$RACE_SUPERVISOR") ;; *) fail "the paused publisher did not remain the active supervisor" ;; esac
+race_wait_for_serving "$RACE_PAUSED_SUPERVISOR_PID"
 pass "stale reclamation cannot remove a live supervisor claim"
 kill -TERM "$RACE_PAUSED_SUPERVISOR_PID" 2>/dev/null || true
 wait "$RACE_PAUSED_SUPERVISOR_PID" 2>/dev/null || true

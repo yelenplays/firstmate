@@ -119,6 +119,74 @@ collect() {  # <rid>
   env -u FM_WIKIS_ROOT FM_HOME="$HOME_DIR" PATH="$FAKEBIN:$PATH" bash "$SCRIPT" collect "$TASK" "$1"
 }
 
+test_gateway_builder_family() {
+  local model family out
+  for model in deepseek-v4.1-flash glm-5 not-a-known-model; do
+    case "$model" in
+      deepseek-*) family=deepseek ;;
+      glm-*) family=zhipu ;;
+      *) family=unknown ;;
+    esac
+    new_case "gateway-$model" direct-PR opencode "opencode-go/$model"
+    out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
+    assert_equals "$family" "$(printf '%s' "$out" | jq -r .builder.family)" "gateway builder $model"
+    out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
+    if [ "$family" = unknown ]; then
+      assert_equals escalate "$(field "$out" action)" "unknown gateway model still needs a decision"
+    else
+      assert_equals spawn-reviewer "$(field "$out" action)" "known gateway maker gets an independent reviewer"
+    fi
+  done
+  pass "gateway builders resolve by model maker while unknown models still escalate"
+}
+
+test_hidden_gateway_incarnation_stays_unknown() {
+  local out
+  # Before gateway resolution, DeepSeek -> GLM relaunches kept the same
+  # unknown family, so spawn did not add an earlier-incarnations marker.
+  new_case hidden-gateway-incarnation no-mistakes opencode opencode-go/glm-5 unknown
+  printf 'ai_family_source=opencode catalog does not prove a maker for model opencode-go/glm-5\n' >> "$HOME_DIR/state/$TASK.meta"
+  nm_run "$HEAD_SHA" completed pi opencode-go/deepseek-v4.1-flash
+  out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
+  assert_equals unknown "$(printf '%s' "$out" | jq -r .builder.family)" "current GLM model cannot identify earlier unknown builders"
+  assert_equals deepseek "$(printf '%s' "$out" | jq -r .pipeline_review.family)" "DeepSeek reviewer is known"
+  assert_contains "$(printf '%s' "$out" | jq -r .independent_review)" "MISSING:" "possible earlier DeepSeek builder prevents independence"
+  out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
+  assert_equals escalate "$(field "$out" action)" "hidden builder history must require a decision"
+  pass "an unknown gateway incarnation never certifies an earlier builder's maker as independent"
+}
+
+test_existing_unknown_gateway_builder_family() {
+  local harness model out
+  for harness in opencode pi pi-signed; do
+    for model in deepseek-v4.1-flash glm-5 not-a-known-model; do
+      new_case "existing-$harness-$model" direct-PR "$harness" "opencode-go/$model" unknown
+      out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
+      assert_equals unknown "$(printf '%s' "$out" | jq -r .builder.family)" "existing gateway builder $harness/$model keeps unknown history"
+      out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
+      assert_equals escalate "$(field "$out" action)" "unresolved gateway task still escalates"
+    done
+  done
+  pass "previously unknown gateway builder history stays unknown for status and planning"
+}
+
+test_gateway_resolution_preserves_builder_history() {
+  local family out
+  for family in openai openai,unknown unknown,zhipu unknown; do
+    new_case "gateway-history-$family" direct-PR opencode opencode-go/deepseek-v4.1-flash "$family"
+    if [ "$family" = unknown ]; then
+      printf 'ai_family_source=current model; earlier incarnations: unknown\n' >> "$HOME_DIR/state/$TASK.meta"
+    fi
+    out=$(xr status "$TASK" --head "$HEAD_SHA" --json <&-) || fail "status failed: $out"
+    assert_equals "$family" "$(printf '%s' "$out" | jq -r .builder.family)" "recorded builder history stays intact"
+    out=$(xr plan "$TASK" --head "$HEAD_SHA" <&-) || fail "plan failed: $out"
+    case "$family" in
+      *unknown*) assert_equals escalate "$(field "$out" action)" "unknown builder history must still escalate" ;;
+    esac
+  done
+  pass "gateway resolution never replaces known families or unknown builder history"
+}
+
 test_same_family_pipeline_review_needs_a_reviewer() {
   local out
   new_case same-family no-mistakes pi openai-codex/gpt-6-astra openai
@@ -351,8 +419,120 @@ test_reviewer_chain_skips_the_builder_family() {
   assert_equals claude "$(field "$out" reviewer_harness)" "the Claude reviewer is selected"
   assert_equals anthropic "$(field "$out" reviewer_family)" "the same-family candidate is skipped"
   assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the fixed chain advances to its next disjoint family"
-  assert_equals high "$(field "$out" reviewer_effort)" "the Opus reviewer runs at high effort"
+  assert_equals medium "$(field "$out" reviewer_effort)" "the tracked Opus reviewer default stays at medium effort"
   pass "the fixed reviewer chain skips candidates from the builder family"
+}
+
+# A home that caps a model's effort in config/crew-dispatch.json (a bare
+# effort is the exact one-level range) clamps the reviewer chain's declared
+# effort into it, so a printed high for the capped model cannot be spawned.
+test_effort_cap_clamps_the_opus_reviewer_to_medium() {
+  local out rid
+  new_case cap-clamp direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  printf '%s\n' '[{"harness":"claude","model":"claude-opus-5-5","effort":"high"}]' \
+    > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals claude "$(field "$out" reviewer_harness)" "the chain still reaches the Opus candidate"
+  assert_equals medium "$(field "$out" reviewer_effort)" "a capped profile clamps the declared Opus high effort"
+  assert_contains "$out" "reviewer_effort_clamped=from high" "plan discloses the clamp"
+  out=$(xr brief "$TASK" "$TASK-xr-${HEAD_SHA:0:8}" --head "$HEAD_SHA" <&-) || fail "brief failed: $out"
+  rid="$TASK-xr-${HEAD_SHA:0:8}"
+  jq -s -e --argjson p "$(jq -c .profile "$HOME_DIR/data/$TASK/cross-review-model.json")" \
+    'any(.[]; .kind == "cross-review" and .exception == "deterministic_policy" and .selected == $p and .selected.effort == "medium")' \
+    "$HOME_DIR/state/model-route/decisions.jsonl" >/dev/null || fail 'plan did not record the clamped reviewer profile'
+  pass "a dispatch-envelope cap clamps the reviewer chain's declared effort"
+}
+
+test_effort_cap_keeps_sol_reviewer_at_its_declared_high() {
+  local out
+  new_case cap-sol direct-PR claude claude-opus-5-5 anthropic
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"pi","model":"openai-codex/gpt-6.1-sol","effort":"high"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals openai-codex/gpt-6.1-sol "$(field "$out" reviewer_model)" "the chain still reaches the Sol candidate"
+  assert_equals high "$(field "$out" reviewer_effort)" "a declaration inside the envelope keeps the Sol high effort"
+  if grep -q "reviewer_effort_clamped" <<<"$out"; then fail "plan named a clamp that never happened: $out"; fi
+  jq -e '.profile.effort == "high"' "$HOME_DIR/data/$TASK/cross-review-model.json" >/dev/null \
+    || fail 'the head-bound model record did not carry the unclamped effort'
+  pass "an effort inside the envelope is not clamped or disclosed"
+}
+
+test_home_chain_config_drives_the_candidates() {
+  local out
+  new_case chain-home direct-PR claude claude-opus-5-5 anthropic
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"pi","model":"openai-codex/gpt-6.1-sol","effort":"high"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  printf '%s\n' '[{"harness":"pi","model":"openai-codex/gpt-6.1-sol"}]' > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals openai-codex/gpt-6.1-sol "$(field "$out" reviewer_model)" "the home chain replaced the tracked default"
+  assert_equals high "$(field "$out" reviewer_effort)" "a chain entry with no effort takes the dispatch profile's declared default"
+  new_case chain-cap direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  printf '%s\n' '[{"harness":"claude","model":"claude-opus-5-5","effort":"xhigh"}]' > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals medium "$(field "$out" reviewer_effort)" "the envelope also clamps a home-declared chain effort"
+  new_case chain-noeffort direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '[{"harness":"xai","model":"grok-5"},{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}]' \
+    > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals claude "$(field "$out" reviewer_harness)" "the chain's next candidate replaces the unusable no-effort one"
+  assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the declared candidate takes over with its medium effort"
+  assert_equals medium "$(field "$out" reviewer_effort)" "the competitor entry kept its declared effort"
+  pass "the home chain config names the candidates and their effort clamp"
+}
+
+# Effort caps match the model's own name variants, so a cap declared for the
+# dated snapshot or its bare claude catalog alias also clamps a plain
+# claude-opus launch, while an unrelated generation does not.
+test_effort_cap_matches_claude_model_name_variants() {
+  local out
+  # A dated-suffix declaration caps the plain model name the chain asks for.
+  new_case capdated-builder direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5-20260101","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals claude-opus-5-5 "$(field "$out" reviewer_model)" "the chain still names the plain Opus model"
+  assert_equals low "$(field "$out" reviewer_effort)" "a dated-variant declaration clamps the plain Opus launch"
+  assert_contains "$out" "reviewer_effort_clamped=from medium" "the variant clamp is disclosed"
+  pass "a dated model-name variant declaration caps the plain Opus reviewer"
+
+  # The bare catalog alias declaration caps the full-name launch.
+  new_case capalias-builder direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"opus","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals low "$(field "$out" reviewer_effort)" "a bare-alias declaration clamps the full-name Opus launch"
+  pass "a bare alias declaration caps the full-name Opus reviewer"
+
+  # An unrelated generation is not capped: its profile only covers its own name.
+  new_case capother-gen-builder direct-PR pi openai-codex/gpt-6.1-sol openai
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-6-1","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  printf '%s\n' '[{"harness":"claude","model":"claude-opus-5-5","effort":"high"}]' \
+    > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" <&-) || fail "plan failed: $out"
+  assert_equals high "$(field "$out" reviewer_effort)" "an unrelated generation's profile never caps this model"
+  if grep -q "reviewer_effort_clamped" <<<"$out"; then fail "a phantom clamp was disclosed: $out"; fi
+  pass "an unrelated generation's cap does not narrow another model"
+}
+
+test_home_chain_file_refuses_malformed_input() {
+  local out status
+  new_case chain-bad direct-PR claude claude-opus-5-5 anthropic
+  printf '%s\n' 'not-json' > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" 2>&1 <&-)
+  status=$?
+  assert_equals 1 "$status" "a malformed chain file is a hard error"
+  assert_contains "$out" "unreadable or malformed" "the refusal names the file"
+  printf '%s\n' '[{"harness":"claude","model":"claude-opus-5-5","effort":"whimsical"}]' \
+    > "$HOME_DIR/config/cross-review-chain.json"
+  out=$(xr plan "$TASK" 2>&1 <&-)
+  status=$?
+  assert_equals 1 "$status" "a chain effort outside the ladder is a hard error"
+  pass "a malformed or out-of-ladder chain config refuses instead of narrowing silently"
 }
 
 test_unknown_builder_family_escalates() {
@@ -493,6 +673,10 @@ test_usage_errors() {
   pass "usage errors exit 2 and missing records exit 1"
 }
 
+test_hidden_gateway_incarnation_stays_unknown
+test_gateway_builder_family
+test_existing_unknown_gateway_builder_family
+test_gateway_resolution_preserves_builder_history
 test_same_family_pipeline_review_needs_a_reviewer
 test_cross_family_pipeline_review_counts
 test_pipeline_provider_read_from_the_state_database
@@ -504,6 +688,11 @@ test_non_github_pr_without_recorded_head_requires_explicit_sha
 test_collect_refuses_reports_not_bound_to_the_head
 test_confirm_is_bound_to_the_exact_sha
 test_reviewer_chain_skips_the_builder_family
+test_effort_cap_clamps_the_opus_reviewer_to_medium
+test_effort_cap_keeps_sol_reviewer_at_its_declared_high
+test_home_chain_config_drives_the_candidates
+test_effort_cap_matches_claude_model_name_variants
+test_home_chain_file_refuses_malformed_input
 test_unknown_builder_family_escalates
 test_record_without_family_resolves_from_harness
 test_private_page_rename_stays_private

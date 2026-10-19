@@ -5,6 +5,9 @@
 # fake tmux pane and a real isolated git worktree. The fake tmux captures the
 # literal launch command sent with `tmux send-keys -l`, so assertions pin the
 # command firstmate would run without starting any real harness.
+# --opus-effort runs only the Opus/home caps and neighboring profile regressions
+# without running unrelated environment-inheritance checks. --opus-raw-effort
+# exercises the raw-command boundary and neighboring raw-launch regressions.
 set -u
 
 # shellcheck source=tests/fixtures.sh
@@ -111,7 +114,7 @@ make_seeded_secondmate_home() {
 task_inbox_export() {  # <home> <id>
   local state
   state=$(CDPATH='' cd -- "$1/state" && pwd -P) || fail "cannot resolve state dir $1/state"
-  printf "export FM_TASK_INBOX='%s'; " "$state/$2.inbox"
+  printf "export FM_TASK_INBOX='%s' FM_TASK_INBOX_CLI='%s/bin/fm-inbox.sh'; " "$state/$2.inbox" "$ROOT"
 }
 
 
@@ -542,15 +545,17 @@ test_active_dispatch_profile_allows_explicit_harness() {
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
 
+  # The fixture's default pin is a bare effort medium, the exact one-level
+  # cap for gpt-5, so the explicit flags now carry an effort inside it.
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort medium)
   status=$?
   expect_code 0 "$status" "an explicit profile must launch without requiring consultation records"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report explicit codex harness"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
   assert_grep "ai_family=openai" "$HOME_DIR/state/$id.meta" "a codex builder was not recorded as the openai family"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
+  assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"medium\"' --dangerously-bypass-approvals-and-sandbox" \
     "explicit harness launch did not thread model and effort"
   pass "active crew-dispatch profile allows an explicit resolved harness"
 }
@@ -585,11 +590,11 @@ test_active_dispatch_profile_allows_positional_harness() {
   enable_dispatch_profile "$HOME_DIR"
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id" "$PROJ_DIR" codex --model gpt-5 --effort high)
+    "$id" "$PROJ_DIR" codex --model gpt-5 --effort medium)
   status=$?
   expect_code 0 "$status" "positional harness should satisfy active dispatch-profile requirement"
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report positional codex harness"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
   pass "active crew-dispatch profile allows the legacy positional harness form"
 }
 
@@ -696,7 +701,7 @@ test_active_dispatch_profile_allows_raw_launch_command() {
   # The unverified-adapter escape hatch is still an agent this fleet launched,
   # so it carries the compact-adviser floor and the AI-trailer strip; nothing
   # else may rewrite the captain's own command.
-  [ "$launch" = "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$HOME_DIR" "$id")$(fm_test_launch_git_prefix "$launch")custom-agent --flag" ] || fail "raw launch command changed"$'\n'"actual: $launch"
+  [ "$launch" = "$(browser_guard_prefix) export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$HOME_DIR" "$id")$(fm_test_launch_git_prefix "$launch")custom-agent --flag" ] || fail "raw launch command changed"$'\n'"actual: $launch"
   pass "active crew-dispatch profile allows the raw launch-command escape hatch"
 }
 
@@ -738,6 +743,79 @@ test_claude_threads_model_and_effort() {
     "claude launch did not thread model and effort flags"
   assert_not_contains "$launch" "--tui-mode" "non-Pi launches must not receive Pi's TUI mode override"
   pass "claude receives --model and --effort profile flags"
+}
+
+test_opus_effort_cap_and_named_override() {
+  local rec id out level why expected rc
+  for level in high xhigh max; do
+    for why in '' 'Different runtime approved' "claude-opus-5-5 $level explicitly approved"; do
+      id="opus-cap-$level-${#why}"
+      rec=$(make_spawn_case "$id" claude "$id")
+      read_case_record "$rec"
+      expected=medium
+      if [ -n "$why" ]; then
+        out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+          "$id" "$PROJ_DIR" --model claude-opus-5-5 --effort "$level" --captain-override "$why" 2>&1)
+        rc=$?
+        [ "$why" != "claude-opus-5-5 $level explicitly approved" ] || expected=$level
+      else
+        out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+          "$id" "$PROJ_DIR" --model claude-opus-5-5 --effort "$level" 2>&1)
+        rc=$?
+      fi
+      expect_code 0 "$rc" "Opus effort cap should launch: $out"
+      assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 "$expected"
+      assert_contains "$(cat "$LAUNCH_LOG")" "--effort '$expected'" 'launch must match recorded effort'
+      if [ "$expected" = medium ]; then
+        assert_contains "$out" 'clamped to medium' 'cap must explain the changed effort'
+      else
+        assert_not_contains "$out" 'clamped to medium' 'named override must preserve effort'
+      fi
+    done
+  done
+  pass 'Opus high effort requires an explicit override naming model and effort'
+}
+
+test_raw_opus_effort_requires_named_override() {
+  local rec id out status command n=0
+  for command in \
+    'claude --model claude-opus-5-5 --effort high' \
+    'claude --model="claude-opus-5-5[1m]" --effort=xhigh' \
+    'pi --provider anthropic --model claude-opus-5-5 --thinking high' \
+    'env WORKER=1 claude --model anthropic/claude-opus-5-5 --effort max' \
+    'echo starting && claude --model claude-opus-5-5 --effort high' \
+    'claude --model claude-opus-5-5 --effort medium' \
+    'claude --model claude-opus-5-5'; do
+    n=$((n + 1))
+    id="raw-opus-$n"
+    rec=$(make_spawn_case "$id" claude "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" "$command" 2>&1)
+    status=$?
+    expect_code 1 "$status" "raw Opus launch must use canonical profile flags: $out"
+    assert_contains "$out" 'claude-opus-5-5' 'raw refusal must identify the capped model'
+    assert_contains "$out" 'medium' 'raw refusal must identify the medium-effort policy'
+    assert_contains "$out" '--harness' 'raw refusal must explain the supported launch interface'
+    assert_absent "$HOME_DIR/state/$id.meta" 'refused raw launch must not publish a task'
+    [ ! -s "$LAUNCH_LOG" ] || fail 'refused raw launch reached the terminal'
+  done
+  # Even a named override cannot make an opaque shell command enforceable.
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" 'claude --model claude-opus-5-5 --effort high' \
+    --captain-override 'claude-opus-5-5 high approved' 2>&1)
+  expect_code 1 "$?" "raw override must still require canonical profile flags: $out"
+  assert_contains "$out" '--harness' 'override refusal must name the supported interface'
+  assert_absent "$HOME_DIR/state/$id.meta" 'raw override refusal must not publish a task'
+  [ ! -s "$LAUNCH_LOG" ] || fail 'refused raw override reached the terminal'
+  # Structured flags must not claim to cap a different command passed verbatim.
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" 'custom-agent --flag' --model claude-opus-5-5 --effort high 2>&1)
+  expect_code 1 "$?" "raw launch must not bypass the structured model cap: $out"
+  assert_contains "$out" '--harness' 'structured-model refusal must name the supported interface'
+  assert_absent "$HOME_DIR/state/$id.meta" 'structured-model refusal must not publish a task'
+  [ ! -s "$LAUNCH_LOG" ] || fail 'refused structured-model launch reached the terminal'
+  pass 'raw Opus launches require the canonical capped profile interface'
 }
 
 test_codex_threads_model_and_effort() {
@@ -1800,13 +1878,13 @@ test_batch_forwards_shared_profile_flags() {
   out=$(FM_FAKE_PANE_PATH_1="$WT_DIR" FM_FAKE_PANE_PATH_2="$wt2" \
     FM_FAKE_WINCOUNT="$CASE_DIR/wincount" \
     run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+    "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort medium)
   status=$?
   expect_code 0 "$status" "batch spawn with shared profile flags should succeed"
   assert_contains "$out" "spawned $id1 harness=codex" "first batch task did not use shared harness"
   assert_contains "$out" "spawned $id2 harness=codex" "second batch task did not use shared harness"
-  assert_meta_profile "$HOME_DIR/state/$id1.meta" codex gpt-5 high
-  assert_meta_profile "$HOME_DIR/state/$id2.meta" codex gpt-5 high
+  assert_meta_profile "$HOME_DIR/state/$id1.meta" codex gpt-5 medium
+  assert_meta_profile "$HOME_DIR/state/$id2.meta" codex gpt-5 medium
   pass "batch dispatch forwards shared --harness, --model, and --effort to every pair"
 }
 
@@ -1824,7 +1902,7 @@ test_claude_forwards_firstmate_config_dir_when_set() {
   status=$?
   expect_code 0 "$status" "claude spawn with CLAUDE_CONFIG_DIR set should succeed"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}'" \
+  assert_contains "$launch" "env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}'" \
     "claude launch did not forward firstmate's CLAUDE_CONFIG_DIR to the crewmate pane"
   pass "claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store"
 }
@@ -2357,6 +2435,181 @@ test_private_guard_refuses_a_private_registered_secondmate_home() {
   pass "private guard: a recovery launch checks the registered secondmate home"
 }
 
+# config/crew-dispatch.json's same envelope that feeds plan and the dispatch
+# resolver caps a concrete crewmate launch: --effort beyond it refuses before
+# metadata or launch, an effort inside launches, and --captain-override rides
+# past the gate after naming the policy on stderr.
+# A low home cap keeps its refusal and override cases distinct from the
+# model-wide Opus ceiling, which clamps unnamed high-effort requests to medium.
+cap_config_write_claude_opus_low() {
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+}
+
+test_effort_cap_refuses_launch_above_the_home_cap() {
+  local rec id out status
+  id=effortcap-high-refused-z30
+  rec=$(make_spawn_case effortcap-high-refused claude "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_low
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "an effort beyond the envelope should refuse the launch"
+  assert_contains "$out" "clamped to medium" "the model ceiling applies before the home cap"
+  assert_contains "$out" "exceeds the home's effort cap (low)" "the refusal names the cap and level"
+  assert_absent "$HOME_DIR/state/$id.meta" "the refusal left no task metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "the refusal left a delivered launch command"
+  pass "a launch above a model's effort envelope refuses before metadata"
+}
+
+test_effort_cap_allows_launch_inside_the_envelope() {
+  local rec id out status launch
+  id=effortcap-low-ok-z31
+  rec=$(make_spawn_case effortcap-low-ok claude "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_low
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort low)
+  status=$?
+  expect_code 0 "$status" "an effort inside the envelope should launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 low
+  [ -s "$LAUNCH_LOG" ] || fail "the in-envelope effort produced no launch command"
+  pass "a launch inside the model's effort envelope proceeds normally"
+}
+
+test_effort_cap_captain_override_launches_with_a_named_line() {
+  local rec id out status
+  id=effortcap-override-z32
+  rec=$(make_spawn_case effortcap-override claude "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_low
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort medium \
+    --captain-override 'fixture override wording' 2>&1)
+  status=$?
+  expect_code 0 "$status" "an explicit captain override should launch past the cap: $out"
+  assert_contains "$out" "effort-cap override" "the override named its policy move"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
+  pass "a captain override launches past the cap after naming the policy on stderr"
+}
+
+test_effort_cap_skips_harnesses_without_an_effort_knob() {
+  local rec id out status
+  id=effortcap-opencode-z33
+  rec=$(make_spawn_case effortcap-opencode opencode "$id")
+  read_case_record "$rec"
+  cap_config_write_claude_opus_low
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness opencode --model anthropic/claude-sonnet-4-5 --effort max)
+  status=$?
+  expect_code 0 "$status" "a harness without an effort knob should not be gated: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" opencode anthropic/claude-sonnet-4-5 max
+  pass "a harness that cannot run an effort is never gated by the cap"
+}
+
+test_effort_cap_unreadable_config_refuses() {
+  local rec id out status
+  id=effortcap-broken-z34
+  rec=$(make_spawn_case effortcap-broken claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules": oops}' > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "an unreadable effort config should refuse the launch"
+  assert_contains "$out" "config/crew-dispatch.json" "the refusal names the config"
+  assert_absent "$HOME_DIR/state/$id.meta" "the refusal left no task metadata"
+  pass "an unreadable effort cap config fails closed"
+}
+
+# The cap follows the model's own name variants, so a declaration for the
+# dated snapshot or the bare claude catalog alias also gates the plain
+# full-name launch, while an unrelated generation is not gated by it.
+test_effort_cap_matches_claude_model_name_variants() {
+  local rec id out status launch
+  # A dated-suffix declaration gates the plain model name.
+  id=effortcap-dated-refused-z35
+  rec=$(make_spawn_case effortcap-dated claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5-20260101","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort medium 2>&1)
+  status=$?
+  expect_code 1 "$status" "a dated-variant declaration should gate the plain Opus launch"
+  assert_contains "$out" "exceeds the home's effort cap (low)" "the variant refusal names the cap and level"
+  assert_absent "$HOME_DIR/state/$id.meta" "the variant refusal left no task metadata"
+  pass "a dated model-name declaration gates the plain Opus launch"
+
+  # The bare catalog alias declaration gates the full-name launch too.
+  id=effortcap-alias-ok-z36
+  rec=$(make_spawn_case effortcap-alias claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"opus","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "an effort inside a bare-alias declaration's envelope should launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
+  pass "a bare alias declaration gates the full-name Opus launch by its envelope"
+
+  # An unrelated generation's declaration never gates another model's name.
+  id=effortcap-other-gen-z37
+  rec=$(make_spawn_case effortcap-other-gen claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-6-1","effort":"low"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --model claude-opus-5-5 --effort high)
+  status=$?
+  expect_code 0 "$status" "an unrelated generation should not gate this launch: $out"
+  assert_contains "$out" "clamped to medium" "the model ceiling still applies without a matching home cap"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude claude-opus-5-5 medium
+  pass "an unrelated generation's declaration never gates another model"
+  pass "the effort cap matches the model's own name variants"
+}
+
+# A modelless claude launch runs the claude opus default, so an opus-family
+# declaration caps it; a sonnet-family declaration does not.
+test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default() {
+  local rec id out status
+  id=effortcap-modelless-refused-z38
+  rec=$(make_spawn_case effortcap-modelless claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-opus-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort high 2>&1)
+  status=$?
+  expect_code 1 "$status" "a modelless claude launch should be gated by its opus default"
+  assert_contains "$out" "exceeds the home's effort cap (medium)" "the modelless refusal names the cap"
+  assert_absent "$HOME_DIR/state/$id.meta" "the modelless refusal left no task metadata"
+
+  id=effortcap-modelless-ok-z39
+  rec=$(make_spawn_case effortcap-modelless-ok claude "$id")
+  read_case_record "$rec"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort medium)
+  status=$?
+  expect_code 0 "$status" "a modelless claude launch inside the envelope should launch: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" claude default medium
+  pass "the opus default gates a modelless claude launch and medium passes"
+
+  id=effortcap-sonnet-not-opus-z40
+  rec=$(make_spawn_case effortcap-sonnet-not claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"judgment","use":{"harness":"claude","model":"claude-sonnet-5-5","effort":"medium"}}],"default":null}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --harness claude --effort high)
+  status=$?
+  expect_code 0 "$status" "a sonnet-family declaration should not gate the opus default: $out"
+  pass "a sonnet-family declaration does not gate a modelless claude launch"
+  pass "a modelless claude launch is capped by its opus default"
+}
+
 
 # Execute the actual emitted command in a synthetic pane environment: the
 # fake backend records delivery, while real shells exercise the env boundary.
@@ -2402,7 +2655,7 @@ SH
         enabled) expected=$(printf '%s\n' unset "$value" '' unset) ;;
         empty) expected=$(printf '%s\n' unset unset unset unset) ;;
       esac
-      expected="$expected"$'\n'"$HOME_DIR/user-home"$'\n'"$pane_path"$'\nxterm\nsynthetic-pane\n/synthetic/gotmp'
+      expected="$expected"$'\n'"$HOME_DIR/user-home"$'\n'"$(browser_guard_shim_dir):$pane_path"$'\nxterm\nsynthetic-pane\n/synthetic/gotmp'
       # The strip-hook entry must also survive the env -i boundary.
       expected="$expected"$'\n'"hooksPath=$(cd "$HOME_DIR/state" && pwd -P)/$id.git-hooks"
       [ "$result" = "$expected" ] || fail "allowlist=$setting worker environment mismatch: $result"
@@ -2578,11 +2831,13 @@ SH
   done
 }
 
-test_launch_environment_allowlist
-test_launch_environment_invalid_config_refuses
-test_launch_environment_inaccessible_config_refuses
-test_launch_environment_inherited_by_secondmate
-test_launch_environment_inheritance_preserves_on_source_errors
+if [ "${1:-}" != --opus-effort ] && [ "${1:-}" != --opus-raw-effort ]; then
+  test_launch_environment_allowlist
+  test_launch_environment_invalid_config_refuses
+  test_launch_environment_inaccessible_config_refuses
+  test_launch_environment_inherited_by_secondmate
+  test_launch_environment_inheritance_preserves_on_source_errors
+fi
 
 test_worker_launch_delivers_role_scope() {
   local rec id out launch kind prompt envelope encoded brief_kind brief content first_line role_line task_line inbox
@@ -2716,7 +2971,7 @@ claude_expected_launch() {  # <launch> <home> <id> <permission-flag>
   [ "$(printf '%s' "$doorbell" | "$ROOT/bin/fm-operational-input.sh" doorbell-kind)" = launch-brief ] \
     || doorbell="not a launch-brief doorbell"
   quoted="'$(printf '%s' "$doorbell" | sed "s/'/'\\\\''/g")'"
-  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")FM_HOME='$2' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
+  printf '%s' "$(browser_guard_prefix) export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")FM_HOME='$2' env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false},\"env\":{\"SLASH_COMMAND_TOOL_CHAR_BUDGET\":\"8000\"}}' --disallowedTools Artifact,Workflow,ScheduleWakeup,AskUserQuestion $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
 }
 
 test_claude_permission_mode_bypass_matches_absent_launch() {
@@ -2905,6 +3160,80 @@ test_non_claude_harness_ignores_claude_permission_mode() {
   pass "config/claude-permission-mode changes claude launches only"
 }
 
+# Exercise the actual delivered prompt and execute its ordinary reporting
+# command, omitting the separate appendix receipt exactly as real workers did.
+test_enrolled_launch_status_confirms_processing() {
+  local rec id out brief content launch command prompt token now
+  id=execution-status-receipt
+  rec=$(make_spawn_case "$id" codex)
+  read_case_record "$rec"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-brief.sh" "$id" arbitrary-project-name --mode no-mistakes >/dev/null || fail 'receipt scaffold failed'
+  brief="$HOME_DIR/data/$id/brief.md"
+  content=$(<"$brief")
+  content=${content//'{TASK}'/Implement approved change.}
+  content=${content//'{FIRSTMATE_SPEC}'/Exercise worker status receipt.}
+  printf '%s\n' "$content" > "$brief"
+  # Enrollment enables the real tasks-axi backlog path, whose bounded reads
+  # need the timeout owner's actual CLI rather than the launch-only stub.
+  rm "$FAKEBIN_DIR/timeout"
+  cp "$ROOT/.tasks.toml" "$HOME_DIR/.tasks.toml"
+  printf '## In flight\n- [ ] %s - Implement approved change (kind: ship)\n\n## Queued\n\n## Done\n' "$id" > "$HOME_DIR/data/backlog.md"
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" approve "$id" --basis captain-approved || fail 'could not approve receipt task'
+  cat > "$FAKEBIN_DIR/codex" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$FM_ROLE_PROMPT"
+SH
+  chmod +x "$FAKEBIN_DIR/codex"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  expect_code 0 "$?" "enrolled spawn failed: $out"
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'spawn confirmed before worker activity'; fi
+  # The source instructions stay unchanged; the token belongs to this launch.
+  cmp -s "$brief" <(printf '%s\n' "$content") || fail 'spawn rewrote source instructions'
+  launch=$(<"$LAUNCH_LOG")
+  FM_ROLE_PROMPT="$CASE_DIR/envelope" PATH="$FAKEBIN_DIR:$PATH" bash -c "$launch" || fail 'could not consume enrolled launch'
+  prompt="$CASE_DIR/prompt"
+  sed -n '/FIRSTMATE_OP: v1 launch-brief:/,$p' "$CASE_DIR/envelope" | "$ROOT/bin/fm-operational-input.sh" body > "$prompt" || fail 'could not decode enrolled launch'
+  command=$(awk '/^[[:space:]]*`FM_HOME=.* status / {sub(/^[[:space:]]*`/, ""); sub(/`$/, ""); print; exit}' "$prompt")
+  [ -n "$command" ] || fail 'delivered status recipe has no receipt'
+  command=${command//'{state}'/working}
+  now=$(date +%s)
+  command=${command//'<epoch>'/$now}
+  command=${command//'{one short line}'/worker processing}
+  (cd "$HOME_DIR" && bash -c "${command/working/blocked}") || fail 'delivered recipe dropped safety report'
+  assert_grep "blocked [at=$now]: worker processing" "$HOME_DIR/state/$id.status" 'safety report was not appended'
+  if FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id"; then fail 'supervisor cwd confirmed processing'; fi
+  (cd "$WT_DIR" && bash -c "$command") || fail 'delivered recipe failed in isolated worker copy'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" confirmed "$id" || fail 'normal reporting did not confirm processing'
+  assert_grep 'worker processing' "$HOME_DIR/state/$id.status" 'worker event was not appended'
+  token=$(jq -r .attempt "$HOME_DIR/state/$id.execution")
+  [ -n "$token" ] || fail 'spawn omitted the receipt token'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-task-execution.sh" attempt "$id" >/dev/null
+  if (cd "$WT_DIR" && bash -c "$command") 2>/dev/null; then fail 'old delivered recipe survived a new handoff'; fi
+  pass 'delivered status command confirms isolated worker processing without the separate receipt'
+}
+
+if [ "${1:-}" = --opus-raw-effort ]; then
+  test_raw_opus_effort_requires_named_override
+  test_active_dispatch_profile_allows_raw_launch_command
+  test_chained_raw_launch_strips_ai_trailer_in_every_step
+  exit 0
+fi
+
+if [ "${1:-}" = --opus-effort ]; then
+  test_no_profile_keeps_claude_profile_defaults
+  test_claude_threads_model_and_effort
+  test_captain_override_records_and_launches_explicit_profile
+  test_opus_effort_cap_and_named_override
+  test_effort_cap_refuses_launch_above_the_home_cap
+  test_effort_cap_allows_launch_inside_the_envelope
+  test_effort_cap_captain_override_launches_with_a_named_line
+  test_effort_cap_skips_harnesses_without_an_effort_knob
+  test_effort_cap_unreadable_config_refuses
+  test_effort_cap_matches_claude_model_name_variants
+  test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default
+  exit 0
+fi
+
 test_launch_preserves_inherited_git_config
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
@@ -2925,6 +3254,8 @@ test_active_dispatch_profile_allows_positional_harness
 test_active_dispatch_profile_allows_raw_launch_command
 test_chained_raw_launch_strips_ai_trailer_in_every_step
 test_claude_threads_model_and_effort
+test_opus_effort_cap_and_named_override
+test_raw_opus_effort_requires_named_override
 test_codex_threads_model_and_effort
 test_codex_threads_model_and_max_effort
 test_codex_omits_max_effort_for_unsupported_model
@@ -2997,5 +3328,13 @@ test_private_guard_fails_closed_without_a_list
 test_private_guard_refuses_a_private_secondmate
 test_private_guard_refuses_a_private_secondmate_charter
 test_private_guard_refuses_a_private_registered_secondmate_home
+test_enrolled_launch_status_confirms_processing
+test_effort_cap_refuses_launch_above_the_home_cap
+test_effort_cap_allows_launch_inside_the_envelope
+test_effort_cap_captain_override_launches_with_a_named_line
+test_effort_cap_skips_harnesses_without_an_effort_knob
+test_effort_cap_unreadable_config_refuses
+test_effort_cap_matches_claude_model_name_variants
+test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default
 
 echo "# all fm-spawn-dispatch-profile tests passed"

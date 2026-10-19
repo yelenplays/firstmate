@@ -9,6 +9,9 @@
 # at all.
 set -u
 
+# Quota fixtures describe the ordinary pool; alternate roots opt in explicitly.
+unset CLAUDE_CONFIG_DIR
+
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -1633,6 +1636,47 @@ TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$RUNWA
 assert_contains "$out" 'not eligible: predicted duration ~500s exceeds projected-exhaustion runway 60s' 'known exhaustion before completion refuses with the provider-specific duration named'
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "the runway-fitting candidate still resolves"
 pass "cost-aware ranking: a runway shorter than predicted duration refuses the candidate"
+
+# The ordinary Claude account has a binding runway; a custom worker pin is
+# another pool, so none of the ordinary row's quota gates may bind it.
+CLAUDE_RUNWAY_QUOTA="$TMP_ROOT/claude-runway-quota.json"
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | .runway) = {"status":"projected_exhaustion","usableRunwaySeconds":60}' "$QUOTA" > "$CLAUDE_RUNWAY_QUOTA"
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+reset_log
+TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" 'predicted duration ~300s exceeds projected-exhaustion runway 60s' 'ordinary Claude runway binds'
+printf '%s\n' "$TMP_ROOT/other-claude" > "$HOME_DIR/config/claude-account"
+reset_log
+TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+assert_contains "$out" 'quota and runway unknown' 'unmatched Claude pool is disclosed'
+assert_not_contains "$out" 'predicted duration ~300s exceeds' 'wrong pool runway cannot reject Claude'
+# Exhaustion and 0% from the wrong pool cannot reject it either.
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[]) |= (.runway.status = "exhausted_now" | .effectivePercentRemaining = 0)' "$CLAUDE_RUNWAY_QUOTA" > "$TMP_ROOT/wrong-pool-empty.json"
+reset_log
+TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$TMP_ROOT/wrong-pool-empty.json" run code out err "$BRIEF"
+assert_contains "$out" 'quota and runway unknown' 'wrong pool exhaustion remains unknown'
+assert_not_contains "$out" 'not eligible: runway exhausted_now' 'wrong pool exhaustion cannot reject Claude'
+rm "$HOME_DIR/config/claude-account"
+pass 'duration and capacity gates apply only to the worker pool measured'
+
+# Without a pin, an inherited alternate root is also an unmatched worker pool.
+mkdir -p "$TMP_ROOT/inherited-claude"
+reset_log
+CLAUDE_CONFIG_DIR="$TMP_ROOT/inherited-claude" TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+expect_code 0 "$code" 'inherited custom Claude root remains eligible'
+assert_contains "$out" 'eligible, unranked: Claude worker pool is not matched' 'inherited custom root discloses unknown quota'
+assert_not_contains "$out" 'predicted duration ~300s exceeds' 'inherited custom root cannot borrow the ordinary runway'
+reset_log
+CLAUDE_CONFIG_DIR="$HOME/.claude" TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+expect_code 0 "$code" 'inherited ordinary Claude root resolves'
+assert_contains "$out" 'predicted duration ~300s exceeds projected-exhaustion runway 60s' 'inherited ordinary root keeps its binding runway'
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+reset_log
+CLAUDE_CONFIG_DIR="$TMP_ROOT/inherited-claude" TYPESAFE_API_KEY=$KEY FM_SPEND_LEDGER="$LEDGER_RUNWAY" QUOTA_AXI_FIXTURE="$CLAUDE_RUNWAY_QUOTA" run code out err "$BRIEF"
+expect_code 0 "$code" 'ordinary pin overrides an inherited custom Claude root'
+assert_contains "$out" 'predicted duration ~300s exceeds projected-exhaustion runway 60s' 'explicit ordinary pin takes precedence over the inherited root'
+rm "$HOME_DIR/config/claude-account"
+pass 'inherited Claude roots and ordinary pin precedence are covered explicitly'
 
 # A failing or absent ledger never fabricates a limit: candidates keep their
 # quota-driven ranking with pred=unknown disclosed.

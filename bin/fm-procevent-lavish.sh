@@ -575,7 +575,7 @@ cmd_silent() {
 
 # Print `key<TAB>answer<TAB>label[<TAB>mode]` for each non-reconcile structured choice the
 # captain submitted in a captured result; the optional mode column relays the
-# card's declared close mode (`done` or `release`) to the keyed-answer intake. The published response frames queued feedback as
+# card's declared close mode (`done`, `release`, or `route`) to the keyed-answer intake. The published response frames queued feedback as
 # a `prompts[N]{field,...}:` header followed by exactly N indented CSV rows whose
 # quoted fields carry JSON-style escapes, so this reads the declared field ORDER
 # rather than assuming a fixed column, and takes only rows whose `tag` field is
@@ -665,7 +665,8 @@ cmd_choice_rows() {
       my $mode = "";
       if (exists $data->{close}) {
         next if !defined($data->{close}) || ref($data->{close})
-          || ($data->{close} ne "done" && $data->{close} ne "release");
+          || ($data->{close} ne "done" && $data->{close} ne "release"
+            && $data->{close} ne "route");
         $mode = $data->{close};
       }
       my $label = defined $f{text} ? $f{text} : "";

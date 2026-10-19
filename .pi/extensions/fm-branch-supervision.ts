@@ -1545,7 +1545,7 @@ ${context.command}
         const reportRevisionBeforePrompt = durableReportRevision;
         const entryOffset = sessionManager.getEntries().length;
         // A claimed check row names no task, so a prompt carrying one is not
-        // scoped by task (only possible in the away posture).
+        // scoped by task (docs/pi-supervision-branch.md "Report scoping").
         wakeTaskScope = heartbeat || scope.checkSeqs.length > 0 || scope.heartbeatSeqs.length > 0
           ? null
           : { rows: [...scope.eligibleSeqs], tasks: new Set(scope.eligibleTasks) };

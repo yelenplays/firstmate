@@ -302,7 +302,7 @@ If these promotion steps were already completed before a relaunch, preserve the 
 4. Carry over only the intended fix changes. Leave scratch commits, debug edits, and experiment files behind.
 5. $PROMOTE_REPRO_STEP
 6. Treat the scout-time Firstmate spec and any unmarked legacy \`# Task\` text as investigation context, not captain intent or current ship-time instructions.
-7. Everything else in your original instructions carries over unchanged: the status protocol; the instruction inbox and its acknowledgement; the escalation rules, including ask-user; and every safety rule, except where the current delivery contract below explicitly replaces scout-only delivery rules.
+7. Everything else in your original instructions carries over unchanged: the status protocol; the instruction inbox and its acknowledgement; the escalation rules, including ask-user; and every safety rule, except where the current contract below explicitly replaces scout-only delivery or status reporting rules.
 EOF
 promote_delivery_contract() {
   cat <<EOF
@@ -329,6 +329,7 @@ EOF
 }
 mkdir -p "$DATA/$ID"
 [ ! -d "$INSTRUCTIONS" ] || { echo "error: ship instructions path is a directory: $INSTRUCTIONS" >&2; exit 1; }
+EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID") || exit 1
 TMP="$DATA/$ID/.ship-instructions.md.${BASHPID:-$$}"
 {
   cat <<EOF
@@ -345,6 +346,17 @@ $PROMOTION_SHIP_SPEC
 
 EOF
   promote_delivery_contract
+  if [ -n "$EXECUTION_TOKEN" ]; then
+    if [ "$(fm_dod_meta_value "$META" harness)" != rovo ]; then
+      printf '\n# Current implementation status reporting\nThis replaces the earlier status append command. Report from the isolated worker copy using:\n'
+      # shellcheck disable=SC2016  # Backticks are literal Markdown in the delivered brief.
+      printf '`FM_HOME=%q %q status %q %q "{state} [at=<epoch>]: {one short line}"`\n' \
+        "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
+    fi
+    # shellcheck disable=SC2016  # Backticks are literal Markdown in the delivered brief.
+    printf '\nAfter verifying isolation, execute before implementation:\n`FM_HOME=%q %q started %q %q`\n' \
+      "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
+  fi
   if [ -n "$PROMOTE_TEST_BAN_MODEL" ]; then
     fm_test_ban_overlay "$PROMOTE_TEST_BAN_MODEL" "$PROMOTE_TEST_BAN_ALLOWED_PATHS"
   fi
@@ -379,9 +391,6 @@ if ! mv "$BRIEF_REPLACEMENT" "$SCOUT_BRIEF"; then
   exit 1
 fi
 BRIEF_REPLACEMENT=
-# Promotion is a new implementation handoff, not evidence the scout is coding.
-EXECUTION_TOKEN=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" attempt "$ID") || exit 1
-
 TMP="$STATE/.$ID.meta.promote.${BASHPID:-$$}"
 grep -v -e '^kind=' -e '^mode=' -e '^yolo=' -e '^branch=' -e '^test_ban_allowed=' -e '^upstream_consent=' "$META" > "$TMP"
 {
@@ -411,11 +420,6 @@ META_LOCK_HELD=0
 HOME_Q=$(printf '%q' "$FM_HOME")
 INSTRUCTIONS_Q=$(printf '%q' "$INSTRUCTIONS")
 echo "promoted $ID to ship mode=$MODE yolo=$YOLO$PROMOTE_FORGE_WORDS (teardown protection restored)"
-if [ -n "$EXECUTION_TOKEN" ]; then
-  printf 'include in the ship instructions; execute in the worker copy: FM_HOME=%q %q started %q %q\n' \
-    "$FM_HOME" "$SCRIPT_DIR/fm-task-execution.sh" "$ID" "$EXECUTION_TOKEN"
-  echo 'implementation processing remains unconfirmed until that receipt'
-fi
 echo "wrote ship instructions for mode=$MODE$PROMOTE_FORGE_WORDS: $INSTRUCTIONS"
 echo "next: FM_HOME=$HOME_Q bin/fm-send.sh fm-$ID \"\$(cat $INSTRUCTIONS_Q)\""
 

@@ -8,8 +8,8 @@
 # unacknowledged message before escalating once as an ordinary stale wake.
 # These tests pin the semantics with real processes:
 #   1. A message is written durably and appears in the inbox, byte-exact
-#      including newlines, with a doorbell naming the inbox glob, numeric order,
-#      and handled/.
+#      including newlines, with a doorbell naming the one-call take command.
+#      Take prints and archives the pending numeric records in numeric order.
 #   2. Sequencing dedups per worker lifetime: the handled mv retires a record,
 #      re-acking it is a no-op, and an acknowledged sequence is never reissued.
 #      The idempotent enqueue (the remote steer leg's primitive) additionally
@@ -142,6 +142,61 @@ age_path() {  # <path>  (set mtime well past any grace under test)
   touch -t 202001010000 "$1"
 }
 
+test_take_prints_and_archives_in_numeric_order() {
+  local dir state rec out expected next
+  state="$TMP_ROOT/take/state"; mkdir -p "$state"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 $'line one\nline two\n\n')
+  dir=${rec%/*}
+  mv "$rec" "$dir/1000.msg"
+  inbox_lib "$state" fm_task_inbox_write "$state" t1 'second' >/dev/null
+  mv "$dir/1001.msg" "$dir/2.msg"
+  inbox_lib "$state" fm_task_inbox_write "$state" t1 'third' >/dev/null
+  mv "$dir/1001.msg" "$dir/010.msg"
+  printf 'unrelated' > "$dir/not-a-number.msg"
+  expected="$state/expected"
+  {
+    printf '=== %s ===\n' "$dir/2.msg"; cat "$dir/2.msg"; printf '\n'
+    printf '=== %s ===\n' "$dir/010.msg"; cat "$dir/010.msg"; printf '\n'
+    printf '=== %s ===\n' "$dir/1000.msg"; cat "$dir/1000.msg"; printf '\n'
+  } > "$expected"
+  "$ROOT/bin/fm-inbox.sh" take "$dir" > "$state/output" || fail 'take failed'
+  cmp -s "$expected" "$state/output" || fail 'take lost bytes, paths, or numeric order'
+  for rec in 2 010 1000; do
+    [ -f "$dir/handled/$rec.msg" ] && [ ! -e "$dir/$rec.msg" ] || fail 'take did not archive a printed record'
+  done
+  [ -f "$dir/not-a-number.msg" ] || fail 'take touched a non-record'
+  out=$("$ROOT/bin/fm-inbox.sh" take "$dir") || fail 'empty take failed'
+  [ -z "$out" ] || fail 'duplicate take reprinted handled messages'
+  out=$("$ROOT/bin/fm-inbox.sh" take "$state/absent") || fail 'absent take failed'
+  [ -z "$out" ] && [ ! -e "$state/absent" ] || fail 'absent take had side effects'
+  next=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 'next')
+  [ "${next##*/}" = 1001.msg ] || fail 'take allowed a handled sequence to be reused'
+  pass 'inbox take: one CLI call prints every numeric record in order, archives, and is replay-safe'
+}
+
+test_take_preserves_failed_and_colliding_records() {
+  local state dir rec rc fakebin realcat
+  state="$TMP_ROOT/take-failure/state"; mkdir -p "$state"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 'keep until printed')
+  dir=${rec%/*}
+  fakebin="$state/fakebin"; mkdir -p "$fakebin"
+  realcat=$(command -v cat)
+  # shellcheck disable=SC2016 # Arguments expand in the generated stub, not here.
+  printf '#!/bin/sh\ncase "$1" in *.msg) exit 1 ;; esac\nexec "%s" "$@"\n' "$realcat" > "$fakebin/cat"
+  chmod +x "$fakebin/cat"
+  rc=0
+  PATH="$fakebin:$PATH" "$ROOT/bin/fm-inbox.sh" take "$dir" > "$state/out" 2>/dev/null || rc=$?
+  [ "$rc" -ne 0 ] && [ -f "$rec" ] && [ ! -e "$dir/handled/001.msg" ] || fail 'failed output acknowledged the message'
+  printf 'older ack' > "$dir/handled/001.msg"
+  rc=0
+  "$ROOT/bin/fm-inbox.sh" take "$dir" > "$state/out" 2>/dev/null || rc=$?
+  [ "$rc" -ne 0 ] && [ -f "$rec" ] || fail 'collision silently replaced an acknowledgement'
+  [ "$(cat "$dir/handled/001.msg")" = 'older ack' ] || fail 'take overwrote handled bytes'
+  rm "$dir/handled/001.msg"
+  "$ROOT/bin/fm-inbox.sh" take "$dir" >/dev/null || fail 'take failed after recovery (lock retained)'
+  pass 'inbox take: output failure or archive collision preserves the pending record and releases the lock'
+}
+
 test_write_is_durable_and_exact() {
   local state rec rec2 doorbell doorbell2 doorbell3 expected actual expected2 actual2 text
   state="$TMP_ROOT/write/state"; mkdir -p "$state"
@@ -173,10 +228,10 @@ test_write_is_durable_and_exact() {
   doorbell2=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec2")
   [ "$doorbell" = "$doorbell2" ] \
     || fail "every record in one inbox should ring the same drain-all doorbell"
-  assert_contains "$doorbell" "list \"\$FM_TASK_INBOX\"/*.msg" "doorbell should list all unhandled records through FM_TASK_INBOX"
-  assert_contains "$doorbell" "'t1.inbox' steering inbox" "doorbell should quote and name the inbox"
-  assert_contains "$doorbell" "numeric order" "doorbell should require ordered processing"
-  assert_contains "$doorbell" "handled/" "doorbell should name the handled dir"
+  # shellcheck disable=SC2016 # The doorbell deliberately carries literal variable names.
+  assert_contains "$doorbell" '"$FM_TASK_INBOX_CLI" take "$FM_TASK_INBOX"' "doorbell should name the one-call take command"
+  assert_contains "$doorbell" "'t1.inbox'" "doorbell should quote and name the inbox"
+  assert_contains "$doorbell" "then act on the output" "receipt must not replace acting on the instructions"
   assert_contains "$doorbell" "Firstmate instruction waiting" "doorbell should be self-describing"
   case "$doorbell" in
     *$'\n'*) fail "the doorbell must be a single line" ;;
@@ -883,7 +938,8 @@ test_watcher_rerings_idle_pane_quietly() {
     sleep 0.1
     i=$((i + 1))
   done
-  grep -qF "Firstmate instruction waiting: list \"\$FM_TASK_INBOX\"/*.msg in your 't1.inbox' steering inbox" "$log" \
+  # shellcheck disable=SC2016 # Match the literal names delivered to the worker.
+  grep -qF 'Firstmate instruction waiting: run "$FM_TASK_INBOX_CLI" take "$FM_TASK_INBOX"' "$log" \
     || { kill "$pid" 2>/dev/null; fail "the watcher never re-rang the doorbell:"$'\n'"$(cat "$log")"; }
   kill -0 "$pid" 2>/dev/null \
     || fail "a healthy re-ring must not wake firstmate (watcher exited):"$'\n'"$(cat "$out")"
@@ -1465,6 +1521,8 @@ test_watcher_dead_pane_ignores_stale_busy_state() {
   pass "watcher: dead-pane recovery overrides stale busy state"
 }
 
+test_take_prints_and_archives_in_numeric_order
+test_take_preserves_failed_and_colliding_records
 test_write_is_durable_and_exact
 test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls

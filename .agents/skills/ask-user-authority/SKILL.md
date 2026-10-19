@@ -3,7 +3,7 @@ name: ask-user-authority
 description: >-
   Agent-only decision procedure for ask-user findings.
   Use before deciding any ask-user finding.
-  This skill is the single owner of finding-decision policy: firstmate screens every finding, puts the rest through one typed Jev call that answers only confident in-scope fixes, and escalates everything else to the captain.
+  This skill owns finding-decision policy, Jev-first screening, and captain escalation.
   Finding authority is this skill's criteria, not the project's yolo posture.
 user-invocable: false
 metadata:
@@ -15,7 +15,7 @@ metadata:
 This skill is the single owner of the decision policy for no-mistakes ask-user findings.
 `AGENTS.md` section 7 points here and does not restate this procedure.
 Finding authority is determined by the criteria below, not by `yolo`.
-Firstmate screens every finding against the escalation classes, Jev decides the remaining findings only when it is confident they are in-scope fixes, and every other finding goes to the captain.
+Follow [Decide](#decide) for screening, Jev decisions, and escalation.
 
 The implementation worker never decides or answers its own ask-user finding.
 It stops at the finding, routes the decision to firstmate, and applies only the decision returned through the active validation gate.
@@ -39,7 +39,7 @@ These classes are the criteria both firstmate's screen and the Jev question appl
    The smallest downstream changes needed to keep that behavior correct, add behavioral tests where an executable contract exists, or keep documentation accurate remain within scope even when they touch files not named at intake.
    Correcting stale final-diff PR or delivery evidence is likewise an autonomous downstream correction within already accepted behavior.
 3. An in-scope fix is unambiguous toward the accepted design: restoring accepted behavior a bad fix round broke, completing an already-approved design, or a straight in-scope correction or bug fix required by accepted intent, even when the correction is technically difficult or requires complex architecture the captain explicitly requested.
-4. Every other finding belongs to the captain:
+4. Findings in these classes belong to the captain:
    - a Fix that would materially expand the contract by adding a new guarantee, threat model, subsystem, abstraction, compatibility surface, state machine, continuous-monitoring requirement, generalized framework, or broader architecture not required by the accepted intent
    - a product or architecture call not settled by accepted intent
    - repeated same-theme findings when incremental corrections are preserving a questionable abstraction rather than closing independent defects
@@ -50,8 +50,11 @@ These classes are the criteria both firstmate's screen and the Jev question appl
 
 1. Screen the gate yourself first.
    When any finding is destructive, irreversible, security-sensitive, or contract-expanding, repeats a theme under item 4, or the gate is past the round cap, escalate the whole gate to the captain without calling Jev.
-2. Otherwise run `bin/fm-jev-ask-user.sh <task-id> <decision-key> --round <n>` on the worker's open ask-user decision; its header owns the inputs, the deterministic always-escalate classes, the confidence floor, the outbound privacy boundary, and the log.
-3. On `ACT` (exit 0), Jev decided every finding an in-scope fix and the script has already answered the gate through `bin/fm-send.sh --resolve-key`, whose close note records that Jev decided; resume supervision.
+2. Otherwise run `bin/fm-jev-ask-user.sh <task-id> <decision-key> --round <n>` on the worker's open ask-user decision; its header owns the inputs, deterministic always-escalate classes, approval eligibility, confidence floor, exact response commands, outbound privacy boundary, and log.
+3. On `ACT` (exit 0), Jev decided the gate and the script has already answered it through `bin/fm-send.sh --resolve-key`, whose close note records that Jev decided; resume supervision.
+   Jev acts only when every asked finding reaches the confidence floor and agrees on one outcome: an in-scope fix, or approval with a follow-up check for an inconclusive live validation that the gate cannot settle by design and that names no code defect.
+   For approval, the worker lists the untested scenarios under a `Follow-up check` heading in the PR description.
+   Mixed fix and approval decisions escalate, and approval never overrides the screens in step 1.
 4. On `ESCALATE` (exit 2), escalate the whole gate to the captain; a low-confidence verdict, a Jev error, a missing key, or a kept-out project is an escalation, never a cue for firstmate to decide the finding itself.
 5. On exit 1 nothing was decided, or the printed decision did not reach the worker: correct a wrong key or round and rerun, resend an undelivered printed decision with `bin/fm-send.sh --resolve-key`, and escalate when neither applies.
 6. When the captain answers, relay that answer under `validation-supervision`.

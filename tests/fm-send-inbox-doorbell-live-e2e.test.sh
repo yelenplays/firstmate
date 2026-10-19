@@ -3,10 +3,10 @@
 # (live-harness-optin family).
 #
 # The steering inbox's one behavioral assumption is that a real worker agent
-# follows the constant self-describing doorbell line: list the inbox, read and
-# act on its records in numeric order, then mv each into handled/. The
-# doorbell names the inbox as "$FM_TASK_INBOX", so each worker is launched the
-# way bin/fm-spawn.sh launches it, with FM_TASK_INBOX exported to its home's
+# follows the constant self-describing doorbell line: take the inbox in one
+# call, then act on its ordered output. The
+# doorbell names "$FM_TASK_INBOX_CLI" and "$FM_TASK_INBOX", exported as in
+# bin/fm-spawn.sh, with FM_TASK_INBOX pointing to its home's
 # state/<task>.inbox, and receives no brief at all: it must resolve the inbox
 # from the doorbell plus its own environment. A stub can only confirm the
 # assumption already written into the stub, so per
@@ -116,7 +116,7 @@ EOF
     pane=$(printf '%s' "$created" | jq -er '.result.root_pane.pane_id') || fail "$h ($version): missing pane"
     target="$HERDR_LAB_SESSION:$pane"
     printf 'backend=herdr\nherdr_session=%s\nherdr_pane_id=%s\nwindow=%s\nkind=ship\nharness=%s\n' "$HERDR_LAB_SESSION" "$pane" "$target" "$h" > "$home/state/$task.meta"
-    lab pane run "$pane" "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" >/dev/null || fail "$h ($version): could not launch"
+    lab pane run "$pane" "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox") FM_TASK_INBOX_CLI=$(printf '%q' "$ROOT/bin/fm-inbox.sh"); $cmd" >/dev/null || fail "$h ($version): could not launch"
     for scenario in fresh stale; do
       wait_herdr_idle "$target" || fail "$h ($version): no empty composer before $scenario; resolve trust/login dialogs first"
       rec="$home/state/$task.inbox/001.msg"
@@ -130,7 +130,7 @@ EOF
       echo 2 > "$LAB/drop-enters"
       acted="$LAB/acted-$h-$scenario"
       FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" \
-        "Run exactly: touch $acted . Then move this message into handled/. Reply with one short line." \
+        "Run exactly: touch $acted . Receipt is already acknowledged by take. Reply with one short line." \
         > "$LAB/send.out" 2> "$LAB/send.err" || fail "$h ($version): $scenario fm-send failed"
       [ "$(< "$LAB/drop-enters")" = 0 ] || fail "$h ($version): $scenario never attempted both swallowed Enters"
       landed=0
@@ -255,7 +255,7 @@ check_harness_doorbell() {  # <name>
   task="live-$name"
   acted="$LAB/acted-$name"
   tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
-    -- bash -lc "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
+    -- bash -lc "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox") FM_TASK_INBOX_CLI=$(printf '%q' "$ROOT/bin/fm-inbox.sh"); $cmd" \
     || { FAILED=1; printf 'not ok - %s (%s): could not launch in the isolated tmux server\n' "$name" "$version" >&2; return 0; }
   wait_ready "$win"; ready_rc=$?
   if [ "$ready_rc" -eq 1 ]; then
@@ -268,7 +268,7 @@ check_harness_doorbell() {  # <name>
   [ "$ready_rc" -eq 0 ] || note "$name ($version): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)"
   printf 'window=%s:%s\nkind=ship\nharness=%s\n' "$SESSION" "$win" "$name" > "$home/state/$task.meta"
   if ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" \
-    "Firstmate live check: run exactly this shell command now: touch $acted - then follow the mv instruction you were given for this message. Reply with one short line." \
+    "Firstmate live check: run exactly this shell command now: touch $acted . Receipt is already acknowledged by take. Reply with one short line." \
     >/dev/null 2>&1; then
     FAILED=1
     printf 'not ok - %s (%s): fm-send refused the live steer\n' "$name" "$version" >&2
@@ -277,7 +277,7 @@ check_harness_doorbell() {  # <name>
   fi
   rec="$home/state/$task.inbox/001.msg"
   handled="$home/state/$task.inbox/handled/001.msg"
-  [ -f "$rec" ] || {
+  { [ -f "$rec" ] || [ -f "$handled" ]; } || {
     FAILED=1
     printf 'not ok - %s (%s): fm-send left no durable inbox record\n' "$name" "$version" >&2
     tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true

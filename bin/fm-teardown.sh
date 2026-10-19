@@ -5,6 +5,12 @@
 # scout tasks before reporting success (a secondmate teardown transitions none,
 # since secondmates are not backlog items), then refresh/prune the project's
 # clone for PR-based ship tasks.
+# Before retiring task meta/status, preservation must succeed through
+# bin/fm-model-ledger.py, whose header owns the record and retry contract.
+# Ship/scout teardown first attempts a spend snapshot refresh with a 15-second
+# scan budget under a 30-second command bound; failure does not block cleanup
+# and can leave a prior snapshot. Forced secondmate-child cleanup uses the
+# child's existing spend snapshot without a refresh.
 # An endpoint whose close could not do its job REFUSES before any record naming
 # it is removed: those records are the only thing that names what survived, so
 # reporting such a close as a completed cleanup strands the endpoint instead of
@@ -3391,6 +3397,7 @@ cleanup_firstmate_home_children() {
       child_busy_gen=$(cat "$sub_state/$child_id.busy-gen" 2>/dev/null || true)
     fi
     retire_busy_state "$sub_state" "$child_id" "$child_busy_gen" || return 1
+    python3 "$SCRIPT_DIR/fm-model-ledger.py" --state "$sub_state" --data "$home/data" "$child_id" || return 1
     status_retire_presentation_task "$sub_state" "$child_id" || return 1
     if [ -d "$sub_state" ]; then
       case "$child_kind" in
@@ -3671,6 +3678,10 @@ fi
 # kind=secondmate: a secondmate home's own runtime lifecycle is owned by the
 # dedicated process-event and firstmate-home removal machinery further below,
 # not by task-worktree cleanup.
+if [ "$KIND" != secondmate ]; then
+  fm_nm_bounded "$STATE" 30 python3 "$SCRIPT_DIR/fm-spend-ledger.py" --state "$STATE" task "$ID" --scan-budget 15 >/dev/null 2>&1 || true
+  python3 "$SCRIPT_DIR/fm-model-ledger.py" --state "$STATE" --data "$DATA" "$ID" || exit 1
+fi
 if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   conclude_task_no_mistakes_run "$WT"
   reap_task_worktree_processes worktree "$WT" "$TASK_TMP"

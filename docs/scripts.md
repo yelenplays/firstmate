@@ -14,6 +14,13 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-bootstrap.sh`        | Detect toolchain and fleet problems, run the locked session-start sweeps, and install approved tools |
 | `fm-browser-bridge-sweep-lib.sh` | Reap orphaned chrome-devtools-axi bridge trees whose owning task is proven dead, and remove their temporary-root browser profiles |
 | `fm-browser.sh` | Run one isolated browser action or a saved, verified browser route in a named session |
+| `fm-browser-guard-env.sh` | Print the launch environment text that puts a launched agent under the agent browser guard |
+| `fm-browser-guard-preload.cjs` | Enforce the [browser guard](browser-guard.md) in Node and Bun processes |
+| `fm-browser-guard-load.cjs` | Stable Node/Bun entry point for the [browser guard preload](browser-guard.md#how-it-works) |
+| `fm-browser-guard-open.sh` | Refuse the `open` calls that can only end in a visible browser window, reached as `open` through `fm-browser-guard-bin` |
+| `fm-browser-guard-osascript.sh` | Refuse the AppleScript scripts that would put a browser on screen, reached as `osascript` through `fm-browser-guard-bin` |
+| `fm-browser-guard-browser.sh` | Refuse the URL a `BROWSER`-honoring tool such as Python's `webbrowser` would open, set as `BROWSER` by `fm-browser-guard-env.sh` |
+| `fm-browser-guard-shim-lib.sh` | Own which applications, bundle identifiers, targets, and AppleScript forms are browser launches |
 | `fm-startup-network.sh`  | Run session start's network checks and inactive-outcome scan off its blocking path, retaining reports and durable findings |
 | `fm-fleet-sync.sh`       | Refresh project clones with safe fast-forwards, self-heals, `STUCK:` reports, branch pruning, and bounded recovery from an orphaned `.git/packed-refs.lock` |
 | `fm-fleet-snapshot.sh`   | Print structured fleet snapshot JSON and refresh only its parent-side remote-ledger cache (schema `fm-fleet-snapshot.v1`) |
@@ -22,7 +29,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-fleet-view.sh`       | Render the fleet snapshot as a human Markdown view                                   |
 | `fm-theme.sh`            | Resolve the selected theme pack and render its chat voice, banner, and display-only status words |
 | `fm-bearings-snapshot.sh` | Project the bounded remote-ledger fleet snapshot to compact TOON; `--include-prs` adds live GitHub enrichment |
-| `fm-bearings-board.sh`   | Build and arm the stable interactive `/bearings lavish` fleet board                  |
+| `fm-bearings-board.sh`   | Build and arm the stable interactive `/bearings lavish` fleet board, and keep it live from the snapshot while it is open |
 | `fm-secondmate-reconcile.sh` | Queue Bearings reconcile requests for later supervision delivery and ask each mismatched home through its durable inbox with a per-home cooldown |
 | `fm-update.sh`           | Guarded self-update of firstmate and local or remote secondmate homes, reconciling redundant divergence and classifying every live mate left on the target commit for restart or fallback nudge |
 | `fm-secondmate-restart.sh` | Persist open conversational work, then restart eligible second mates or report the fallback outcome |
@@ -34,7 +41,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-remote-doctor.sh`    | Check, and with `--fix` repair, one remote account's second-mate readiness (remote job worker, Herdr, Aqua launch agents, PATH, and required tools) |
 | [`fm-backlog-handoff.sh`](../bin/fm-backlog-handoff.sh) | Move queued backlog items into a secondmate home; its header owns route-specific wake outcomes and retries |
 | `fm-backlog-receive.sh`  | Idempotently ingest one confined remote handoff outbox through tasks-axi             |
-| `fm-captain-hold.sh`     | Hold tasks for the captain, record the captain's answers, gate investigation completion, and report record divergence between the status log and the backlog |
+| `fm-captain-hold.sh`     | Hold tasks for the captain under the captain's WIP limit, record the captain's answers, gate investigation completion, and report record divergence between the status log and the backlog |
+| `fm-captain-wip-lib.sh`  | The captain's fixed WIP limit and the live-call count that `fm-captain-hold.sh hold` brakes on and the board shows |
 | `fm-decision-hold.sh`    | One-release compatibility shim mapping the retired decision commands onto fm-captain-hold.sh |
 | `fm-brief.sh`            | Scaffold ship (explicit `--mode`, plus the project's registered `--forge`), scout, secondmate-charter, and Herdr-lab briefs, with Captain's intent and Firstmate spec subsections on ship/scout |
 | [`fm-dod-lib.sh`](../bin/fm-dod-lib.sh) | Own ship/scout worker role scope, ship definitions of done, the named-head reachability gate on ship `done:` acceptance, the Sonnet and Haiku test-authoring ban, and the no-mistakes `--intent` contract |
@@ -71,7 +79,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-seat-pick.sh` | Opt-in team seat selection and deterministic reroute planning ([configuration](configuration.md#seat-picking-for-teams-configseat-pick)) |
 | `fm-queue-ready.sh` | Advisory heartbeat line of dispatch-ready backlog items from structured fields ([configuration](configuration.md#queue-readiness-heartbeat)) |
 | `fm-jev-brief-preflight.sh` | Advisory deterministic spawn-path brief check ([configuration](configuration.md#brief-preflight-fm_jev_brief_preflight)) |
-| `fm-jev-ask-user.sh` | Jev decides a no-mistakes ask-user gate first; answers confident in-scope fixes through `fm-send --resolve-key`, escalates everything else ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
+| `fm-jev-ask-user.sh` | Jev-first no-mistakes finding decisions under [`ask-user-authority`](../.agents/skills/ask-user-authority/SKILL.md) ([configuration](configuration.md#jev-ask-user-gate-fm_jev_ask_user_floor)) |
 | `fm-jev-pr-verdict.sh` | Metadata-only advisory for review-ready shared-wiki GitHub PRs ([configuration](configuration.md#advisory-wiki-pr-verdict)) |
 | `fm-jev-merge-gate.sh` | Collect exact-head merge evidence and compare Jev's shadow decision with firstmate's ([configuration](configuration.md#jev-merge-gate-shadow)) |
 | `fm-jev-model-proposal.sh` | Per-role Jev model proposal from curated evidence; never edits config ([configuration](configuration.md#jev-model-proposals)) |
@@ -92,6 +100,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | [`fm-project-origin-lib.sh`](../bin/fm-project-origin-lib.sh) | Accepted origin-form owner shared by both remote provisioning boundaries |
 | `fm-spawn.sh`            | Spawn crewmates, scouts, `id=repo` batches, and secondmates on the resolved harness and runtime backend |
 | `fm-git-strip-ai-trailers.sh` | Strip known AI commit trailers at commit-msg time and install that hook for a fleet launch |
+| [`fm-precommit-token-cap.sh`](../bin/fm-precommit-token-cap.sh) | Enforce the staged-file token cap ([hook setup](../CONTRIBUTING.md#git-hooks)) |
 | `fm-backend.sh`          | Runtime-backend selection, meta helpers, selector resolution, and operation dispatch |
 | `fm-backend-hometag-lib.sh` | Shared per-installation home-tag derivation for zellij tab and cmux workspace titles |
 | `fm-composer-lib.sh`     | Single fleet-wide owner of composer shapes, capability-aware screen classification, and verdicts |
@@ -124,6 +133,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-gate-refuse-lib.sh`  | Shared gate-context lifecycle boundary for real and lab homes                      |
 | `fm-procevent-spend.sh`  | Enforce optional per-task and fleet-window token ceilings against the spend ledger |
 | `fm-spend-ledger.py`     | Rebuild per-task and fleet token totals from workers' Pi and native Claude session logs, and predict dispatch burn |
+| [`fm-model-ledger.py`](../bin/fm-model-ledger.py) | Preserve minimal model-outcome facts before task cleanup retires metadata and status |
 | `fm-watch-arm.sh`        | Verified home-scoped watcher arm wrapper with loud cycle endings and bounded lifecycle ledger |
 | `fm-watch-checkpoint.sh` | Run one bounded foreground watcher checkpoint for Codex-style supervision            |
 | `fm-watch.sh`            | Singleton-safe watcher: absorb benign wakes, detect stalled local-secondmate wake queues, and exit on actionable ones |
@@ -200,7 +210,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-public-followup.sh`  | Brief, reconcile, and deliver typed public commitments, surface refusals, then rechain or retire retained loops |
 | `fm-public-followup-emit.sh` | Validate and report one typed terminal work result into its owning home, or stage it when that home is remote |
 | `fm-public-followup-collect.sh` | Read and retire the typed terminal results a remote work home staged for the home that owes the public reply |
-| `fm-inbox.sh`            | The captain's out-of-band capture surface: queue a note (optionally idempotent by request id), announce or repair its wake, record a durable primary reply, and emit bounded receipts and primary-readiness JSON |
+| `fm-inbox.sh`            | Capture captain notes and replies, report receipts and readiness, and expose worker steering-inbox receipt |
 | `fm-mail.sh`             | General-purpose mail plane: read unseen IMAP mail, send one SMTP message, or surface new mail as a `check` wake via `poll` (configuration in the home's gitignored `.env`) |
 | `fm-mail.py`             | The IMAP/SMTP engine behind `fm-mail.sh` |
 | `fm-mail-check.sh`       | Standing received-mail poll: `arm` registers a watcher check that runs `fm-mail.sh poll` on the watcher cadence (new mail still wakes via the poll; the check's own line also wakes unless the poll is a proven no-op), `disarm` removes it |

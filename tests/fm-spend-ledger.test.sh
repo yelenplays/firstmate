@@ -280,4 +280,29 @@ printf '{"type":"message","timestamp":"%s","message":{"role":"assistant","provid
   "$SESSION_A_ISO" >> "$PI_ANTHROPIC/--work-anthropic--/s.jsonl"
 WEEK=$("$LEDGER" --state "$TMP_ROOT/pi-anthropic-state" --sessions-root "$PI_ANTHROPIC" --claude-sessions-root "$EMPTY" week --hours 1000000)
 assert_equals 200 "$(json_field "$WEEK" "d['families']['claude']['claudeEqTokens']")" 'Pi anthropic usage is weighted as Claude usage'
+# Public model and rollup must use request activity, not an hours-long session.
+IDLE_STATE="$TMP_ROOT/idle-state"
+IDLE_SESSIONS="$TMP_ROOT/idle-sessions"
+mkdir -p "$IDLE_STATE"
+fm_write_meta "$IDLE_STATE/idle.meta" "worktree=/work/idle" "spawn_gen=s${EPOCH_A}.1.idle" "harness=pi" "effort=medium"
+IDLE_DIR=$(make_session_dir "$IDLE_SESSIONS" /work/idle)
+write_session_header "$IDLE_DIR/idle.jsonl" idle /work/idle "$SESSION_A_ISO"
+for offset in 60 120 18120 18240 18840 18900; do
+  append_message "$IDLE_DIR/idle.jsonl" "$(format_reset "$((SESSION_A_EPOCH + offset))")" openai-codex sol 100 none
+done
+# 60 + 120 + 60 seconds; the five-hour gap and exact 10-minute gap do not count.
+"$LEDGER" --state "$IDLE_STATE" --sessions-root "$IDLE_SESSIONS" --claude-sessions-root "$EMPTY" rollup >/dev/null
+assert_equals 240.0 "$(json_field "$(cat "$IDLE_STATE/spend-rollup.json")" "d['tasks']['idle']['seconds']")" 'rollup excludes idle and boundary gaps'
+"$LEDGER" --state "$IDLE_STATE" --sessions-root "$IDLE_SESSIONS" --claude-sessions-root "$EMPTY" model >/dev/null
+assert_equals 240.0 "$(json_field "$(cat "$IDLE_STATE/spend-model.json")" "d['median']['codex']['medium']['seconds']")" 'model predicts active time only'
+mkdir -p "$TMP_ROOT/idle-native"
+fm_write_meta "$IDLE_STATE/native-idle.meta" "worktree=/work/native-idle" "spawn_gen=s${EPOCH_A}.1.native" "harness=claude" "effort=medium"
+for offset in 60 120 18120 18240; do
+  printf '{"type":"assistant","sessionId":"native-idle","cwd":"/work/native-idle","timestamp":"%s","message":{"id":"msg-%s","role":"assistant","model":"claude-opus-5-5","usage":{"input_tokens":100}}}\n' "$(format_reset "$((SESSION_A_EPOCH + offset))")" "$offset" >> "$TMP_ROOT/idle-native/session.jsonl"
+done
+# Streaming repeats and unrelated records must not add active time.
+printf '{"type":"assistant","sessionId":"native-idle","cwd":"/work/native-idle","timestamp":"%s","message":{"id":"msg-18240","role":"assistant","usage":{"input_tokens":101}}}\n' "$(format_reset "$((SESSION_A_EPOCH + 18300))")" >> "$TMP_ROOT/idle-native/session.jsonl"
+printf '{"type":"user","timestamp":"%s","message":{"role":"user"}}\n' "$(format_reset "$((SESSION_A_EPOCH + 18360))")" >> "$TMP_ROOT/idle-native/session.jsonl"
+"$LEDGER" --state "$IDLE_STATE" --sessions-root "$IDLE_SESSIONS" --claude-sessions-root "$TMP_ROOT/idle-native" rollup >/dev/null
+assert_equals 180.0 "$(json_field "$(cat "$IDLE_STATE/spend-rollup.json")" "d['tasks']['native-idle']['seconds']")" 'native requests exclude idle, stream repeats and user events'
 pass "spend ledger: Pi and native Claude usage, deduplication, task binding and prediction"

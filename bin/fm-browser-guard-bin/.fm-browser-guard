@@ -1,0 +1,3 @@
+# Marker for the agent browser guard directory on PATH.
+# bin/fm-browser-guard-bin/* shims step over any PATH entry holding this file,
+# and find their shared library at its sibling path.

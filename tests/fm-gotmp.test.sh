@@ -41,6 +41,9 @@ cleanup() {
 trap cleanup EXIT
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/fm-gotmp-tests.XXXXXX")
+# Cleanup's spend refresh must never scan the host's worker transcripts.
+mkdir -p "$TMP_ROOT/no-sessions"
+export FM_SPEND_SESSIONS="$TMP_ROOT/no-sessions" FM_SPEND_CLAUDE_SESSIONS="$TMP_ROOT/no-sessions"
 
 # Build a fake FM_HOME/FM_ROOT so the real fm-teardown.sh (symlinked in) resolves
 # state and helper scripts inside it. Stub the helper scripts fm-teardown calls so no
@@ -52,6 +55,8 @@ make_fake_root() {
   mkdir -p "$fake/bin/backends" "$fake/state" "$fake/data"
   # Symlink the REAL teardown so the test exercises actual code, not a copy.
   ln -s "$TEARDOWN" "$fake/bin/fm-teardown.sh"
+  ln -s "$ROOT/bin/fm-model-ledger.py" "$fake/bin/fm-model-ledger.py"
+  ln -s "$ROOT/bin/fm-spend-ledger.py" "$fake/bin/fm-spend-ledger.py"
   # History is unrelated to this tasktmp cleanup contract; keep this fake root's
   # required teardown side effect inert.
   cat > "$fake/bin/fm-history.sh" <<'SH'
@@ -176,6 +181,8 @@ test_teardown_skips_gracefully_without_tasktmp() {
   local fake="$TMP_ROOT/$id-root"
   mkdir -p "$fake/bin/backends" "$fake/state" "$fake/data"
   ln -s "$TEARDOWN" "$fake/bin/fm-teardown.sh"
+  ln -s "$ROOT/bin/fm-model-ledger.py" "$fake/bin/fm-model-ledger.py"
+  ln -s "$ROOT/bin/fm-spend-ledger.py" "$fake/bin/fm-spend-ledger.py"
   # This fake root exercises only the legacy tasktmp path, not history storage.
   cat > "$fake/bin/fm-history.sh" <<'SH'
 #!/usr/bin/env bash

@@ -44,8 +44,8 @@ Add required status checks with `strict_required_status_checks_policy: false`; a
 Bind the checks to the GitHub Actions app already producing them, rather than accepting the same context from any integration.
 No new app installation or manual runner setup is needed for that setting.
 
-Require the actual job contexts: `Lint 1`, `Lint 2`, `Test coverage guard`, `Repo invariants`, `Stock macOS Bash snapshot compatibility`, `Behavior portable parallel 1`, `Behavior portable parallel 2`, `Behavior portable parallel 3`, `Behavior portable serial 1` through `Behavior portable serial 9`, `Behavior tests (Herdr)`, `Behavior timing aggregate`, and `PR must be raised via no-mistakes`.
-The last name is the compliance job context, not its workflow title; its existing automation exceptions remain unchanged.
+Require the actual job contexts defined by [the CI workflow](.github/workflows/ci.yml), expanding each matrix into its emitted job names, plus `PR must be raised via no-mistakes`.
+The latter is the compliance job context, not its workflow title; its existing automation exceptions remain unchanged.
 The timing aggregate is not a substitute for individual jobs because it can succeed while collecting evidence from a failed run.
 
 Apply the approved rule change only after the corresponding workflow is green and landed, confirming exact names and the Actions integration id from real checks first.
@@ -144,6 +144,13 @@ A fixture may shorten a production timeout to keep a failure path prompt, but ne
 Where a case's assertion is not about the timeout itself, give that window headroom over the measured loaded cost, and bound the test's own waiting with iteration-counted poll loops, which stretch under load where a wall-clock budget does not.
 Tests that need a real optional backend or an explicit opt-in (real herdr/zellij/cmux smoke tests, the live Pi regression) skip themselves and print the tool or environment gate needed to enable them, so the portable suite remains safe on machines without those tools.
 The [Herdr backend guide](docs/herdr-backend.md#destructive-lab-safety) owns the lane's isolation boundary, while [runtime backend verification](docs/verification/runtime-backends.md#herdr) owns active empirical evidence; live harness credential tests remain opt-in.
+
+## Git hooks
+
+For a clone without existing hooks, run `git config core.hooksPath .githooks` once to install the repository's tracked pre-commit hook.
+`core.hooksPath` selects the directory for every hook, so replacing it can disable existing commit or pre-push guards.
+If hooks are already installed, preserve their directory and chain this repository's `.githooks/pre-commit` from its pre-commit hook, propagating a nonzero exit status to refuse the commit.
+The [token-cap script header](bin/fm-precommit-token-cap.sh) owns the staged-file size rules, exemptions, and existing-file ratchet; refusal messages carry concrete split instructions.
 
 ## Questions
 

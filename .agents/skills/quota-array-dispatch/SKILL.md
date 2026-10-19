@@ -74,6 +74,9 @@ A provider-level or `all_models`/`all_products` scope bounds every model you est
 A named-model or named-product scope is an additional bound for that model alone.
 Match the candidate to its `quota[]` row by that established provider, its `accountKey` when the snapshot is schema 6 (a Pi lane's auth provider id such as `openai-codex-work`, or `codex-home` for native Codex including Pi's `codex-native/` adapter, then the `default` row, else unmeasured; never a row picked by position, never rows summed across accounts), and scope; a stale, auth-required, or unmeasurable scope is named in `attention[]` instead of a fabricated number.
 
+For native Claude, a custom `config/claude-account` root cannot be proven to match quota-axi's Claude pool, so its quota and runway stay unknown and unranked rather than borrowing the ordinary account's row.
+The same applies to an inherited `CLAUDE_CONFIG_DIR` other than `$HOME/.claude` when no pin is present; an `ordinary` pin unsets that inherited variable at launch and uses ordinary quota matching.
+
 A candidate authenticates through its own tuple's surface; another harness's CLI can never gate it, and `harness=pi` with `model=xai/grok-*` is Pi using xAI rather than the standalone Grok CLI.
 `quota-axi auth --json` lists each provider's credential sources independently, so read the one source the candidate actually uses rather than collapsing a provider to a single status.
 A provider can carry a healthy source beside a missing or expired one; the unused source's state is not the candidate's state.

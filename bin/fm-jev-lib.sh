@@ -88,7 +88,8 @@
 #     Phone-shaped numeric lists stay blocked unless immediately labeled
 #     viewport(s) or width(s); plus/trunk-zero phones are never size lists.
 #     A path:start-end line range (directory, file extension, no leading zero,
-#     at most 6 digits per side, start <= end) is retained. Bare viewport
+#     at most 6 digits per side, start <= end) is retained, as is an ISO
+#     date or a date with a day-range tail (2026-10-11/12). Bare viewport
 #     triples remain ambiguous and are deliberately still redacted.
 #   fm_jev_iso_now
 #     Prints the current UTC time as an ISO-8601 second timestamp.
@@ -568,7 +569,7 @@ fm_jev_compact_state() {
         buf = substr(buf, 1, RSTART - 1) "[redacted]" substr(buf, RSTART + RLENGTH)
       }
       phone_pattern = "(^|[^[:alnum:]])([+][0-9][0-9() ./-]*[0-9]|[0-9][0-9() ./-]*[-./() ][0-9() ./-]*[0-9])([^[:alnum:]]|$)"
-      date_pattern = "^([0-9][0-9][0-9][0-9][./ -][0-9][0-9]?[./ -][0-9][0-9]?|[0-9][0-9]?[./ -][0-9][0-9]?[./ -][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
+      date_pattern = "^([0-9][0-9][0-9][0-9][./ -][0-9][0-9]?[./ -][0-9][0-9]?(/[0-9][0-9]?)?|[0-9][0-9]?[./ -][0-9][0-9]?[./ -][0-9][0-9][0-9][0-9])([ Tt][0-9][0-9](:[0-9][0-9](:[0-9][0-9]([.][0-9]+)?)?)?([Zz]|[+-][0-9][0-9]:?[0-9][0-9])?)?$"
       search_from = 1
       while (search_from <= length(buf)) {
         tail = substr(buf, search_from)
