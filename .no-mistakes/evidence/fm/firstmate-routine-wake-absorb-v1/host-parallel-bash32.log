@@ -1,0 +1,3 @@
+ok - host+hook: a successor close that lands during main's turn is delivered at the next turn end
+ok - report surface: only the branch actor's current turn may report, and only on the tasks its wake names
+ok - drain: an outcome nothing has shown is presented until acknowledged, and a repeated acknowledgement changes nothing

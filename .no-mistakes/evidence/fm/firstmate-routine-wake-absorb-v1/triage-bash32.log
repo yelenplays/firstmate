@@ -1,0 +1,5 @@
+ok - --absorb acknowledges an all-routine wake, persistent open decisions included
+ok - --absorb retires routine rows of an actionable wake and leaves the rest to the printed acknowledgement
+ok - --absorb keeps every wake that needs firstmate and validates its arguments
+ok - closed all-routine output remains pending until replayed without absorbing
+ok - an interrupted --absorb handoff keeps its output, and the retry replays it instead of absorbing

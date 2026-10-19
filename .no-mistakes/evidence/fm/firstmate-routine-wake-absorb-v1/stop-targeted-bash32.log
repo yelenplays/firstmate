@@ -1,0 +1,7 @@
+ok - auto-arm: under the host an absorbed wake is acknowledged and parked past without a rewake
+ok - auto-arm: a wake that needs firstmate rewakes once with triage's output and acknowledgement
+ok - auto-arm: an absorbed wake too close to the boundary rewakes only to end the turn
+ok - auto-arm: a re-park after an absorbed wake is retried only within what is left of the budget
+ok - auto-arm: a retry of the first host park gets only what is left of the budget
+ok - auto-arm: a plain-arm absorbed wake rewakes once, only to end the turn
+ok - auto-arm: a failed or long triage still reaches the model, capped and pointing at its full output

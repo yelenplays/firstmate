@@ -1,0 +1,41 @@
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb >&-
+exit=1
+cat: stdout: Bad file descriptor
+
+Persisted queue: '1792412550\t1\tcheck\tnotice\tcheck: inspect notification\n'
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb >&-
+exit=1
+cat: stdout: Bad file descriptor
+
+Persisted queue: '1792412550\t1\tcheck\tnotice\tcheck: inspect notification\n'
+Retained contended-drain output:
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 46764 after 10s; retry on the next drain.
+
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb
+exit=10
+WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-ahnffomw/state/.wake-triage.last
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+1792412550	1	check	notice	check: inspect notification
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 41884.1792412551.ZitJq1
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+notice note: one-shot delivery must survive a broken output
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 46764 after 10s; retry on the next drain.
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792412550	1	check	notice	check: inspect notification
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 41884.1792412551.ZitJq1
+
+Persisted queue: '1792412550\t1\tcheck\tnotice\tcheck: inspect notification\n'

@@ -1,0 +1,42 @@
+
+interpreter=bash mode=ok
+ok - receipt success case
+ok - receipt success case
+ok - receipt success case
+runner exit=0
+
+interpreter=bash mode=bad
+ok - receipt success case
+case failed: receipt_bad
+intentional exit 7
+runner exit=1
+
+interpreter=bash mode=missing
+tests/.gate-host-receipts.sh: Zeile 3331: 93503 Killed: 9                  ( HOMES_FILE="$TMP_ROOT/homes.$i"; function case_cleanup () 
+{ 
+    local rc=$? h;
+    while IFS= read -r h; do
+        [ -z "$h" ] || stop_home_processes "$h";
+    done < <(cat "$HOMES_FILE" 2> /dev/null);
+    printf '%s\n' "$rc" > "$TMP_ROOT/case-status.$i"
+}; trap case_cleanup EXIT; "${QUEUED_CASES[$i]}" || true ) > "$TMP_ROOT/case-out.$i" 2>&1
+ok - receipt success case
+case failed: receipt_missing
+runner exit=1
+
+interpreter=/bin/bash mode=ok
+ok - receipt success case
+ok - receipt success case
+ok - receipt success case
+runner exit=0
+
+interpreter=/bin/bash mode=bad
+ok - receipt success case
+case failed: receipt_bad
+intentional exit 7
+runner exit=1
+
+interpreter=/bin/bash mode=missing
+ok - receipt success case
+case failed: receipt_missing
+runner exit=1

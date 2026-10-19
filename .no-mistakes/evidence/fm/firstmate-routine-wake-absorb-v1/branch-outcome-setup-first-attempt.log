@@ -1,0 +1,24 @@
+$ bin/fm-branch-outcome.sh append --task review --verdict captain --summary ...
+1
+
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb
+exit=10
+WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-els8nd5w/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792412464	1	check	outcome	check: review-ready result
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 69056.1792412464.RJEyTW
+
+Persisted queue: '1792412464\t1\tcheck\toutcome\tcheck: review-ready result\n'
+ERROR: WAKE TRIAGE: 1 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-els8nd5w/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792412464	1	check	outcome	check: review-ready result
+ACT NOW:
+- - C1 row shape is not eligible
+  crew: 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 69056.1792412464.RJEyTW
+

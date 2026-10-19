@@ -1,0 +1,23 @@
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb
+exit=10
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-pnm0ogbu/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792412534	1	signal	finished.status	signal: finished.status
+wake annotation: latest wake-EVENT observed at drain, not current state: finished.status: done: requested measurement is ready for review
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+finished done: requested measurement is ready for review
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+finished - C7 latest status is captain-relevant
+  crew: not read (failed earlier clause)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 32646.1792412534.MHEdVy
+
+Persisted queue: '1792412534\t1\tsignal\tfinished.status\tsignal: finished.status\n'

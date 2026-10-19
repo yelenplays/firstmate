@@ -1,0 +1,10 @@
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb
+exit=0
+WAKE TRIAGE: 0 row(s), 0 task(s): 0 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-03044pby/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+WAKE_ACKED: triage acknowledged every row through 0; nothing needs firstmate
+
+Persisted queue: ''
+Recovery record: acked:handling:20954.1792412521.Fq735g
+

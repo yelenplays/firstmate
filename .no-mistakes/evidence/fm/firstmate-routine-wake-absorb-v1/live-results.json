@@ -1,52 +1,32 @@
 [
   {
-    "name": "A working real Claude worker has a routine wake acknowledged by triage",
+    "name": "live-empty-recovery-absorption",
     "result": "pass",
-    "live": true
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M5A1761RJSQ7EAB7G36QMG05/live-empty-recovery-absorption.log"
   },
   {
-    "name": "Mixed wake retires routine rows but preserves a completed outcome for firstmate",
+    "name": "live-decision-remains-actionable",
     "result": "pass",
-    "live": true
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M5A1761RJSQ7EAB7G36QMG05/live-decision-remains-actionable.log"
   },
   {
-    "name": "An unqueued new or changed decision stays actionable; only a delivered unchanged decision is absorbable",
+    "name": "live-terminal-remains-actionable",
     "result": "pass",
-    "live": true
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M5A1761RJSQ7EAB7G36QMG05/live-terminal-remains-actionable.log"
   },
   {
-    "name": "Approval before notification exposes a firstmate-owned execution obligation once and remembers successful delivery",
+    "name": "live-firstmate-execution-remains-actionable",
     "result": "pass",
-    "live": true
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M5A1761RJSQ7EAB7G36QMG05/live-firstmate-execution-remains-actionable.log"
   },
   {
-    "name": "A corrupt execution record requires firstmate once, then only a successfully delivered unchanged obligation is absorbable",
+    "name": "live-branch-outcome-remains-unprocessed",
     "result": "pass",
-    "live": true
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M5A1761RJSQ7EAB7G36QMG05/live-branch-outcome-remains-unprocessed.log"
   },
   {
-    "name": "Manual triage presents a previously unseen decision once and records successful delivery for later absorption",
+    "name": "live-broken-delivery-and-noack-replay",
     "result": "pass",
-    "live": true
-  },
-  {
-    "name": "A byte-capped decision list refuses whole-batch absorption even after its visible entries were presented",
-    "result": "pass",
-    "live": true
-  },
-  {
-    "name": "Closed stdout preserves a one-shot notice, including a no-ack lock-contended replay, until successful delivery",
-    "result": "pass",
-    "live": true
-  },
-  {
-    "name": "Even an acknowledged all-routine presentation survives failed delivery and prevents absorption on replay",
-    "result": "pass",
-    "live": true
-  },
-  {
-    "name": "Away-mode ownership prevents triage from acknowledging a routine wake",
-    "result": "pass",
-    "live": true
+    "evidence": "/Users/yelen/.no-mistakes/evidence/01M5A1761RJSQ7EAB7G36QMG05/live-broken-delivery-and-noack-replay.log"
   }
 ]

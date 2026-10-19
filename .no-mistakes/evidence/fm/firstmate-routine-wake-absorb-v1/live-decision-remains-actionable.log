@@ -1,0 +1,41 @@
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb
+exit=10
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-zlbmunxy/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792412524	1	signal	choose.status	signal: choose.status
+wake annotation: latest wake-EVENT observed at drain, not current state: choose.status: needs-decision [key=lane]: choose a release lane
+OPEN DECISIONS (1 still open; 1 new or changed since the last presentation, listed below; bin/fm-wake-drain.sh --decisions lists all):
+choose [key=lane] needs-decision: choose a release lane
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+choose - C4 open decision
+  crew: not read (failed earlier clause)
+choose - C4 new or changed open decision: choose [key=lane] needs-decision: choose a release lane
+  crew: not read (the drain found the decision, not a queued row)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 24679.1792412524.bITqg8
+
+Persisted queue: '1792412524\t1\tsignal\tchoose.status\tsignal: choose.status\n'
+$ FM_HOME=<disposable-home> bin/fm-wake-triage.sh --absorb
+exit=10
+WAKE TRIAGE: 1 row(s), 1 task(s): 1 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5A1761RJSQ7EAB7G36QMG05/.gate-live-zlbmunxy/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792412524	1	signal	choose.status	signal: choose.status
+OPEN DECISIONS: 1 still open, none new or changed since the last presentation; bin/fm-wake-drain.sh --decisions lists all
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+choose - C4 open decision
+  crew: not read (failed earlier clause)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 24679.1792412524.bITqg8
+
+Persisted queue: '1792412524\t1\tsignal\tchoose.status\tsignal: choose.status\n'
