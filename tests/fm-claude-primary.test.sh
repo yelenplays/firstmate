@@ -81,3 +81,42 @@ RC=0
 FM_HOME="$HOME_DIR" FM_CLAUDE_BIN="$FAKE" "$LAUNCHER" >/dev/null 2>&1 || RC=$?
 [ "$RC" = 2 ] || fail "a non-regular config path must refuse with exit 2, got $RC"
 pass "an unreadable or non-regular config path refuses to launch"
+
+rmdir "$HOME_DIR/config/claude-remote-control"
+set_autocompact() {  # <content>
+  printf '%s\n' "$1" > "$HOME_DIR/config/claude-autocompact"
+}
+
+set_autocompact auto
+launch --continue || fail "autocompact auto: launcher exited $?"
+expect_args "autocompact auto" --continue
+pass "autocompact auto leaves Claude's own window setting alone"
+
+set_autocompact '# earlier compaction once memory capture runs
+200000'
+launch --continue || fail "autocompact 200000: launcher exited $?"
+expect_args "autocompact 200000" --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"200000"}}' --continue
+pass "a token count adds inline settings before passed-through arguments"
+
+launch --autocompact 400000 || fail "caller autocompact: launcher exited $?"
+expect_args "caller autocompact" --autocompact 400000
+pass "a caller-supplied --autocompact owns the window arguments"
+
+launch --autocompact=400000 || fail "caller autocompact equals: launcher exited $?"
+expect_args "caller autocompact equals" --autocompact=400000
+launch --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"300000"}}' || fail "caller settings: launcher exited $?"
+expect_args "caller settings" --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"300000"}}'
+launch --settings=custom.json || fail "caller settings equals: launcher exited $?"
+expect_args "caller settings equals" --settings=custom.json
+pass "caller autocompact and settings in either form suppress home window settings"
+
+for bad in 'big' '99999' '1000001' '200k'; do
+  set_autocompact "$bad"
+  rm -f "$RECORD"
+  RC=0
+  ERR=$(FM_HOME="$HOME_DIR" FM_CLAUDE_BIN="$FAKE" "$LAUNCHER" 2>&1 >/dev/null) || RC=$?
+  [ "$RC" = 2 ] || fail "autocompact '$bad' must refuse with exit 2, got $RC"
+  [ ! -e "$RECORD" ] || fail "autocompact '$bad' must not launch claude"
+  case "$ERR" in *"accepted values are"*) : ;; *) fail "autocompact '$bad' refusal must name the accepted values, got: $ERR" ;; esac
+done
+pass "an out-of-range or non-numeric autocompact window refuses to launch"

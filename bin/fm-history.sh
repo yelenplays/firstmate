@@ -6,6 +6,7 @@
 #   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
 #   fm-history.sh wake-ack <sequence> <row-count> <main|branch> [--rows <sequence>[,<sequence>...]]
 #   fm-history.sh recent [--n <count>]
+#   fm-history.sh turns [--after <day>/<captain-id>]
 #   fm-history.sh find <query>
 #   fm-history.sh task <id> [--completed]
 #   fm-history.sh logbook [--date <YYYY-MM-DD>] [--rebuild]
@@ -16,6 +17,10 @@
 # $FM_HOME/data/history, with generated task cards, daily Logbooks, index.md,
 # and a disposable BM25 cache. The byte cursor and capture lock live under
 # $FM_HOME/state.
+#
+# `turns` prints one JSON line per journaled captain turn, {day, time, id,
+# captain, reply, reply_time}, oldest first; --after resumes past a turn id
+# (bin/fm-memory-capture.sh keeps that watermark).
 #
 # `find` searches pages locally through fm-memory.sh. If Jev is configured, it
 # receives bounded page ids, dates, kinds, and titles in rank order only, never
@@ -54,6 +59,7 @@ Usage:
   fm-history.sh wakes --rows-file <path> --ack-through <sequence> --actor <main|branch>
   fm-history.sh wake-ack <sequence> <row-count> <main|branch> [--rows <sequence>[,<sequence>...]]
   fm-history.sh recent [--n <count>]
+  fm-history.sh turns [--after <day>/<captain-id>]
   fm-history.sh find <query>
   fm-history.sh task <id> [--completed]
   fm-history.sh logbook [--date <YYYY-MM-DD>] [--rebuild]
@@ -419,7 +425,10 @@ function capture(transcript, historyDir, stateDir, compaction) {
           if ((type === 'user' && !fromTool) || piRole === 'user') {
             if (type === 'user') {
               const origin = rec.origin || (rec.message && rec.message.origin) || '';
-              if (origin !== 'human') {
+              // Claude Code writes origin as a string in older transcripts
+              // and as {kind: 'human'} in current ones.
+              const originKind = origin && typeof origin === 'object' ? origin.kind : origin;
+              if (originKind !== 'human') {
                 pending = null;
                 continue;
               }
@@ -653,6 +662,38 @@ function recent(historyDir, n) {
     return;
   }
   process.stdout.write(renderRecent(selected, historyDir));
+}
+
+// One JSON line per captain turn, in journal order, with its paired final
+// reply. With an after-day and after-id, pages before that day are skipped
+// and turns on that day are emitted only once the id has been passed; an id
+// that is not on its page re-emits the whole page, which is safe for a
+// consumer that updates in place.
+function turns(historyDir, afterDay, afterId) {
+  for (const page of historyPages(historyDir)) {
+    if (afterDay && page.day < afterDay) continue;
+    const groups = [];
+    const byId = new Map();
+    for (const row of parsePageRecords(page.file, page.rel)) {
+      if (row.role === 'captain') {
+        const group = { day: page.day, time: row.time, id: row.id, captain: row.text, reply: '', reply_time: '' };
+        groups.push(group);
+        byId.set(row.id, group);
+      } else {
+        const group = byId.get(row.turnId);
+        if (group && !group.reply_time) {
+          group.reply = row.text;
+          group.reply_time = row.time;
+        }
+      }
+    }
+    let start = 0;
+    if (afterDay && page.day === afterDay && afterId) {
+      const index = groups.findIndex((group) => group.id === afterId);
+      if (index !== -1) start = index + 1;
+    }
+    for (const group of groups.slice(start)) process.stdout.write(`${JSON.stringify(group)}\n`);
+  }
 }
 
 function readJsonFile(file, label) {
@@ -1251,7 +1292,8 @@ try {
   else if (mode === 'recent') {
     const n = Number.parseInt(args[1], 10);
     recent(args[0], Number.isInteger(n) && n > 0 ? n : 5);
-  } else if (mode === 'task') taskCard(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7] === '1');
+  } else if (mode === 'turns') turns(args[0], args[1] || '', args[2] || '');
+  else if (mode === 'task') taskCard(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7] === '1');
   else if (mode === 'logbook-prepare') logbookPrepare(args[0], args[1], args[2], args[3], args[4], args[5], args[6] === '1');
   else if (mode === 'logbook-finalize') logbookFinalize(args[0], args[1], args[2], args[3] === '1');
   else fail('unknown internal operation');
@@ -1439,6 +1481,36 @@ cmd_recent() {
   run_history_node recent "$HISTORY_DIR" "$n"
 }
 
+cmd_turns() {
+  local after=''
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --after)
+        [ "$#" -ge 2 ] || die '--after needs <day>/<captain-id>'
+        after=$2
+        shift 2
+        ;;
+      --after=*) after=${1#--after=}; shift ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unexpected argument: $1" ;;
+    esac
+  done
+  local day='' id=''
+  if [ -n "$after" ]; then
+    day=${after%%/*}
+    id=${after#*/}
+    [ "$id" != "$after" ] || id=''
+    case "$day" in
+      [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+      *) die "--after day must be YYYY-MM-DD: $after" ;;
+    esac
+    case "$id" in
+      *[!A-Za-z0-9._:-]*) die "--after id has unsupported characters: $after" ;;
+    esac
+  fi
+  run_history_node turns "$HISTORY_DIR" "$day" "$id"
+}
+
 hash_query() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | awk '{ print $1 }'
@@ -1586,6 +1658,7 @@ case "$cmd" in
   wakes) cmd_wakes "$@" ;;
   wake-ack) cmd_wake_ack "$@" ;;
   recent) cmd_recent "$@" ;;
+  turns) cmd_turns "$@" ;;
   find) cmd_find "$@" ;;
   task) cmd_task "$@" ;;
   logbook) cmd_logbook "$@" ;;
