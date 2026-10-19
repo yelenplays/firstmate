@@ -25,7 +25,7 @@
 // A spec has either text_b64 or title_b64, never both.
 //
 // Every kind has the same short shape, built for a reader who scans:
-//   line 1  <emoji> <project> · <outcome>          in bold, at most 90 characters
+//   line 1  <emoji> <project> · <outcome>          bold; project + outcome at most 90
 //   line 2  what happens now or what to do         the context, at most 160
 //   options a decision's or ready post's choices, the recommended one marked ➡️
 //   link    one labelled link, never a raw URL
@@ -38,9 +38,11 @@
 // Overlong lines are cut with "…" rather than refused, so an outcome is never
 // lost to its length; more than one question, more than five options, or more
 // than two context lines are refused because the caller must split the post.
-// Internal terms (AGENTS.md section 9) are rewritten to plain words in the
-// post's language and named on the "rewrote" line.
-// GitHub pull requests are labelled "PR #<n>" and other URLs "Open link".
+// Terms matched by JARGON below are rewritten to plain words in the post's
+// language and named on the "rewrote" line; callers still follow AGENTS.md
+// section 9 for terms outside that list.
+// GitHub pull requests are labelled "PR #<n>"; other URLs use "Open link" in
+// English or "Öffnen" in German.
 // There are no interactive buttons: the bot has no Socket Mode or request URL,
 // so answers stay thread replies, DMs, and mentions.
 import { readFileSync } from "node:fs";

@@ -23,24 +23,16 @@
 # posts and reads as that bot, with the bot token read from the macOS Keychain
 # item of that service name, and the person can also DM the bot.
 #
-# Out: `post` sends one captain-facing message to the decisions channel for
-# `decision` (one decision; options require a recommendation), to the updates
-# channel for `finished`, `merged`, `live`, `stuck`, and `digest`, or to the
-# report channel for `ready` (a PR ready for review or a merge ask) and
-# `report` (anything else), through slack-axi (draft, then `draft send`) or the
-# bot. Without `updates-channel` the updates kinds go to the report channel.
-# A decision or ready post also gets a one-line entry in the updates channel
-# that points at it. Every post is the same short shape: emoji, project, and
-# outcome; what happens now; one link. --task <id> records the post in
-# state/slack-bridge/outcomes and refuses to post the same task incarnation's
-# outcome kind twice; `posted` answers whether it was. The structured form (--title and its companions) is what firstmate
-# sends: one item per post, laid out by bin/fm-slack-render.mjs, which owns the
-# layouts and their limits (at most two --context lines). The bot posts it as
-# Block Kit with a plain-text fallback; slack-axi posts the fallback, which is
-# Slack mrkdwn with the same layout. Internal terms are rewritten to plain
-# words in the configured `language` (en or de). The free-text form (report or decision
-# with positional or stdin text) stays for old callers. --url becomes a
-# labelled link (GitHub PRs as "PR #<n>"), never a raw URL.
+# Out: `post` sends one captain-facing item through slack-axi (draft, then
+# `draft send`) or the bot. docs/configuration.md "Slack bridge" owns routing;
+# bin/fm-slack-render.mjs owns layouts, plain-word rewrites, and input limits.
+# --task <id> records the post in state/slack-bridge/outcomes, keyed by task
+# incarnation and outcome kind; `posted` checks all required destinations.
+# The record format and ask-pointer retry mechanics are documented at
+# outcome_has below. The structured form (--title and its companions) is what
+# firstmate sends. The free-text form (report or decision with positional or
+# stdin text) stays for old callers. The bot posts Block Kit with a plain-text
+# fallback; slack-axi posts the fallback, Slack mrkdwn with the same layout.
 # `post` appends the posted channel id and message ts
 # to state/slack-bridge/posts, which is the only set of threads `check` reads.
 # Every post is top-level. Without a bot the bridge never replies inside a

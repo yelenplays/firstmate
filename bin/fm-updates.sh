@@ -2,8 +2,8 @@
 # fm-updates.sh - report every finished task once, then flag it for cleanup.
 #
 # Usage:
-#   fm-updates.sh scan             local read only: what is still unreported or
-#                                  waiting for cleanup, for the wake drain
+#   fm-updates.sh scan             read only: what is still unreported or
+#                                  waiting for cleanup; may query PR state
 #   fm-updates.sh tick             post every owed outcome and a due morning
 #                                  digest; fm-slack-bridge.sh check runs it
 #   fm-updates.sh settle <task>    post that task's owed outcome now; teardown
@@ -16,32 +16,12 @@
 # idle. This script derives every owed report from durable state instead, so a
 # missed signal is caught by the next check, drain, or cleanup.
 #
-# What a task owes, read from state/<id>.meta, the last event of
-# state/<id>.status (bin/fm-classify-lib.sh), and the merge marker
-# state/<id>.pr-poll-merge-notified:
-#   merged    the merge marker exists                    -> ✅ merged
-#   finished  a scout's, a local-only task's, or a ship task's last event is
-#             done: and no PR is named                   -> ✅ finished
-#   ready     a ship task's last event is done: naming a PR, auto-merge is not
-#             on (yolo= is not on), and the PR is not merged -> 🙋 approval needed
-#   stuck     the last event is failed:, or an auto-merge task's PR is closed
-#             unmerged, or it is still unmerged FM_UPDATES_STALE seconds
-#             (default 86400) after its done: event      -> ⚠️ stuck
-# An auto-merge task's PR state is read through one bounded gh call once its
-# grace period passed: merged without a marker owes merged, open and fresh
-# owes nothing yet. Secondmates owe
-# nothing here; their own homes report. An outcome is owed only after
-# FM_UPDATES_GRACE seconds (default 900) since its event, so the supervisor's own
-# richer post goes first and this is the backstop, not a duplicate.
-# Posting goes through `fm-slack-bridge.sh post <kind> --task <id>`, which
-# records the outcome in state/slack-bridge/outcomes and refuses a second post
-# of the same task incarnation and kind, so every outcome reaches Slack once.
-#
-# Cleanup: a task whose merge is recorded, a finished scout, and a finished
-# local-only task are done for good. Once their outcome is reported (or the
-# Slack bridge is off, so chat is the report), `scan` lists them as cleanup due
-# on every drain until bin/fm-teardown.sh removes their record. Nothing finished
-# can sit idle without a line saying so.
+# docs/configuration.md "Slack bridge" / "Report, then close" owns outcome
+# classification, grace/stale policy, cleanup eligibility, and digest behavior.
+# bin/fm-slack-bridge.sh owns task-bound posting and the outcome record format.
+# scan and settle may read PR state through a bounded gh call; tick defers
+# those lookups until local outcomes are handled and rotates the remote pass
+# across polls using state/updates/pr-cursor (the last attempted task id).
 #
 # Output of `scan`, one line per task, nothing when all is clear:
 #   unreported <task> <kind>: <title>
@@ -51,12 +31,7 @@
 # `settle` exits 0 when nothing is owed or the post landed, 1 when the post
 # failed, so teardown keeps the record and a rerun retries.
 #
-# The morning digest (#updates, at most five lines): what needs the captain
-# (captain-held calls from the backlog plus owed approvals), what finished,
-# merged, or went live in the last 24 hours (from state/slack-bridge/posts), how
-# many workers are running, and the board link. It posts once per local day
-# within four hours after the configured digest-hour; state/updates/digest-last
-# records the day.
+# state/updates/digest-last records the local date of the last posted digest.
 #
 # docs/configuration.md "Slack bridge" owns the config keys this reads through
 # `fm-slack-bridge.sh settings`.
