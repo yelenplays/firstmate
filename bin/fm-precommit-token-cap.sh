@@ -23,8 +23,10 @@
 # exemptions approximate non-agent-authored content; all other staged files
 # are subject to the cap, including human-authored files.
 # A staged file is skipped when it is binary (a NUL byte within the first
-# 8000 bytes), a lockfile by basename, or has linguist-generated or
-# linguist-vendored set according to git check-attr --cached.
+# 8000 bytes or a cached diff attribute reported as unset, including -diff
+# and the binary macro), a lockfile by basename, or has linguist-generated
+# or linguist-vendored reported as set, true, TRUE, or True by
+# git check-attr --cached; false does not exempt a file.
 # Generated markers are case-sensitive and must occur in the first 20 lines:
 # @generated anywhere, or a comment beginning DO NOT EDIT or Code generated
 # ...DO NOT EDIT after one of #, //, /*, *, ;, --, or <!-- and optional whitespace.
