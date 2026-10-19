@@ -400,7 +400,7 @@ json_b64() { printf '"%s"' "$(b64_line "$1")"; }
 
 action_post() {
   local kind=${1:-} url="" title="" project="" text="" recommend="" task=""
-  local spec summary channel item key gen
+  local spec summary channel item key gen primary_posted=0
   local -a contexts=() option_keys=() option_texts=() lines=()
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
@@ -517,8 +517,7 @@ action_post() {
   if [ -n "$task" ]; then
     gen=$(task_gen "$task")
     if outcome_has "$task" "$gen" "$kind"; then
-      printf 'already posted %s for %s\n' "$kind" "$task"
-      return 0
+      primary_posted=1
     fi
   fi
   spec="$spec,\"lang\":\"$CFG_LANGUAGE\""
@@ -528,21 +527,37 @@ action_post() {
     merged|finished|live|stuck|digest) channel=${CFG_UPDATES:-$CFG_REPORT} ;;
     *) channel=$CFG_REPORT ;;
   esac
-  send_post "$channel" "$kind" "$summary"
-  if [ -n "$task" ]; then
-    printf 'v1\t%s\t%s\t%s\t%s\t%s\t%s\n' "$task" "${gen:--}" "$kind" "$(now_epoch)" "$SENT_CHANNEL" "$SENT_TS" >> "$OUTCOMES" \
-      || die "posted $SENT_CHANNEL $SENT_TS but could not record the outcome in $OUTCOMES"
+  if [ "$primary_posted" -eq 0 ]; then
+    send_post "$channel" "$kind" "$summary"
+    if [ -n "$task" ]; then
+      printf 'v1\t%s\t%s\t%s\t%s\t%s\t%s\n' "$task" "${gen:--}" "$kind" "$(now_epoch)" "$SENT_CHANNEL" "$SENT_TS" >> "$OUTCOMES" \
+        || die "posted $SENT_CHANNEL $SENT_TS but could not record the outcome in $OUTCOMES"
+    fi
+    printf 'posted %s %s %s\n' "$kind" "$SENT_CHANNEL" "$SENT_TS"
+  else
+    SENT_CHANNEL=$(awk -F '\t' -v t="$task" -v g="$gen" -v k="$kind" \
+      '$1 == "v1" && $2 == t && $3 == g && $4 == k { print $6; exit }' "$OUTCOMES")
+    printf 'already posted %s for %s\n' "$kind" "$task"
   fi
-  printf 'posted %s %s %s\n' "$kind" "$SENT_CHANNEL" "$SENT_TS"
   # An ask lives in its own channel and gets a one-line pointer in #updates,
   # so #updates alone shows everything that needs the captain.
   case "$kind" in decision|ready) ;; *) return 0 ;; esac
   [ -n "$CFG_UPDATES" ] && [ "$CFG_UPDATES" != "$channel" ] || return 0
+  if [ -n "$task" ] && outcome_has "$task" "$gen" "$kind-mirror"; then
+    return 0
+  fi
   spec="{\"kind\":\"$kind\",\"title_b64\":$(json_b64 "${title:-${text%%$'\n'*}}")"
   [ -z "$project" ] || spec="$spec,\"project_b64\":$(json_b64 "$project")"
   [ -z "$url" ] || spec="$spec,\"url_b64\":$(json_b64 "$url")"
   spec="$spec,\"mirror\":\"$SENT_CHANNEL\",\"lang\":\"$CFG_LANGUAGE\"}"
-  if ( render_post "$spec" && send_post "$CFG_UPDATES" mirror "$summary" ) >/dev/null; then
+  if (
+    render_post "$spec" || exit $?
+    send_post "$CFG_UPDATES" mirror "$summary"
+    if [ -n "$task" ]; then
+      printf 'v1\t%s\t%s\t%s-mirror\t%s\t%s\t%s\n' "$task" "$gen" "$kind" "$(now_epoch)" "$SENT_CHANNEL" "$SENT_TS" >> "$OUTCOMES" \
+        || die "could not record the #updates entry in $OUTCOMES"
+    fi
+  ) >/dev/null; then
     printf 'posted mirror %s\n' "$CFG_UPDATES"
   else
     printf 'slack: the #updates entry for this %s could not be posted; the %s post itself landed\n' "$kind" "$kind"
@@ -558,8 +573,8 @@ task_gen() {  # <task>
 }
 
 # state/slack-bridge/outcomes: one "v1 <task> <spawn-gen> <kind> <epoch>
-# <channel> <ts>" line per outcome posted with --task; bin/fm-updates.sh reads
-# it through `posted`.
+# <channel> <ts>" line per destination posted with --task. Ask pointers use
+# <kind>-mirror, so `posted` stays false until both destinations landed.
 outcome_has() {  # <task> <gen> <kind>
   [ -f "$OUTCOMES" ] && awk -F '\t' -v t="$1" -v g="$2" -v k="$3" \
     '$1 == "v1" && $2 == t && $3 == g && $4 == k { f = 1 } END { exit !f }' "$OUTCOMES"
@@ -571,7 +586,14 @@ action_posted() {
   task=$2
   kind=$3
   [[ "$task" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { printf 'fm-slack-bridge: --task must be a task id\n' >&2; exit 2; }
-  outcome_has "$task" "$(task_gen "$task")" "$kind"
+  local gen channel
+  gen=$(task_gen "$task")
+  outcome_has "$task" "$gen" "$kind" || return 1
+  case "$kind" in decision|ready) ;; *) return 0 ;; esac
+  config_load && [ -z "$CFG_ERROR" ] || return 1
+  if [ "$kind" = decision ]; then channel=$CFG_DECISIONS; else channel=$CFG_REPORT; fi
+  [ -n "$CFG_UPDATES" ] && [ "$CFG_UPDATES" != "$channel" ] || return 0
+  outcome_has "$task" "$gen" "$kind-mirror"
 }
 
 # The settings bin/fm-updates.sh needs, one key=value per line; "bridge=off"

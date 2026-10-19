@@ -76,6 +76,7 @@ DIGEST_LAST="$UPDATES_STATE/digest-last"
 POSTS="$STATE/slack-bridge/posts"
 BRIDGE="$SCRIPT_DIR/fm-slack-bridge.sh"
 POST_SECS=12
+PR_SECS=5
 
 # shellcheck source=bin/fm-classify-lib.sh
 . "$SCRIPT_DIR/fm-classify-lib.sh"
@@ -123,7 +124,7 @@ stale_secs() {
 # The PR's state (OPEN, MERGED, CLOSED) through one bounded gh call; empty when
 # it cannot be read.
 pr_state() {  # <pr-url>
-  fm_gh_run_timed 5 gh pr view "$1" --json state -q .state 2>/dev/null | sed -n 1p
+  fm_gh_run_timed "$PR_SECS" gh pr view "$1" --json state -q .state 2>/dev/null | sed -n 1p
 }
 
 # ------------------------------------------------------------- settings
@@ -187,9 +188,10 @@ task_title() {  # <task>
 
 # What one task owes. 0 with O_KIND, O_TITLE, O_PROJECT, O_NEXT, O_URL, O_DUE
 # (1 once the grace period passed), and O_FINAL (1 when nothing follows the
-# outcome but cleanup); 1 when the task owes nothing.
+# outcome but cleanup); 1 when the task owes nothing, 2 when local-only
+# evaluation defers a PR lookup to the remote pass.
 O_KIND= O_TITLE= O_PROJECT= O_NEXT= O_URL= O_DUE=0 O_FINAL=0
-task_outcome() {  # <task>
+task_outcome() {  # <task> [local]
   local id=$1 meta="$STATE/$1.meta" kind mode yolo pr line verb at project
   O_KIND= O_TITLE= O_PROJECT= O_NEXT= O_URL= O_DUE=0 O_FINAL=0
   [ -f "$meta" ] || return 1
@@ -236,6 +238,7 @@ task_outcome() {  # <task>
         else
           at=$(status_line_at_epoch "$line") || at=$(fm_updates_mtime "$STATE/$id.status")
           [ $(( $(now_epoch) - ${at:-0} )) -ge "$(grace_secs)" ] || return 1
+          [ "${2:-}" != local ] || return 2
           O_URL=$pr
           case "$(pr_state "$pr")" in
             MERGED)
@@ -318,23 +321,46 @@ deadline_left() {
 }
 
 action_tick() {
-  local id out
+  local id out pass ids remote='' cursor='' rc
   settings_load
   [ "$S_ON" -eq 1 ] || return 0
-  while IFS= read -r id; do
-    [ -n "$id" ] || continue
-    task_outcome "$id" || continue
-    [ "$O_DUE" -eq 1 ] || continue
-    outcome_posted "$id" "$O_KIND" && continue
-    [ "$(deadline_left)" -ge "$POST_SECS" ] || return 0
-    if out=$(outcome_post "$id"); then
-      case "$out" in *"already posted"*) ;; *) printf 'posted %s %s\n' "$id" "$O_KIND" ;; esac
-    else
-      printf 'failed %s %s: %s\n' "$id" "$O_KIND" "$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-160)"
+  ids=$(task_ids)
+  # Local outcomes never wait behind network lookups. Rotate the deferred
+  # lookups across polls so even already-reported PRs cannot starve later ones.
+  for pass in local remote; do
+    if [ "$pass" = remote ]; then
+      [ ! -f "$UPDATES_STATE/pr-cursor" ] || cursor=$(sed -n 1p "$UPDATES_STATE/pr-cursor")
+      ids=$(printf '%s' "$remote" | awk -v c="$cursor" '
+        ("x" $0) > ("x" c) { print; next }
+        { rest = rest $0 "\n" }
+        END { printf "%s", rest }')
     fi
-  done <<EOF
-$(task_ids)
+    while IFS= read -r id; do
+      [ -n "$id" ] || continue
+      [ "$(deadline_left)" -ge "$POST_SECS" ] || return 0
+      if [ "$pass" = remote ]; then
+        [ "$(deadline_left)" -ge $((POST_SECS + PR_SECS)) ] || break
+        mkdir -p "$UPDATES_STATE" && printf '%s\n' "$id" > "$UPDATES_STATE/pr-cursor" || return 1
+      fi
+      if task_outcome "$id" "$pass"; then
+        :
+      else
+        rc=$?
+        [ "$rc" -ne 2 ] || remote="$remote$id"$'\n'
+        continue
+      fi
+      [ "$O_DUE" -eq 1 ] || continue
+      outcome_posted "$id" "$O_KIND" && continue
+      [ "$(deadline_left)" -ge "$POST_SECS" ] || return 0
+      if out=$(outcome_post "$id"); then
+        case "$out" in *"already posted"*) ;; *) printf 'posted %s %s\n' "$id" "$O_KIND" ;; esac
+      else
+        printf 'failed %s %s: %s\n' "$id" "$O_KIND" "$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-160)"
+      fi
+    done <<EOF
+$ids
 EOF
+  done
   digest_due || return 0
   [ "$(deadline_left)" -ge "$POST_SECS" ] || return 0
   if out=$(digest_post 2>&1); then
@@ -401,7 +427,7 @@ $calls
 EOF
   while IFS= read -r id; do
     [ -n "$id" ] || continue
-    if task_outcome "$id"; then
+    if task_outcome "$id" local; then
       if [ "$O_KIND" = ready ]; then
         needs=$((needs + 1))
         [ "$needs" -gt 3 ] || names="$names${names:+, }$O_TITLE"

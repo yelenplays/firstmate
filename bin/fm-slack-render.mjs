@@ -182,7 +182,7 @@ function parts(spec, kind, lang) {
     if (!o || typeof o.key !== "string" || !OPTION_KEY.test(o.key)) die("an option key must be 1-16 lowercase letters, digits, or dashes");
     const text = oneLine(decode(o.text_b64, "option text_b64"));
     if (!text) die(`option ${o.key} needs text`);
-    return { key: o.key, text: cut(plain(text, lang), MAX_OPTION_LEN) };
+    return { key: o.key, text: plain(text, lang) };
   });
   const keys = options.map((o) => o.key);
   if (new Set(keys).size !== keys.length) die("option keys must be unique");
@@ -195,14 +195,14 @@ function parts(spec, kind, lang) {
   if (linesRaw.length && kind !== "digest") die("only a digest takes extra lines");
   if (linesRaw.length > MAX_DIGEST_LINES) die(`a digest has at most ${MAX_DIGEST_LINES + 1} lines`);
   const extra = linesRaw.map((l) => oneLine(decode(l, "lines_b64"))).filter(Boolean);
-  if (countQuestions(title, next, ...extra) > 1) die("a post asks at most one question; split it");
+  if (countQuestions(title, next, ...extra, ...options.map((o) => o.text)) > 1) die("a post asks at most one question; split it");
   title = plain(title, lang);
   next = plain(next, lang);
   const head = cut(project ? `${project} · ${title}` : title, MAX_HEAD);
   return {
     head,
     next: cut(next, MAX_NEXT),
-    options,
+    options: options.map((o) => ({ ...o, text: cut(o.text, MAX_OPTION_LEN) })),
     recommend,
     extra: extra.map((l) => cut(plain(l, lang), MAX_NEXT)),
   };
