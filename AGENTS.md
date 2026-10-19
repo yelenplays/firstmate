@@ -171,7 +171,7 @@ Fleet supervision is always loaded; `docs/architecture.md`, `docs/turnend-guard.
 Whenever work is under way, or Relay requires it, keep exactly one live supervision cycle using this harness's emitted protocol: never another harness's wait shape, shell `&`, or a second cycle beside a healthy one.
 Follow the emitted ordinary-wake continuation for every actionable wake, and its repair action only when the cycle is missing or failed; no turn ends blind while work is under way, including holding or waiting turns.
 
-- At the start of every wake-handling turn, drain the durable wake queue before peeking, reading beyond the reason line, steering, or starting work; only session start is exempt, because its digest already presented the queue or left it untouched while lock-refused.
+- At the start of every wake-handling turn, drain the durable wake queue before peeking, reading beyond the reason line, steering, or starting work; only session start, whose digest already presented the queue or left it untouched while lock-refused, and a wake the emitted protocol says arrives already drained are exempt.
 - `OPEN DECISIONS` from the drain is actionable reconciliation input even with no wake queued, and `UNREAD STATUS` must be read this turn because it is not re-printed.
 - `RECORD DIVERGENCE` is a contradiction between two records of one captain call, never proof the captain ruled; load `captain-hold-lifecycle` and reconcile in whichever direction the evidence supports.
 - After handling every wake and those sections, run the exact `--ack-through` command printed as `WAKE_ACK_REQUIRED`; an interruption before it leaves the work durable for idempotent re-handling.

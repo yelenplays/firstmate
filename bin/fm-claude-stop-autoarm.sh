@@ -86,6 +86,8 @@
 #     A refused generation exits 0 silently even after printing. A close that
 #     reports no actionable reason is benign when a live identity-matched
 #     watcher still has a fresh beacon.
+#   - Wake absorption: docs/watcher-continuity.md "Hook-side wake triage"
+#     owns routine-wake absorption, bounded host re-parks, and triaged rewakes.
 #   - Failure handling: a typed failure is rechecked against the same live,
 #     fresh watcher predicate and retried a bounded number of times in this
 #     hook. Only an exhausted failure with no verified watcher emits one
@@ -146,6 +148,17 @@ case "$AUTOARM_ATTEMPTS" in
   1|2|3) : ;;
   *) AUTOARM_ATTEMPTS=2 ;;
 esac
+# Wake absorption (header): the hook's whole park budget is the supervision
+# host's park boundary, read the way bin/fm-supervision-host.sh reads it, and
+# a re-park needs at least ABSORB_MIN_REMAINING seconds of it.
+HOOK_PARK_BUDGET=${FM_SUPERVISION_HOST_PARK_SECONDS:-}
+case "$HOOK_PARK_BUDGET" in
+  ''|0*|*[!0-9]*) HOOK_PARK_BUDGET=27000 ;;
+esac
+[ "$HOOK_PARK_BUDGET" -lt 28800 ] || HOOK_PARK_BUDGET=27000
+ABSORB_MIN_REMAINING=1800
+TRIAGE_OUT="$STATE/.claude-autoarm-triage.last"
+TRIAGE_EMBED_BYTES=7000
 
 # shellcheck source=bin/fm-primary-scope-lib.sh
 . "$SCRIPT_DIR/fm-primary-scope-lib.sh"
@@ -271,6 +284,12 @@ autoarm_commit() {  # <outcome> [marker-file]
     fm_recovery_marker_snapshot "$STATE/.watcher-down" || return 2
     case "$FM_RECOVERY_MARKER_TOKEN" in
       pending:downtime:*|announced:downtime:*) recovery=${FM_RECOVERY_MARKER_TOKEN##*:} ;;
+      # This hook's own triage moved the close's episode on (absorb_wake);
+      # the rewake still belongs to that same generation.
+      *:handling:*|acked:*)
+        [ -n "$TRIAGE_RECOVERY_GEN" ] && [ "${FM_RECOVERY_MARKER_TOKEN##*:}" = "$TRIAGE_RECOVERY_GEN" ] || return 2
+        recovery=$TRIAGE_RECOVERY_GEN
+        ;;
       *) return 2 ;;
     esac
     fm_autoarm_write_owned "$STATE" "$MY_GEN" "$outcome" "$marker" "$session_pid" "$recovery"
@@ -394,11 +413,38 @@ start_handling_successor() {  # <closed-arm-pid>
   return 1
 }
 
+# --- wake absorption -------------------------------------------------------------
+# Run bin/fm-wake-triage.sh --absorb for a close of wake lines (header). Returns
+# 1 without running it when the close may not be triaged here; otherwise sets
+# TRIAGE_RC to triage's exit status, its output in TRIAGE_OUT, and
+# TRIAGE_RECOVERY_GEN to the recovery generation the close opened.
+TRIAGE_RC=
+TRIAGE_RECOVERY_GEN=
+absorb_wake() {
+  TRIAGE_RC=
+  TRIAGE_RECOVERY_GEN=
+  [ -x "$SCRIPT_DIR/fm-wake-triage.sh" ] || return 1
+  [ ! -e "$FAILURE_ALARM" ] || return 1
+  fm_autoarm_still_owner "$STATE" "$MY_GEN" || return 1
+  fm_session_lock_owned_by_self "$STATE" || return 1
+  fm_recovery_marker_snapshot "$STATE/.watcher-down" || return 1
+  case "$FM_RECOVERY_MARKER_TOKEN" in
+    pending:downtime:*|announced:downtime:*) ;;
+    *) return 1 ;;
+  esac
+  TRIAGE_RECOVERY_GEN=${FM_RECOVERY_MARKER_TOKEN##*:}
+  TRIAGE_RC=0
+  FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-wake-triage.sh" --absorb >"$TRIAGE_OUT" 2>&1 </dev/null || TRIAGE_RC=$?
+  return 0
+}
+
 OUT=
 ACTIONABLE=0
 HEALTHY=0
 HOST_MODE=0
 HOST_RC=0
+PARK_REMAINING=
+ABSORBED_GEN=
 ACTIONABLE_RE='^(signal:|stale:|check:|heartbeat($|:))'
 # The home gate's owner decides (docs/configuration.md "Supervision host").
 if fm_supervision_host_enabled "$CONFIG" claude; then
@@ -414,12 +460,28 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
     [ -z "$OUT" ] || rm -f "$OUT" 2>/dev/null || true
     exit 0
   fi
+  # A host retry, and a re-park after an absorbed wake, gets only what is
+  # left of the budget, as both its boundary and its turn limit. A re-park
+  # after an absorbed wake needs ABSORB_MIN_REMAINING of it, and without that
+  # the absorbed wake rewakes only to end the turn.
+  if [ "$HOST_MODE" -eq 1 ] && [ "$attempt" -gt 0 ]; then
+    PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS))
+    if [ -n "$ABSORBED_GEN" ] && [ "$PARK_REMAINING" -lt "$ABSORB_MIN_REMAINING" ]; then
+      ACTIONABLE=1
+      TRIAGE_RC=0
+      TRIAGE_RECOVERY_GEN=$ABSORBED_GEN
+      break
+    fi
+    [ "$PARK_REMAINING" -gt 0 ] || break
+  fi
   attempt=$((attempt + 1))
   OUT=$(mktemp "$STATE/.claude-autoarm-output.XXXXXX") || OUT=
   if [ "$HOST_MODE" -eq 1 ]; then
     HOST_RC=0
     FM_SUPERVISION_HOST_AUTOARM_GEN=$MY_GEN FM_SUPERVISION_HOST_OWNER_PID=$$ \
       FM_SUPERVISION_HOST_PRIMARY=claude FM_GUARD_GRACE="$GRACE" \
+      FM_SUPERVISION_HOST_PARK_SECONDS=${PARK_REMAINING:-${FM_SUPERVISION_HOST_PARK_SECONDS:-}} \
+      FM_SUPERVISION_HOST_PARK_LIMIT=${PARK_REMAINING:-${FM_SUPERVISION_HOST_PARK_LIMIT:-}} \
       "$SCRIPT_DIR/fm-supervision-host.sh" park >"${OUT:-/dev/null}" 2>&1 || HOST_RC=$?
   else
     run_arm "$OUT"
@@ -434,10 +496,33 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
   fi
 
   ACTIONABLE=0
+  TRIAGE_RC=
   if [ -n "$OUT" ]; then
     grep -Eq "$ACTIONABLE_RE" "$OUT" 2>/dev/null && ACTIONABLE=1
   fi
-  [ "$ACTIONABLE" -eq 1 ] && break
+  if [ "$ACTIONABLE" -eq 1 ]; then
+    # The host's park is bounded, so a wake triage absorbs needs no model
+    # turn while enough of the budget is left to park again (header).
+    if [ "$HOST_MODE" -eq 1 ] && [ "$HOST_RC" -eq 0 ] && ! grep -q '^supervision-host:' "$OUT" 2>/dev/null \
+      && absorb_wake && [ "$TRIAGE_RC" -eq 0 ] \
+      && PARK_REMAINING=$((HOOK_PARK_BUDGET - SECONDS)) \
+      && [ "$PARK_REMAINING" -ge "$ABSORB_MIN_REMAINING" ]; then
+      rm -f "$OUT" 2>/dev/null || true
+      OUT=
+      ACTIONABLE=0
+      TRIAGE_RC=
+      ABSORBED_GEN=$TRIAGE_RECOVERY_GEN
+      TRIAGE_RECOVERY_GEN=
+      need_supervision || break
+      if [ -e "$STATE/.afk" ]; then
+        autoarm_record afk
+        exit 0
+      fi
+      attempt=0
+      continue
+    fi
+    break
+  fi
   if [ "$HOST_MODE" -eq 1 ]; then
     # The host stood down because this session or generation no longer owns
     # supervision: whoever does owns continuity now.
@@ -516,11 +601,18 @@ if [ "$ACTIONABLE" -eq 1 ]; then
     exit 0
   fi
   # The host owns its own successors and stops its cycle before handing back.
+  # The plain arm's successor starts before triage, whose drain must find a
+  # live watcher to call the wake absorbable.
   if [ "$HOST_MODE" -eq 0 ]; then
     start_handling_successor "$CLOSED_ARM_PID" || true
+    absorb_wake || true
   fi
   {
-    printf 'firstmate watcher wake - one supervision event needs a handling turn now.\n'
+    if [ "$TRIAGE_RC" = 0 ]; then
+      printf 'firstmate watcher wake - absorbed: this Stop hook already ran bin/fm-wake-triage.sh for it and acknowledged every row (WAKE_ACKED), so nothing needs firstmate.\n'
+    else
+      printf 'firstmate watcher wake - one supervision event needs a handling turn now.\n'
+    fi
     if [ "$HOST_MODE" -eq 1 ]; then
       [ -n "$OUT" ] && awk '/^supervision-host:/ { print; next } /^(signal:|stale:|check:|heartbeat)/ && shown++ < 8' "$OUT" 2>/dev/null
     else
@@ -531,13 +623,50 @@ if [ "$ACTIONABLE" -eq 1 ]; then
       printf 'This wake comes from automatic supervision under the away-posture record, not from the captain: it is not a return, so handle it under the away posture.\n'
     fi
     [ -z "$SUCCESSOR_FAILURE" ] || printf '%s\n' "$SUCCESSOR_FAILURE"
-    printf 'Run bin/fm-wake-triage.sh first (fallback: bin/fm-wake-drain.sh), handle every ACT NOW item, then run its WAKE_ACK_REQUIRED command unless it printed WAKE_ACKED. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.\n'
+    case "$TRIAGE_RC" in
+      '')
+        printf 'Run bin/fm-wake-triage.sh first (fallback: bin/fm-wake-drain.sh), handle every ACT NOW item, then run its WAKE_ACK_REQUIRED command unless it printed WAKE_ACKED. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling.'
+        ;;
+      0)
+        printf 'End this turn now: do not drain, triage, or acknowledge again.'
+        ;;
+      10)
+        printf 'This Stop hook already ran bin/fm-wake-triage.sh for this wake; its output follows, and its full copy is %s. Do not run the triage or the drain again for it: handle every ACT NOW item, then run the WAKE_ACK_REQUIRED command it ends with. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling.' "$TRIAGE_OUT"
+        ;;
+      *)
+        printf 'This Stop hook ran bin/fm-wake-triage.sh for this wake, but it exited %s; its output follows. Run bin/fm-wake-triage.sh again (fallback: bin/fm-wake-drain.sh), handle every ACT NOW item, then run its WAKE_ACK_REQUIRED command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling.' "$TRIAGE_RC"
+        ;;
+    esac
+    printf ' This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.\n'
+    if [ -n "$TRIAGE_RC" ] && [ "$TRIAGE_RC" != 0 ]; then
+      printf -- '--- bin/fm-wake-triage.sh output ---\n'
+      # Claude keeps only a preview of long hook output, so cut on a line
+      # boundary and point at the full copy. Triage's own summary after the
+      # verbatim drain output is what the model acts on: keep it whole and
+      # cut only the drain output before it.
+      awk -v cap="$TRIAGE_EMBED_BYTES" -v full="$TRIAGE_OUT" '
+        NR == FNR {
+          if (!drain && /^DRAIN OUTPUT \(verbatim/) drain = FNR
+          else if (drain && !summary && /^(HIDDEN QUEUE ROWS|ACT NOW:|ROUTINE \(|ROUTINE ROWS |WAKE_ACK_REQUIRED:)/) summary = FNR
+          if (summary) kept += length($0) + 1
+          last = FNR
+          next
+        }
+        FNR == 1 { if (!summary) summary = last + 1; room = cap - kept }
+        FNR >= summary { print; next }
+        cut { next }
+        { n += length($0) + 1 }
+        n > room { cut = 1; printf "--- output cut near %s bytes; read %s for the rest ---\n", cap, full; next }
+        { print }
+      ' "$TRIAGE_OUT" "$TRIAGE_OUT" 2>/dev/null
+    fi
   } >&2
   if autoarm_commit rewake; then
     [ -z "$OUT" ] || rm -f "$OUT" 2>/dev/null || true
     exit 2
   fi
-  if [ "$HOST_MODE" -eq 1 ] && fm_autoarm_still_owner "$STATE" "$MY_GEN" \
+  # A handling phase this hook's own triage opened is not a lost hand-back.
+  if [ "$HOST_MODE" -eq 1 ] && [ -z "$TRIAGE_RC" ] && fm_autoarm_still_owner "$STATE" "$MY_GEN" \
     && fm_recovery_marker_snapshot "$STATE/.watcher-down" \
     && [[ "$FM_RECOVERY_MARKER_TOKEN" == pending:handling:* || "$FM_RECOVERY_MARKER_TOKEN" == announced:handling:* ]] \
     && ! fm_watcher_healthy "$STATE" "$SCRIPT_DIR/fm-watch.sh" "$GRACE" "$FM_HOME"; then

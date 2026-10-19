@@ -1635,6 +1635,126 @@ test_main_drain_excludes_rows_already_granted_to_branch() {
   pass "main drain and acknowledgement exclude an active branch grant"
 }
 
+# --ack-rows is triage's partial acknowledgement: it retires exactly the named
+# rows main was presented, keeps the recovery episode open while another
+# presented row still waits for firstmate, and retires it with the last row.
+test_ack_rows_retires_only_the_named_presented_rows() {
+  local dir state seq_a seq_b seq_c generation rc
+  dir=$(make_case ack-rows-named-only)
+  state="$dir/state"
+
+  append_wake "$state" check row-a 'check: row a' || fail "first append failed"
+  append_wake "$state" check row-b 'check: row b' || fail "second append failed"
+  append_wake "$state" check row-c 'check: row c' || fail "third append failed"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/drain.out" 2> "$dir/drain.err" || fail "drain failed"
+  seq_a=$(awk -F '\t' '$4 == "row-a" { print $2 }' "$state/.wake-queue")
+  seq_b=$(awk -F '\t' '$4 == "row-b" { print $2 }' "$state/.wake-queue")
+  seq_c=$(awk -F '\t' '$4 == "row-c" { print $2 }' "$state/.wake-queue")
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$dir/drain.err")
+  [ -n "$seq_a" ] && [ -n "$seq_c" ] && [ -n "$generation" ] || fail "drain did not present the three rows"
+
+  for args in "--ack-rows" "--ack-rows ,$seq_a --recovery-generation $generation" \
+    "--ack-rows $seq_a,x --recovery-generation $generation" "--ack-rows $seq_a" \
+    "--ack-rows $seq_a --recovery-generation bad/gen" "--ack-rows $seq_a --recovery-generation $generation extra"; do
+    rc=0
+    # shellcheck disable=SC2086 # each case is a deliberately split argument list
+    FM_STATE_OVERRIDE="$state" "$DRAIN" $args > /dev/null 2>&1 || rc=$?
+    [ "$rc" -eq 2 ] || fail "--ack-rows accepted malformed arguments: $args (rc=$rc)"
+  done
+  rc=0
+  FM_STATE_OVERRIDE="$state" FM_SUPERVISION_ACTOR=branch "$DRAIN" --ack-rows "$seq_a" \
+    --recovery-generation "$generation" > /dev/null 2> "$dir/branch.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "a branch actor could acknowledge main rows by name: rc=$rc $(cat "$dir/branch.err")"
+  grep -Fq "main's presented rows only" "$dir/branch.err" \
+    || fail "a refused branch --ack-rows did not say why: $(cat "$dir/branch.err")"
+  [ "$(wc -l < "$state/.wake-queue" | tr -d ' ')" = 3 ] || fail "a refused --ack-rows consumed a row"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-rows "$seq_a,$seq_c" --recovery-generation "$generation" \
+    2> "$dir/partial.err" || fail "partial acknowledgement failed: $(cat "$dir/partial.err")"
+  [ "$(awk -F '\t' '{ print $4 }' "$state/.wake-queue")" = row-b ] \
+    || fail "--ack-rows did not retire exactly the named rows: $(cat "$state/.wake-queue")"
+  case "$(cat "$state/.watcher-down")" in
+    acked:*) fail "--ack-rows retired the recovery episode while a presented row still waits" ;;
+  esac
+  [ "$(cat "$state/.main-eligible-rows")" = "$seq_b" ] \
+    || fail "--ack-rows left main owning consumed rows: $(cat "$state/.main-eligible-rows")"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-rows "$seq_a" --recovery-generation "$generation" \
+    2> "$dir/replay.err" || fail "replayed --ack-rows failed: $(cat "$dir/replay.err")"
+  grep -Fq "none of rows $seq_a was acknowledged" "$dir/replay.err" \
+    || fail "a replayed --ack-rows did not report acknowledging nothing: $(cat "$dir/replay.err")"
+  [ "$(awk -F '\t' '{ print $4 }' "$state/.wake-queue")" = row-b ] || fail "a replayed --ack-rows consumed another row"
+
+  FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-through "$seq_c" --recovery-generation "$generation" \
+    2> "$dir/rest.err" || fail "the batch acknowledgement failed after --ack-rows: $(cat "$dir/rest.err")"
+  [ ! -s "$state/.wake-queue" ] || fail "the batch acknowledgement left a row queued"
+  case "$(cat "$state/.watcher-down")" in
+    acked:*) ;;
+    *) fail "the batch acknowledgement after --ack-rows did not retire the recovery episode" ;;
+  esac
+  ! ls "$state"/.wake-queue.ack-rows.* > /dev/null 2>&1 || fail "--ack-rows left its scratch file behind"
+
+  pass "--ack-rows retires only the named presented rows and keeps the episode open until the batch is done"
+}
+
+# --ack-rows naming every remaining row empties the queue, so it retires the
+# recovery episode exactly as a whole-batch acknowledgement would.
+test_ack_rows_naming_every_row_retires_the_episode() {
+  local dir state seqs generation
+  dir=$(make_case ack-rows-every-row)
+  state="$dir/state"
+
+  append_wake "$state" check row-a 'check: row a' || fail "first append failed"
+  append_wake "$state" check row-b 'check: row b' || fail "second append failed"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > /dev/null 2> "$dir/drain.err" || fail "drain failed"
+  seqs=$(awk -F '\t' '{ print $2 }' "$state/.wake-queue" | paste -sd, -)
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$dir/drain.err")
+  FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-rows "$seqs" --recovery-generation "$generation" \
+    2> "$dir/ack.err" || fail "--ack-rows of every row failed: $(cat "$dir/ack.err")"
+  [ ! -s "$state/.wake-queue" ] || fail "--ack-rows of every row left a row queued"
+  case "$(cat "$state/.watcher-down")" in
+    acked:*) ;;
+    *) fail "--ack-rows of every row did not retire the recovery episode" ;;
+  esac
+
+  pass "--ack-rows naming every row retires the recovery episode"
+}
+
+# Triage's --ack-rows of a later row and the handling turn's --ack-through the
+# same cutoff each remove one row, yet each is its own acknowledgement and must
+# land in the history journal.
+test_ack_rows_and_the_batch_ack_are_both_journaled() {
+  local dir state seq_a seq_b generation page
+  dir=$(make_case ack-rows-history)
+  state="$dir/state"
+
+  append_wake "$state" check row-a 'check: row a' || fail "first append failed"
+  append_wake "$state" check row-b 'check: row b' || fail "second append failed"
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_STATE_OVERRIDE="$state" "$DRAIN" \
+    > /dev/null 2> "$dir/drain.err" || fail "drain failed: $(cat "$dir/drain.err")"
+  seq_a=$(awk -F '\t' '$4 == "row-a" { print $2 }' "$state/.wake-queue")
+  seq_b=$(awk -F '\t' '$4 == "row-b" { print $2 }' "$state/.wake-queue")
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$dir/drain.err")
+  [ -n "$seq_a" ] && [ -n "$seq_b" ] && [ -n "$generation" ] || fail "drain did not present the two rows"
+
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_STATE_OVERRIDE="$state" "$DRAIN" \
+    --ack-rows "$seq_b" --recovery-generation "$generation" 2> "$dir/partial.err" \
+    || fail "partial acknowledgement failed: $(cat "$dir/partial.err")"
+  FM_HOME="$dir" FM_DATA_OVERRIDE="$dir/data" FM_STATE_OVERRIDE="$state" "$DRAIN" \
+    --ack-through "$seq_b" --recovery-generation "$generation" 2> "$dir/rest.err" \
+    || fail "the batch acknowledgement failed: $(cat "$dir/rest.err")"
+  [ ! -s "$state/.wake-queue" ] || fail "the two acknowledgements left a row queued"
+
+  for page in "$dir/data/history/days/"*.md; do break; done
+  [ -f "$page" ] || fail "no history page was written"
+  [ "$(grep -c 'fm-history:wake-ack id=' "$page")" = 2 ] \
+    || fail "the handling turn's acknowledgement was lost behind triage's: $(cat "$page")"
+  grep -Fq "\"acknowledgement_number\": $seq_b" "$page" \
+    || fail "the acknowledgements did not record their cutoff: $(cat "$page")"
+
+  pass "--ack-rows and the batch acknowledgement after it are each journaled"
+}
+
 # The away posture lets a branch grant name a check-kind row, so the branch
 # ack must close the same publish-before-receipt crash window the main ack
 # does: consuming a secondmate-wake-loop row commits its stall receipt under
@@ -3736,6 +3856,9 @@ test_slow_annotation_does_not_block_append_and_deleted_file_fails_open
 test_branch_actor_scoped_ack_never_swallows_a_main_owned_row
 test_main_drain_excludes_rows_already_granted_to_branch
 test_branch_ack_commits_secondmate_stall_receipts
+test_ack_rows_retires_only_the_named_presented_rows
+test_ack_rows_naming_every_row_retires_the_episode
+test_ack_rows_and_the_batch_ack_are_both_journaled
 test_main_is_never_told_to_drain_rows_only_the_branch_owns
 test_uncountable_queue_still_raises_the_pending_alarm
 test_unconsumable_rows_are_retired_instead_of_wedging_the_queue
