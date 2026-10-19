@@ -165,10 +165,10 @@ task_title() {  # <task>
 # (1 once the grace period passed), and O_FINAL (1 when nothing follows the
 # outcome but cleanup); 1 when the task owes nothing, 2 when local-only
 # evaluation defers a PR lookup to the remote pass.
-O_KIND= O_TITLE= O_PROJECT= O_NEXT= O_URL= O_DUE=0 O_FINAL=0
+O_KIND='' O_TITLE='' O_PROJECT='' O_NEXT='' O_URL='' O_DUE=0 O_FINAL=0
 task_outcome() {  # <task> [local]
   local id=$1 meta="$STATE/$1.meta" kind mode yolo pr line verb at project
-  O_KIND= O_TITLE= O_PROJECT= O_NEXT= O_URL= O_DUE=0 O_FINAL=0
+  O_KIND='' O_TITLE='' O_PROJECT='' O_NEXT='' O_URL='' O_DUE=0 O_FINAL=0
   [ -f "$meta" ] || return 1
   kind=$(meta_get "$meta" kind)
   [ "$kind" != secondmate ] || return 1
