@@ -39,7 +39,7 @@
 # to the content heuristic: binary when a NUL occurs within the first 8000
 # bytes.
 # Generated markers are case-sensitive and must occur in the first 20 lines:
-# @generated anywhere, or a comment beginning DO NOT EDIT or Code generated
+# a comment beginning @generated, DO NOT EDIT or Code generated
 # ...DO NOT EDIT after one of #, //, /*, *, ;, --, or <!-- and optional whitespace.
 # Incidental "do not edit" prose elsewhere does not qualify.
 set -u
@@ -109,7 +109,7 @@ fm_blob_is_binary() { # <path> <blob>: mirror git's own diff binary classificati
 }
 
 fm_blob_is_generated() { # <blob>
-  git cat-file blob "$1" | head -n 20 | grep -qE '@generated|^[[:space:]]*(#|//|/\*|\*|;|--|<!--)[[:space:]]*(DO NOT EDIT|Code generated .*DO NOT EDIT)'
+  git cat-file blob "$1" | head -n 20 | grep -qE '^[[:space:]]*(#|//|/\*|\*|;|--|<!--)[[:space:]]*(@generated|DO NOT EDIT|Code generated .*DO NOT EDIT)'
 }
 
 fm_is_skipped() { # <path> <blob>
