@@ -133,6 +133,23 @@ class UpdatesAdversarial(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(self.calls(), [])
 
+    def test_finished_result_without_pr_has_one_link(self):
+        board = "https://deck.example.com/board"
+        with (self.home / "config/slack-bridge").open("a") as config:
+            config.write(f"board-url={board}\n")
+        self.add_task("result", "Ranking-Messung fertig")
+        result = self.run_cli("fm-updates.sh", "tick")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        messages = [a[2] for a in self.calls()
+                    if a[:2] == ["draft", "#updates"]]
+        self.show("a finished result without a PR still includes a useful link",
+                  output=result.stdout, emitted_messages=messages)
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(messages[0].count("https://"), 1,
+                         "every finished result needs one link, including results without a PR")
+        self.assertIn(f"<{board}|", messages[0],
+                      "a result without a PR must link to the configured Deck board")
+
     def test_slow_pr_reads_do_not_starve_finished_results(self):
         gh = self.home / "fakebin/gh"
         gh.write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$3\" >> \"$FM_HOME/pr-reads\"\nsleep 4\nprintf 'OPEN\\n'\n")

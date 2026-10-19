@@ -278,14 +278,14 @@ outcome_posted() {  # <task> <kind>
 }
 
 outcome_post() {  # <task>; posts the current O_* outcome
-  local title=$O_TITLE
+  local title=$O_TITLE url=${O_URL:-$S_BOARD}
   case "$O_KIND" in
     ready) title="$(say "Approval needed" "Freigabe nötig"): $title" ;;
     stuck) title="$title $(say "is stuck" "hängt")" ;;
   esac
   local -a args=(post "$O_KIND" --task "$1" --title "$title" --context "$O_NEXT")
   [ -z "$O_PROJECT" ] || args+=(--project "$O_PROJECT")
-  [ -z "$O_URL" ] || args+=(--url "$O_URL")
+  [ -z "$url" ] || args+=(--url "$url")
   "$BRIDGE" "${args[@]}" 2>&1
 }
 
