@@ -2,11 +2,8 @@
 # fm-memory.sh - plain-markdown memory store with a light BM25 search index.
 #
 # Usage:
-#   fm-memory.sh remember [--category <cat>] [--expires <YYYY-MM-DD>]
-#                         [--sensitivity normal|private] <topic> [body...]
+#   fm-memory.sh remember [--category <cat>] <topic> [body...]
 #   fm-memory.sh recall [--json] [--limit <n>] <query>
-#   fm-memory.sh now [--max-chars <n>] [--exclude-private]
-#   fm-memory.sh merge-from <other-store-dir>
 #   fm-memory.sh list
 #   fm-memory.sh reindex
 #   fm-memory.sh stats
@@ -23,12 +20,9 @@
 #   3. $FM_HOME/data/memories
 #
 # A memory is one markdown file. `remember` writes
-# <category>/<slug>.md with frontmatter (category, created, updated, plus
-# optional expires and sensitivity) and a `# <topic>` title. Re-writing the
-# same category+topic preserves `created:` but replaces the body and optional
-# metadata; omitted expires/sensitivity values are not carried forward.
-# --expires accepts YYYY-MM-DD; --sensitivity accepts normal or private.
-# Every option must precede the topic. `body` comes
+# <category>/<slug>.md with a small frontmatter block (category, created,
+# updated) and a `# <topic>` title; re-writing the same category+topic updates
+# the file in place and preserves its original `created:` date. `body` comes
 # from the remaining arguments joined by spaces, or from stdin when no body
 # argument is given. Categories normalize the OpenViking names
 # (preference->preferences, entity->entities, event->events); any other value
@@ -41,24 +35,13 @@
 # <store>/.index.json owned by the engine; it self-rebuilds whenever the tree
 # drifts from the recorded manifest, so recall never answers from stale bytes.
 #
-# `now` prints now/*.md entries newest updated date first, excluding entries
-# whose expires date is before today (local date). --exclude-private also
-# excludes sensitivity: private. --max-chars bounds the whole output including
-# its omission notice; default FM_MEMORY_NOW_MAX_CHARS, else 6000 (~1.5K tokens).
-# Each entry's body is flattened and clipped to 600 characters.
-#
-# `merge-from` copies missing relative Markdown paths from another store,
-# leaves identical files alone, reports differing files without overwriting,
-# and rebuilds the index if it copied anything. Conflicts return exit 1 even
-# when other files were copied successfully.
-#
 # `reindex` forces a rebuild, `list` prints store-relative paths, `stats`
 # prints the resolved dir, document count, and index freshness, and `dir`
 # prints the resolved store path.
 #
-# Exit codes: 0 success (including zero recall hits); 1 merge conflicts;
-# 2 usage error, a node runtime problem, or a missing/unusable store component;
-# 3 an invalid category, topic slug, expires date shape, or sensitivity.
+# Exit codes: 0 success (including zero recall hits); 2 usage error, a node
+# runtime problem, or a missing/unusable store component; 3 an invalid
+# category or topic slug.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,10 +53,8 @@ ENGINE="$SCRIPT_DIR/fm-memory-bm25.mjs"
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  fm-memory.sh remember [--category <cat>] [--expires <YYYY-MM-DD>] [--sensitivity normal|private] <topic> [body...]
+  fm-memory.sh remember [--category <cat>] <topic> [body...]
   fm-memory.sh recall [--json] [--limit <n>] <query>
-  fm-memory.sh now [--max-chars <n>] [--exclude-private]
-  fm-memory.sh merge-from <other-store-dir>
   fm-memory.sh list
   fm-memory.sh reindex
   fm-memory.sh stats
@@ -137,7 +118,7 @@ cmd_dir() {
 }
 
 cmd_remember() {
-  local category=preferences topic='' body='' arg expires='' sensitivity=''
+  local category=preferences topic='' body='' arg
   while [ $# -gt 0 ]; do
     case "$1" in
       --category)
@@ -149,18 +130,6 @@ cmd_remember() {
         category=${1#--category=}
         shift
         ;;
-      --expires)
-        [ $# -ge 2 ] || die "--expires needs a value"
-        expires=$2
-        shift 2
-        ;;
-      --expires=*) expires=${1#--expires=}; shift ;;
-      --sensitivity)
-        [ $# -ge 2 ] || die "--sensitivity needs a value"
-        sensitivity=$2
-        shift 2
-        ;;
-      --sensitivity=*) sensitivity=${1#--sensitivity=}; shift ;;
       --) shift; break ;;
       -*) die "unknown option: $1" ;;
       *) topic=$1; shift; break ;;
@@ -173,8 +142,8 @@ cmd_remember() {
   [ -n "$topic" ] || { usage; die "remember needs a topic"; }
   for arg in "$@"; do
     case "$arg" in
-      --category|--category=*|--expires|--expires=*|--sensitivity|--sensitivity=*|--from-file|--from-file=*)
-        die "unexpected option after the body: $arg; supported form: 'remember [--category <cat>] [--expires <date>] [--sensitivity <level>] <topic> [body...]' with every option before the topic and the body from arguments or stdin (no --from-file)"
+      --category|--category=*|--from-file|--from-file=*)
+        die "unexpected option after the body: $arg; supported form: 'remember [--category <cat>] <topic> [body...]' with --category before the topic and the body from arguments or stdin (no --from-file)"
         ;;
     esac
   done
@@ -183,16 +152,6 @@ cmd_remember() {
     body=$(cat)
   fi
   [ -n "$body" ] || die "remember needs a body (arguments or stdin)"
-
-  case "$expires" in
-    '') ;;
-    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
-    *) die "invalid --expires date (want YYYY-MM-DD): $expires" 3 ;;
-  esac
-  case "$sensitivity" in
-    ''|normal|private) ;;
-    *) die "invalid --sensitivity (want normal or private): $sensitivity" 3 ;;
-  esac
 
   category=$(normalize_category "$category")
   if [ "$category" != "." ]; then
@@ -231,8 +190,6 @@ cmd_remember() {
     [ "$category" = "." ] || printf 'category: %s\n' "$category"
     printf 'created: %s\n' "$created"
     printf 'updated: %s\n' "$today"
-    [ -z "$expires" ] || printf 'expires: %s\n' "$expires"
-    [ -z "$sensitivity" ] || printf 'sensitivity: %s\n' "$sensitivity"
     printf -- '---\n'
     printf '# %s\n\n' "$topic"
     printf '%s\n' "$body"
@@ -275,116 +232,6 @@ cmd_recall() {
   [ -n "$json_flag" ] && args+=(--json)
   [ -n "$limit" ] && args+=(--limit "$limit")
   node "$ENGINE" "${args[@]}"
-}
-
-# Frontmatter value of <key> in <file>, empty when absent.
-frontmatter_value() {
-  awk -v key="$2" '
-    NR == 1 { if ($0 != "---") exit; next }
-    /^---[[:space:]]*$/ { exit }
-    index($0, key ":") == 1 { sub("^" key ":[[:space:]]*", ""); print; exit }
-  ' "$1"
-}
-
-# Expiry filters presentation only; never delete a memory during digest reads.
-cmd_now() {
-  local max_chars=${FM_MEMORY_NOW_MAX_CHARS:-6000} exclude_private=0
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --max-chars)
-        [ $# -ge 2 ] || die "--max-chars needs a value"
-        max_chars=$2
-        shift 2
-        ;;
-      --max-chars=*) max_chars=${1#--max-chars=}; shift ;;
-      --exclude-private) exclude_private=1; shift ;;
-      *) die "unknown option: $1" ;;
-    esac
-  done
-  case "$max_chars" in ''|*[!0-9]*) die "--max-chars must be a whole number" ;; esac
-  local store dir today file expires updated sensitivity rows=''
-  store=$(resolve_store_dir)
-  dir=$store/now
-  [ -d "$dir" ] || return 0
-  today=$(date +%F)
-  for file in "$dir"/*.md; do
-    [ -f "$file" ] && [ ! -L "$file" ] || continue
-    expires=$(frontmatter_value "$file" expires)
-    if [ -n "$expires" ] && [[ "$expires" < "$today" ]]; then
-      continue
-    fi
-    sensitivity=$(frontmatter_value "$file" sensitivity)
-    [ "$exclude_private" = 1 ] && [ "$sensitivity" = private ] && continue
-    updated=$(frontmatter_value "$file" updated)
-    rows+="${updated:-0000-00-00}"$'\t'"${expires:--}"$'\t'"$file"$'\n'
-  done
-  [ -n "$rows" ] || return 0
-  printf '%s' "$rows" | sort -r -t $'\t' -k1,1 | awk -F '\t' -v max="$max_chars" '
-    function flush_entry(   line) {
-      if (title == "") return
-      gsub(/[[:space:]]+/, " ", body)
-      sub(/^ /, "", body); sub(/ $/, "", body)
-      if (length(body) > 600) body = substr(body, 1, 597) "..."
-      line = "- " title (until == "-" ? "" : " (until " until ")") ": " body
-      if (used + length(line) + 1 > max) { dropped++; return }
-      lines[++count] = line
-      used += length(line) + 1
-    }
-    {
-      until = $2; title = ""; body = ""; fm = 0; file = $3
-      while ((getline l < file) > 0) {
-        if (fm < 2 && l ~ /^---[[:space:]]*$/) { fm++; continue }
-        if (fm == 1) continue
-        if (title == "" && l ~ /^# /) { title = substr(l, 3); continue }
-        body = body " " l
-      }
-      close(file)
-      flush_entry()
-    }
-    END {
-      if (dropped) {
-        notice = sprintf("(%d more now/ entries omitted by the size cap)", dropped)
-        while (count > 0 && used + length(notice) + 1 > max) {
-          used -= length(lines[count--]) + 1
-          notice = sprintf("(%d more now/ entries omitted by the size cap)", ++dropped)
-        }
-      }
-      for (i = 1; i <= count; i++) print lines[i]
-      if (dropped && used + length(notice) + 1 <= max) print notice
-    }
-  '
-}
-
-# Copies every memory under <other-store-dir> whose relative path is absent
-# from this store, leaves identical files alone, and reports a differing file
-# as a conflict without touching either side. Reindexes when anything landed.
-cmd_merge_from() {
-  [ $# -eq 1 ] || die "merge-from takes one store directory"
-  local src=${1%/} store rel copied=0 same=0 conflict=0
-  [ -d "$src" ] && [ ! -L "$src" ] || die "not a store directory: $src"
-  store=$(resolve_store_dir)
-  [ "$(cd "$src" && pwd -P)" != "$(mkdir -p "$store" && cd "$store" && pwd -P)" ] \
-    || die "merge-from source is this store"
-  while IFS= read -r rel; do
-    [ -n "$rel" ] || continue
-    if [ ! -e "$store/$rel" ]; then
-      mkdir -p "$(dirname "$store/$rel")" || die "cannot create $(dirname "$store/$rel")"
-      cp -p "$src/$rel" "$store/$rel" || die "copy failed for $rel"
-      printf 'copied: %s\n' "$rel"
-      copied=$((copied + 1))
-    elif cmp -s "$src/$rel" "$store/$rel"; then
-      same=$((same + 1))
-    else
-      printf 'conflict (kept this store): %s\n' "$rel"
-      conflict=$((conflict + 1))
-    fi
-  done < <(cd "$src" && find . -type f -name '*.md' ! -path '*/.*' | sed 's|^\./||' | sort)
-  printf 'merged: copied=%s identical=%s conflict=%s\n' "$copied" "$same" "$conflict"
-  if [ "$copied" -gt 0 ]; then
-    require_node
-    node "$ENGINE" build --dir "$store" >/dev/null || die "reindex failed"
-  fi
-  [ "$conflict" -eq 0 ] || return 1
 }
 
 cmd_list() {
@@ -440,8 +287,6 @@ case "$cmd" in
   dir) cmd_dir "$@" ;;
   remember) cmd_remember "$@" ;;
   recall) cmd_recall "$@" ;;
-  now) cmd_now "$@" ;;
-  merge-from) cmd_merge_from "$@" ;;
   list) cmd_list "$@" ;;
   reindex) cmd_reindex "$@" ;;
   stats) cmd_stats "$@" ;;

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Launch (or relaunch) the Claude Code PRIMARY firstmate session for this home,
-# applying the home's optional Remote Control and auto-compaction settings.
+# adding Claude Code's native Remote Control when the home opts in.
 #
 # Usage: fm-claude-primary.sh [<claude arg>...]
-#   <claude arg>  passed through unchanged after home-configured flags, so a
-#                 relaunch is the same command plus e.g. --continue or --resume
-#                 <id>. docs/configuration.md owns both configuration formats.
+#   <claude arg>  passed through to claude unchanged, after the Remote Control
+#                 flag, so a relaunch is the same command plus e.g. --continue
+#                 or --resume <id>.
 #
 # The opt-in is the local, gitignored config/claude-remote-control under the
 # effective home (FM_HOME, else this checkout). docs/configuration.md "Claude
 # primary Remote Control" owns the file format, the phone-side setup, and what
 # the flag does and does not change. In short:
-#   absent or "off"   add no Remote Control flag; auto-compaction still applies.
+#   absent or "off"   launch plain `claude`, exactly as `claude` typed by hand.
 #   "on"              launch `claude --remote-control firstmate`.
 # Anything else, or an unreadable file, refuses to launch and names the accepted
 # values: the captain chose a posture, so the launcher never guesses another one.
@@ -31,7 +31,6 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 RC_FILE="$CONFIG/claude-remote-control"
-AC_FILE="$CONFIG/claude-autocompact"
 DEFAULT_NAME=firstmate
 
 refuse() {
@@ -58,35 +57,8 @@ if [ -e "$RC_FILE" ] || [ -L "$RC_FILE" ]; then
   esac
 fi
 
-# docs/configuration.md "Auto-compaction window" owns values and precedence.
-AC_ARGS=()
-if [ -e "$AC_FILE" ] || [ -L "$AC_FILE" ]; then
-  [ -f "$AC_FILE" ] && [ -r "$AC_FILE" ] \
-    || { printf 'error: %s is not a readable regular file; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" >&2; exit 2; }
-  AC_LINE=$(grep -v -E '^[[:space:]]*(#|$)' "$AC_FILE" | head -n 1 | tr -d '[:space:]')
-  case "$AC_LINE" in
-    ''|auto) ;;
-    *[!0-9]*)
-      printf 'error: %s holds %s; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" "$AC_LINE" >&2
-      exit 2
-      ;;
-    *)
-      if [ "$AC_LINE" -lt 100000 ] || [ "$AC_LINE" -gt 1000000 ]; then
-        printf 'error: %s holds %s; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" "$AC_LINE" >&2
-        exit 2
-      fi
-      # Settings-file env overrides both process env and --autocompact; inline
-      # settings take precedence without changing the user's settings file.
-      AC_ARGS=(--settings "{\"env\":{\"CLAUDE_CODE_AUTO_COMPACT_WINDOW\":\"$AC_LINE\"}}")
-      for arg in "$@"; do
-        case "$arg" in --autocompact|--autocompact=*|--settings|--settings=*) AC_ARGS=() ;; esac
-      done
-      ;;
-  esac
-fi
-
 CLAUDE_BIN="${FM_CLAUDE_BIN:-claude}"
-ARGV=("$CLAUDE_BIN" ${RC_ARGS[@]+"${RC_ARGS[@]}"} ${AC_ARGS[@]+"${AC_ARGS[@]}"} "$@")
+ARGV=("$CLAUDE_BIN" ${RC_ARGS[@]+"${RC_ARGS[@]}"} "$@")
 
 cd "$FM_ROOT" || exit 1
 exec "${ARGV[@]}"

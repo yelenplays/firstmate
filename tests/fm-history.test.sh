@@ -357,31 +357,9 @@ test_wake_batches_and_acknowledgements_are_journaled() {
   pass 'wake presentations are retry-safe and their acknowledgements are journaled'
 }
 
-test_claude_object_origin_keeps_human_turns_only() {
-  local transcript output page
-  fresh_home
-  transcript="$TMP_ROOT/claude-object-origin.jsonl"
-  {
-    jq -nc '{type:"user",origin:{kind:"human"},promptSource:"typed",uuid:"obj-captain",timestamp:"2026-09-24T10:00:00Z",message:{content:"Object origin captain words."}}'
-    jq -nc '{type:"assistant",uuid:"obj-reply",timestamp:"2026-09-24T10:00:05Z",message:{content:[{type:"text",text:"Object origin final reply."}],stop_reason:"end_turn"}}'
-    jq -nc '{type:"user",origin:{kind:"task-notification",producer:"session-task"},uuid:"obj-task",timestamp:"2026-09-24T10:00:06Z",message:{content:"Background task finished notice."}}'
-    jq -nc '{type:"assistant",uuid:"obj-task-reply",timestamp:"2026-09-24T10:00:07Z",message:{content:"Reply to the task notice.",stop_reason:"end_turn"}}'
-  } > "$transcript"
-  output=$(run_history capture --transcript "$transcript")
-  assert_contains "$output" 'captured 1 captain message(s) and 1 final reply/replies' \
-    'an object-shaped human origin was not captured exactly once'
-  page="$HOME_DIR/data/history/days/2026-09-24.md"
-  assert_contains "$(<"$page")" 'Object origin captain words.' 'the object-origin captain turn is missing'
-  assert_contains "$(<"$page")" 'Object origin final reply.' 'the object-origin final reply is missing'
-  assert_not_contains "$(<"$page")" 'Background task finished notice.' 'a task-notification origin was journaled as captain words'
-  assert_not_contains "$(<"$page")" 'Reply to the task notice.' 'the reply to a task notification was journaled'
-  pass 'current Claude object origins journal human turns and skip task notifications'
-}
-
 test_capture_is_idempotent_and_uses_the_captains_local_day
 test_jev_history_selection_never_receives_query_or_page_content
 test_pi_transcript_capture_keeps_captain_words_and_final_reply_only
-test_claude_object_origin_keeps_human_turns_only
 test_claude_compaction_and_session_end_hooks_capture_once
 test_task_cards_are_written_once_and_indexed
 test_task_cards_use_terminal_events_without_filing_open_work
