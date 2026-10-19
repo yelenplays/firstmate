@@ -22,11 +22,22 @@
 # LOCKFILE_BASENAMES list just before it. Authorship is not detected: these
 # exemptions approximate non-agent-authored content; all other staged files
 # are subject to the cap, including human-authored files.
-# A staged file is skipped when it is binary (a NUL byte within the first
-# 8000 bytes or a cached diff attribute reported as unset, including -diff
-# and the binary macro), a lockfile by basename, or has linguist-generated
-# or linguist-vendored reported as set, true, TRUE, or True by
-# git check-attr --cached; false does not exempt a file.
+# A staged file is skipped when it is binary, a lockfile by basename, or
+# its linguist-generated or linguist-vendored attributes are reported by
+# git check-attr --cached as set, true, TRUE, or True; false does not
+# exempt a file.
+# Binary classification mirrors git's own diff machinery and reads the diff
+# attribute through git check-attr --cached only, so unstaged gitattributes
+# can neither exempt nor reclassify a staged file: a diff attribute value of
+# unset is binary, including -diff and the binary macro; set forces text
+# even when the blob carries a NUL byte; for a named diff driver the diff
+# <driver>.binary config boolean decides (read with git config --bool --get,
+# since driver settings live in config, never in gitattributes) with true
+# marking the blob binary and false forcing text; every other case - no
+# matching diff attribute, an unknown driver, a driver without its boolean
+# set, and a blob the attribute logic does not decide outright - falls back
+# to the content heuristic: binary when a NUL occurs within the first 8000
+# bytes.
 # Generated markers are case-sensitive and must occur in the first 20 lines:
 # @generated anywhere, or a comment beginning DO NOT EDIT or Code generated
 # ...DO NOT EDIT after one of #, //, /*, *, ;, --, or <!-- and optional whitespace.
@@ -76,10 +87,24 @@ fm_path_is_linguist_skipped() { # <path>
   return 1
 }
 
-fm_blob_is_binary() { # <path> <blob>
-  if [ "$(git check-attr --cached -z diff -- "$1" | tr '\0' '\n' | tail -n 1)" = unset ]; then
-    return 0
-  fi
+fm_blob_is_binary() { # <path> <blob>: mirror git's own diff binary classification.
+  local _ value
+  while IFS= read -r -d '' _ &&
+    IFS= read -r -d '' _ &&
+    IFS= read -r -d '' value; do
+    :
+  done < <(git check-attr --cached -z diff -- "$1")
+  case "$value" in
+  unset) return 0 ;;
+  set) return 1 ;;
+  unspecified) ;;
+  *)
+    case "$(git config --bool --get "diff.$value.binary" 2>/dev/null)" in
+    true) return 0 ;;
+    false) return 1 ;;
+    esac
+    ;;
+  esac
   git cat-file blob "$2" | head -c 8000 | od -An -tx1 | grep -q ' 00'
 }
 

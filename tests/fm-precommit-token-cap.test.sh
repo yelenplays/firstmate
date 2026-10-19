@@ -298,6 +298,109 @@ test_binary_text_attribute_control() {
   pass "the text attribute never flips a NUL blob to text-only classification"
 }
 
+test_diff_set_forces_text_even_with_nul_bytes() {
+  local dir out numstat
+  dir="$TMP_ROOT/forced-text-diff"
+  make_cap_repo "$dir"
+  printf '*.ttext diff\n' >"$dir/.gitattributes"
+  { printf '\000'; head -c 20999 /dev/zero | tr '\0' 'w'; } >"$dir/authored.ttext"
+  git -C "$dir" add .gitattributes authored.ttext
+  # git's own verdict lands in numstat, so capture it before the commit
+  # consumes the staged diff.
+  numstat=$(git -C "$dir" diff --cached --numstat -- authored.ttext | tr '\t' ' ')
+  out=$(committed "forced-text refused") && fail "a set diff attribute exempted a NUL blob that git classes as text: $out"
+  assert_contains "$numstat" "1 0 authored.ttext" "git itself did not class the forced-text blob as text, invalidating the control"
+  assert_contains "$out" "authored.ttext: 21000 bytes" "the refusal did not name the forced-text staged file"
+  pass "a set diff attribute forces text classification, so the NUL blob stays under the cap"
+}
+
+test_diff_driver_with_binary_true_is_skipped() {
+  local dir numstat
+  dir="$TMP_ROOT/binary-driver"
+  make_cap_repo "$dir"
+  git -C "$dir" config diff.custom.binary true
+  printf '*.dat diff=custom\n' >"$dir/.gitattributes"
+  big "$dir/generated.dat" 21000
+  git -C "$dir" add .gitattributes generated.dat
+  numstat=$(git -C "$dir" diff --cached --numstat -- generated.dat | tr '\t' ' ')
+  committed "binary-driver passes" || fail "a file under a binary diff driver was refused although git classes it binary"
+  assert_contains "$numstat" "- - generated.dat" "git's numstat did not report the driver file binary, invalidating the control"
+  wired_probe_refuses "$dir"
+  pass "a named diff driver with diff.<driver>.binary=true skips the cap; unmarked files still refuse"
+}
+
+test_diff_driver_binary_false_forces_text() {
+  local dir out numstat
+  dir="$TMP_ROOT/driver-false"
+  make_cap_repo "$dir"
+  git -C "$dir" config diff.grammar.binary false
+  printf '*.grm diff=grammar\n' >"$dir/.gitattributes"
+  { printf '\000'; head -c 20999 /dev/zero | tr '\0' 'p'; } >"$dir/authored.grm"
+  git -C "$dir" add .gitattributes authored.grm
+  numstat=$(git -C "$dir" diff --cached --numstat -- authored.grm | tr '\t' ' ')
+  out=$(committed "driver-false refused") && fail "diff.<driver>.binary=false exempted a NUL blob that git classes as text: $out"
+  assert_contains "$numstat" "1 0 authored.grm" "git itself did not class the false-driver blob as text, invalidating the control"
+  assert_contains "$out" "authored.grm: 21000 bytes" "the refusal did not name the forced-text staged file"
+  pass "diff.<driver>.binary=false forces text like a set diff attribute; the cap still refuses"
+}
+
+test_diff_driver_without_boolean_setting_falls_back_to_content() {
+  local dir out numstat
+  dir="$TMP_ROOT/driver-unconfigured"
+  make_cap_repo "$dir"
+  printf '*.myst diff=mystic\n' >"$dir/.gitattributes"
+  { printf '\000'; head -c 20999 /dev/zero | tr '\0' 'q'; } >"$dir/nul.myst"
+  big "$dir/plain.myst" 21000 r
+  git -C "$dir" add .gitattributes nul.myst plain.myst
+  numstat=$(git -C "$dir" diff --cached --numstat | tr '\t' ' ')
+  out=$(committed "driver-fallback refused") && fail "an unconfigured diff-driver file was refused although git fell back to the content heuristic: $out"
+  assert_contains "$numstat" "- - nul.myst" "git did not treat the NUL blob under an unconfigured driver as binary"
+  assert_contains "$out" "plain.myst: 21000 bytes" "the refusal did not name the NUL-free file"
+  assert_not_contains "$out" "nul.myst: " "the binary NUL blob was wrongly listed"
+  # With the text file out of the way, only the NUL blob stays staged: the
+  # heuristic marks it binary and the cap skips it.
+  git -C "$dir" rm -q --cached plain.myst
+  committed "driver-fallback nul passes" || fail "a NUL blob under an unconfigured driver was refused although git treats it binary"
+  wired_probe_refuses "$dir"
+  pass "an unconfigured diff driver falls back to git's NUL content heuristic"
+}
+
+test_unstaged_text_flip_cannot_reclassify_forced_text_files() {
+  local dir out head_before
+  dir="$TMP_ROOT/unstaged-text-flip"
+  make_cap_repo "$dir"
+  printf '*.ttext diff\n' >"$dir/.gitattributes"
+  git -C "$dir" add .gitattributes
+  git -C "$dir" commit -q --no-verify -m "seed attrs"
+  head -c 21000 /dev/zero | tr '\0' 'w' >"$dir/authored.ttext"
+  git -C "$dir" add authored.ttext
+  head_before=$(git -C "$dir" rev-parse HEAD)
+  out=$(committed "forced-text refused first") && fail "a staged forced-text file did not get refused: $out"
+  assert_contains "$out" "authored.ttext: 21000 bytes" "the first refusal did not name the file"
+  printf '*.ttext -diff\n' >"$dir/.gitattributes"
+  head -c 21001 /dev/zero | tr '\0' 'w' >"$dir/authored.ttext"
+  git -C "$dir" add authored.ttext
+  out=$(committed "retry after unstaged flip") && fail "an unstaged -diff edit reclassified a staged forced-text file: $out"
+  assert_contains "$out" "authored.ttext: 21001 bytes" "the second refusal did not name the file"
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$head_before" ] || fail "the refused commit changed HEAD"
+  pass "worktree-only attribute flips cannot reclassify staged forced-text files"
+}
+
+test_unstaged_driver_assignment_cannot_exempt_staged_files() {
+  local dir out head_before
+  dir="$TMP_ROOT/unstaged-driver"
+  make_cap_repo "$dir"
+  head_before=$(git -C "$dir" rev-parse HEAD)
+  git -C "$dir" config diff.custom.binary true
+  printf '*.dat diff=custom\n' >"$dir/.gitattributes"
+  big "$dir/generated.dat" 21000
+  git -C "$dir" add generated.dat
+  out=$(committed "unstaged driver refused") && fail "a worktree-only driver assignment exempted an oversized file: $out"
+  assert_contains "$out" "generated.dat: 21000 bytes" "the refusal did not name the staged oversized file"
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$head_before" ] || fail "the refused commit changed HEAD"
+  pass "worktree-only diff-driver assignments cannot exempt staged files"
+}
+
 test_unstaged_binary_attributes_do_not_exempt_files() {
   local dir out head_before
   dir="$TMP_ROOT/unstaged-binary-attr"
@@ -402,6 +505,12 @@ test_linguist_true_spelling_exempts_files
 test_linguist_false_spelling_is_not_an_exemption
 test_attribute_forced_binary_is_skipped
 test_binary_text_attribute_control
+test_diff_set_forces_text_even_with_nul_bytes
+test_diff_driver_with_binary_true_is_skipped
+test_diff_driver_binary_false_forces_text
+test_diff_driver_without_boolean_setting_falls_back_to_content
+test_unstaged_text_flip_cannot_reclassify_forced_text_files
+test_unstaged_driver_assignment_cannot_exempt_staged_files
 test_unstaged_binary_attributes_do_not_exempt_files
 test_rename_measures_against_the_source_head_size
 test_staged_deletion_never_fails
