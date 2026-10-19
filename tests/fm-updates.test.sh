@@ -161,6 +161,27 @@ test_backstop_reports_each_missed_outcome_once() {
   pass "fm-updates: the backstop reports every missed outcome exactly once"
 }
 
+test_undated_status_uses_file_age() {
+  local home out
+  home=$(make_home undated)
+  write_config "$home"
+  add_task "$home" finished-task "Ergebnis" 'kind=ship' 'done: fertig'
+  add_task "$home" failed-task "Import" 'kind=ship' 'failed: stopped'
+  add_task "$home" auto-task "Änderung" $'kind=ship\nyolo=on\npr=https://github.com/o/a/pull/4' 'done: fertig'
+  local id
+  for id in finished-task failed-task auto-task; do
+    fm_touch_epoch "$OLD" "$home/state/$id.status"
+  done
+  out=$(run "$home" "$((OLD + 60))" "$UPDATES" scan) || fail "undated scan must succeed: $out"
+  assert_equals "" "$out" "file age preserves the grace period for undated outcomes"
+  out=$(run "$home" "$((OLD + 86400))" "$UPDATES" scan) || fail "undated scan must succeed: $out"
+  assert_equals 3 "$(printf '%s\n' "$out" | grep -c '^unreported ')" "all old undated outcomes are reported"
+  assert_contains "$out" "unreported finished-task finished: Ergebnis" "undated done uses file age"
+  assert_contains "$out" "unreported failed-task stuck: Import" "undated failed uses file age"
+  assert_contains "$out" "unreported auto-task stuck: Änderung" "undated autonomous work reaches the stale bound"
+  pass "fm-updates: undated outcomes use file age for grace and stale bounds"
+}
+
 test_auto_merge_task_never_sits_unreported() {
   local home out
   home=$(make_home automerge)
@@ -333,6 +354,7 @@ test_drain_lists_report_and_close() {
   pass "fm-wake-drain: finished work is listed on every drain until it is closed"
 }
 
+test_undated_status_uses_file_age
 test_backstop_reports_each_missed_outcome_once
 test_auto_merge_task_never_sits_unreported
 test_cleanup_due_is_listed_until_closed

@@ -245,7 +245,7 @@ task_outcome() {  # <task> [local]
 }
 
 fm_updates_mtime() {  # <file>
-  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || printf '0\n'
+  _fm_status_file_mtime "$1" || printf '0\n'
 }
 
 outcome_posted() {  # <task> <kind>
@@ -389,14 +389,14 @@ captain_calls() {
 
 DIGEST_LINES=()
 digest_compose() {
-  local now since id verb needs=0 running=0 names='' title finished merged live calls
+  local now since id verb needs=0 running=0 needed_titles='' title finished merged live calls
   now=$(now_epoch)
   since=$((now - 86400))
   calls=$(captain_calls)
   while IFS= read -r title; do
     [ -n "$title" ] || continue
     needs=$((needs + 1))
-    [ "$needs" -gt 3 ] || names="$names${names:+, }$title"
+    [ "$needs" -gt 3 ] || needed_titles="$needed_titles${needed_titles:+, }$title"
   done <<EOF
 $calls
 EOF
@@ -405,7 +405,7 @@ EOF
     if task_outcome "$id" local; then
       if [ "$O_KIND" = ready ]; then
         needs=$((needs + 1))
-        [ "$needs" -gt 3 ] || names="$names${names:+, }$O_TITLE"
+        [ "$needs" -gt 3 ] || needed_titles="$needed_titles${needed_titles:+, }$O_TITLE"
       fi
       continue
     fi
@@ -427,7 +427,7 @@ EOF
   if [ "$needs" -eq 0 ]; then
     DIGEST_LINES+=("🙋 $(say "Nothing needs you." "Nichts wartet auf dich.")")
   else
-    DIGEST_LINES+=("🙋 $(say "Needs you" "Wartet auf dich"): $needs - $names")
+    DIGEST_LINES+=("🙋 $(say "Needs you" "Wartet auf dich"): $needs - $needed_titles")
   fi
   DIGEST_LINES+=("✅ $(say "Last 24 hours: $finished finished, $merged merged, $live live" "Letzte 24 Stunden: $finished fertig, $merged übernommen, $live live")")
   DIGEST_LINES+=("⏳ $(say "Running now: $running" "Läuft gerade: $running")")
