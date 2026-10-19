@@ -1,0 +1,42 @@
+
+=== Parent regression: privacy ===
+not ok - captain words left through an HTTP call
+expected regression exit=1
+
+=== Parent regression: long-message ===
+not ok - a fact past 2400 characters never reached the model (missing: 'always use tabs instead of spaces')
+--- output ---
+Existing memory titles (category/slug):
+(none)
+
+Conversation turns:
+[2026-09-24 12:01]
+captain: Please always use plain dash in commit messages from now on.
+first mate: Noted, plain dashes in every commit.
+
+[2026-09-24 12:03]
+captain: My girlfriend and I broke up yesterday and I am moving out of the flat.
+first mate: I am sorry, Captain. I will keep things light this week.
+
+[2026-09-24 12:05]
+captain: The deploy script for the docs site fixes the lint issue now.
+first mate: Good, the lint lane is green again.
+
+[2026-09-24 12:06]
+captain: My bank account was frozen; add a reminder to the backlog and fix the test config.
+first mate: Added to the backlog.
+
+[2026-09-24 12:07]
+captain: The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The re [...]
+first mate: Understood.
+
+[2026-09-24 12:08]
+captain: The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The requirements walk through the release checklist in detail. The re [...]
+first mate: Understood.
+expected regression exit=1
+
+=== Parent regression: overlap ===
+not ok - the overlapping boundary did not report the hand-off (missing: 'drain this boundary')
+--- output ---
+fm-memory-capture: another capture run is active; this boundary is covered by it or the next one
+expected regression exit=1

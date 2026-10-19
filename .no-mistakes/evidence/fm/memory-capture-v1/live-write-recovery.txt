@@ -1,0 +1,49 @@
+$ fm-history.sh capture --transcript /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/conversation.jsonl
+captured 1 captain message(s) and 0 final reply/replies
+
+exit=0
+
+$ fm-memory-capture.sh run --trigger sessionend
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T13:16:39.789Z","trigger":"sessionend","model":"claude-haiku-5-5","turns":1,"dropped":0,"units":1,"model_calls":1,"model_usage":{"input":2,"cache_write":699,"cache_read":959,"output":282},"model_cost_usd":0.00029059,"memories":0,"now_entries":0,"ok":false,"why":"remember failed for preferences/meeting-agenda-format.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store: Not a directory\nmemory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store/preferences"}
+
+exit=1
+
+$ fm-memory-capture.sh run --trigger sessionend
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T13:16:44.178Z","trigger":"sessionend","model":"claude-haiku-5-5","turns":1,"dropped":0,"units":1,"model_calls":1,"model_usage":{"input":2,"cache_write":368,"cache_read":1291,"output":308},"model_cost_usd":0.00024071000000000002,"memories":0,"now_entries":0,"ok":false,"why":"remember failed for preferences/meeting-agenda-format-preference.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store: Not a directory\nmemory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store/preferences"}
+
+exit=1
+
+$ fm-memory-capture.sh run --trigger sessionend
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T13:16:49.131Z","trigger":"sessionend","model":"claude-haiku-5-5","turns":1,"dropped":0,"units":1,"model_calls":1,"model_usage":{"input":2,"cache_write":366,"cache_read":1291,"output":278},"model_cost_usd":0.00022531,"memories":1,"now_entries":0,"ok":true,"why":""}
+
+exit=0
+
+$ fm-memory.sh recall --json meeting agendas plain text
+{"version":1,"dir":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/data/memories","count":1,"documents":[{"path":"preferences/meeting-agenda-format.md","score":1.259,"title":"Meeting agenda format","snippet":"# Meeting agenda format On 2026-10-19 the captain asked that meeting agendas alwa..."}]}
+
+exit=0
+
+$ fm-memory-capture.sh run --dry-run --after 2000-01-01/start
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T13:16:55.156Z","trigger":"manual","model":"claude-haiku-5-5","turns":1,"dropped":0,"units":1,"model_calls":1,"model_usage":{"input":0,"cache_write":0,"cache_read":0,"output":0},"model_cost_usd":0,"memories":0,"now_entries":0,"ok":true,"why":""}
+
+exit=0
+
+$ fm-memory-capture.sh run --after 2000-01-01/start --no-watermark
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T13:16:55.686Z","trigger":"manual","model":"claude-haiku-5-5","turns":1,"dropped":0,"units":1,"model_calls":1,"model_usage":{"input":2,"cache_write":711,"cache_read":959,"output":723},"model_cost_usd":0.00051349,"memories":1,"now_entries":0,"ok":true,"why":""}
+
+exit=0
+
+$ fm-memory-capture.sh status
+dir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/state/memory-capture
+capture: on
+watermark: {"schema":"fm-memory-capture-mark.v1","day":"2026-10-19","id":"write-must-verify","at":"2026-10-19T13:16:49.131Z"}
+failure streak: 0
+last runs:
+  2026-10-19T13:16:39.789Z sessionend ok=false turns=1 units=1 model_calls=1 memories=0 now=0 cost_usd=0.00029059 remember failed for preferences/meeting-agenda-format.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store: Not a directory
+memory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store/preferences
+  2026-10-19T13:16:44.178Z sessionend ok=false turns=1 units=1 model_calls=1 memories=0 now=0 cost_usd=0.00024071000000000002 remember failed for preferences/meeting-agenda-format-preference.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store: Not a directory
+memory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store/preferences
+  2026-10-19T13:16:49.131Z sessionend ok=true turns=1 units=1 model_calls=1 memories=1 now=0 cost_usd=0.00022531 
+  2026-10-19T13:16:55.686Z manual ok=true turns=1 units=1 model_calls=1 memories=1 now=0 cost_usd=0.00051349 
+
+exit=0

@@ -1,0 +1,81 @@
+[
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-replay-lock/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--no-watermark"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-memory-capture: another capture run is active; retry the replay when it finishes\n"
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--dry-run"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T13:00:25.328Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "real_model_holder_active": true,
+    "concurrent_replay_refused_without_pending": true,
+    "concurrent_dry_run_succeeded_without_lock_change_or_pending": true
+  },
+  {
+    "no_watermark_preserved_after_real_replay": true,
+    "jev_audit_exists": false
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "- Deploy review schedule (until 2026-11-02): Deploy reviews should be scheduled in the mornings while the captain resolves the frozen bank account.\n- Bank account frozen (until 2026-11-02): The captain's bank account is frozen as of 2026-10-19 and they are resolving it, so money-related tasks may be affected.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "now",
+      "--exclude-private"
+    ],
+    "exit": 0,
+    "stdout": "- Deploy review schedule (until 2026-11-02): Deploy reviews should be scheduled in the mornings while the captain resolves the frozen bank account.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T13:00:33.154Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":758,\"cache_read\":1032,\"output\":645},\"model_cost_usd\":0.00048462,\"memories\":2,\"now_entries\":2,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "final_watermark": {
+      "schema": "fm-memory-capture-mark.v1",
+      "day": "2026-10-19",
+      "id": "replay-lock-human",
+      "at": "2026-10-19T13:00:33.154Z"
+    },
+    "jev_audit_exists": false
+  }
+]

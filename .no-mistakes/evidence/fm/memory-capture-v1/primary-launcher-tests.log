@@ -1,0 +1,10 @@
+ok - absent config launches plain claude from the checkout root with arguments passed through
+ok - off launches plain claude
+ok - on adds --remote-control with the default session name before passed-through arguments
+ok - on ignores comment lines and uses the fixed firstmate session name
+ok - an unrecognized value refuses to launch and names the accepted values
+ok - an unreadable or non-regular config path refuses to launch
+ok - autocompact auto leaves Claude's own window setting alone
+ok - a token count adds --autocompact before passed-through arguments
+ok - a caller-supplied --autocompact wins over the config file
+ok - an out-of-range or non-numeric autocompact window refuses to launch

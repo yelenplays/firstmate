@@ -1,0 +1,39 @@
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 4.3k tokens (1.4%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 14.7k tokens (4.9%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ MCP tools: 654 tokens (0.2%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛝   ⛁ MCP server instructions: 950 tokens (0.3%)
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛁ Custom agents: 239 tokens (0.1%)
+                           ⛁ Memory files: 16.4k tokens (5.5%)
+                           ⛁ Skills: 9.9k tokens (3.3%)
+                           ⛁ Messages: 10 tokens (0.0%)
+                           ⛶ Free space: 219.9k (73.3%)
+                           ⛝ Autocompact buffer: 33k tokens (11.0%)
+
+     Auto-compact window: 300k tokens
+
+     MCP tools · /mcp (loaded on-demand)
+     └ 153 tools · 654 tokens
+
+     Custom agents · .claude/agents/
+     └ 4 agents · 239 tokens
+
+     Memory files · /memory
+     └ 3 files · 16.4k tokens
+
+     Skills · /skills
+     └ 206 skills · 9.9k tokens
+
+     /context all to expand
+
+      Suggestions
+      ℹ Memory files using 16.4k tokens (5%) → save ~4.9k
+        Largest: AGENTS.md (13.1k), ~/.claude/CLAUDE.md (3.1k), CLAUDE.md (182). Use /memory
+     to review and prune stale entries.
+                                                                         ◐ medium · /effort
+─────────────────────────────────────────────────────────────────────────────────────────────
+❯
+─────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S…
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent

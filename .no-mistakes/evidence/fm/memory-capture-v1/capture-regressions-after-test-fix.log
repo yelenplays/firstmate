@@ -1,0 +1,6 @@
+ok - capture sends every retained turn only to the model, writes verified memories and a now entry, and advances once
+ok - long captain messages reach the model whole before the watermark retires them
+ok - a boundary that overlaps a running capture is drained before that run exits
+ok - captain words never go to a non-Anthropic capture model
+ok - two failed runs alert once, keep turns queued, and the next good run resolves
+ok - the hook runs only for the primary home main session and returns before the capture

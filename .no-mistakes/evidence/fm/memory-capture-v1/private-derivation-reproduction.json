@@ -1,0 +1,100 @@
+[
+  {
+    "attempt": 1,
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-private-derivation/0/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "attempt": 1,
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T13:01:20.360Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":708,\"cache_read\":1032,\"output\":409},\"model_cost_usd\":0.00035662,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "attempt": 1,
+    "command": [
+      "bin/fm-memory.sh",
+      "now",
+      "--exclude-private"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "attempt": 1,
+    "private_detail_in_public_NOW": false
+  },
+  {
+    "attempt": 2,
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-private-derivation/1/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "attempt": 2,
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T13:01:25.881Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":366,\"cache_read\":1372,\"output\":686},\"model_cost_usd\":0.00043012,\"memories\":2,\"now_entries\":2,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "attempt": 2,
+    "command": [
+      "bin/fm-memory.sh",
+      "now",
+      "--exclude-private"
+    ],
+    "exit": 0,
+    "stdout": "- Deploy review schedule (until 2026-11-02): Deploy reviews should be scheduled in the mornings while the captain resolves the bank account freeze.\n",
+    "stderr": ""
+  },
+  {
+    "attempt": 2,
+    "persisted_memory": "events/bank-account-freeze.md",
+    "content": "---\ncategory: events\ncreated: 2026-10-19\nupdated: 2026-10-19\nsensitivity: private\n---\n# Bank account freeze\n\nOn 2026-10-19 the captain said their bank account was frozen and they were working to resolve it. The captain also described this conversation as synthetic lab validation data.\n"
+  },
+  {
+    "attempt": 2,
+    "persisted_memory": "now/bank-account-freeze.md",
+    "content": "---\ncategory: now\ncreated: 2026-10-19\nupdated: 2026-10-19\nexpires: 2026-11-02\nsensitivity: private\n---\n# Bank account freeze\n\nThe captain's bank account is frozen as of 2026-10-19 and they are working to resolve it.\n"
+  },
+  {
+    "attempt": 2,
+    "persisted_memory": "now/deploy-review-schedule.md",
+    "content": "---\ncategory: now\ncreated: 2026-10-19\nupdated: 2026-10-19\nexpires: 2026-11-02\n---\n# Deploy review schedule\n\nDeploy reviews should be scheduled in the mornings while the captain resolves the bank account freeze.\n"
+  },
+  {
+    "attempt": 2,
+    "persisted_memory": "preferences/deploy-review-schedule.md",
+    "content": "---\ncategory: preferences\ncreated: 2026-10-19\nupdated: 2026-10-19\n---\n# Deploy review schedule\n\nOn 2026-10-19 the captain asked that deploy reviews be held in the mornings while they deal with the frozen bank account.\n"
+  },
+  {
+    "attempt": 2,
+    "private_detail_in_public_NOW": true
+  }
+]

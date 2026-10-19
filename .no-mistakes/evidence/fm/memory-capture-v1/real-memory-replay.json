@@ -1,0 +1,282 @@
+[
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "turns"
+    ],
+    "exit": 0,
+    "stdout": "{\"day\":\"2026-10-19\",\"time\":\"14:50\",\"id\":\"lab-long\",\"captain\":\"Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance. Temporary validation narration; this sentence has no lasting significance.  From now on my release-note signature is LAB-CORAL-7129. Always preserve that exact signature.\",\"reply\":\"Understood.\",\"reply_time\":\"14:50\"}\n{\"day\":\"2026-10-19\",\"time\":\"14:50\",\"id\":\"lab-private\",\"captain\":\"Remember that I moved to Pebble Bay this week and am still unpacking. Keep that current context in mind when planning the deploy backlog. This is synthetic validation data.\",\"reply\":\"Understood.\",\"reply_time\":\"14:50\"}\n{\"day\":\"2026-10-19\",\"time\":\"14:50\",\"id\":\"lab-short\",\"captain\":\"I use Emacs.\",\"reply\":\"Understood.\",\"reply_time\":\"14:50\"}\n{\"day\":\"2026-10-19\",\"time\":\"14:50\",\"id\":\"lab-ack\",\"captain\":\"merge it\",\"reply\":\"Understood.\",\"reply_time\":\"14:50\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--dry-run"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T12:50:03.238Z\",\"trigger\":\"manual\",\"model\":\"claude-haiku-5-5\",\"turns\":4,\"dropped\":1,\"units\":4,\"model_calls\":1,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run"
+    ],
+    "exit": 2,
+    "stdout": "\n",
+    "stderr": "fm-memory-capture: refusing model deepseek-v4: captain words only go to an Anthropic Claude model\n"
+  },
+  {
+    "observation": "real Claude Haiku extractor active",
+    "pid": 8372
+  },
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 0,
+    "stdout": "fm-memory-capture: another capture run is active; it will drain this boundary before it exits\n",
+    "stderr": ""
+  },
+  {
+    "pending_after_overlap": true,
+    "first_capture_still_running": true
+  },
+  {
+    "first_capture_exit": 0,
+    "overlap_drove_real_model": true
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "status"
+    ],
+    "exit": 0,
+    "stdout": "dir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/state/memory-capture\ncapture: on\nwatermark: {\"schema\":\"fm-memory-capture-mark.v1\",\"day\":\"2026-10-19\",\"id\":\"lab-overlap\",\"at\":\"2026-10-19T12:50:12.827Z\"}\nfailure streak: 0\nlast runs:\n  2026-10-19T12:50:04.186Z precompact ok=true turns=4 units=4 model_calls=1 memories=3 now=1 cost_usd=0.0013266200000000001 \n  2026-10-19T12:50:12.827Z sessionend ok=true turns=1 units=1 model_calls=1 memories=1 now=0 cost_usd=0.00036041999999999997 \n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "recall",
+      "--json",
+      "LAB-CORAL-7129"
+    ],
+    "exit": 0,
+    "stdout": "{\"version\":1,\"dir\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/data/memories\",\"count\":2,\"documents\":[{\"path\":\"preferences/release-note-signature.md\",\"score\":3.69,\"title\":\"Release-note signature\",\"snippet\":\"...-note signature On 2026-10-19 the captain said their release-note signature is LAB-CORAL-7129 and that it must always be preserved exactly as written. \"},{\"path\":\"preferences/deployment-approval-gate.md\",\"score\":0.774,\"title\":\"deployment approval gate\",\"snippet\":\"# deployment approval gate On 2026-10-19 the captain asked that a lab-only deployment approval code be required before any deployment. The code va...\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "recall",
+      "--json",
+      "Pebble Bay"
+    ],
+    "exit": 0,
+    "stdout": "{\"version\":1,\"dir\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/data/memories\",\"count\":2,\"documents\":[{\"path\":\"now/move-to-pebble-bay.md\",\"score\":2.451,\"title\":\"Move to Pebble Bay\",\"snippet\":\"# Move to Pebble Bay The captain moved to Pebble Bay the week of 2026-10-19 and is still ...\"},{\"path\":\"entities/move-to-pebble-bay.md\",\"score\":2.249,\"title\":\"Move to Pebble Bay\",\"snippet\":\"# Move to Pebble Bay On 2026-10-19 the captain said they moved to Pebble Bay that week an...\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "recall",
+      "--json",
+      "Emacs"
+    ],
+    "exit": 0,
+    "stdout": "{\"version\":1,\"dir\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/data/memories\",\"count\":1,\"documents\":[{\"path\":\"preferences/editor-preference.md\",\"score\":1.724,\"title\":\"Editor preference\",\"snippet\":\"# Editor preference On 2026-10-19 the captain said they use Emacs as their editor. \"}]}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "recall",
+      "--json",
+      "LAB-LANTERN-3382"
+    ],
+    "exit": 0,
+    "stdout": "{\"version\":1,\"dir\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-live/data/memories\",\"count\":2,\"documents\":[{\"path\":\"preferences/release-note-signature.md\",\"score\":0.886,\"title\":\"Release-note signature\",\"snippet\":\"...-note signature On 2026-10-19 the captain said their release-note signature is LAB-CORAL-7129 and that it must always be preserved exactly as written. \"},{\"path\":\"preferences/deployment-approval-gate.md\",\"score\":0.774,\"title\":\"deployment approval gate\",\"snippet\":\"# deployment approval gate On 2026-10-19 the captain asked that a lab-only deployment approval code be required before any deployment. The code va...\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "- Move to Pebble Bay (until 2026-11-02): The captain moved to Pebble Bay the week of 2026-10-19 and is still unpacking, so factor that into deploy backlog planning.\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "now",
+      "--exclude-private"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T12:50:21.005Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":0,\"dropped\":0,\"units\":0,\"model_calls\":0,\"model_usage\":{\"input\":0,\"cache_write\":0,\"cache_read\":0,\"output\":0},\"model_cost_usd\":0,\"memories\":0,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "persisted_memory": "entities/move-to-pebble-bay.md",
+    "content": "---\ncategory: entities\ncreated: 2026-10-19\nupdated: 2026-10-19\nsensitivity: private\n---\n# Move to Pebble Bay\n\nOn 2026-10-19 the captain said they moved to Pebble Bay that week and are still unpacking, and asked that this context be kept in mind when planning the deploy backlog.\n"
+  },
+  {
+    "persisted_memory": "now/move-to-pebble-bay.md",
+    "content": "---\ncategory: now\ncreated: 2026-10-19\nupdated: 2026-10-19\nexpires: 2026-11-02\nsensitivity: private\n---\n# Move to Pebble Bay\n\nThe captain moved to Pebble Bay the week of 2026-10-19 and is still unpacking, so factor that into deploy backlog planning.\n"
+  },
+  {
+    "persisted_memory": "preferences/deployment-approval-gate.md",
+    "content": "---\ncategory: preferences\ncreated: 2026-10-19\nupdated: 2026-10-19\n---\n# deployment approval gate\n\nOn 2026-10-19 the captain asked that a lab-only deployment approval code be required before any deployment. The code value itself is intentionally not stored here; the captain supplies it at deploy time.\n"
+  },
+  {
+    "persisted_memory": "preferences/editor-preference.md",
+    "content": "---\ncategory: preferences\ncreated: 2026-10-19\nupdated: 2026-10-19\n---\n# Editor preference\n\nOn 2026-10-19 the captain said they use Emacs as their editor.\n"
+  },
+  {
+    "persisted_memory": "preferences/release-note-signature.md",
+    "content": "---\ncategory: preferences\ncreated: 2026-10-19\nupdated: 2026-10-19\n---\n# Release-note signature\n\nOn 2026-10-19 the captain said their release-note signature is LAB-CORAL-7129 and that it must always be preserved exactly as written.\n"
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "hook",
+      "precompact"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "hook",
+      "precompact"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "hook",
+      "precompact"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "scope_checks": "gate/worker/supervision/extractor emit no NOW; hooks return silently",
+    "pending_after_completion": false,
+    "lock_after_completion": false
+  }
+]

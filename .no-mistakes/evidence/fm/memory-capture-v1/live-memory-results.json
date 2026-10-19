@@ -1,0 +1,10 @@
+{
+  "private_derivation": "pass",
+  "watermark_no_repeat": "pass",
+  "long_and_short_facts": "pass",
+  "deterministic_prefilter": "pass",
+  "overlap_real_extractions": "pass",
+  "unsafe_model_refusal_retry": "pass",
+  "gate_and_worker_scope": "pass",
+  "now_budget_expiry": "pass"
+}

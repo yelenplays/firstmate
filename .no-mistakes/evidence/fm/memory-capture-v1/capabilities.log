@@ -1,0 +1,5 @@
+claude: /Users/yelen/.local/bin/claude
+tmux: not on PATH
+node: /opt/homebrew/bin/node
+jq: /etc/profiles/per-user/yelen/bin/jq
+herdr: /opt/homebrew/bin/herdr

@@ -1,0 +1,3 @@
+failed [at=1792415808]: memory capture failed twice in a row (remember failed for preferences/meeting-agenda-format-preference.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store: Not a directory
+memory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/blocked-store/preferences); captain turns stay queued for the next boundary, see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.memory-write-validation/state/memory-capture/log
+resolved [at=1792415814]: memory capture recovered; queued captain turns are captured

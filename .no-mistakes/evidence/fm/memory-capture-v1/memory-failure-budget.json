@@ -1,0 +1,404 @@
+[
+  {
+    "command": [
+      "bin/fm-history.sh",
+      "capture",
+      "--transcript",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/transcript.jsonl"
+    ],
+    "exit": 0,
+    "stdout": "captured 1 captain message(s) and 1 final reply/replies\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 1,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T12:54:49.617Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":679,\"cache_read\":1032,\"output\":223},\"model_cost_usd\":0.00025782,\"memories\":0,\"now_entries\":0,\"ok\":false,\"why\":\"remember failed for preferences/release-notes-format.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store: Not a directory\\nmemory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store/preferences\"}\n",
+    "stderr": ""
+  },
+  {
+    "write_failure_attempt": 1,
+    "watermark_exists": false
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 1,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T12:54:53.990Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":366,\"cache_read\":1345,\"output\":204},\"model_cost_usd\":0.00018885,\"memories\":0,\"now_entries\":0,\"ok\":false,\"why\":\"remember failed for preferences/release-notes-format.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store: Not a directory\\nmemory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store/preferences\"}\n",
+    "stderr": ""
+  },
+  {
+    "write_failure_attempt": 2,
+    "watermark_exists": false
+  },
+  {
+    "failure_status": "failed [at=1792414498]: memory capture failed twice in a row (remember failed for preferences/release-notes-format.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store: Not a directory\nmemory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store/preferences); captain turns stay queued for the next boundary, see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/state/memory-capture/log\n"
+  },
+  {
+    "command": [
+      "bin/fm-memory-capture.sh",
+      "run",
+      "--trigger",
+      "sessionend"
+    ],
+    "exit": 0,
+    "stdout": "{\"schema\":\"fm-memory-capture-run.v1\",\"at\":\"2026-10-19T12:54:58.801Z\",\"trigger\":\"sessionend\",\"model\":\"claude-haiku-5-5\",\"turns\":1,\"dropped\":0,\"units\":1,\"model_calls\":1,\"model_usage\":{\"input\":2,\"cache_write\":366,\"cache_read\":1345,\"output\":232},\"model_cost_usd\":0.00020285000000000002,\"memories\":1,\"now_entries\":0,\"ok\":true,\"why\":\"\"}\n",
+    "stderr": ""
+  },
+  {
+    "recovered_status": "failed [at=1792414498]: memory capture failed twice in a row (remember failed for preferences/release-notes-format.md: mkdir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store: Not a directory\nmemory: cannot create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store/preferences); captain turns stay queued for the next boundary, see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/state/memory-capture/log\nresolved [at=1792414504]: memory capture recovered; queued captain turns are captured\n",
+    "watermark": {
+      "schema": "fm-memory-capture-mark.v1",
+      "day": "2026-10-19",
+      "id": "lab-write-failure",
+      "at": "2026-10-19T12:54:58.801Z"
+    }
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "recall",
+      "--json",
+      "release notes plain text"
+    ],
+    "exit": 0,
+    "stdout": "{\"version\":1,\"dir\":\"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.test-memory-failure/data/store\",\"count\":1,\"documents\":[{\"path\":\"preferences/release-notes-format.md\",\"score\":1.366,\"title\":\"Release notes format\",\"snippet\":\"# Release notes format On 2026-10-19 the captain asked that release notes always ...\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 0",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-0.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 1",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-1.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 2",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-2.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 3",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-3.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 4",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-4.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 5",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-5.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 6",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-6.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 7",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-7.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 8",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-8.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 9",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-9.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 10",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-10.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 11",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-11.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 12",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-12.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 13",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-13.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 14",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-14.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 15",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-15.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 16",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-16.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "Current lab focus 17",
+      "A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. "
+    ],
+    "exit": 0,
+    "stdout": "now/current-lab-focus-17.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2000-01-01",
+      "Expired lab sentinel",
+      "EXPIRED-SENTINEL"
+    ],
+    "exit": 0,
+    "stdout": "now/expired-lab-sentinel.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "remember",
+      "--category",
+      "now",
+      "--expires",
+      "2999-01-01",
+      "--sensitivity",
+      "private",
+      "Private lab sentinel",
+      "PRIVATE-SENTINEL"
+    ],
+    "exit": 0,
+    "stdout": "now/private-lab-sentinel.md\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "now"
+    ],
+    "exit": 0,
+    "stdout": "- Private lab sentinel (until 2999-01-01): PRIVATE-SENTINEL\n- Current lab focus 9 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 8 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 7 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 6 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 5 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 4 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 3 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 2 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 17 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n(9 more now/ entries omitted by the size cap)\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-memory.sh",
+      "now",
+      "--exclude-private"
+    ],
+    "exit": 0,
+    "stdout": "- Current lab focus 9 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 8 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 7 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 6 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 5 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 4 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 3 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 2 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n- Current lab focus 17 (until 2999-01-01): A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus. A detailed current focus....\n(9 more now/ entries omitted by the size cap)\n",
+    "stderr": ""
+  },
+  {
+    "complete_now_characters": 5894,
+    "public_now_characters": 5834,
+    "expired_entry_omitted": true,
+    "private_entry_omitted_from_public": true
+  }
+]

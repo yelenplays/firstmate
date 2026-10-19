@@ -1,0 +1,58 @@
+Real CLI manual replay: isolated FM_HOME; real Claude CLI, no model or product stubs. Synthetic captain input; loopback observer detects any configured Jev request.
+$ fm-history.sh capture --transcript /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.local-test-tmp/live-home/conversation.jsonl
+captured 1 captain message(s) and 1 final reply/replies
+[exit 0]
+$ fm-memory-capture.sh run --dry-run
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T11:22:36.979Z","trigger":"manual","model":"claude-haiku-5-5","turns":1,"dropped":0,"units":2,"model_calls":1,"model_usage":{"input":0,"cache_write":0,"cache_read":0,"output":0},"model_cost_usd":0,"memories":0,"now_entries":0,"ok":true,"why":""}
+[exit 0]
+$ fm-history.sh capture --transcript /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.local-test-tmp/live-home/conversation.jsonl
+captured 1 captain message(s) and 1 final reply/replies
+[exit 0]
+$ fm-memory-capture.sh run --trigger sessionend
+fm-memory-capture: another capture run is active; it will drain this boundary before it exits
+[exit 0]
+Pending boundary immediately after overlapping SessionEnd: True
+First capture process exit: 0
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T11:22:37.569Z","trigger":"precompact","model":"claude-haiku-5-5","turns":2,"dropped":0,"units":3,"model_calls":1,"model_usage":{"input":2,"cache_write":5369,"cache_read":1032,"output":595},"model_cost_usd":0.00138182,"memories":2,"now_entries":0,"ok":true,"why":""}
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T11:22:44.011Z","trigger":"sessionend","model":"claude-haiku-5-5","turns":0,"dropped":0,"units":0,"model_calls":0,"model_usage":{"input":0,"cache_write":0,"cache_read":0,"output":0},"model_cost_usd":0,"memories":0,"now_entries":0,"ok":true,"why":""}
+
+$ fm-memory-capture.sh status
+dir: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.local-test-tmp/live-home/state/memory-capture
+capture: on
+watermark: {"schema":"fm-memory-capture-mark.v1","day":"2026-10-19","id":"sessionend-tea-preference","at":"2026-10-19T11:22:37.569Z"}
+failure streak: 0
+last runs:
+  2026-10-19T11:22:37.569Z precompact ok=true turns=2 units=3 model_calls=1 memories=2 now=0 cost_usd=0.00138182 
+  2026-10-19T11:22:44.011Z sessionend ok=true turns=0 units=0 model_calls=0 memories=0 now=0 cost_usd=0 
+[exit 0]
+$ fm-memory.sh recall --json OAK-74291-NIMBUS
+{"version":1,"dir":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.local-test-tmp/live-home/data/memories","count":1,"documents":[{"path":"preferences/release-note-closing-signature.md","score":1.922,"title":"Release note closing signature","snippet":"...asked that every release note from then on end with the exact closing signature OAK-74291-NIMBUS, and to remember this across sessions. "}]}
+[exit 0]
+$ fm-memory.sh recall --json rooibos
+{"version":1,"dir":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59XY24CQN6E6XS9CMW0DM5S/.local-test-tmp/live-home/data/memories","count":1,"documents":[{"path":"preferences/late-night-release-tea.md","score":0.755,"title":"Late-night release tea","snippet":"...a On 2026-10-19 the captain said their favorite tea for late-night releases is rooibos, not mint. "}]}
+[exit 0]
+$ fm-memory-capture.sh run --trigger sessionend
+{"schema":"fm-memory-capture-run.v1","at":"2026-10-19T11:22:45.086Z","trigger":"sessionend","model":"claude-haiku-5-5","turns":0,"dropped":0,"units":0,"model_calls":0,"model_usage":{"input":0,"cache_write":0,"cache_read":0,"output":0},"model_cost_usd":0,"memories":0,"now_entries":0,"ok":true,"why":""}
+[exit 0]
+Persisted memory data/memories/preferences/release-note-closing-signature.md
+---
+category: preferences
+created: 2026-10-19
+updated: 2026-10-19
+---
+# Release note closing signature
+
+On 2026-10-19 the captain asked that every release note from then on end with the exact closing signature OAK-74291-NIMBUS, and to remember this across sessions.
+
+Persisted memory data/memories/preferences/late-night-release-tea.md
+---
+category: preferences
+created: 2026-10-19
+updated: 2026-10-19
+---
+# Late-night release tea
+
+On 2026-10-19 the captain said their favorite tea for late-night releases is rooibos, not mint.
+
+Configured Jev HTTP requests observed: 0
+Long input length: 15312 characters; signature is after both 2400 and 12000 characters.

@@ -1,0 +1,41 @@
+
+$ bash tests/fm-memory-capture.test.sh
+ok - separate NOW hook delivers current private context only in primary scope on every SessionStart
+ok - capture sends every retained turn only to the model, writes verified memories and a now entry, and advances once
+ok - long captain messages reach the model whole before the watermark retires them
+ok - a boundary that overlaps a running capture is drained before that run exits
+ok - captain words never go to a non-Anthropic capture model
+ok - two failed runs alert once, keep turns queued, and the next good run resolves
+ok - the hook runs only for the primary home main session and returns before the capture
+
+$ bash tests/fm-memory-filter-budget.test.sh
+ok - short facts survive while recognized acknowledgements are dropped
+ok - NOW entries and omission notice share the character budget
+
+$ bash tests/fm-history.test.sh
+ok - capture is idempotent, local-day keyed, and recoverable through recent and BM25 search
+ok - Jev history choices receive only locally retrieved page metadata
+ok - Pi transcript capture stores captain input and final replies without tool or thinking content
+ok - current Claude object origins journal human turns and skip task notifications
+ok - Claude compaction records clearly scoped usage and share an idempotent cursor
+ok - cleanup writes one private task card and updates the generated history index
+ok - task cards use independent terminal evidence and leave unfinished work intact
+ok - wake presentations are retry-safe and their acknowledgements are journaled
+
+$ bash tests/fm-memory.test.sh
+ok - fm-memory behavior suite
+
+$ bash tests/fm-claude-primary.test.sh
+ok - absent config launches plain claude from the checkout root with arguments passed through
+ok - off launches plain claude
+ok - on adds --remote-control with the default session name before passed-through arguments
+ok - on ignores comment lines and uses the fixed firstmate session name
+ok - an unrecognized value refuses to launch and names the accepted values
+ok - an unreadable or non-regular config path refuses to launch
+ok - autocompact auto leaves Claude's own window setting alone
+ok - a token count adds inline settings before passed-through arguments
+ok - a caller-supplied --autocompact owns the window arguments
+ok - caller autocompact and settings in either form suppress home window settings
+ok - an out-of-range or non-numeric autocompact window refuses to launch
+
+$ bash tests/fm-session-start.test.sh --reemit-only

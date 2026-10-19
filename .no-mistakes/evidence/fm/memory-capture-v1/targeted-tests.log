@@ -1,0 +1,41 @@
+
+=== fm-memory-capture ===
+ok - capture sends every retained turn only to the model, writes verified memories and a now entry, and advances once
+ok - long captain messages reach the model whole before the watermark retires them
+ok - a boundary that overlaps a running capture is drained before that run exits
+ok - captain words never go to a non-Anthropic capture model
+ok - two failed runs alert once, keep turns queued, and the next good run resolves
+ok - the hook runs only for the primary home main session and returns before the capture
+exit=0
+
+=== fm-memory-filter-budget ===
+ok - short facts survive while recognized acknowledgements are dropped
+ok - NOW entries and omission notice share the character budget
+exit=0
+
+=== fm-history ===
+ok - capture is idempotent, local-day keyed, and recoverable through recent and BM25 search
+ok - Jev history choices receive only locally retrieved page metadata
+ok - Pi transcript capture stores captain input and final replies without tool or thinking content
+ok - current Claude object origins journal human turns and skip task notifications
+ok - Claude compaction records clearly scoped usage and share an idempotent cursor
+ok - cleanup writes one private task card and updates the generated history index
+ok - task cards use independent terminal evidence and leave unfinished work intact
+ok - wake presentations are retry-safe and their acknowledgements are journaled
+exit=0
+
+=== fm-memory ===
+ok - fm-memory behavior suite
+exit=0
+
+=== fm-session-start ===
+ok - session start auto-arms the routing check idempotently
+ok - session start alerts once for missing samples and resets after recovery
+ok - context digest distinguishes ABSENT, empty-but-present, and populated files
+ok - a lock refusal prints a loud read-only banner, skips every mutating step, and still completes the digest
+ok - session start stays read-only when lock ownership cannot be published
+ok - locked session start freezes trace context and lock refusal leaves it unchanged
+tests/fm-session-start.test.sh: Zeile 1056: 35067 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1053: [: : Ganzzahl erwartet
+tests/fm-session-start.test.sh: Zeile 1056: 34985 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1053: [: : Ganzzahl erwartet
