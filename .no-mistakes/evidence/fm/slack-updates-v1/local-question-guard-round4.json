@@ -1,0 +1,25 @@
+{
+  "command": [
+    "bin/fm-slack-bridge.sh",
+    "post",
+    "decision",
+    "--project",
+    "Lay",
+    "--title",
+    "Wie weiter?",
+    "--context",
+    "Bitte eine Antwort.",
+    "--option",
+    "a=Heute starten?",
+    "--option",
+    "b=Morgen starten?",
+    "--recommend",
+    "a"
+  ],
+  "exit_code": 2,
+  "stdout": "",
+  "stderr": "fm-slack-bridge: a post asks at most one question; split it\n",
+  "posted_records": 0,
+  "transport": "Rejected by real bridge before transport; no Slack API invoked",
+  "setup_correction": "First attempt used #names with bot transport and was refused; rerun uses required channel IDs."
+}

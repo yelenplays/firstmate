@@ -1,0 +1,8 @@
+ok - fm-updates: the backstop reports every missed outcome exactly once
+ok - fm-updates: an auto-merge task is reported once merged, closed, or stale
+ok - fm-updates: finished work is flagged for cleanup until its record is gone
+ok - fm-updates: the supervisor's own post is never duplicated
+ok - fm-updates: settle reports a finished task before its cleanup
+ok - fm-slack-bridge: every poll runs the outcome backstop
+ok - fm-updates: the morning digest posts once a day in at most five lines
+ok - fm-wake-drain: finished work is listed on every drain until it is closed

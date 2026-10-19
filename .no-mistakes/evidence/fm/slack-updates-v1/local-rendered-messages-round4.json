@@ -1,0 +1,140 @@
+[
+  {
+    "command": "node bin/fm-slack-render.mjs lines",
+    "input": {
+      "kind": "finished",
+      "lang": "de",
+      "project_b64": "TGF5",
+      "title_b64": "UmFua2luZy1NZXNzdW5nIGZlcnRpZw==",
+      "context_b64": [
+        "RmVydGlnLiBOaWNodHMgenUgdHVuLg=="
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk"
+    },
+    "text": "*✅ Lay · Ranking-Messung fertig*\nFertig. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*✅ Lay · Ranking-Messung fertig*\nFertig. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  },
+  {
+    "command": "node bin/fm-slack-render.mjs lines",
+    "input": {
+      "kind": "merged",
+      "lang": "de",
+      "project_b64": "TGF5",
+      "title_b64": "TmV1ZSBTdGFydHNlaXRlIMO8YmVybm9tbWVu",
+      "context_b64": [
+        "SXN0IMO8YmVybm9tbWVuLiBOaWNodHMgenUgdHVuLg=="
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk"
+    },
+    "text": "*✅ Lay · Neue Startseite übernommen*\nIst übernommen. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*✅ Lay · Neue Startseite übernommen*\nIst übernommen. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  },
+  {
+    "command": "node bin/fm-slack-render.mjs lines",
+    "input": {
+      "kind": "ready",
+      "lang": "de",
+      "project_b64": "TGF5",
+      "title_b64": "RnJlaWdhYmUgbsO2dGln",
+      "context_b64": [
+        "U2NoYXUgZXMgZGlyIGFuIHVuZCBhbnR3b3J0ZSBkb3J0Lg=="
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk"
+    },
+    "text": "*🙋 Lay · Freigabe nötig*\nSchau es dir an und antworte dort.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*🙋 Lay · Freigabe nötig*\nSchau es dir an und antworte dort.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  },
+  {
+    "command": "node bin/fm-slack-render.mjs lines",
+    "input": {
+      "kind": "report",
+      "lang": "de",
+      "project_b64": "TGF5",
+      "title_b64": "RXJnZWJuaXMgZmVydGln",
+      "context_b64": [
+        "RGVyIHdvcmt0cmVlIGJsZWlidCBlcmhhbHRlbi4="
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk"
+    },
+    "text": "*📋 Lay · Ergebnis fertig*\nDer lokale Kopie bleibt erhalten.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*📋 Lay · Ergebnis fertig*\nDer lokale Kopie bleibt erhalten.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  },
+  {
+    "command": "node bin/fm-slack-render.mjs lines",
+    "input": {
+      "kind": "live",
+      "lang": "de",
+      "project_b64": "TGF5",
+      "title_b64": "TmV1ZSBTdGFydHNlaXRlIGxpdmU=",
+      "context_b64": [
+        "SXN0IGpldHp0IHZlcmbDvGdiYXIuIE5pY2h0cyB6dSB0dW4u"
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk"
+    },
+    "text": "*🚀 Lay · Neue Startseite live*\nIst jetzt verfügbar. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*🚀 Lay · Neue Startseite live*\nIst jetzt verfügbar. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  },
+  {
+    "command": "node bin/fm-slack-render.mjs lines",
+    "input": {
+      "kind": "stuck",
+      "lang": "de",
+      "project_b64": "TGF5",
+      "title_b64": "SW1wb3J0IGjDpG5ndA==",
+      "context_b64": [
+        "Rmlyc3RtYXRlIGvDvG1tZXJ0IHNpY2ggZGFydW07IGR1IG11c3N0IGdlcmFkZSBuaWNodHMgdHVuLg=="
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk"
+    },
+    "text": "*⚠️ Lay · Import hängt*\nFirstmate kümmert sich darum; du musst gerade nichts tun.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*⚠️ Lay · Import hängt*\nFirstmate kümmert sich darum; du musst gerade nichts tun.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  }
+]

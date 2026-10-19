@@ -1,0 +1,40 @@
+test_failed_updates_pointer_is_retried (__main__.UpdatesAdversarial.test_failed_updates_pointer_is_retried) ... FAIL
+test_questions_beyond_option_truncation_are_rejected (__main__.UpdatesAdversarial.test_questions_beyond_option_truncation_are_rejected) ... FAIL
+test_questions_in_options_are_rejected (__main__.UpdatesAdversarial.test_questions_in_options_are_rejected) ... {"scenario": "refuse a decision containing three questions", "exit_code": 0, "output": "posted decision C0REPORT01 1791140000.000001\nposted mirror #updates\n", "emitted_messages": ["*🙋 Lay · Wie weiter?*\nBitte eine Antwort.\n➡️ *a* · Heute starten?  _(empfohlen)_\n◻️ *b* · Morgen starten?\n_Antworte im Thread: a / b_", "*🙋 Lay · Wie weiter?*\nAntworte dort: <#C0REPORT01>"]}
+FAIL
+test_single_option_question_is_allowed (__main__.UpdatesAdversarial.test_single_option_question_is_allowed) ... ok
+test_slow_pr_reads_do_not_starve_finished_results (__main__.UpdatesAdversarial.test_slow_pr_reads_do_not_starve_finished_results) ... {"scenario": "an overdue result survives repeated polls with slow PR lookups", "polls": [{"seconds": 18.1, "output": "slack: posted missed outcome(s) and digest to Slack: a0-auto stuck, a1-auto stuck, a2-auto stuck\n"}, {"seconds": 16.8, "output": ""}], "finished_report_exit_code": 1, "attempted_messages": [["draft", "#updates", "*⚠️ Lay · Auto 0 hängt*\nFirstmate kümmert sich darum; du musst gerade nichts tun.\n🔗 <https://github.com/example/lab/pull/1|PR #1>"], ["draft", "#updates", "*⚠️ Lay · Auto 1 hängt*\nFirstmate kümmert sich darum; du musst gerade nichts tun.\n🔗 <https://github.com/example/lab/pull/2|PR #2>"], ["draft", "#updates", "*⚠️ Lay · Auto 2 hängt*\nFirstmate kümmert sich darum; du musst gerade nichts tun.\n🔗 <https://github.com/example/lab/pull/3|PR #3>"]], "result_record_retained": true}
+FAIL
+
+======================================================================
+FAIL: test_failed_updates_pointer_is_retried (__main__.UpdatesAdversarial.test_failed_updates_pointer_is_retried)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 85, in test_failed_updates_pointer_is_retried
+AssertionError: 0 != 1 : the outcome remains owed until both destinations land
+
+======================================================================
+FAIL: test_questions_beyond_option_truncation_are_rejected (__main__.UpdatesAdversarial.test_questions_beyond_option_truncation_are_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 125, in test_questions_beyond_option_truncation_are_rejected
+AssertionError: 0 != 2 : 
+
+======================================================================
+FAIL: test_questions_in_options_are_rejected (__main__.UpdatesAdversarial.test_questions_in_options_are_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 112, in test_questions_in_options_are_rejected
+AssertionError: 0 != 2 : more than one question must be rejected before sending
+
+======================================================================
+FAIL: test_slow_pr_reads_do_not_starve_finished_results (__main__.UpdatesAdversarial.test_slow_pr_reads_do_not_starve_finished_results)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<stdin>", line 149, in test_slow_pr_reads_do_not_starve_finished_results
+AssertionError: 1 != 0 : later finished work must not be starved by repeated earlier PR lookups
+
+----------------------------------------------------------------------
+Ran 5 tests in 38.649s
+
+FAILED (failures=4)

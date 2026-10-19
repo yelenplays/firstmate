@@ -1,0 +1,22 @@
+After failed reporting: task metadata retained; cleanup exit=1
+After startup close-marker replay: metadata=retained
+task:
+  id: result
+  title: Ergebnis fertig
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-19
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+After Slack recovery: scan=unreported result finished: Ergebnis fertig; tick=posted result finished; new transport calls=3
+ok - fm-updates: failed cleanup reporting remains retryable across startup receipt replay

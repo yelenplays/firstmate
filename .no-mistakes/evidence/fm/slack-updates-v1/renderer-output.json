@@ -1,0 +1,70 @@
+[
+  {
+    "label": "Ergebnis mit Link",
+    "spec": {
+      "kind": "finished",
+      "title_b64": "UmFua2luZy1NZXNzdW5nIGZlcnRpZw==",
+      "project_b64": "Qm9jaHVt",
+      "context_b64": [
+        "RGFzIEVyZ2VibmlzIGlzdCBmZXJ0aWcuIE5pY2h0cyB6dSB0dW4u"
+      ],
+      "url_b64": "aHR0cHM6Ly9kZWNrLmV4YW1wbGUuY29tL2JvYXJk",
+      "lang": "de"
+    },
+    "text": "*✅ Bochum · Ranking-Messung fertig*\nDas Ergebnis ist fertig. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*✅ Bochum · Ranking-Messung fertig*\nDas Ergebnis ist fertig. Nichts zu tun.\n🔗 <https://deck.example.com/board|Öffnen>"
+        }
+      }
+    ]
+  },
+  {
+    "label": "Freigabe",
+    "spec": {
+      "kind": "ready",
+      "title_b64": "RnJlaWdhYmUgbsO2dGln",
+      "project_b64": "TGF5",
+      "context_b64": [
+        "U2NoYXUgZXMgZGlyIGFuIHVuZCBhbnR3b3J0ZSBpbSBUaHJlYWQgbWl0IG1lcmdlIG9kZXIgd2FydGVuLg=="
+      ],
+      "url_b64": "aHR0cHM6Ly9naXRodWIuY29tL2V4YW1wbGUvbGFiL3B1bGwvMQ==",
+      "lang": "de"
+    },
+    "text": "*🙋 Lay · Freigabe nötig*\nSchau es dir an und antworte im Thread mit merge oder warten.\n🔗 <https://github.com/example/lab/pull/1|PR #1>",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*🙋 Lay · Freigabe nötig*\nSchau es dir an und antworte im Thread mit merge oder warten.\n🔗 <https://github.com/example/lab/pull/1|PR #1>"
+        }
+      }
+    ]
+  },
+  {
+    "label": "Abschluss ohne PR — vom Backstop verwendete Form",
+    "spec": {
+      "kind": "finished",
+      "title_b64": "UmFua2luZy1NZXNzdW5n",
+      "project_b64": "Ym9jaHVt",
+      "context_b64": [
+        "RGFzIEVyZ2VibmlzIGlzdCBmZXJ0aWc7IGZyYWcgRmlyc3RtYXRlIG5hY2ggZGVyIFp1c2FtbWVuZmFzc3VuZy4="
+      ],
+      "lang": "de"
+    },
+    "text": "*✅ bochum · Ranking-Messung*\nDas Ergebnis ist fertig; frag Firstmate nach der Zusammenfassung.",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*✅ bochum · Ranking-Messung*\nDas Ergebnis ist fertig; frag Firstmate nach der Zusammenfassung."
+        }
+      }
+    ]
+  }
+]

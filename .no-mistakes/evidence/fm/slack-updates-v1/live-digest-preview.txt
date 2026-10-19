@@ -1,0 +1,28 @@
+$ FM_HOME=<disposable-worktree-home> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.fm-live-preview-3ds4ym8z
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.fm-live-preview-3ds4ym8z
+exit=0
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh digest --print
+Guten Morgen - dein Überblick
+🙋 Nichts wartet auf dich.
+✅ Letzte 24 Stunden: 0 fertig, 0 übernommen, 0 live
+⏳ Läuft gerade: 0
+https://deck.example.invalid/board
+exit=0
+$ FM_HOME=<disposable-worktree-home> bin/fm-captain-hold.sh hold lay-freigabe --title Startseite freigeben --reason Entwurf ansehen und freigeben
+lay-freigabe
+exit=0
+$ FM_HOME=<disposable-worktree-home> bin/fm-tasks-axi.sh list --state held --fields hold_kind
+count: 1
+tasks[1]{id,state,kind,repo,title,hold_kind}:
+  lay-freigabe,queued,captain,firstmate,Startseite freigeben,captain
+help[1]:
+  - Run `tasks-axi show <id>` for full notes on a task
+exit=0
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh digest --print
+Guten Morgen - dein Überblick
+🙋 Wartet auf dich: 1 - Startseite freigeben
+✅ Letzte 24 Stunden: 0 fertig, 0 übernommen, 0 live
+⏳ Läuft gerade: 0
+https://deck.example.invalid/board
+exit=0
+{"local_preview": "pass", "live": true, "external_posts": 0, "german_lines": 5, "held_call_count": 1, "home_removed_on_exit": true}

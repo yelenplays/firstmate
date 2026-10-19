@@ -1,0 +1,1637 @@
++ set -u
+++ dirname tests/fm-teardown-endpoint-safety.test.sh
++ . tests/lib.sh
+++ '[' -n '' ']'
+++ FM_TEST_LIB_SOURCED=1
++++ dirname tests/lib.sh
+++ . tests/environment.sh
+++ fm_test_sanitize_environment
+++ unset FM_HOME FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_ROOT_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_BACKEND FM_SESSION_START_STAGE_FILE PI_CODING_AGENT_DIR TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE JEV_ROUTE JEV_MODEL JEV_URL JEV_BASE JEV_TIMEOUT FM_JEV_DISPATCH_SHADOW FM_JEV_DISPATCH_EXTRA FM_JEV_DISPATCH_COMPACT FM_JEV_STATUS_TRIAGE_BIN FM_JEV_WEDGE_CHECK_BIN FM_JEV_SUPERVISION_TIMEOUT_SECS FM_JEV_SPAN_TRIAGE_MAX FM_JEV_SUPERVISION_CYCLE_BUDGET_SECS FM_WIKI_ENGINE FM_WIKI_CATALOG FM_MEMORY_DIR FM_OV_HOME
+++ FM_BROWSER_BRIDGE_PROC_TABLE=/dev/null
+++ FM_CHROME_AXI_STATE_DIR=/dev/null
+++ FM_CLAUDE_AGENTS_BIN=/dev/null
+++ export FM_BROWSER_BRIDGE_PROC_TABLE FM_CHROME_AXI_STATE_DIR FM_CLAUDE_AGENTS_BIN
+++ umask 022
++++ dirname tests/lib.sh
+++ . tests/git-config-helpers.sh
++++ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
++++ GIT_CONFIG_GLOBAL=/dev/null
++++ GIT_CONFIG_NOSYSTEM=1
++++ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
+++ export FM_GATE_REFUSE_BYPASS=1
+++ FM_GATE_REFUSE_BYPASS=1
+++ export FM_TEST_SEAM=1
+++ FM_TEST_SEAM=1
+++ unset FM_TASK_ID
+++ unset TASKS_AXI_FILE TASKS_AXI_BACKEND
+++ export FM_QOS_UNAME=Linux
+++ FM_QOS_UNAME=Linux
+++++ dirname tests/lib.sh
++++ cd tests/..
++++ pwd
+++ ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
++++ fm_test_tmpdir
++++ local base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp physical
++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
+++++ pwd -P
++++ physical=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.git ']'
++++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
+++ FM_TEST_TMPDIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
+++ FM_TEST_CLEANUP_DIRS=()
++++ mktemp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-cleanup.27293.XXXXXX
+++ FM_TEST_CLEANUP_REGISTRY=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-cleanup.27293.yYbpvm
++++ fm_test_pid_identity 27293
++++ local pid=27293
++++ FM_STATE_OVERRIDE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ bash -c '. "$1"; fm_pid_identity "$2"' _ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh 27293
+++ FM_TEST_OWNER_IDENTITY='Mon Oct 19 18:56:54 2026     bash -x tests/fm-teardown-endpoint-safety.test.sh'
++++ mktemp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-procevent.27293.XXXXXX
+++ FM_TEST_PROCEVENT_REGISTRY=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-procevent.27293.3KcaG0
++++ mktemp /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-watcher.27293.XXXXXX
+++ FM_TEST_WATCHER_REGISTRY=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-watcher.27293.LM8JX8
+++ FM_TEST_STUB_MAX_BLOCK_SECONDS=120
+++ export FM_TEST_STUB_MAX_BLOCK_SECONDS
+++ trap fm_test_cleanup EXIT
+++ trap 'fm_test_cleanup; exit 130' INT
+++ trap 'fm_test_cleanup; exit 143' TERM
+++ trap 'fm_test_cleanup; exit 129' HUP
+++ trap 'fm_test_cleanup; exit 131' QUIT
+++ FM_TEST_ORPHAN_MAX_AGE_SECONDS=3600
+++ '[' 1 '!=' 1 ']'
++ TEARDOWN=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-teardown.sh
+++ fm_test_tmproot fm-teardown-endpoint-safety
+++ local prefix=fm-teardown-endpoint-safety root tmp_base
++++ fm_test_tmpdir
++++ local base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp physical
++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
+++++ pwd -P
++++ physical=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.git ']'
++++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
+++ tmp_base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
+++ tmp_base=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp
++++ mktemp -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.XXXXXX
+++ root=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
++++ cd -P -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
++++ pwd -P
+++ root=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
+++ printf '%s\n%s\n' 27293 'Mon Oct 19 18:56:54 2026     bash -x tests/fm-teardown-endpoint-safety.test.sh'
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
++ TMP_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
+++ command -v tmux
+++ true
++ REAL_TMUX=
++ test_invalid_endpoint_records_refuse_before_mutation
++ local dir id=endpoint-a
+++ make_case missing
+++ local dir=missing
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/state/endpoint-a.meta worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/state/endpoint-a.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n '' ']'
++ assert_refused_without_mutation /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing endpoint-a 'missing endpoint'
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing id=endpoint-a 'description=missing endpoint' rc
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing endpoint-a
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/state/endpoint-a.meta 'missing endpoint: metadata changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/home/state/endpoint-a.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/worktree/sentinel 'missing endpoint: worktree changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/missing/runtime.log ']'
+++ make_case empty
+++ local dir=empty
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/state/endpoint-a.meta window= worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/state/endpoint-a.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n '' ']'
++ assert_refused_without_mutation /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty endpoint-a 'empty endpoint'
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty id=endpoint-a 'description=empty endpoint' rc
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty endpoint-a
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/state/endpoint-a.meta 'empty endpoint: metadata changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/home/state/endpoint-a.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/worktree/sentinel 'empty endpoint: worktree changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty/runtime.log ']'
+++ make_case malformed
+++ local dir=malformed
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state/endpoint-a.meta window=ambient-current-window worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state/endpoint-a.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=ambient-current-window
++ case "$kv" in
++ '[' -z '' ']'
++ window=ambient-current-window
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n ambient-current-window ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state/endpoint-a.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state
++ task=endpoint-a.meta
++ task=endpoint-a
+++ printf %s ambient-current-window
+++ tr :/. ___
++ key=ambient-current-window
++ printf %s endpoint-a
++ assert_refused_without_mutation /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed endpoint-a 'malformed endpoint'
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed id=endpoint-a 'description=malformed endpoint' rc
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed endpoint-a
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state/endpoint-a.meta 'malformed endpoint: metadata changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/home/state/endpoint-a.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/worktree/sentinel 'malformed endpoint: worktree changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/malformed/runtime.log ']'
+++ make_case mismatched
+++ local dir=mismatched
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state/endpoint-a.meta window=isolated:fm-other-task endpoint_task_id=other-task worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state/endpoint-a.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-other-task
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-other-task
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=other-task
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-other-task ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state/endpoint-a.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state
++ task=endpoint-a.meta
++ task=endpoint-a
+++ printf %s isolated:fm-other-task
+++ tr :/. ___
++ key=isolated_fm-other-task
++ printf %s endpoint-a
++ assert_refused_without_mutation /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched endpoint-a 'task-mismatched endpoint'
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched id=endpoint-a 'description=task-mismatched endpoint' rc
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched endpoint-a
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state/endpoint-a.meta 'task-mismatched endpoint: metadata changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/home/state/endpoint-a.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/worktree/sentinel 'task-mismatched endpoint: worktree changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/mismatched/runtime.log ']'
+++ make_case empty-binding
+++ local dir=empty-binding
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state/endpoint-a.meta window=isolated:fm-endpoint-a endpoint_task_id= worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state/endpoint-a.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-endpoint-a
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-endpoint-a
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-endpoint-a ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state/endpoint-a.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state
++ task=endpoint-a.meta
++ task=endpoint-a
+++ printf %s isolated:fm-endpoint-a
+++ tr :/. ___
++ key=isolated_fm-endpoint-a
++ printf %s endpoint-a
++ assert_refused_without_mutation /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding endpoint-a 'empty task binding'
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding id=endpoint-a 'description=empty task binding' rc
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding endpoint-a
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state/endpoint-a.meta 'empty task binding: metadata changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/home/state/endpoint-a.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/worktree/sentinel 'empty task binding: worktree changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/empty-binding/runtime.log ']'
+++ make_case duplicate-binding
+++ local dir=duplicate-binding
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state/endpoint-a.meta window=isolated:fm-endpoint-a endpoint_task_id=endpoint-a endpoint_task_id=endpoint-a worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state/endpoint-a.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-endpoint-a
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-endpoint-a
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=endpoint-a
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=endpoint-a
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-endpoint-a ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state/endpoint-a.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state
++ task=endpoint-a.meta
++ task=endpoint-a
+++ printf %s isolated:fm-endpoint-a
+++ tr :/. ___
++ key=isolated_fm-endpoint-a
++ printf %s endpoint-a
++ assert_refused_without_mutation /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding endpoint-a 'duplicate task binding'
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding id=endpoint-a 'description=duplicate task binding' rc
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding endpoint-a
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state/endpoint-a.meta 'duplicate task binding: metadata changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/home/state/endpoint-a.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/worktree/sentinel 'duplicate task binding: worktree changed before refusal'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/duplicate-binding/runtime.log ']'
++ pass 'fm-teardown: missing, empty, malformed, ambiguous, and task-mismatched endpoints refuse before every mutation or runtime call'
++ printf 'ok - %s\n' 'fm-teardown: missing, empty, malformed, ambiguous, and task-mismatched endpoints refuse before every mutation or runtime call'
+ok - fm-teardown: missing, empty, malformed, ambiguous, and task-mismatched endpoints refuse before every mutation or runtime call
++ test_control_lock_contention_refuses_before_mutation
++ local dir id=locked-task lock holder i=0 rc
+++ make_case control-lock
+++ local dir=control-lock
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta window=isolated:fm-locked-task endpoint_task_id=locked-task worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-locked-task
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-locked-task
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=locked-task
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-locked-task ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
++ task=locked-task.meta
++ task=locked-task
+++ printf %s isolated:fm-locked-task
+++ tr :/. ___
++ key=isolated_fm-locked-task
++ printf %s locked-task
++ lock=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++ holder=33205
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ']'
++ '[' 0 -lt 100 ']'
++ sleep 0.1
++ . /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh
++++ d=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin '!=' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh ']'
++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ FM_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ STATE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state
+++ FM_WAKE_QUEUE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state
+++ '[' 5 -gt 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_TREEHOUSE_POOL_PIN_MARKER='# firstmate per-clone Treehouse pool pin; bin/fm-wake-lib.sh fm_treehouse_pool_pin owns this file, do not edit.'
+++ FM_FIRSTMATE_LOCAL_STATES=()
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_try_acquire /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock lock_abs
++++ fm_lock_abs_path /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ local path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock dir base
++++ fm_dirname_to dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ local fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state ']'
++++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state '!=' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state ']'
++++ printf -v dir %s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
++++ fm_basename_to base /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ local fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++++ fm_path=.control-locked-task.lock
++++ '[' .control-locked-task.lock '!=' .control-locked-task.lock ']'
++++ printf -v base %s .control-locked-task.lock
+++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
+++++ pwd -P
++++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
++++ printf '%s/%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state .control-locked-task.lock
+++ lock_abs=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
+++ mktemp -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.XXXXXX
++ ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ']'
++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ']'
++ fm_lock_prepare_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ local ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww mypid back
++ fm_current_pid mypid
++ local fm_pid
++ fm_pid=33205
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 33205
++ printf '%s\n' 33205
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww/pid
++ back=33205
++ '[' 33205 = 33205 ']'
++ ln -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww actual
+++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww ']'
++ fm_lock_claim /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww ''
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
++ fm_pid=33205
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 33205
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww/pid
++ back=33205
++ '[' 33205 '!=' 33205 ']'
++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww actual
+++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock
++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww ']'
++ fm_lock_claim_blocked_by_steal /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ''
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock allowed_steal_owner= steal
++ steal=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.steal
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.steal ']'
++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock.owner.1wrzww
++ return 0
++ return 0
++ exec sleep 300
++ i=1
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ']'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ']'
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta window=isolated:fm-locked-task endpoint_task_id=other-task worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-locked-task
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-locked-task
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=other-task
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-locked-task ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state
++ task=locked-task.meta
++ task=locked-task
+++ printf %s isolated:fm-locked-task
+++ tr :/. ___
++ key=isolated_fm-locked-task
++ printf %s locked-task
++ set +e
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock locked-task
++ rc=1
++ set -e
++ '[' 1 -ne 0 ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta 'contended teardown removed task metadata'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/locked-task.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree/sentinel 'contended teardown changed the worktree'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/worktree/sentinel ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock 'contended teardown removed another action'\''s lock'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home/state/.control-locked-task.lock ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/runtime.log ']'
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/stderr
++ assert_contains $'+ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock id=locked-task\n+ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/home\n+ FM_ROOT_OVERRIDE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ\n+ FM_RUNTIME_LOG=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/runtime.log\n+ PATH=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/control-lock/fakebin:/Users/yelen/.pi/agent/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/yelen/.local/bin:/Users/yelen/.headroom/bin:/Users/yelen/.bun/bin:/run/current-system/sw/bin:/etc/profiles/per-user/yelen/bin:/Users/yelen/.kimi-code/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/yelen/.local/bin:/Library/Frameworks/Python.framework/Versions/3.13/bin:/Users/yelen/.nix-profile/bin:/etc/profiles/per-user/yelen/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/yelen/go/bin:/Users/yelen/.cargo/bin:/Users/yelen/bin:/usr/local/sbin\n+ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-teardown.sh locked-task --force\nerror: another lifecycle action is already running for task locked-task; nothing was changed' 'another lifecycle action is already running' 'contended teardown should serialize before reading mutable task metadata'
++ case "$1" in
++ :
++ kill 33205
++ wait 33205
++ true
++ pass 'fm-teardown: a concurrent lifecycle action refuses before mutation'
++ printf 'ok - %s\n' 'fm-teardown: a concurrent lifecycle action refuses before mutation'
+ok - fm-teardown: a concurrent lifecycle action refuses before mutation
++ test_non_pool_teardown_ignores_task_set_lock
++ local dir id=non-pool-task lock ready release holder i=0
+++ make_case non-pool-task-set-lock
+++ local dir=non-pool-task-set-lock
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/non-pool-task.meta window=isolated:fm-non-pool-task endpoint_task_id=non-pool-task worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/missing-worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/non-pool-task.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-non-pool-task
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-non-pool-task
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=non-pool-task
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/missing-worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-non-pool-task ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/non-pool-task.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state
++ task=non-pool-task.meta
++ task=non-pool-task
+++ printf %s isolated:fm-non-pool-task
+++ tr :/. ___
++ key=isolated_fm-non-pool-task
++ printf %s non-pool-task
++ lock=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++ ready=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-ready
++ release=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release
++ holder=34505
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-ready ']'
++ '[' 0 -lt 100 ']'
++ sleep 0.1
++ . /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh
++++ d=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin '!=' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh ']'
++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ FM_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ STATE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state
+++ FM_WAKE_QUEUE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state
+++ '[' 5 -gt 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_TREEHOUSE_POOL_PIN_MARKER='# firstmate per-clone Treehouse pool pin; bin/fm-wake-lib.sh fm_treehouse_pool_pin owns this file, do not edit.'
+++ FM_FIRSTMATE_LOCAL_STATES=()
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_try_acquire /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock lock_abs
++++ fm_lock_abs_path /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ local path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock dir base
++++ fm_dirname_to dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ local fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state
++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state ']'
++++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state '!=' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state ']'
++++ printf -v dir %s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state
++++ fm_basename_to base /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ local fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++++ fm_path=.task-set.lock
++++ '[' .task-set.lock '!=' .task-set.lock ']'
++++ printf -v base %s .task-set.lock
+++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state
+++++ pwd -P
++++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state
++++ printf '%s/%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state .task-set.lock
+++ lock_abs=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
+++ mktemp -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.XXXXXX
++ ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ']'
++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ']'
++ fm_lock_prepare_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ local ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 mypid back
++ fm_current_pid mypid
++ local fm_pid
++ fm_pid=34505
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 34505
++ printf '%s\n' 34505
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/pid
++ back=34505
++ '[' 34505 = 34505 ']'
++ ln -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 actual
+++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 ']'
++ fm_lock_claim /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 ''
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
++ fm_pid=34505
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 34505
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/pid
++ back=34505
++ '[' 34505 '!=' 34505 ']'
++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 actual
+++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 ']'
++ fm_lock_claim_blocked_by_steal /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ''
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock allowed_steal_owner= steal
++ steal=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.steal
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.steal ']'
++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
++ return 0
++ return 0
++ trap 'fm_lock_release "$lock"' EXIT
++ :
++ n=0
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 0 -lt 3000 ']'
++ sleep 0.1
++ i=1
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-ready ']'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-ready ']'
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock non-pool-task
++ n=1
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 1 -lt 3000 ']'
++ sleep 0.1
++ n=2
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 2 -lt 3000 ']'
++ sleep 0.1
++ n=3
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 3 -lt 3000 ']'
++ sleep 0.1
++ n=4
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 4 -lt 3000 ']'
++ sleep 0.1
++ n=5
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 5 -lt 3000 ']'
++ sleep 0.1
++ n=6
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 6 -lt 3000 ']'
++ sleep 0.1
++ n=7
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 7 -lt 3000 ']'
++ sleep 0.1
++ n=8
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 8 -lt 3000 ']'
++ sleep 0.1
++ n=9
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 9 -lt 3000 ']'
++ sleep 0.1
++ n=10
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 10 -lt 3000 ']'
++ sleep 0.1
++ n=11
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 11 -lt 3000 ']'
++ sleep 0.1
++ n=12
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 12 -lt 3000 ']'
++ sleep 0.1
++ n=13
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 13 -lt 3000 ']'
++ sleep 0.1
++ n=14
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 14 -lt 3000 ']'
++ sleep 0.1
++ n=15
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 15 -lt 3000 ']'
++ sleep 0.1
++ n=16
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 16 -lt 3000 ']'
++ sleep 0.1
++ n=17
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 17 -lt 3000 ']'
++ sleep 0.1
++ n=18
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 18 -lt 3000 ']'
++ sleep 0.1
++ n=19
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 19 -lt 3000 ']'
++ sleep 0.1
++ n=20
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 20 -lt 3000 ']'
++ sleep 0.1
++ n=21
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 21 -lt 3000 ']'
++ sleep 0.1
++ n=22
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 22 -lt 3000 ']'
++ sleep 0.1
++ n=23
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 23 -lt 3000 ']'
++ sleep 0.1
++ n=24
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 24 -lt 3000 ']'
++ sleep 0.1
++ n=25
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 25 -lt 3000 ']'
++ sleep 0.1
++ n=26
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 26 -lt 3000 ']'
++ sleep 0.1
++ n=27
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 27 -lt 3000 ']'
++ sleep 0.1
++ n=28
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 28 -lt 3000 ']'
++ sleep 0.1
++ n=29
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 29 -lt 3000 ']'
++ sleep 0.1
++ n=30
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 30 -lt 3000 ']'
++ sleep 0.1
++ n=31
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 31 -lt 3000 ']'
++ sleep 0.1
++ n=32
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 32 -lt 3000 ']'
++ sleep 0.1
++ n=33
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 33 -lt 3000 ']'
++ sleep 0.1
++ n=34
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 34 -lt 3000 ']'
++ sleep 0.1
++ n=35
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 35 -lt 3000 ']'
++ sleep 0.1
++ n=36
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 36 -lt 3000 ']'
++ sleep 0.1
++ n=37
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 37 -lt 3000 ']'
++ sleep 0.1
++ n=38
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 38 -lt 3000 ']'
++ sleep 0.1
++ n=39
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 39 -lt 3000 ']'
++ sleep 0.1
++ n=40
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 40 -lt 3000 ']'
++ sleep 0.1
++ n=41
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 41 -lt 3000 ']'
++ sleep 0.1
++ n=42
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 42 -lt 3000 ']'
++ sleep 0.1
++ n=43
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 43 -lt 3000 ']'
++ sleep 0.1
++ n=44
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 44 -lt 3000 ']'
++ sleep 0.1
++ n=45
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 45 -lt 3000 ']'
++ sleep 0.1
++ n=46
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 46 -lt 3000 ']'
++ sleep 0.1
++ n=47
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 47 -lt 3000 ']'
++ sleep 0.1
++ n=48
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 48 -lt 3000 ']'
++ sleep 0.1
++ n=49
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 49 -lt 3000 ']'
++ sleep 0.1
++ n=50
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 50 -lt 3000 ']'
++ sleep 0.1
++ n=51
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 51 -lt 3000 ']'
++ sleep 0.1
++ n=52
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 52 -lt 3000 ']'
++ sleep 0.1
++ n=53
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 53 -lt 3000 ']'
++ sleep 0.1
++ n=54
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 54 -lt 3000 ']'
++ sleep 0.1
++ n=55
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 55 -lt 3000 ']'
++ sleep 0.1
++ n=56
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 56 -lt 3000 ']'
++ sleep 0.1
++ n=57
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 57 -lt 3000 ']'
++ sleep 0.1
++ n=58
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 58 -lt 3000 ']'
++ sleep 0.1
++ n=59
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 59 -lt 3000 ']'
++ sleep 0.1
++ n=60
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 60 -lt 3000 ']'
++ sleep 0.1
++ n=61
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 61 -lt 3000 ']'
++ sleep 0.1
++ n=62
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 62 -lt 3000 ']'
++ sleep 0.1
++ n=63
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 63 -lt 3000 ']'
++ sleep 0.1
++ n=64
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 64 -lt 3000 ']'
++ sleep 0.1
++ n=65
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 65 -lt 3000 ']'
++ sleep 0.1
++ n=66
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 66 -lt 3000 ']'
++ sleep 0.1
++ n=67
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 67 -lt 3000 ']'
++ sleep 0.1
++ n=68
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 68 -lt 3000 ']'
++ sleep 0.1
++ n=69
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 69 -lt 3000 ']'
++ sleep 0.1
++ n=70
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 70 -lt 3000 ']'
++ sleep 0.1
++ n=71
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 71 -lt 3000 ']'
++ sleep 0.1
++ n=72
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 72 -lt 3000 ']'
++ sleep 0.1
++ n=73
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 73 -lt 3000 ']'
++ sleep 0.1
++ n=74
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 74 -lt 3000 ']'
++ sleep 0.1
++ n=75
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 75 -lt 3000 ']'
++ sleep 0.1
++ n=76
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 76 -lt 3000 ']'
++ sleep 0.1
++ n=77
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 77 -lt 3000 ']'
++ sleep 0.1
++ n=78
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 78 -lt 3000 ']'
++ sleep 0.1
++ n=79
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 79 -lt 3000 ']'
++ sleep 0.1
++ n=80
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 80 -lt 3000 ']'
++ sleep 0.1
++ n=81
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 81 -lt 3000 ']'
++ sleep 0.1
++ n=82
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 82 -lt 3000 ']'
++ sleep 0.1
++ n=83
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 83 -lt 3000 ']'
++ sleep 0.1
++ n=84
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 84 -lt 3000 ']'
++ sleep 0.1
++ n=85
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 85 -lt 3000 ']'
++ sleep 0.1
++ n=86
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 86 -lt 3000 ']'
++ sleep 0.1
++ n=87
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 87 -lt 3000 ']'
++ sleep 0.1
++ n=88
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 88 -lt 3000 ']'
++ sleep 0.1
++ n=89
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 89 -lt 3000 ']'
++ sleep 0.1
++ n=90
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 90 -lt 3000 ']'
++ sleep 0.1
++ n=91
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 91 -lt 3000 ']'
++ sleep 0.1
++ n=92
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 92 -lt 3000 ']'
++ sleep 0.1
++ n=93
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 93 -lt 3000 ']'
++ sleep 0.1
++ n=94
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 94 -lt 3000 ']'
++ sleep 0.1
++ n=95
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 95 -lt 3000 ']'
++ sleep 0.1
++ n=96
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 96 -lt 3000 ']'
++ sleep 0.1
++ n=97
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 97 -lt 3000 ']'
++ sleep 0.1
++ n=98
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 98 -lt 3000 ']'
++ sleep 0.1
++ n=99
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 99 -lt 3000 ']'
++ sleep 0.1
++ n=100
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 100 -lt 3000 ']'
++ sleep 0.1
++ n=101
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 101 -lt 3000 ']'
++ sleep 0.1
++ n=102
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 102 -lt 3000 ']'
++ sleep 0.1
++ n=103
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 103 -lt 3000 ']'
++ sleep 0.1
++ n=104
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 104 -lt 3000 ']'
++ sleep 0.1
++ n=105
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 105 -lt 3000 ']'
++ sleep 0.1
++ n=106
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 106 -lt 3000 ']'
++ sleep 0.1
++ n=107
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 107 -lt 3000 ']'
++ sleep 0.1
++ n=108
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 108 -lt 3000 ']'
++ sleep 0.1
++ n=109
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 109 -lt 3000 ']'
++ sleep 0.1
++ n=110
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 110 -lt 3000 ']'
++ sleep 0.1
++ n=111
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 111 -lt 3000 ']'
++ sleep 0.1
++ n=112
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 112 -lt 3000 ']'
++ sleep 0.1
++ n=113
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 113 -lt 3000 ']'
++ sleep 0.1
++ n=114
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 114 -lt 3000 ']'
++ sleep 0.1
++ n=115
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 115 -lt 3000 ']'
++ sleep 0.1
++ n=116
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 116 -lt 3000 ']'
++ sleep 0.1
++ n=117
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 117 -lt 3000 ']'
++ sleep 0.1
++ n=118
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 118 -lt 3000 ']'
++ sleep 0.1
++ n=119
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 119 -lt 3000 ']'
++ sleep 0.1
++ n=120
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 120 -lt 3000 ']'
++ sleep 0.1
++ n=121
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 121 -lt 3000 ']'
++ sleep 0.1
++ n=122
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 122 -lt 3000 ']'
++ sleep 0.1
++ n=123
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 123 -lt 3000 ']'
++ sleep 0.1
++ n=124
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 124 -lt 3000 ']'
++ sleep 0.1
++ n=125
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 125 -lt 3000 ']'
++ sleep 0.1
++ n=126
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 126 -lt 3000 ']'
++ sleep 0.1
++ n=127
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 127 -lt 3000 ']'
++ sleep 0.1
++ n=128
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 128 -lt 3000 ']'
++ sleep 0.1
++ n=129
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 129 -lt 3000 ']'
++ sleep 0.1
++ n=130
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 130 -lt 3000 ']'
++ sleep 0.1
++ n=131
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 131 -lt 3000 ']'
++ sleep 0.1
++ n=132
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 132 -lt 3000 ']'
++ sleep 0.1
++ n=133
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 133 -lt 3000 ']'
++ sleep 0.1
++ n=134
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 134 -lt 3000 ']'
++ sleep 0.1
++ n=135
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
++ '[' 135 -lt 3000 ']'
++ sleep 0.1
++ assert_absent /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/non-pool-task.meta 'non-pool teardown left task metadata'
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/non-pool-task.meta ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock 'non-pool teardown removed the publisher'\''s lock'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ']'
++ :
++ wait 34505
++ n=136
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/task-set-lock-release ']'
+++ fm_lock_release /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock pid current ownerdir
+++ fm_current_pid current
+++ local fm_pid
+++ fm_pid=34505
+++ case "$fm_pid" in
+++ '[' 1 -gt 0 ']'
+++ printf -v current %s 34505
+++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ']'
++++ fm_lock_link_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
+++ ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 ']'
++++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/pid
+++ pid=34505
+++ '[' 34505 = 34505 ']'
+++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 actual
++++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
+++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 ']'
+++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock
+++ fm_lock_discard_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ local ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1 ']'
+++ fm_lock_clean_known_files /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/pid /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/fm-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/pid-identity /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/role /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1/watcher-path
+++ rmdir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/non-pool-task-set-lock/home/state/.task-set.lock.owner.EAOPD1
+++ return 0
++ pass 'fm-teardown: non-pool cleanup ignores unrelated task publication locks'
++ printf 'ok - %s\n' 'fm-teardown: non-pool cleanup ignores unrelated task publication locks'
+ok - fm-teardown: non-pool cleanup ignores unrelated task publication locks
++ test_metadata_lock_serializes_destructive_cleanup
++ local dir id=metadata-locked-task lock ready release holder teardown_pid i=0 rc
+++ make_case metadata-lock
+++ local dir=metadata-lock
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/data /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/fakebin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/project
+++ git init -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/project
+++ :
+++ :
+++ cat
+++ cat
+++ chmod +x /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/fakebin/tmux /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/fakebin/treehouse
+++ printf '%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock
++ fm_write_meta /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/metadata-locked-task.meta window=isolated:fm-metadata-locked-task endpoint_task_id=metadata-locked-task worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/worktree project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/project kind=scout
++ local file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/metadata-locked-task.meta kv dir task window key
++ shift
++ :
++ for kv in "$@"
++ printf '%s\n' window=isolated:fm-metadata-locked-task
++ case "$kv" in
++ '[' -z '' ']'
++ window=isolated:fm-metadata-locked-task
++ for kv in "$@"
++ printf '%s\n' endpoint_task_id=metadata-locked-task
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/worktree
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/project
++ case "$kv" in
++ for kv in "$@"
++ printf '%s\n' kind=scout
++ case "$kv" in
++ '[' -n isolated:fm-metadata-locked-task ']'
+++ dirname /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/metadata-locked-task.meta
++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state
++ task=metadata-locked-task.meta
++ task=metadata-locked-task
+++ printf %s isolated:fm-metadata-locked-task
+++ tr :/. ___
++ key=isolated_fm-metadata-locked-task
++ printf %s metadata-locked-task
++ lock=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++ ready=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-ready
++ release=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release
++ . /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh
++ holder=53436
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-ready ']'
++ '[' 0 -lt 100 ']'
++ sleep 0.1
++++ d=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin '!=' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-wake-lib.sh ']'
++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin
++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ FM_ROOT=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ
+++ STATE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state
+++ FM_WAKE_QUEUE=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/state
+++ '[' 5 -gt 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_TREEHOUSE_POOL_PIN_MARKER='# firstmate per-clone Treehouse pool pin; bin/fm-wake-lib.sh fm_treehouse_pool_pin owns this file, do not edit.'
+++ FM_FIRSTMATE_LOCAL_STATES=()
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_try_acquire /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock lock_abs
++++ fm_lock_abs_path /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ local path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock dir base
++++ fm_dirname_to dir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ local fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state
++++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state ']'
++++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state '!=' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state ']'
++++ printf -v dir %s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state
++++ fm_basename_to base /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ local fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ case "$fm_path" in
++++ fm_path=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++++ fm_path=.meta-metadata-locked-task.lock
++++ '[' .meta-metadata-locked-task.lock '!=' .meta-metadata-locked-task.lock ']'
++++ printf -v base %s .meta-metadata-locked-task.lock
+++++ cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state
+++++ pwd -P
++++ dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state
++++ printf '%s/%s\n' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state .meta-metadata-locked-task.lock
+++ lock_abs=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
+++ mktemp -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.XXXXXX
++ ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ']'
++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ']'
++ fm_lock_prepare_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ local ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X mypid back
++ fm_current_pid mypid
++ local fm_pid
++ fm_pid=53436
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 53436
++ printf '%s\n' 53436
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/pid
++ back=53436
++ '[' 53436 = 53436 ']'
++ ln -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X actual
+++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X ']'
++ fm_lock_claim /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X ''
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
++ fm_pid=53436
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 53436
+++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/pid
++ back=53436
++ '[' 53436 '!=' 53436 ']'
++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X actual
+++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X ']'
++ fm_lock_claim_blocked_by_steal /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ''
++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock allowed_steal_owner= steal
++ steal=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.steal
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.steal ']'
++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
++ return 0
++ return 0
++ trap 'fm_lock_release "$lock"' EXIT
++ :
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ i=1
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-ready ']'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-ready ']'
++ teardown_pid=53568
++ sleep 0.2
++ run_case /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock metadata-locked-task
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ sleep 0.01
++ kill -0 53568
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/metadata-locked-task.meta 'metadata-lock contention removed task metadata'
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/metadata-locked-task.meta ']'
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
++ assert_present /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/worktree/sentinel 'metadata-lock contention changed the worktree'
++ sleep 0.01
++ '[' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/worktree/sentinel ']'
++ '[' '!' -s /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/runtime.log ']'
++ :
++ wait 53436
++ '[' '!' -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/meta-lock-release ']'
+++ fm_lock_release /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock pid current ownerdir
+++ fm_current_pid current
+++ local fm_pid
+++ fm_pid=53436
+++ case "$fm_pid" in
+++ '[' 1 -gt 0 ']'
+++ printf -v current %s 53436
+++ '[' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ']'
++++ fm_lock_link_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
+++ ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X ']'
++++ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/pid
+++ pid=53436
+++ '[' 53436 = 53436 ']'
+++ fm_lock_points_to_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X actual
++++ readlink /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
+++ actual=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ '[' /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X = /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X ']'
+++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock
+++ fm_lock_discard_owner /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ local ownerdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X ']'
+++ fm_lock_clean_known_files /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ local lockdir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/pid /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/fm-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/pid-identity /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/role /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X/watcher-path
+++ rmdir /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3/metadata-lock/home/state/.meta-metadata-locked-task.lock.owner.yA4h5X
+++ return 0
++ wait 53568
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home $'seen=\n'
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-watcher.27293.LM8JX8 ']'
++ IFS=
++ read -r state
++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-watcher.27293.LM8JX8
++ fm_test_reap_procevent_homes
++ local home claim_root $'seen=\n'
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-procevent.27293.3KcaG0 ']'
++ IFS=$'\t'
++ read -r home claim_root
++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-procevent.27293.3KcaG0
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-cleanup.27293.yYbpvm ']'
++ IFS=
++ read -r d
++ '[' -n /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3 ']'
++ fm_test_remove_tree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
++ local dir=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
++ '[' -d /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3 ']'
++ '[' '!' -L /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3 ']'
++ find /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3 -type d -exec chmod u+rwx '{}' +
++ rm -rf /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/fm-teardown-endpoint-safety.mW5aF3
++ IFS=
++ read -r d
++ rm -f /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.test-phase-tmp/.fm-test-cleanup.27293.yYbpvm

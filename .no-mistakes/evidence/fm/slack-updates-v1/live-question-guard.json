@@ -1,0 +1,8 @@
+{
+  "command": "bin/fm-slack-bridge.sh post decision --project Lay --title \"Wie weiter?\" --option \"a=Heute starten?\" --option \"b=Morgen starten?\" --recommend a",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "fm-slack-bridge: a post asks at most one question; split it\n",
+  "posts_record_exists": false,
+  "outcomes_record_exists": false
+}

@@ -1,0 +1,22 @@
+After failed reporting: task metadata retained; cleanup exit=1
+After startup close-marker replay: metadata=MISSING
+task:
+  id: result
+  title: Ergebnis fertig
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-19
+  deps: none
+  links: none
+  body: ""
+After Slack recovery: scan=EMPTY; tick=EMPTY; new transport calls=0
+not ok - startup replay must preserve an unreported task so recovered Slack can receive its result

@@ -1,0 +1,54 @@
+ok: added result (ship) -> Queued
+task:
+  id: result
+  title: Ergebnis fertig
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-19
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start result` to move it to in flight
+  - Run `tasks-axi block result --by <other>` to record a dependency
+ok: start result -> In flight
+help[1]:
+  - Run `tasks-axi done result --pr <url>` when it ships
+{
+  "teardown_exit_code": 1,
+  "stdout": "",
+  "stderr": "●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n●  WATCHER DOWN - SUPERVISION IS OFF\n●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n●  This is a supervision warning only; the guarded operation WILL still run.\n●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5AFFV8FB51P70CJPSAHNAXZ/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nfm-updates: could not report result (finished) before cleanup: fm-slack-bridge: slack-axi did not confirm the post to #updates (rc=1): error: ratelimited\nerror: result's outcome has not been reported to Slack; retaining every durable task record so a rerun can retry the report\n",
+  "metadata_retained": true,
+  "status_retained": true,
+  "pending_close_retained": true
+}
+after startup marker replay: meta=MISSING status=retained
+task:
+  id: result
+  title: Ergebnis fertig
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-19
+  deps: none
+  links: none
+  body: ""
+scan after Slack recovers: tick after Slack recovers: new transport calls after recovery: 0
+outcomes ledger after recovery: MISSING
