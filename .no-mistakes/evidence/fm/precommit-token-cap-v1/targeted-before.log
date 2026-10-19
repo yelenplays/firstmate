@@ -1,3 +1,4 @@
+ok - a filename matching an attribute value does not exempt authored files
 ok - a new oversized staged file is refused with the full split message
 ok - an existing oversized file passes at the same size and when shrunk
 ok - an existing oversized file that grows is refused and names its HEAD size
@@ -8,6 +9,11 @@ ok - a generated marker on the first lines skips the cap; a plain file still ref
 ok - incidental do-not-edit prose does not exempt authored files
 ok - untracked and modified attributes cannot exempt staged authored files
 ok - .gitattributes linguist marks skip the cap; unmarked files still refuse
+ok - linguist-generated=true and linguist-vendored=true exempt oversized files
+ok - linguist-generated=false stays under the cap
+ok - diff-attribute-forced binary classification skips the cap; unmarked files still refuse
+ok - the text attribute never flips a NUL blob to text-only classification
+ok - worktree-only binary attribute assignments cannot exempt staged files
 ok - renames ratchet against the source path's HEAD size
 ok - a staged deletion of an oversized file commits
 ok - the cap measures the index blob, never the working tree

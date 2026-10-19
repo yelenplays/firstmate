@@ -1,0 +1,408 @@
+$ git 'rev-parse' 'HEAD'
+273b57a7f6332654d4c2e9aaca47e040b85107ce
+[exit 0]
+
+=== Exact byte threshold and actionable refusal ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'at-limit.txt': 20000 bytes
+$ git 'add' 'at-limit.txt'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' '20000 bytes accepted on initial commit'
+[main (root-commit) 61dfa11] 20000 bytes accepted on initial commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 at-limit.txt
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+61dfa11e43aae7f607563cb7fc1ce4b57e846ed3
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 7eded2aa2b98c9f0d9d4bb82c277cbbd09dcd044   20000	at-limit.txt
+[exit 0]
+write 'at-limit.txt': 20001 bytes
+$ git 'add' 'at-limit.txt'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+61dfa11e43aae7f607563cb7fc1ce4b57e846ed3
+[exit 0]
+$ git 'commit' '-m' '20001 bytes refused'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  at-limit.txt: 20001 bytes = 5001 tokens (limit 5000) (grew from 20000 bytes = 5000 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+61dfa11e43aae7f607563cb7fc1ce4b57e846ed3
+[exit 0]
+
+=== UTF-8 uses bytes rather than characters ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'unicode.txt': 20002 bytes
+$ git 'add' 'unicode.txt'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' 'count bytes not characters'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  unicode.txt: 20002 bytes = 5001 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+
+=== Only staged blobs count ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'source.txt': 21000 bytes
+$ git 'add' 'source.txt'
+[exit 0]
+write 'source.txt': 1 bytes
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' 'small working tree cannot hide large index'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  source.txt: 21000 bytes = 5250 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'add' 'source.txt'
+[exit 0]
+write 'source.txt': 30000 bytes
+write 'untracked.txt': 30000 bytes
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' 'large unstaged and untracked content ignored'
+[main (root-commit) 7c5b4da] large unstaged and untracked content ignored
+ 1 file changed, 1 insertion(+)
+ create mode 100644 source.txt
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+7c5b4dad930ec92e86e36c4e46d6e7be016bfac0
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob c1b0730e0133447badcfd47fd144e254807b06e1       1	source.txt
+[exit 0]
+$ git 'cat-file' '-s' 'HEAD:source.txt'
+1
+[exit 0]
+
+=== Legacy oversized files ratchet against latest HEAD ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'legacy.sh': 357000 bytes
+$ git 'add' 'legacy.sh'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '--no-verify' '-m' 'preexisting oversized baseline'
+[main (root-commit) aeca062] preexisting oversized baseline
+ 1 file changed, 1 insertion(+)
+ create mode 100644 legacy.sh
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+aeca062ec0a9790b7575d478e3991d1c4f3d2a4d
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 07d871c79a6b13672a74edce6f52ab860109971f  357000	legacy.sh
+[exit 0]
+write 'legacy.sh': 357000 bytes
+$ git 'add' 'legacy.sh'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+aeca062ec0a9790b7575d478e3991d1c4f3d2a4d
+[exit 0]
+$ git 'commit' '-m' 'same size legacy edit accepted'
+[main 87dff81] same size legacy edit accepted
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+87dff8119c6b55e41a6de3ce5d77155949a274e2
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 6cda6d3a4234db70fa71ee468ce54292799cec98  357000	legacy.sh
+[exit 0]
+write 'legacy.sh': 356999 bytes
+$ git 'add' 'legacy.sh'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+87dff8119c6b55e41a6de3ce5d77155949a274e2
+[exit 0]
+$ git 'commit' '-m' 'legacy shrink accepted'
+[main 4702a14] legacy shrink accepted
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+4702a14bcc105d67cb66a55e99cc2f6d2878c112
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 9330c7768716a99152450bc97eb6b88da8fe3bfb  356999	legacy.sh
+[exit 0]
+write 'legacy.sh': 357000 bytes
+$ git 'add' 'legacy.sh'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+4702a14bcc105d67cb66a55e99cc2f6d2878c112
+[exit 0]
+$ git 'commit' '-m' 'one byte regrowth refused against latest HEAD'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  legacy.sh: 357000 bytes = 89250 tokens (limit 5000) (grew from 356999 bytes = 89249 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+4702a14bcc105d67cb66a55e99cc2f6d2878c112
+[exit 0]
+
+=== Non-authored exemptions preserve authored guard ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'package-lock.json': 30000 bytes
+write 'gen.go': 30038 bytes
+write 'vendor.js': 30000 bytes
+write 'binary.dat': 30000 bytes
+write '.gitattributes': 28 bytes
+$ git 'add' '.'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' 'generated lockfile vendored binary exemptions accepted'
+[main (root-commit) b7c1e5a] generated lockfile vendored binary exemptions accepted
+ 7 files changed, 175 insertions(+)
+ create mode 100644 .gitattributes
+ create mode 100755 .githooks/pre-commit
+ create mode 100755 bin/fm-precommit-token-cap.sh
+ create mode 100644 binary.dat
+ create mode 100644 gen.go
+ create mode 100644 package-lock.json
+ create mode 100644 vendor.js
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+b7c1e5ae50d520a1bff9d16b86fc4dc8f6812dfa
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 4b6d3a7628683792db8690aabbe9105ee82fd052      28	.gitattributes
+100755 blob 11bbfa072cff41a7f9243f6d9511f9626dceef42     238	.githooks/pre-commit
+100755 blob e707d9ebec23a52ab04cf7550d69e54f6f705854    5705	bin/fm-precommit-token-cap.sh
+100644 blob 26a7576a43cfc45c988f1befeea028cb63af6f66   30000	binary.dat
+100644 blob bfc772385ca5515006680acc4115756be9df51a6   30038	gen.go
+100644 blob c65b121f148b6cceee45da466977aa8c84c716e4   30000	package-lock.json
+100644 blob c65b121f148b6cceee45da466977aa8c84c716e4   30000	vendor.js
+[exit 0]
+write 'authored.sh': 30000 bytes
+$ git 'add' 'authored.sh'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+b7c1e5ae50d520a1bff9d16b86fc4dc8f6812dfa
+[exit 0]
+$ git 'commit' '-m' 'unmarked authored file still blocked'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  authored.sh: 30000 bytes = 7500 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+b7c1e5ae50d520a1bff9d16b86fc4dc8f6812dfa
+[exit 0]
+
+=== Unstaged exemptions and incidental prose cannot bypass cap ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'handwritten.py': 21046 bytes
+$ git 'add' 'handwritten.py'
+[exit 0]
+write '.gitattributes': 40 bytes
+write 'handwritten.py': 21014 bytes
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' 'unstaged generated marker and attributes cannot bypass authored staged prose'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  handwritten.py: 21046 bytes = 5262 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+
+=== Oversized rename growth and deletion ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'old name.txt': 40000 bytes
+$ git 'add' 'old name.txt'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '--no-verify' '-m' 'preexisting rename baseline'
+[main (root-commit) 1f1b63a] preexisting rename baseline
+ 1 file changed, 2000 insertions(+)
+ create mode 100644 old name.txt
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+1f1b63aec43039b221615a8c1c38e0ef0df6a698
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 0c91ddcb4cf0a956e4b87b919559a1252f37e5b3   40000	old name.txt
+[exit 0]
+$ git 'mv' 'old name.txt' 'new name.txt'
+[exit 0]
+write 'new name.txt': 40007 bytes
+$ git 'add' 'new name.txt'
+[exit 0]
+$ git 'diff' '--cached' '--summary'
+ rename old name.txt => new name.txt (99%)
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+1f1b63aec43039b221615a8c1c38e0ef0df6a698
+[exit 0]
+$ git 'commit' '-m' 'simultaneous rename and growth refused'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  new name.txt: 40007 bytes = 10002 tokens (limit 5000) (grew from 40000 bytes = 10000 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+1f1b63aec43039b221615a8c1c38e0ef0df6a698
+[exit 0]
+write 'new name.txt': 40000 bytes
+$ git 'add' 'new name.txt'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+1f1b63aec43039b221615a8c1c38e0ef0df6a698
+[exit 0]
+$ git 'commit' '-m' 'pure oversized rename accepted'
+[main f009c52] pure oversized rename accepted
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename old name.txt => new name.txt (100%)
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+f009c52394b48f151f62a893e719a0c6fc3ee0e4
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+100644 blob 0c91ddcb4cf0a956e4b87b919559a1252f37e5b3   40000	new name.txt
+[exit 0]
+$ git 'rm' 'new name.txt'
+rm 'new name.txt'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+f009c52394b48f151f62a893e719a0c6fc3ee0e4
+[exit 0]
+$ git 'commit' '-m' 'oversized deletion accepted'
+[main 0920d03] oversized deletion accepted
+ 1 file changed, 2000 deletions(-)
+ delete mode 100644 new name.txt
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+0920d039c43d0d1251cc2466dc9c8a645e95448e
+[exit 0]
+$ git 'ls-tree' '-r' '-l' 'HEAD'
+[exit 0]
+
+=== All failures including unusual filenames are reported ===
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+write 'file with spaces.txt': 21000 bytes
+write 'another\nfile.txt': 22000 bytes
+$ git 'add' '.'
+[exit 0]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]
+$ git 'commit' '-m' 'every failing filename listed'
+precommit-token-cap: 2 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  another
+file.txt: 22000 bytes = 5500 tokens (limit 5000)
+  file with spaces.txt: 21000 bytes = 5250 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+$ git 'rev-parse' '--verify' 'HEAD'
+fatal: Needed a single revision
+[exit 128]

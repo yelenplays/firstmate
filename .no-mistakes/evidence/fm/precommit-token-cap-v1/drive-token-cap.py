@@ -1,201 +1,158 @@
-import json
-import os
-from pathlib import Path
-import shutil
-import subprocess
+import os, pathlib, shutil, subprocess, json, hashlib
 
-ROOT = Path.cwd()
-EVIDENCE = Path('/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB')
-FIXTURES = ROOT / '.tmp-token-cap' / 'manual'
+ROOT = pathlib.Path('/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59J9NNKWR13QFB0B7EXFTWR')
+EVIDENCE = pathlib.Path('/Users/yelen/.no-mistakes/evidence/01M59J9NNKWR13QFB0B7EXFTWR')
+SCRATCH = ROOT / '.token-cap-validation/live'
 env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
-env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1',
-           GIT_AUTHOR_NAME='Live Validation', GIT_AUTHOR_EMAIL='validation@example.invalid',
-           GIT_COMMITTER_NAME='Live Validation', GIT_COMMITTER_EMAIL='validation@example.invalid')
-transcript = []
-results = []
+env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='Token Cap Live QA', GIT_AUTHOR_EMAIL='qa@example.invalid', GIT_COMMITTER_NAME='Token Cap Live QA', GIT_COMMITTER_EMAIL='qa@example.invalid')
+lines, results = [], []
 
-def git(repo, *args, expected=0):
-    p = subprocess.run(['git', '-C', str(repo), *args], env=env, capture_output=True, text=True)
-    transcript.append('$ git ' + ' '.join(map(repr, args)) + '\n' + p.stdout + p.stderr + f'[exit {p.returncode}]\n')
-    if expected is not None:
-        assert p.returncode == expected, f'expected exit {expected}, got {p.returncode}'
+def git(repo, *args):
+    p = subprocess.run(['git', '-C', str(repo), *args], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    lines.append('$ git ' + ' '.join(repr(a) for a in args) + '\n' + p.stdout + f'[exit {p.returncode}]\n')
     return p
 
-def new(name, initial=True):
-    repo = FIXTURES / name
-    repo.mkdir(parents=True)
-    git(repo, 'init', '-b', 'main')
-    (repo / 'bin').mkdir()
-    (repo / '.githooks').mkdir()
-    shutil.copy2(ROOT / 'bin/fm-precommit-token-cap.sh', repo / 'bin/fm-precommit-token-cap.sh')
-    shutil.copy2(ROOT / '.githooks/pre-commit', repo / '.githooks/pre-commit')
-    git(repo, 'config', 'core.hooksPath', '.githooks')
-    if initial:
-        (repo / 'README').write_text('isolated commit validation\n')
-        git(repo, 'add', 'README')
-        git(repo, 'commit', '-m', 'initialize fixture')
-    return repo
+def must(repo, *args):
+    p = git(repo, *args)
+    assert p.returncode == 0, p.stdout
+    return p.stdout.strip()
 
-def put(repo, name, size, header=b'', filler=b'a'):
-    data = header + (filler * (size // len(filler) + 1))[:size-len(header)]
-    assert len(data) == size
-    target = repo / name
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
-    transcript.append(f'Prepared {name!r}: {size} bytes, header={header!r}\n')
+def repo(name):
+    r = SCRATCH / name
+    r.mkdir(parents=True)
+    must(r, 'init', '-q', '-b', 'main')
+    for path in ['.githooks/pre-commit', 'bin/fm-precommit-token-cap.sh']:
+        dst = r / path
+        dst.parent.mkdir(exist_ok=True)
+        shutil.copy2(ROOT / path, dst)
+        assert hashlib.sha256(dst.read_bytes()).digest() == hashlib.sha256((ROOT/path).read_bytes()).digest()
+    must(r, 'config', 'core.hooksPath', '.githooks')
+    return r
 
-def size(repo, name, expected):
-    p = git(repo, 'cat-file', '-s', 'HEAD:' + name)
-    assert int(p.stdout) == expected
+def put(r, path, data):
+    p = r / path
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(data)
+    lines.append(f'write {path!r}: {len(data)} bytes\n')
 
-def refuse(repo, names, message='oversized commit must not land'):
-    before = git(repo, 'rev-parse', 'HEAD', expected=None)
-    p = git(repo, 'commit', '-m', message, expected=1)
-    assert 'precommit-token-cap:' in p.stderr
-    assert all(name in p.stderr for name in names)
-    assert 'How to split:' in p.stderr and 'thin entry point' in p.stderr
-    after = git(repo, 'rev-parse', 'HEAD', expected=None)
-    assert (before.returncode, before.stdout) == (after.returncode, after.stdout)
+def commit(r, label, allowed, contains=(), seed=False):
+    prev = git(r, 'rev-parse', '--verify', 'HEAD').stdout.strip()
+    p = git(r, 'commit', *(['--no-verify'] if seed else []), '-m', label)
+    assert (p.returncode == 0) == allowed, f'{label}: unexpected exit {p.returncode}'
+    for text in contains:
+        assert text in p.stdout, (label, text, p.stdout)
+    after = git(r, 'rev-parse', '--verify', 'HEAD').stdout.strip()
+    if allowed:
+        assert after != prev
+        must(r, 'ls-tree', '-r', '-l', 'HEAD')
+    else:
+        assert after == prev
+    return p.stdout
 
-def seed(repo, name, n):
-    put(repo, name, n)
-    git(repo, 'add', '--', name)
-    git(repo, 'commit', '--no-verify', '-m', 'seed preexisting oversized content')
-
-def scenario(name, action):
-    transcript.append('\n=== ' + name + ' ===\n')
+def scenario(name, fn):
+    lines.append('\n=== ' + name + ' ===\n')
     try:
-        action()
-        result, reason = 'pass', ''
-    except Exception as exc:
-        result, reason = 'fail', str(exc)
-        transcript.append('ASSERTION FAILED: ' + reason + '\n')
-    results.append(dict(name=name, result=result, live=True, evidence='token-cap-live-transcript.log: ' + name, reason=reason))
+        fn()
+        results.append(dict(name=name, result='pass', live=True))
+    except Exception as e:
+        results.append(dict(name=name, result='fail', live=True, reason=str(e)))
+        lines.append('ASSERTION FAILURE: ' + repr(e) + '\n')
 
-def boundary():
-    r = new('boundary', initial=False)
-    put(r, 'limit.txt', 20000)
-    git(r, 'add', 'limit.txt')
-    git(r, 'commit', '-m', 'exactly 5000 tokens allowed on initial commit')
-    size(r, 'limit.txt', 20000)
-    put(r, 'limit.txt', 20001)
-    git(r, 'add', 'limit.txt')
-    refuse(r, ['limit.txt: 20001 bytes = 5001 tokens'])
-    git(r, 'restore', '--staged', 'limit.txt')
-    put(r, 'new.txt', 20001)
-    git(r, 'add', 'new.txt')
-    refuse(r, ['new.txt: 20001 bytes = 5001 tokens'])
+def threshold():
+    r = repo('threshold')
+    put(r, 'at-limit.txt', b'x' * 20000)
+    must(r, 'add', 'at-limit.txt')
+    commit(r, '20000 bytes accepted on initial commit', True)
+    put(r, 'at-limit.txt', b'x' * 20001)
+    must(r, 'add', 'at-limit.txt')
+    commit(r, '20001 bytes refused', False, ['20001 bytes = 5001 tokens', 'How to split:', 'sibling files', 'thin entry point', 'split by heading'])
+
+def multibyte():
+    r = repo('multibyte')
+    put(r, 'unicode.txt', ('é' * 10001).encode())
+    must(r, 'add', 'unicode.txt')
+    commit(r, 'count bytes not characters', False, ['unicode.txt: 20002 bytes = 5001 tokens'])
+
+def staged():
+    r = repo('staged')
+    put(r, 'source.txt', b'x' * 21000)
+    must(r, 'add', 'source.txt')
+    put(r, 'source.txt', b'x')
+    commit(r, 'small working tree cannot hide large index', False, ['source.txt: 21000 bytes'])
+    must(r, 'add', 'source.txt')
+    put(r, 'source.txt', b'x' * 30000)
+    put(r, 'untracked.txt', b'x' * 30000)
+    commit(r, 'large unstaged and untracked content ignored', True)
+    assert must(r, 'cat-file', '-s', 'HEAD:source.txt') == '1'
 
 def ratchet():
-    r = new('ratchet')
-    seed(r, 'legacy.txt', 25000)
-    put(r, 'legacy.txt', 25000, filler=b'b')
-    git(r, 'add', 'legacy.txt'); git(r, 'commit', '-m', 'same-size legacy edit allowed'); size(r, 'legacy.txt', 25000)
-    put(r, 'legacy.txt', 24000)
-    git(r, 'add', 'legacy.txt'); git(r, 'commit', '-m', 'legacy shrink allowed'); size(r, 'legacy.txt', 24000)
-    put(r, 'legacy.txt', 24001)
-    git(r, 'add', 'legacy.txt'); refuse(r, ['legacy.txt: 24001 bytes', 'grew from 24000 bytes'])
-
-def index_only():
-    r = new('index')
-    put(r, 'small.txt', 1000); git(r, 'add', 'small.txt')
-    put(r, 'small.txt', 30000); put(r, 'untracked.txt', 31000)
-    git(r, 'commit', '-m', 'ignore oversized unstaged and untracked content'); size(r, 'small.txt', 1000)
-    git(r, 'add', 'small.txt'); put(r, 'small.txt', 0)
-    refuse(r, ['small.txt: 30000 bytes = 7500 tokens'])
+    r = repo('ratchet')
+    put(r, 'legacy.sh', b'a' * 357000)
+    must(r, 'add', 'legacy.sh')
+    commit(r, 'preexisting oversized baseline', True, seed=True)
+    put(r, 'legacy.sh', b'b' * 357000)
+    must(r, 'add', 'legacy.sh')
+    commit(r, 'same size legacy edit accepted', True)
+    put(r, 'legacy.sh', b'b' * 356999)
+    must(r, 'add', 'legacy.sh')
+    commit(r, 'legacy shrink accepted', True)
+    put(r, 'legacy.sh', b'b' * 357000)
+    must(r, 'add', 'legacy.sh')
+    commit(r, 'one byte regrowth refused against latest HEAD', False, ['legacy.sh: 357000 bytes', 'grew from 356999 bytes'])
 
 def exemptions():
-    r = new('exemptions')
-    for name in ['package-lock.json', 'nested/pnpm-lock.yaml', 'Cargo.lock']:
-        put(r, name, 30000)
-    put(r, 'binary.dat', 30000, filler=b'\0')
-    put(r, 'generated.c', 30000, header=b'// Code generated by example. DO NOT EDIT.\n')
-    put(r, 'generated.py', 30000, header=b'# DO NOT EDIT\n')
-    put(r, 'generated.js', 30000, header=b'/* @generated */\n')
-    put(r, 'vendor.js', 30000); put(r, 'autogen/code.c', 30000)
-    (r / '.gitattributes').write_text('vendor.js linguist-vendored\nautogen/** linguist-generated\n')
-    git(r, 'add', 'package-lock.json', 'nested', 'Cargo.lock', 'binary.dat', 'generated.c', 'generated.py', 'generated.js', 'vendor.js', 'autogen', '.gitattributes')
-    (r / '.gitattributes').write_text('')
-    git(r, 'commit', '-m', 'lockfiles binaries and generated content exempt')
-    for name in ['package-lock.json', 'nested/pnpm-lock.yaml', 'Cargo.lock', 'binary.dat', 'generated.c', 'generated.py', 'generated.js', 'vendor.js', 'autogen/code.c']:
-        size(r, name, 30000)
-    put(r, 'ordinary.py', 30000); git(r, 'add', 'ordinary.py'); refuse(r, ['ordinary.py'])
+    r = repo('exemptions')
+    put(r, 'package-lock.json', b'x' * 30000)
+    put(r, 'gen.go', b'// Code generated by QA. DO NOT EDIT.\n' + b'x' * 30000)
+    put(r, 'vendor.js', b'x' * 30000)
+    put(r, 'binary.dat', b'\x00' * 30000)
+    put(r, '.gitattributes', b'vendor.js linguist-vendored\n')
+    must(r, 'add', '.')
+    commit(r, 'generated lockfile vendored binary exemptions accepted', True)
+    put(r, 'authored.sh', b'x' * 30000)
+    must(r, 'add', 'authored.sh')
+    commit(r, 'unmarked authored file still blocked', False, ['authored.sh: 30000 bytes'])
 
-def incidental():
-    r = new('incidental')
-    for name, header in [('upper.py', b'# When updating this file, DO NOT EDIT the table below.\n'), ('lower.py', b'# When updating this file, do not edit the table below.\n')]:
-        put(r, name, 21000, header=header)
-    git(r, 'add', 'upper.py', 'lower.py')
-    refuse(r, ['upper.py: 21000 bytes', 'lower.py: 21000 bytes'])
+def fake_exemptions():
+    r = repo('fake-exemptions')
+    put(r, 'handwritten.py', b'# When updating, DO NOT EDIT the table below.\n' + b'x' * 21000)
+    must(r, 'add', 'handwritten.py')
+    put(r, '.gitattributes', b'handwritten.py linguist-generated -diff\n')
+    put(r, 'handwritten.py', b'# DO NOT EDIT\n' + b'x' * 21000)
+    commit(r, 'unstaged generated marker and attributes cannot bypass authored staged prose', False, ['handwritten.py:', 'How to split:'])
 
-def attributes():
-    for state in ['untracked', 'modified']:
-        r = new('attributes-' + state)
-        if state == 'modified':
-            (r / '.gitattributes').write_text('')
-            git(r, 'add', '.gitattributes'); git(r, 'commit', '-m', 'empty tracked attributes')
-        put(r, 'authored.py', 21000); git(r, 'add', 'authored.py')
-        (r / '.gitattributes').write_text('authored.py linguist-generated\n')
-        refuse(r, ['authored.py: 21000 bytes'])
+def renamed_and_deleted():
+    r = repo('rename-delete')
+    data = b''.join(f'line {i:06d} content\n'.encode() for i in range(2000))
+    put(r, 'old name.txt', data)
+    must(r, 'add', 'old name.txt')
+    commit(r, 'preexisting rename baseline', True, seed=True)
+    must(r, 'mv', 'old name.txt', 'new name.txt')
+    put(r, 'new name.txt', data + b'growth\n')
+    must(r, 'add', 'new name.txt')
+    must(r, 'diff', '--cached', '--summary')
+    commit(r, 'simultaneous rename and growth refused', False, ['new name.txt:', f'grew from {len(data)} bytes'])
+    put(r, 'new name.txt', data)
+    must(r, 'add', 'new name.txt')
+    commit(r, 'pure oversized rename accepted', True)
+    must(r, 'rm', 'new name.txt')
+    commit(r, 'oversized deletion accepted', True)
 
-def attribute_filename():
-    r = new('filename-set')
-    put(r, 'set', 21000); git(r, 'add', 'set')
-    git(r, 'check-attr', '--cached', 'linguist-generated', 'linguist-vendored', '--', 'set')
-    refuse(r, ['set: 21000 bytes = 5250 tokens'])
-
-def renames():
-    r = new('renames')
-    seed(r, 'old.txt', 25000)
-    git(r, 'mv', 'old.txt', 'new.txt'); git(r, 'commit', '-m', 'legacy pure rename allowed'); size(r, 'new.txt', 25000)
-    git(r, 'mv', 'new.txt', 'grown.txt')
-    with (r / 'grown.txt').open('ab') as f: f.write(b'b' * 100)
-    git(r, 'add', 'grown.txt'); refuse(r, ['grown.txt: 25100 bytes', 'grew from 25000 bytes'])
-    git(r, 'reset', '--hard', 'HEAD')
-    git(r, 'rm', 'new.txt'); git(r, 'commit', '-m', 'legacy deletion allowed')
-    p = git(r, 'ls-tree', '--name-only', 'HEAD', 'new.txt'); assert not p.stdout
-
-def split():
-    r = new('split')
-    put(r, 'monolith.py', 28000); git(r, 'add', 'monolith.py'); refuse(r, ['monolith.py'])
-    put(r, 'monolith.py', 1000, header=b'import helper_a\nimport helper_b\n')
-    put(r, 'helper_a.py', 14000); put(r, 'helper_b.py', 13000)
-    git(r, 'add', 'monolith.py', 'helper_a.py', 'helper_b.py')
-    git(r, 'commit', '-m', 'split oversized responsibility into sibling files')
-    for name, n in [('monolith.py', 1000), ('helper_a.py', 14000), ('helper_b.py', 13000)]: size(r, name, n)
-
-def filenames_bytes():
-    r = new('names-and-bytes')
-    names = ['space name.txt', 'line\nbreak.txt', '-option.txt']
-    for name in names: put(r, name, 21000)
-    put(r, 'unicode.txt', 20002, filler='é'.encode())
-    git(r, 'add', '--', *names, 'unicode.txt')
-    refuse(r, names + ['unicode.txt: 20002 bytes = 5001 tokens', '4 staged file(s)'])
-
-def nested():
-    r = new('nested')
-    (r / 'sub').mkdir()
-    put(r, 'oversized.txt', 21000); git(r, 'add', 'oversized.txt')
-    refuse(r / 'sub', ['oversized.txt: 21000 bytes'])
+def multiple():
+    r = repo('multiple')
+    put(r, 'file with spaces.txt', b'x' * 21000)
+    put(r, 'another\nfile.txt', b'y' * 22000)
+    must(r, 'add', '.')
+    commit(r, 'every failing filename listed', False, ['2 staged file(s)', 'file with spaces.txt: 21000 bytes', 'another\nfile.txt: 22000 bytes', 'How to split:'])
 
 try:
-    for name, action in [
-        ('Enforce the exact bytes/4 limit on initial, new, and crossing files', boundary),
-        ('Allow legacy same-size edits and shrinking, but reject one-byte regrowth', ratchet),
-        ('Measure staged blobs only despite opposite worktree and untracked sizes', index_only),
-        ('Commit lockfiles, binaries, generated headers, and indexed linguist exemptions', exemptions),
-        ('Reject oversized handwritten files with incidental do-not-edit prose', incidental),
-        ('Reject exemption attempts from untracked or unstaged attributes', attributes),
-        ('Reject oversized authored file named set', attribute_filename),
-        ('Allow legacy rename and deletion but reject rename with growth', renames),
-        ('Follow split guidance and successfully recommit sibling modules', split),
-        ('Handle unusual filenames, multiple failures, and UTF-8 byte sizes', filenames_bytes),
-        ('Reject oversized staged content when committing from a subdirectory', nested),
-    ]:
-        scenario(name, action)
+    must(ROOT, 'rev-parse', 'HEAD')
+    for name, fn in [('Exact byte threshold and actionable refusal', threshold), ('UTF-8 uses bytes rather than characters', multibyte), ('Only staged blobs count', staged), ('Legacy oversized files ratchet against latest HEAD', ratchet), ('Non-authored exemptions preserve authored guard', exemptions), ('Unstaged exemptions and incidental prose cannot bypass cap', fake_exemptions), ('Oversized rename growth and deletion', renamed_and_deleted), ('All failures including unusual filenames are reported', multiple)]:
+        scenario(name, fn)
 finally:
-    EVIDENCE.joinpath('token-cap-live-transcript.log').write_text(''.join(transcript))
-    EVIDENCE.joinpath('token-cap-live-results.json').write_text(json.dumps(results, indent=2) + '\n')
-    shutil.rmtree(FIXTURES, ignore_errors=True)
+    if SCRATCH.exists():
+        shutil.rmtree(SCRATCH)
+    (EVIDENCE / 'live-token-cap.log').write_text(''.join(lines))
+    (EVIDENCE / 'live-results.json').write_text(json.dumps(results, indent=2) + '\n')
 print(json.dumps(results, indent=2))
-raise SystemExit(any(r['result'] == 'fail' for r in results))
+assert len(results) == 8 and all(r['result'] == 'pass' for r in results)

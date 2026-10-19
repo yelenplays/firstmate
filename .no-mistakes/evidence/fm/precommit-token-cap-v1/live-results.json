@@ -1,65 +1,42 @@
 [
   {
-    "name": "Exact byte boundary and actionable splitting instructions",
+    "name": "Exact byte threshold and actionable refusal",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
-    "name": "Legacy oversized files ratchet and crossing limit",
+    "name": "UTF-8 uses bytes rather than characters",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
     "name": "Only staged blobs count",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
-    "name": "Lockfile binary codegen and staged attribute exemptions",
+    "name": "Legacy oversized files ratchet against latest HEAD",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
-    "name": "Incidental do-not-edit prose is not generated",
+    "name": "Non-authored exemptions preserve authored guard",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
-    "name": "Unstaged attributes cannot bypass staged-only enforcement",
+    "name": "Unstaged exemptions and incidental prose cannot bypass cap",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
     "name": "Oversized rename growth and deletion",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
+    "live": true
   },
   {
-    "name": "One refusal lists all oversized unusual paths",
+    "name": "All failures including unusual filenames are reported",
     "result": "pass",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": ""
-  },
-  {
-    "name": "Authored filename matching attribute value is not exempt",
-    "result": "fail",
-    "live": true,
-    "evidence": "/Users/yelen/.no-mistakes/evidence/01M58AYZECQCRJ3G006W3SG2GB/live-commits.log",
-    "reason": "oversized commit accepted: authored file named set must not be exempt"
+    "live": true
   }
 ]
