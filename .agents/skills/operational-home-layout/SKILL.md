@@ -119,7 +119,8 @@ state/               runtime records and signals; gitignored
   slack-bridge.check-every optional per-check cadence written by bin/fm-slack-bridge.sh from poll-seconds; valid values 10..3600; absent follows FM_CHECK_INTERVAL
   .last-check           global slow-check sweep timestamp; per-check schedules must not advance it
   .last-check-<id>      last-run timestamp for a registered check with a valid state/<id>.check-every
-  slack-bridge/      Slack bridge records: posts (channel id and ts of every bridge post), delivered, handoff-cursor, dm-cursor, routes, replied, last-report; written only by bin/fm-slack-bridge.sh (docs/configuration.md "Slack bridge")
+  slack-bridge/      Slack bridge records: posts (channel id and ts of every bridge post), outcomes (each task outcome posted, per task incarnation and kind), delivered, handoff-cursor, dm-cursor, routes, replied, last-report, last-updates-report; written only by bin/fm-slack-bridge.sh (docs/configuration.md "Slack bridge")
+  updates/           morning digest record digest-last (the local date of the last posted digest); written only by bin/fm-updates.sh (docs/configuration.md "Slack bridge")
   startup-growth.check.sh  generated daily startup-growth poll shim and its .check-trust binding; present only after bin/fm-startup-growth-check.sh arm; its record .startup-growth-check holds the daily gate, the per-file growth baselines, and the last reported finding set, so removing it re-baselines growth silently and repeats a standing finding such as a budget overrun once (docs/configuration.md "Daily startup growth check")
   pending-replies/   parent-owned secondmate pending-reply records (correlation id, delivery vs reply, recovery, escalation); fm-pending-reply-lib.sh
   procevent/         registered process-to-event sources, one private record per canonical source id; written only by bin/fm-procevent.sh, and their presence alone keeps supervision required (`process-event-sources` skill)

@@ -2474,7 +2474,7 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 ## Slack bridge (config/slack-bridge)
 
 The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
-Out, firstmate posts captain-facing outcomes: PRs ready for review, merge asks, and merge results to the report channel, and decisions to the decisions channel.
+Out, firstmate posts captain-facing outcomes: finished results, merges, live releases, and stuck work to the updates channel, PRs ready for review and merge asks to the report channel, and decisions to the decisions channel, each ask also pointed at from the updates channel.
 In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
 With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot or tag it in the report or decisions channel, and firstmate's answers go back into the same DM or thread.
 
@@ -2490,10 +2490,19 @@ This section is the single owner of the config schema.
 The file holds one `key=value` per line, and a line starting with `#` is a comment; a comment never follows a value on the same line, because channel names start with `#`.
 
 ```sh
-# PRs ready for review, merge asks, merge results; a #name or channel id
+# PRs ready for review, merge asks, and other reports; a #name or channel id
 report-channel=#fm-reports
 # decisions; a #name or channel id
 decisions-channel=#fm-decisions
+# optional; finished results, merges, live, stuck, the morning digest, and a
+# one-line entry for every ask; without it those go to the report channel
+updates-channel=#updates
+# optional, en or de, default en; the posts' fixed words and plain-word rewrites
+language=de
+# optional, 0..23, default 8; the local hour after which the morning digest posts
+digest-hour=8
+# optional; the live board the digest links to
+board-url=https://deck.example.com/board
 # optional; other people's requests to this fleet
 handoff-channel=#fm-handoff
 # the Slack user id whose thread replies count as the captain's word
@@ -2507,6 +2516,7 @@ bot-keychain-service=firstmate-slack-bot
 ```
 
 `slack-axi channels --match <name>` shows a channel's id, and `slack-axi members <channel>` shows each member's user id.
+The bridge never creates a channel: the captain creates the updates channel in Slack, invites the bot (`/invite @<bot name>`) when there is one, and puts its id in `updates-channel`, like the other channels.
 With `bot-keychain-service`, every channel must be a channel id, because the bot has no scope to look up `#names`.
 
 **Who counts as the captain**
@@ -2525,7 +2535,7 @@ With a bot configured, `bin/fm-slack-bot.mjs` reads author ids from the Slack We
 
 **Posting**
 
-Firstmate posts one item per message in the structured form, which lays the post out for reading at a glance:
+Firstmate posts one item per message in the structured form:
 
 ```sh
 bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
@@ -2535,15 +2545,33 @@ bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
   --url https://github.com/o/gmail-swipe/pull/11
 ```
 
-The kind picks the layout and channel: `decision` goes to the decisions channel, while `ready` (a PR ready for review or a merge ask), `merged` (a merge result), and `report` (anything else) go to the report channel.
+The kind picks the emoji and the channel:
 
-Each post shows a header with the kind and project, the title in bold, at most two context lines, the options with the recommended one marked, the link, and a "Reply in thread" footer naming the option keys; a `merged` post is one compact line pair.
+| Kind | Emoji | Channel |
+| --- | --- | --- |
+| `finished` | ✅ | updates |
+| `merged` | ✅ | updates |
+| `live` | 🚀 | updates |
+| `stuck` | ⚠️ | updates |
+| `digest` | ☀️ | updates |
+| `decision` | 🙋 | decisions, plus a one-line updates entry |
+| `ready` (a PR ready for review or a merge ask) | 🙋 | report, plus a one-line updates entry |
+| `report` (anything else) | 📋 | report |
+
+Without `updates-channel`, the updates kinds go to the report channel and asks get no extra entry.
+
+Every post has the same short shape for a reader who scans: line 1 is the emoji, the project, and the outcome in bold, line 2 is what happens now or what the captain must do, then any options with the recommended one marked, one link, and a "Reply in thread" footer naming the option keys.
+The one-line updates entry for an ask is line 1, "Reply there" with the ask's channel, and the link.
+A `digest` takes up to four `--line` lines and is at most five lines with its link.
+Overlong lines are cut with "…" rather than refused; a post with more than one question, more than five options, or more than two `--context` lines is refused, because it must be split.
+Internal terms such as worktree, crewmate, heartbeat, status file, or a raw local path are rewritten to plain words in the configured `language`, and the bridge names what it rewrote on stderr.
 A structured `decision` with options must include `--recommend <key>` naming one of them; a yes/no decision without options does not need it.
 A `--url` is always a labelled link, `PR #<n>` for a GitHub pull request or `Open link` otherwise, never a raw URL.
 `bin/fm-slack-render.mjs` owns the layouts and their limits.
 With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
 Answers stay thread replies, DMs, and mentions; there are no buttons, because the bot has no Socket Mode connection or public request URL.
-The free-text form, `post report|decision [--url <https-url>] <text>`, still works for older callers.
+The free-text form, `post report|decision [--url <https-url>] <text>`, still works for older callers; its first line becomes line 1 and the rest line 2.
+`--task <id>` ties a post to that task's outcome: the bridge records it in `state/slack-bridge/outcomes` and answers `already posted` instead of posting the same task incarnation and kind twice.
 Every post is sent as a `slack-axi` draft it then sends or as the bot, and its channel id and message ts are recorded in `state/slack-bridge/posts`.
 Every post is top-level; without a bot that also keeps the bridge out of threads, because the logged-in account's thread replies are what counts as captain input.
 
@@ -2557,6 +2585,18 @@ If the check or post fails, the reply stays recorded, `reply` exits 3, and `send
 Without a bot, a reply stays local and its output is unchanged.
 `bin/fm-slack-bridge.sh verify` is a manual setup command only; `check`, `arm`, the watcher, and other automation never invoke it. It checks the bot token and posts clearly labeled one-time setup tests to both channels and the captain's DM; these can be ignored or deleted. See [Slack bot setup](slack-bot.md) for the setup steps.
 
+**Report, then close**
+
+Every finished task is reported once and then closed, from durable state rather than a one-shot signal.
+`bin/fm-updates.sh` reads each task's record, last status event, and merge marker: a recorded merge owes `merged`, a finished scout or local-only task owes `finished`, a ship task done with a PR and without auto-merge owes `ready`, and a failed task owes `stuck`.
+Each bridge poll posts every outcome still owed 15 minutes after its event (`FM_UPDATES_GRACE`, default 900 seconds), so firstmate's own post with `--task` goes first and the poll is only the backstop.
+Cleanup of a task posts its owed outcome first and keeps the task's record when that post fails.
+Every wake drain lists, under REPORT AND CLOSE, each outcome still unreported and each merged, finished, or local-only task that is reported but not yet cleaned up, until its record is gone.
+Without the bridge, chat is the report, so those tasks are listed for cleanup at once.
+
+The morning digest posts once a local day to the updates channel, within four hours after `digest-hour`: what needs the captain (captain-held calls and owed approvals), what finished, merged, or went live in the last 24 hours, how many workers are running, and the `board-url` link, in at most five lines.
+`bin/fm-updates.sh digest --print` shows it without posting.
+
 **Receiving**
 
 A home that wants replies polled arms the standing check in the live home: `bin/fm-slack-bridge.sh arm`.
@@ -2566,6 +2606,7 @@ By default, the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence
 Optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules.
 The bridge records that setting in `state/slack-bridge.check-every`.
 Invalid or duplicate values are refused.
+Each poll also runs the report-then-close backstop and the morning digest above in the time left under `FM_CHECK_TIMEOUT`.
 Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies, bot DMs, and bot mentions) or `slack-request`, which writes the durable note and its single `check` wake.
 A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
 Bot DM history is paged to completion before its cursor advances; a failed read or delivery leaves the cursor in place so unread messages are retried.

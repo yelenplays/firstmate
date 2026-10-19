@@ -3855,6 +3855,15 @@ if [ "$KIND" != secondmate ]; then
     exit 1
   fi
 fi
+# Report, then close: a finished task's outcome reaches Slack before its record
+# goes (bin/fm-updates.sh settle); a discard approved with --force owes none.
+if [ "$KIND" != secondmate ] && [ "$FORCE" != --force ]; then
+  if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+      "$SCRIPT_DIR/fm-updates.sh" settle "$ID"; then
+    echo "error: $ID's outcome has not been reported to Slack; retaining every durable task record so a rerun can retry the report" >&2
+    exit 1
+  fi
+fi
 if [ "$KIND" = secondmate ]; then
   [ -n "$HOME_PATH" ] || HOME_PATH=$WT
   handoff_wake_retire_stage \

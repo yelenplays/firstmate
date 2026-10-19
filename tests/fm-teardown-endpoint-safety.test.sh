@@ -7,6 +7,9 @@ set -u
 
 TEARDOWN="$ROOT/bin/fm-teardown.sh"
 TMP_ROOT=$(fm_test_tmproot fm-teardown-endpoint-safety)
+# Stand-in workers and lock holders sleep 300 seconds and are stopped by the
+# test itself: a teardown on a loaded machine can outlast a short sleep, and a
+# stand-in that exits early fails the test for the wrong reason.
 REAL_TMUX=$(command -v tmux || true)
 
 make_case() {  # <name>
@@ -123,7 +126,7 @@ test_control_lock_contention_refuses_before_mutation() {
     # shellcheck source=/dev/null
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
-    sleep 30
+    exec sleep 300
   ) &
   holder=$!
   while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do
@@ -157,20 +160,28 @@ test_control_lock_contention_refuses_before_mutation() {
 }
 
 test_non_pool_teardown_ignores_task_set_lock() {
-  local dir id=non-pool-task lock ready holder i=0
+  local dir id=non-pool-task lock ready release holder i=0
   dir=$(make_case non-pool-task-set-lock)
   fm_write_meta "$dir/home/state/$id.meta" \
     "window=isolated:fm-$id" "endpoint_task_id=$id" \
     "worktree=$dir/missing-worktree" "project=$dir/project" "kind=scout"
   lock="$dir/home/state/.task-set.lock"
   ready="$dir/task-set-lock-ready"
+  release="$dir/task-set-lock-release"
+  # Hold the lock until the assertions are done, however long teardown takes;
+  # a fixed hold time let the holder release it mid-teardown on a slow machine.
+  # The bound only keeps a failed run from leaving the holder behind.
   (
     # shellcheck source=/dev/null
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
     trap 'fm_lock_release "$lock"' EXIT
     : > "$ready"
-    sleep 30
+    n=0
+    while [ ! -e "$release" ] && [ "$n" -lt 3000 ]; do
+      sleep 0.1
+      n=$((n + 1))
+    done
   ) &
   holder=$!
   while [ ! -e "$ready" ] && [ "$i" -lt 100 ]; do
@@ -178,16 +189,17 @@ test_non_pool_teardown_ignores_task_set_lock() {
     i=$((i + 1))
   done
   [ -e "$ready" ] || {
-    kill "$holder" 2>/dev/null || true
+    : > "$release"
     wait "$holder" 2>/dev/null || true
     fail "could not stage an in-progress task publication"
   }
 
   run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
-    || fail "non-pool teardown was blocked by an unrelated task publication: $(cat "$dir/stderr")"
+    || { : > "$release"; wait "$holder" 2>/dev/null || true
+      fail "non-pool teardown was blocked by an unrelated task publication: $(cat "$dir/stderr")"; }
   assert_absent "$dir/home/state/$id.meta" "non-pool teardown left task metadata"
   assert_present "$lock" "non-pool teardown removed the publisher's lock"
-  kill "$holder" 2>/dev/null || true
+  : > "$release"
   wait "$holder" 2>/dev/null || true
   pass "fm-teardown: non-pool cleanup ignores unrelated task publication locks"
 }
@@ -343,9 +355,9 @@ test_tmux_empty_target_refuses_without_invocation() {
 test_recorded_process_identity_cleanup_is_exact() {
   local dir target_pid control_pid target_record control_record live_command
   dir=$(make_case recorded-process)
-  sleep 30 &
+  sleep 300 &
   control_pid=$!
-  sleep 30 &
+  sleep 300 &
   target_pid=$!
   printf '%s\n' "$control_pid" > "$dir/control.pid"
   printf '%s\n' "$target_pid" > "$dir/target.pid"
@@ -489,7 +501,7 @@ test_reused_pool_slot_refuses_before_touching_the_other_task() {
   # Staged in this shell, not a command substitution: a background child of a
   # $(...) subshell does not outlive it, and the point of this worker is to be
   # alive in the slot while teardown runs.
-  ( cd "$dir/worktree" && exec sleep 30 ) &
+  ( cd "$dir/worktree" && exec sleep 300 ) &
   worker=$!
 
   set +e
@@ -598,7 +610,7 @@ test_sole_slot_record_still_tears_down() {
   fm_write_meta "$dir/home/state/neighbour.meta" \
     "window=firstmate:fm-neighbour" "endpoint_task_id=neighbour" \
     "worktree=$dir/other-worktree" "project=$dir/project" "kind=scout"
-  ( cd "$dir/other-worktree" && exec sleep 30 ) &
+  ( cd "$dir/other-worktree" && exec sleep 300 ) &
   worker=$!
 
   run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
@@ -846,7 +858,7 @@ test_remote_layout_homes_serialize_on_one_project_lock() {
   lock=$(resolve_project_lock "$child_home" "$child_project") \
     || fail "the local child could not resolve the shared project lock"
   FM_HOME="$child_home" bash -c \
-    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec sleep 30' _ \
+    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec sleep 300' _ \
     "$ROOT/bin/fm-wake-lib.sh" "$lock" "$dir/lock-held" &
   holder=$!
   while [ ! -e "$dir/lock-held" ] && [ "$waited" -lt 100 ]; do
@@ -912,7 +924,7 @@ test_reassigned_pool_slot_finishes_own_cleanup_without_touching_the_slot() {
   # Staged in this shell, not a command substitution: a background child of a
   # $(...) subshell does not outlive it, and the point of this worker is to be
   # alive in the slot while teardown runs.
-  ( cd "$dir/worktree" && exec sleep 30 ) &
+  ( cd "$dir/worktree" && exec sleep 300 ) &
   worker=$!
 
   set +e
@@ -943,7 +955,7 @@ test_reassigned_pool_slot_finishes_own_cleanup_without_touching_the_slot() {
     "window=firstmate:fm-$id" "endpoint_task_id=$id" \
     "worktree=$dir/worktree" "project=$dir/project" "kind=ship"
   claim_pool_slot "$dir" "$other" "$dir/other-home"
-  ( cd "$dir/worktree" && exec sleep 30 ) &
+  ( cd "$dir/worktree" && exec sleep 300 ) &
   worker=$!
 
   set +e
