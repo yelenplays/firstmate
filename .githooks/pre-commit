@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Tracked token-cap dispatcher; the script below owns the staged-file rules.
+# See CONTRIBUTING.md's "Git hooks" section for installation.
+exec "$(cd "$(dirname "$0")/.." && pwd -P)/bin/fm-precommit-token-cap.sh" "$@"
