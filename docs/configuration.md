@@ -1141,10 +1141,12 @@ Claude Code's [Remote Control documentation](https://code.claude.com/docs/en/rem
 
 The optional local, gitignored `config/claude-autocompact` sets the primary's auto-compaction window through the same launcher.
 An absent file, an empty file, or `auto` leaves Claude's own window setting unchanged.
-A token count from 100000 to 1000000 on the first non-empty, non-comment line adds `claude --autocompact <value>` unless the caller already supplied `--autocompact` or `--autocompact=<value>`.
+A token count from 100000 to 1000000 on the first non-empty, non-comment line adds `claude --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"<value>"}}'`.
+A settings-file `env.CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides both the process environment and `--autocompact`, so the launcher uses inline `--settings` to apply the home's window.
+If the caller supplies `--autocompact`, `--autocompact=<value>`, `--settings`, or `--settings=<value>`, the launcher adds no window arguments: the caller owns those settings.
 An unreadable or invalid file refuses to launch even when the caller supplies a window.
 Earlier compaction is the opt-in usage-saving lever for [automatic memory capture](memory.md#automatic-capture); capture does not enable it or change user settings outside this repo.
-A primary started with plain `claude` gets the same effect by passing `--autocompact <value>` itself, which also overrides `CLAUDE_CODE_AUTO_COMPACT_WINDOW` from the user settings.
+A primary started with plain `claude` can pass the same inline `--settings` itself. A caller's bare `--autocompact <value>` can still be overridden by a settings-file environment value.
 
 ## Worker tool exclusions (config/crew-exclude-tools)
 

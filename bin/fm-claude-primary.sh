@@ -75,9 +75,11 @@ if [ -e "$AC_FILE" ] || [ -L "$AC_FILE" ]; then
         printf 'error: %s holds %s; accepted values are: auto or a token count from 100000 to 1000000\n' "$AC_FILE" "$AC_LINE" >&2
         exit 2
       fi
-      AC_ARGS=(--autocompact "$AC_LINE")
+      # Settings-file env overrides both process env and --autocompact; inline
+      # settings take precedence without changing the user's settings file.
+      AC_ARGS=(--settings "{\"env\":{\"CLAUDE_CODE_AUTO_COMPACT_WINDOW\":\"$AC_LINE\"}}")
       for arg in "$@"; do
-        case "$arg" in --autocompact|--autocompact=*) AC_ARGS=() ;; esac
+        case "$arg" in --autocompact|--autocompact=*|--settings|--settings=*) AC_ARGS=() ;; esac
       done
       ;;
   esac

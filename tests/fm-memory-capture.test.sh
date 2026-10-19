@@ -87,6 +87,7 @@ run_env() {
     PATH="$FAKEBIN:$PATH" FM_HOME="$HOME_DIR" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     FM_STATE_OVERRIDE="$HOME_DIR/state" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
     FM_MEMORY_DIR="$HOME_DIR/data/memories" FM_CLAUDE_BIN="$FAKEBIN/fake-claude" \
+    TYPESAFE_API_KEY=fixture-key JEV_ROUTE=typesafe JEV_URL=https://example.invalid/jev \
     FAKE_REC="$REC" "$@"
 }
 
@@ -228,6 +229,49 @@ test_hook_stands_down_outside_the_primary_main_session() {
   pass 'the hook runs only for the primary home main session and returns before the capture'
 }
 
+test_now_hook_delivers_current_context_only_in_primary_scope() {
+  local fake_root="$TMP_ROOT/now-primary" out guard source command
+  fresh_home
+  mkdir -p "$fake_root/bin"
+  : > "$fake_root/AGENTS.md"
+  git -C "$fake_root" init -q
+  out=$(run_env env FM_ROOT_OVERRIDE="$fake_root" "$CAPTURE" now) || fail 'empty NOW hook failed'
+  [ -z "$out" ] || fail 'empty store printed a NOW header'
+  run_env "$ROOT/bin/fm-memory.sh" remember --category now --expires 2999-01-01 \
+    --sensitivity private 'Current move' 'The captain is moving house this week.' >/dev/null || fail 'NOW fixture write failed'
+  run_env "$ROOT/bin/fm-memory.sh" remember --category now --expires 2000-01-01 \
+    'Expired focus' 'An old focus that must not be injected.' >/dev/null || fail 'expired fixture write failed'
+  # Disabling extraction must not disable delivery of already-captured context.
+  printf 'off\n' > "$HOME_DIR/config/memory-capture"
+  out=$(run_env env FM_ROOT_OVERRIDE="$fake_root" FM_MEMORY_CAPTURE=off "$CAPTURE" now) || fail 'primary NOW hook failed'
+  assert_contains "$out" 'NOW (current captain context' 'NOW hook omitted its header'
+  assert_contains "$out" 'The captain is moving house this week.' 'NOW hook omitted private current context'
+  assert_not_contains "$out" 'An old focus' 'NOW hook included expired context'
+  for guard in FM_TASK_ID=t1 FM_SUPERVISION_ACTOR=branch FM_MEMORY_CAPTURE_CHILD=1; do
+    out=$(run_env env "$guard" FM_ROOT_OVERRIDE="$fake_root" "$CAPTURE" now) || fail "NOW hook failed under $guard"
+    [ -z "$out" ] || fail "NOW hook leaked context under $guard"
+  done
+  out=$(run_env env -u FM_GATE_REFUSE_BYPASS NO_MISTAKES_GATE=1 FM_ROOT_OVERRIDE="$fake_root" "$CAPTURE" now) || fail 'gate NOW hook failed'
+  [ -z "$out" ] || fail 'NOW hook leaked context into a gate agent'
+  printf 'secondmate\n' > "$HOME_DIR/.fm-secondmate-home"
+  out=$(run_env env FM_ROOT_OVERRIDE="$fake_root" "$CAPTURE" now) || fail 'secondmate NOW hook failed'
+  [ -z "$out" ] || fail 'NOW hook leaked primary context into a secondmate'
+  rm "$HOME_DIR/.fm-secondmate-home"
+  out=$(run_env env FM_ROOT_OVERRIDE="$TMP_ROOT/not-primary" "$CAPTURE" now) || fail 'out-of-scope NOW hook failed'
+  [ -z "$out" ] || fail 'NOW hook leaked context outside primary scope'
+
+  command=$(jq -r '.hooks.SessionStart[1].hooks[0].command' "$ROOT/.claude/settings.json")
+  for source in startup resume compact clear; do
+    out=$(printf '{"source":"%s"}' "$source" | run_env env FM_ROOT_OVERRIDE="$fake_root" \
+      CLAUDE_PROJECT_DIR="$ROOT" bash -c "$command") || fail "registered NOW hook failed on $source"
+    assert_contains "$out" 'The captain is moving house this week.' "registered NOW hook omitted context on $source"
+    [ "${#out}" -lt 6500 ] || fail 'registered NOW hook exceeded its inline output budget'
+  done
+  assert_absent "$HOME_DIR/state/memory-capture" 'NOW delivery triggered extraction'
+  pass 'separate NOW hook delivers current private context only in primary scope on every SessionStart'
+}
+
+test_now_hook_delivers_current_context_only_in_primary_scope
 test_capture_filters_writes_and_verifies
 test_long_messages_reach_the_model_whole
 test_overlapping_boundary_is_drained

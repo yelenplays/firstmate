@@ -2687,12 +2687,21 @@ EOF
   assert_contains "$reemit" "FLEET STATE" "--reemit dropped the fleet-state digest"
   assert_contains "$reemit" "RECENT CAPTAIN WORDS" "--reemit dropped its bounded history section"
   assert_contains "$reemit" "Words retained for the next compact." "--reemit did not recover the captain's exact words"
-  assert_contains "$reemit" "NOW (current captain context" "--reemit dropped the now/ context block"
-  assert_contains "$reemit" "Release week focus (until 2999-01-01): The captain is shipping the memory capture this week." \
-    "--reemit did not print the current now/ entry"
-  assert_not_contains "$reemit" "A focus that ended long ago." "--reemit printed an expired now/ entry"
+  assert_not_contains "$reemit" "NOW (current captain context" "Claude digest duplicated the separate NOW hook"
+  assert_not_contains "$reemit" "The captain is shipping the memory capture this week." \
+    "Claude digest duplicated the current now/ entry"
   assert_contains "$reemit" "The compact can recover this reply." "--reemit did not recover its final reply"
   assert_contains "$reemit" "NEXT STEP" "--reemit dropped the closing reminder"
+
+  PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-memory.sh" remember \
+    --category now --expires 2999-01-01 --sensitivity private 'Private focus' 'Private context for Claude only.' >/dev/null \
+    || fail "seeding a private now/ entry failed"
+  reemit=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH" --reemit)
+  assert_contains "$reemit" "NOW (current captain context" "non-Claude digest dropped the now/ context block"
+  assert_contains "$reemit" "Release week focus (until 2999-01-01): The captain is shipping the memory capture this week." \
+    "non-Claude digest did not print the current now/ entry"
+  assert_not_contains "$reemit" "A focus that ended long ago." "non-Claude digest printed an expired now/ entry"
+  assert_not_contains "$reemit" "Private context for Claude only." "non-Claude digest leaked private context"
 
   pass "--reemit reprints the digest without repeating startup's mutating sweeps and still drains queued wakes"
 }

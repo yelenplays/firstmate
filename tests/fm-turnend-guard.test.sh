@@ -916,9 +916,9 @@ test_tracked_claude_entries_inert_under_grok() {
       -u GROK_WORKSPACE_ROOT \
       || fail "tracked entry for $target did not run under a native Claude environment"
     expected=$target
-    if [ "$target" = fm-memory-capture.sh ]; then
-      expected=$'fm-history.sh\nfm-memory-capture.sh'
-    fi
+    case "$cmd" in
+      *'hook precompact'*|*'hook sessionend'*) expected=$'fm-history.sh\nfm-memory-capture.sh' ;;
+    esac
     [ "$(cat "$dir/invoked")" = "$expected" ] \
       || fail "tracked entry for $target did not execute its scripts in order under Claude"
 
@@ -940,7 +940,7 @@ test_tracked_claude_entries_inert_under_grok() {
       || fail "tracked entry for $target ran under a legacy GROK_AGENT environment"
   done < <(jq -r '.hooks[][].hooks[].command' "$ROOT/.claude/settings.json")
 
-  [ "$guarded" -eq 9 ] || fail "expected 9 grok-guarded tracked entries, saw $guarded"
+  [ "$guarded" -eq 10 ] || fail "expected 10 grok-guarded tracked entries, saw $guarded"
   [ "$unguarded" -eq 1 ] || fail "expected 1 documented unguarded tracked entry, saw $unguarded"
   pass "tracked .claude/settings.json entries: $guarded inert under grok, the documented subagent exception still armed, all live under Claude"
 }
@@ -2200,6 +2200,11 @@ test_hook_no_afk_ignores_poll_derived_grace() {
   assert_contains "$out" "$REQUIRED_REASON" "block reason must contain the exact required instruction"
   pass "fm-turnend-guard: with away mode off, the poll-derived grace never applies"
 }
+
+if [ "${1:-}" = --tracked-claude-entries-only ]; then
+  test_tracked_claude_entries_inert_under_grok
+  exit $?
+fi
 
 test_predicate_healthy_no_inflight
 test_predicate_unhealthy_no_beacon

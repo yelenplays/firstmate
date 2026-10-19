@@ -95,12 +95,20 @@ pass "autocompact auto leaves Claude's own window setting alone"
 set_autocompact '# earlier compaction once memory capture runs
 200000'
 launch --continue || fail "autocompact 200000: launcher exited $?"
-expect_args "autocompact 200000" --autocompact 200000 --continue
-pass "a token count adds --autocompact before passed-through arguments"
+expect_args "autocompact 200000" --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"200000"}}' --continue
+pass "a token count adds inline settings before passed-through arguments"
 
 launch --autocompact 400000 || fail "caller autocompact: launcher exited $?"
 expect_args "caller autocompact" --autocompact 400000
-pass "a caller-supplied --autocompact wins over the config file"
+pass "a caller-supplied --autocompact owns the window arguments"
+
+launch --autocompact=400000 || fail "caller autocompact equals: launcher exited $?"
+expect_args "caller autocompact equals" --autocompact=400000
+launch --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"300000"}}' || fail "caller settings: launcher exited $?"
+expect_args "caller settings" --settings '{"env":{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"300000"}}'
+launch --settings=custom.json || fail "caller settings equals: launcher exited $?"
+expect_args "caller settings equals" --settings=custom.json
+pass "caller autocompact and settings in either form suppress home window settings"
 
 for bad in 'big' '99999' '1000001' '200k'; do
   set_autocompact "$bad"

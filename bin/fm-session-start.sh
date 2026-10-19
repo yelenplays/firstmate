@@ -76,10 +76,11 @@
 #                       follows with the pack's chat voice (bin/fm-theme.sh
 #                       digest), plus its banner on a fresh start; the built-in
 #                       default prints no THEME section at all.
-#                       Both slim and full digests then print the store's NOW
+#                       Non-Claude slim and full digests print the store's NOW
 #                       block when non-empty (bin/fm-memory.sh now owns its
-#                       size cap), excluding private entries unless the primary
-#                       harness is Claude. This stage is always read-only.
+#                       size cap), excluding private entries. Claude receives
+#                       NOW through its own SessionStart hook instead. This
+#                       stage is always read-only.
 #   9. closing reminder - prints the context-specific watcher next step; this
 #                       script points back to the emitted harness supervision
 #                       block and deliberately never arms the watcher itself.
@@ -1216,15 +1217,15 @@ if [ -n "$THEME_DIGEST" ]; then
 fi
 
 # Current, perishable captain context captured by bin/fm-memory-capture.sh.
-# Keyword recall misses implicit follow-ups, so this block rides along on every
-# digest, slim or full, using fm-memory.sh now's bounded presentation.
-NOW_ARGS=()
-[ "$PRIMARY_HARNESS" = claude ] || NOW_ARGS=(--exclude-private)
-NOW_BLOCK=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \
-  "$SCRIPT_DIR/fm-memory.sh" now ${NOW_ARGS[@]+"${NOW_ARGS[@]}"} 2>/dev/null || true)
-if [ -n "$NOW_BLOCK" ]; then
-  section "NOW (current captain context from the memory store now/ entries)"
-  printf '%s\n' "$NOW_BLOCK"
+# Claude gets this through a separate SessionStart hook so it is inlined even
+# when the digest is truncated. Other harnesses keep the bounded public block.
+if [ "$PRIMARY_HARNESS" != claude ]; then
+  NOW_BLOCK=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \
+    "$SCRIPT_DIR/fm-memory.sh" now --exclude-private 2>/dev/null || true)
+  if [ -n "$NOW_BLOCK" ]; then
+    section "NOW (current captain context from the memory store now/ entries)"
+    printf '%s\n' "$NOW_BLOCK"
+  fi
 fi
 
 if [ "$REEMIT" -eq 1 ]; then

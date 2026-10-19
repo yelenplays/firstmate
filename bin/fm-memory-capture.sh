@@ -3,6 +3,7 @@
 #
 # Usage:
 #   fm-memory-capture.sh hook <precompact|sessionend>
+#   fm-memory-capture.sh now
 #   fm-memory-capture.sh run [--trigger <name>] [--dry-run] [--after <day>/<captain-id>]
 #                            [--until-day <YYYY-MM-DD>] [--no-watermark]
 #   fm-memory-capture.sh status
@@ -16,6 +17,12 @@
 # no-mistakes gate, the supervision branch (FM_SUPERVISION_ACTOR), the
 # capture's own model child (FM_MEMORY_CAPTURE_CHILD), or a home whose
 # config/memory-capture says off. FM_MEMORY_CAPTURE=off disables it too.
+#
+# `now` is a separate Claude SessionStart hook on every source, including
+# compact: it prints only a header and the bounded current NOW entries, so
+# Claude can inline them instead of truncating them behind the startup digest.
+# It uses the same primary-session scope, but capture-disable settings do not
+# suppress already-captured context. An empty NOW store prints nothing.
 #
 # `run` explicitly processes the journal selected by FM_HOME; unlike `hook`,
 # it does not enforce primary-session scope or capture-disable settings.
@@ -67,6 +74,7 @@ usage() {
   cat >&2 <<'EOF'
 Usage:
   fm-memory-capture.sh hook <precompact|sessionend>
+  fm-memory-capture.sh now
   fm-memory-capture.sh run [--trigger <name>] [--dry-run] [--after <day>/<captain-id>]
                            [--until-day <YYYY-MM-DD>] [--no-watermark]
   fm-memory-capture.sh status
@@ -96,8 +104,16 @@ in_scope() {
   fm_is_gate_agent "$FM_ROOT" && return 1
   fm_root_is_secondmate_home "$FM_HOME" && return 1
   fm_primary_scope_matches "$FM_ROOT" "$STATE" || return 1
-  capture_disabled && return 1
   return 0
+}
+
+cmd_now() {
+  local block
+  [ $# -eq 0 ] || die "now takes no arguments"
+  in_scope || return 0
+  block=$("$SCRIPT_DIR/fm-memory.sh" now 2>/dev/null || true)
+  [ -n "$block" ] || return 0
+  printf 'NOW (current captain context from the memory store now/ entries)\n%s\n' "$block"
 }
 
 cmd_hook() {
@@ -108,6 +124,7 @@ cmd_hook() {
   esac
   [ -t 0 ] || cat >/dev/null 2>&1 || true
   in_scope || exit 0
+  capture_disabled && exit 0
   mkdir -p "$CAPTURE_DIR" 2>/dev/null || exit 0
   # shellcheck disable=SC2016 # Perl owns every $ expression in this literal program.
   perl -e 'defined(my $pid = fork) or exit 125;
@@ -247,6 +264,7 @@ esac
 shift
 case "$cmd" in
   hook) cmd_hook "$@" ;;
+  now) cmd_now "$@" ;;
   run) cmd_run "$@" ;;
   status) cmd_status "$@" ;;
   *) usage; die "unknown command: $cmd" ;;
