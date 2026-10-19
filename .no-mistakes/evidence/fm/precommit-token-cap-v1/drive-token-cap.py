@@ -1,158 +1,167 @@
-import os, pathlib, shutil, subprocess, json, hashlib
+"""Drive the shipped pre-commit hook through real Git commits; no mocked commands."""
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
 
-ROOT = pathlib.Path('/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M59J9NNKWR13QFB0B7EXFTWR')
-EVIDENCE = pathlib.Path('/Users/yelen/.no-mistakes/evidence/01M59J9NNKWR13QFB0B7EXFTWR')
-SCRATCH = ROOT / '.token-cap-validation/live'
-env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
-env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='Token Cap Live QA', GIT_AUTHOR_EMAIL='qa@example.invalid', GIT_COMMITTER_NAME='Token Cap Live QA', GIT_COMMITTER_EMAIL='qa@example.invalid')
-lines, results = [], []
+root = Path.cwd()
+base = root / '.token-cap-validation' / 'manual'
+base.mkdir(parents=True, exist_ok=True)
+env = dict(os.environ)
+for key in list(env):
+    if key.startswith('GIT_'):
+        env.pop(key)
+env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1',
+           GIT_AUTHOR_NAME='Token Cap Validation', GIT_AUTHOR_EMAIL='test@example.invalid',
+           GIT_COMMITTER_NAME='Token Cap Validation', GIT_COMMITTER_EMAIL='test@example.invalid')
 
-def git(repo, *args):
-    p = subprocess.run(['git', '-C', str(repo), *args], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    lines.append('$ git ' + ' '.join(repr(a) for a in args) + '\n' + p.stdout + f'[exit {p.returncode}]\n')
-    return p
-
-def must(repo, *args):
-    p = git(repo, *args)
-    assert p.returncode == 0, p.stdout
-    return p.stdout.strip()
-
-def repo(name):
-    r = SCRATCH / name
-    r.mkdir(parents=True)
-    must(r, 'init', '-q', '-b', 'main')
-    for path in ['.githooks/pre-commit', 'bin/fm-precommit-token-cap.sh']:
-        dst = r / path
-        dst.parent.mkdir(exist_ok=True)
-        shutil.copy2(ROOT / path, dst)
-        assert hashlib.sha256(dst.read_bytes()).digest() == hashlib.sha256((ROOT/path).read_bytes()).digest()
-    must(r, 'config', 'core.hooksPath', '.githooks')
-    return r
-
-def put(r, path, data):
-    p = r / path
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_bytes(data)
-    lines.append(f'write {path!r}: {len(data)} bytes\n')
-
-def commit(r, label, allowed, contains=(), seed=False):
-    prev = git(r, 'rev-parse', '--verify', 'HEAD').stdout.strip()
-    p = git(r, 'commit', *(['--no-verify'] if seed else []), '-m', label)
-    assert (p.returncode == 0) == allowed, f'{label}: unexpected exit {p.returncode}'
-    for text in contains:
-        assert text in p.stdout, (label, text, p.stdout)
-    after = git(r, 'rev-parse', '--verify', 'HEAD').stdout.strip()
-    if allowed:
-        assert after != prev
-        must(r, 'ls-tree', '-r', '-l', 'HEAD')
-    else:
-        assert after == prev
+def git(repo, *args, expected=0):
+    p = subprocess.run(['git', '-C', str(repo), *args], env=env,
+                       text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    print('$ git', *[repr(a) for a in args])
+    if p.stdout:
+        print(p.stdout, end='' if p.stdout.endswith('\n') else '\n')
+    print(f'[exit {p.returncode}]')
+    assert p.returncode == expected, (args, p.returncode, expected)
     return p.stdout
 
-def scenario(name, fn):
-    lines.append('\n=== ' + name + ' ===\n')
-    try:
-        fn()
-        results.append(dict(name=name, result='pass', live=True))
-    except Exception as e:
-        results.append(dict(name=name, result='fail', live=True, reason=str(e)))
-        lines.append('ASSERTION FAILURE: ' + repr(e) + '\n')
+def repo(name):
+    path = base / name
+    path.mkdir()
+    git(path, 'init', '-q', '-b', 'main')
+    for rel in ['bin/fm-precommit-token-cap.sh', '.githooks/pre-commit']:
+        dest = path / rel
+        dest.parent.mkdir(exist_ok=True)
+        shutil.copy2(root / rel, dest)
+    git(path, 'config', 'core.hooksPath', '.githooks')
+    return path
 
-def threshold():
-    r = repo('threshold')
-    put(r, 'at-limit.txt', b'x' * 20000)
-    must(r, 'add', 'at-limit.txt')
-    commit(r, '20000 bytes accepted on initial commit', True)
-    put(r, 'at-limit.txt', b'x' * 20001)
-    must(r, 'add', 'at-limit.txt')
-    commit(r, '20001 bytes refused', False, ['20001 bytes = 5001 tokens', 'How to split:', 'sibling files', 'thin entry point', 'split by heading'])
+def stage(repo, *names):
+    git(repo, 'add', '--', *names)
 
-def multibyte():
-    r = repo('multibyte')
-    put(r, 'unicode.txt', ('é' * 10001).encode())
-    must(r, 'add', 'unicode.txt')
-    commit(r, 'count bytes not characters', False, ['unicode.txt: 20002 bytes = 5001 tokens'])
+def commit(repo, message, refused=False):
+    old = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--verify', 'HEAD'],
+                         env=env, capture_output=True, text=True)
+    output = git(repo, 'commit', '-m', message, expected=1 if refused else 0)
+    new = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--verify', 'HEAD'],
+                         env=env, capture_output=True, text=True)
+    if refused:
+        assert old.stdout == new.stdout and old.returncode == new.returncode
+        assert 'precommit-token-cap:' in output
+        print('[HEAD unchanged after refusal]')
+    else:
+        assert old.stdout != new.stdout
+        print('[HEAD advanced]')
+    return output
 
-def staged():
-    r = repo('staged')
-    put(r, 'source.txt', b'x' * 21000)
-    must(r, 'add', 'source.txt')
-    put(r, 'source.txt', b'x')
-    commit(r, 'small working tree cannot hide large index', False, ['source.txt: 21000 bytes'])
-    must(r, 'add', 'source.txt')
-    put(r, 'source.txt', b'x' * 30000)
-    put(r, 'untracked.txt', b'x' * 30000)
-    commit(r, 'large unstaged and untracked content ignored', True)
-    assert must(r, 'cat-file', '-s', 'HEAD:source.txt') == '1'
+def put(repo, name, data):
+    path = repo / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
 
-def ratchet():
-    r = repo('ratchet')
-    put(r, 'legacy.sh', b'a' * 357000)
-    must(r, 'add', 'legacy.sh')
-    commit(r, 'preexisting oversized baseline', True, seed=True)
-    put(r, 'legacy.sh', b'b' * 357000)
-    must(r, 'add', 'legacy.sh')
-    commit(r, 'same size legacy edit accepted', True)
-    put(r, 'legacy.sh', b'b' * 356999)
-    must(r, 'add', 'legacy.sh')
-    commit(r, 'legacy shrink accepted', True)
-    put(r, 'legacy.sh', b'b' * 357000)
-    must(r, 'add', 'legacy.sh')
-    commit(r, 'one byte regrowth refused against latest HEAD', False, ['legacy.sh: 357000 bytes', 'grew from 356999 bytes'])
+print('SCENARIO: Exact byte boundary on an initial commit; refusal gives actionable split instructions; splitting succeeds')
+r = repo('boundary')
+put(r, 'exact.txt', b'a' * 20000)
+stage(r, 'exact.txt')
+commit(r, 'Accept exactly 5000 tokens on initial commit')
+put(r, 'new.txt', b'b' * 20001)
+stage(r, 'new.txt')
+out = commit(r, 'Refuse one byte above 5000 tokens', refused=True)
+assert 'new.txt: 20001 bytes = 5001 tokens (limit 5000)' in out
+assert all(s in out for s in ['1. Split along existing responsibility boundaries',
+    '2. Move helpers or sections into sibling files', '3. Keep a thin entry point',
+    '4. For documentation, split by heading'])
+git(r, 'rm', '--cached', '--', 'new.txt')
+(r / 'new.txt').unlink()
+put(r, 'split-one.txt', b'b' * 10000)
+put(r, 'split-two.txt', b'b' * 10001)
+stage(r, 'split-one.txt', 'split-two.txt')
+commit(r, 'Split oversized file into sibling files')
+print('RESULT: pass\n')
 
-def exemptions():
-    r = repo('exemptions')
-    put(r, 'package-lock.json', b'x' * 30000)
-    put(r, 'gen.go', b'// Code generated by QA. DO NOT EDIT.\n' + b'x' * 30000)
-    put(r, 'vendor.js', b'x' * 30000)
-    put(r, 'binary.dat', b'\x00' * 30000)
-    put(r, '.gitattributes', b'vendor.js linguist-vendored\n')
-    must(r, 'add', '.')
-    commit(r, 'generated lockfile vendored binary exemptions accepted', True)
-    put(r, 'authored.sh', b'x' * 30000)
-    must(r, 'add', 'authored.sh')
-    commit(r, 'unmarked authored file still blocked', False, ['authored.sh: 30000 bytes'])
+print('SCENARIO: Only staged bytes count in both directions, including multibyte text')
+put(r, 'not-staged.txt', b'z' * 35000)
+put(r, 'split-one.txt', b'x' * 26000)  # tracked but unstaged
+put(r, 'partial.txt', b's' * 1000)
+stage(r, 'partial.txt')
+put(r, 'partial.txt', b'q' * 24000)  # staged version remains small
+commit(r, 'Ignore oversized untracked and unstaged bytes')
+assert git(r, 'cat-file', '-s', 'HEAD:partial.txt').strip() == '1000'
+put(r, 'partial.txt', ('é' * 10000 + 'x').encode('utf-8'))
+stage(r, 'partial.txt')
+put(r, 'partial.txt', b'now small in worktree')
+out = commit(r, 'Refuse staged 20001 bytes despite small worktree', refused=True)
+assert 'partial.txt: 20001 bytes = 5001 tokens' in out
+git(r, 'reset', '-q', 'HEAD', '--', 'partial.txt')
+print('RESULT: pass\n')
 
-def fake_exemptions():
-    r = repo('fake-exemptions')
-    put(r, 'handwritten.py', b'# When updating, DO NOT EDIT the table below.\n' + b'x' * 21000)
-    must(r, 'add', 'handwritten.py')
-    put(r, '.gitattributes', b'handwritten.py linguist-generated -diff\n')
-    put(r, 'handwritten.py', b'# DO NOT EDIT\n' + b'x' * 21000)
-    commit(r, 'unstaged generated marker and attributes cannot bypass authored staged prose', False, ['handwritten.py:', 'How to split:'])
+print('SCENARIO: A legacy 357 KB file can be edited without growing or shrunk, but one-byte growth is rejected; deletion succeeds')
+r = repo('legacy')
+put(r, 'bin/legacy.sh', b'a' * 357000)
+stage(r, 'bin/legacy.sh')
+git(r, 'commit', '--no-verify', '-m', 'Seed pre-existing oversized file')
+put(r, 'bin/legacy.sh', b'b' * 357000)
+stage(r, 'bin/legacy.sh')
+commit(r, 'Allow same-size edit of legacy file')
+put(r, 'bin/legacy.sh', b'c' * 356999)
+stage(r, 'bin/legacy.sh')
+commit(r, 'Allow shrink of legacy file')
+put(r, 'bin/legacy.sh', b'c' * 357000)
+stage(r, 'bin/legacy.sh')
+out = commit(r, 'Reject one-byte growth of legacy file', refused=True)
+assert 'grew from 356999 bytes' in out
+git(r, 'rm', '-f', '--', 'bin/legacy.sh')
+commit(r, 'Allow deletion of legacy file')
+print('RESULT: pass\n')
 
-def renamed_and_deleted():
-    r = repo('rename-delete')
-    data = b''.join(f'line {i:06d} content\n'.encode() for i in range(2000))
-    put(r, 'old name.txt', data)
-    must(r, 'add', 'old name.txt')
-    commit(r, 'preexisting rename baseline', True, seed=True)
-    must(r, 'mv', 'old name.txt', 'new name.txt')
-    put(r, 'new name.txt', data + b'growth\n')
-    must(r, 'add', 'new name.txt')
-    must(r, 'diff', '--cached', '--summary')
-    commit(r, 'simultaneous rename and growth refused', False, ['new name.txt:', f'grew from {len(data)} bytes'])
-    put(r, 'new name.txt', data)
-    must(r, 'add', 'new name.txt')
-    commit(r, 'pure oversized rename accepted', True)
-    must(r, 'rm', 'new name.txt')
-    commit(r, 'oversized deletion accepted', True)
+print('SCENARIO: Rename plus growth in the same commit is rejected against the original path; a shrinking rename succeeds')
+r = repo('rename')
+original = (b'x' * 79 + b'\n') * 312
+put(r, 'old.txt', original)
+stage(r, 'old.txt')
+git(r, 'commit', '--no-verify', '-m', 'Seed existing oversized source')
+git(r, 'mv', '--', 'old.txt', 'renamed.txt')
+put(r, 'renamed.txt', original + b'y' * 80)
+stage(r, 'renamed.txt')
+raw = git(r, 'diff', '--cached', '--find-renames', '--name-status')
+assert raw.startswith('R'), raw
+out = commit(r, 'Reject simultaneous rename and growth', refused=True)
+assert 'renamed.txt: 25040 bytes' in out and 'grew from 24960 bytes' in out
+put(r, 'renamed.txt', original[:-80])
+stage(r, 'renamed.txt')
+commit(r, 'Allow simultaneous rename and shrink')
+print('RESULT: pass\n')
 
-def multiple():
-    r = repo('multiple')
-    put(r, 'file with spaces.txt', b'x' * 21000)
-    put(r, 'another\nfile.txt', b'y' * 22000)
-    must(r, 'add', '.')
-    commit(r, 'every failing filename listed', False, ['2 staged file(s)', 'file with spaces.txt: 21000 bytes', 'another\nfile.txt: 22000 bytes', 'How to split:'])
+print('SCENARIO: Real dependency/codegen/binary artifacts are exempt, but an incidental do-not-edit sentence cannot bypass the cap')
+r = repo('exemptions')
+put(r, 'package-lock.json', b'l' * 30000)
+put(r, 'generated.py', b'# DO NOT EDIT\n' + b'g' * 30000)
+put(r, 'generated.c', b'// Code generated by tool. DO NOT EDIT.\n' + b'g' * 30000)
+put(r, 'opaque.bin', b'\x00' * 30000)
+put(r, 'schema.gen', b'g' * 30000)
+put(r, '.gitattributes', b'*.gen linguist-generated=true\n')
+stage(r, 'package-lock.json', 'generated.py', 'generated.c', 'opaque.bin', 'schema.gen', '.gitattributes')
+commit(r, 'Accept large non-authored artifacts')
+put(r, 'authored.py', b'# When updating, do not edit the table below.\n' + b'a' * 21000)
+stage(r, 'authored.py')
+put(r, 'authored.py', b'# DO NOT EDIT\n' + b'a' * 21000)  # unstaged forged header
+put(r, '.gitattributes', b'*.py linguist-generated\n*.py -diff\n')  # unstaged forged exemption
+out = commit(r, 'Refuse incidental prose and unstaged exemptions', refused=True)
+assert 'authored.py: {} bytes'.format(len(b'# When updating, do not edit the table below.\n') + 21000) in out
+print('RESULT: pass\n')
 
-try:
-    must(ROOT, 'rev-parse', 'HEAD')
-    for name, fn in [('Exact byte threshold and actionable refusal', threshold), ('UTF-8 uses bytes rather than characters', multibyte), ('Only staged blobs count', staged), ('Legacy oversized files ratchet against latest HEAD', ratchet), ('Non-authored exemptions preserve authored guard', exemptions), ('Unstaged exemptions and incidental prose cannot bypass cap', fake_exemptions), ('Oversized rename growth and deletion', renamed_and_deleted), ('All failures including unusual filenames are reported', multiple)]:
-        scenario(name, fn)
-finally:
-    if SCRATCH.exists():
-        shutil.rmtree(SCRATCH)
-    (EVIDENCE / 'live-token-cap.log').write_text(''.join(lines))
-    (EVIDENCE / 'live-results.json').write_text(json.dumps(results, indent=2) + '\n')
-print(json.dumps(results, indent=2))
-assert len(results) == 8 and all(r['result'] == 'pass' for r in results)
+print('SCENARIO: Multiple failures with space/newline paths are all refused and reported')
+r = repo('paths')
+put(r, 'small.txt', b'')
+stage(r, 'small.txt')
+commit(r, 'Seed path handling repository')
+names = ['space name.txt', 'line\nbreak.txt', '-leading.txt']
+for name in names:
+    put(r, name, b'a' * 21000)
+stage(r, *names)
+out = commit(r, 'Refuse every oversized unusual path', refused=True)
+assert '3 staged file(s)' in out
+assert all(name + ': 21000 bytes' in out for name in names)
+print('RESULT: pass\n')
+print('All manual scenarios passed.')

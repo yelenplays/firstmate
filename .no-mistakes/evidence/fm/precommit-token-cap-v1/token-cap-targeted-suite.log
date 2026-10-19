@@ -1,3 +1,4 @@
+FM_TEST_BEGIN 2026-10-19T08:55:15Z tests/fm-precommit-token-cap.test.sh family=unclassified expected_gate_skip=none
 ok - a filename matching an attribute value does not exempt authored files
 ok - a new oversized staged file is refused with the full split message
 ok - an existing oversized file passes at the same size and when shrunk
@@ -9,9 +10,24 @@ ok - a generated marker on the first lines skips the cap; a plain file still ref
 ok - incidental do-not-edit prose does not exempt authored files
 ok - untracked and modified attributes cannot exempt staged authored files
 ok - .gitattributes linguist marks skip the cap; unmarked files still refuse
+ok - linguist-generated=true and linguist-vendored=true exempt oversized files
+ok - linguist-generated=false stays under the cap
+ok - diff-attribute-forced binary classification skips the cap; unmarked files still refuse
+ok - the text attribute never flips a NUL blob to text-only classification
+ok - a set diff attribute forces text classification, so the NUL blob stays under the cap
+ok - a named diff driver with diff.<driver>.binary=true skips the cap; unmarked files still refuse
+ok - diff.<driver>.binary=false forces text like a set diff attribute; the cap still refuses
+ok - an unconfigured diff driver falls back to git's NUL content heuristic
+ok - worktree-only attribute flips cannot reclassify staged forced-text files
+ok - worktree-only diff-driver assignments cannot exempt staged files
+ok - worktree-only binary attribute assignments cannot exempt staged files
 ok - renames ratchet against the source path's HEAD size
 ok - a staged deletion of an oversized file commits
 ok - the cap measures the index blob, never the working tree
 ok - oversized untracked files stay out of the verdict; staged files still fail
 ok - one message lists every failing file with its own token count
 # all fm-precommit-token-cap tests passed
+FM_TEST_END 2026-10-19T08:55:45Z tests/fm-precommit-token-cap.test.sh exit=0 duration_ms=29849 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=30011
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=29849 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-precommit-token-cap.test.sh duration_ms=29849

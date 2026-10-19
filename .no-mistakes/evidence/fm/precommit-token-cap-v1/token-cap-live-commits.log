@@ -1,0 +1,242 @@
+SCENARIO: Exact byte boundary on an initial commit; refusal gives actionable split instructions; splitting succeeds
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+$ git 'add' '--' 'exact.txt'
+[exit 0]
+$ git 'commit' '-m' 'Accept exactly 5000 tokens on initial commit'
+[main (root-commit) 8164ba0] Accept exactly 5000 tokens on initial commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 exact.txt
+[exit 0]
+[HEAD advanced]
+$ git 'add' '--' 'new.txt'
+[exit 0]
+$ git 'commit' '-m' 'Refuse one byte above 5000 tokens'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  new.txt: 20001 bytes = 5001 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+[HEAD unchanged after refusal]
+$ git 'rm' '--cached' '--' 'new.txt'
+rm 'new.txt'
+[exit 0]
+$ git 'add' '--' 'split-one.txt' 'split-two.txt'
+[exit 0]
+$ git 'commit' '-m' 'Split oversized file into sibling files'
+[main 6983a6b] Split oversized file into sibling files
+ 2 files changed, 2 insertions(+)
+ create mode 100644 split-one.txt
+ create mode 100644 split-two.txt
+[exit 0]
+[HEAD advanced]
+RESULT: pass
+
+SCENARIO: Only staged bytes count in both directions, including multibyte text
+$ git 'add' '--' 'partial.txt'
+[exit 0]
+$ git 'commit' '-m' 'Ignore oversized untracked and unstaged bytes'
+[main ccb4901] Ignore oversized untracked and unstaged bytes
+ 1 file changed, 1 insertion(+)
+ create mode 100644 partial.txt
+[exit 0]
+[HEAD advanced]
+$ git 'cat-file' '-s' 'HEAD:partial.txt'
+1000
+[exit 0]
+$ git 'add' '--' 'partial.txt'
+[exit 0]
+$ git 'commit' '-m' 'Refuse staged 20001 bytes despite small worktree'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  partial.txt: 20001 bytes = 5001 tokens (limit 5000) (grew from 1000 bytes = 250 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+[HEAD unchanged after refusal]
+$ git 'reset' '-q' 'HEAD' '--' 'partial.txt'
+[exit 0]
+RESULT: pass
+
+SCENARIO: A legacy 357 KB file can be edited without growing or shrunk, but one-byte growth is rejected; deletion succeeds
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+$ git 'add' '--' 'bin/legacy.sh'
+[exit 0]
+$ git 'commit' '--no-verify' '-m' 'Seed pre-existing oversized file'
+[main (root-commit) 96a107d] Seed pre-existing oversized file
+ 1 file changed, 1 insertion(+)
+ create mode 100644 bin/legacy.sh
+[exit 0]
+$ git 'add' '--' 'bin/legacy.sh'
+[exit 0]
+$ git 'commit' '-m' 'Allow same-size edit of legacy file'
+[main 2619c74] Allow same-size edit of legacy file
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[exit 0]
+[HEAD advanced]
+$ git 'add' '--' 'bin/legacy.sh'
+[exit 0]
+$ git 'commit' '-m' 'Allow shrink of legacy file'
+[main 2d47131] Allow shrink of legacy file
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[exit 0]
+[HEAD advanced]
+$ git 'add' '--' 'bin/legacy.sh'
+[exit 0]
+$ git 'commit' '-m' 'Reject one-byte growth of legacy file'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  bin/legacy.sh: 357000 bytes = 89250 tokens (limit 5000) (grew from 356999 bytes = 89249 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+[HEAD unchanged after refusal]
+$ git 'rm' '-f' '--' 'bin/legacy.sh'
+rm 'bin/legacy.sh'
+[exit 0]
+$ git 'commit' '-m' 'Allow deletion of legacy file'
+[main 92be3c0] Allow deletion of legacy file
+ 1 file changed, 1 deletion(-)
+ delete mode 100644 bin/legacy.sh
+[exit 0]
+[HEAD advanced]
+RESULT: pass
+
+SCENARIO: Rename plus growth in the same commit is rejected against the original path; a shrinking rename succeeds
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+$ git 'add' '--' 'old.txt'
+[exit 0]
+$ git 'commit' '--no-verify' '-m' 'Seed existing oversized source'
+[main (root-commit) f4f9696] Seed existing oversized source
+ 1 file changed, 312 insertions(+)
+ create mode 100644 old.txt
+[exit 0]
+$ git 'mv' '--' 'old.txt' 'renamed.txt'
+[exit 0]
+$ git 'add' '--' 'renamed.txt'
+[exit 0]
+$ git 'diff' '--cached' '--find-renames' '--name-status'
+R099	old.txt	renamed.txt
+[exit 0]
+$ git 'commit' '-m' 'Reject simultaneous rename and growth'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  renamed.txt: 25040 bytes = 6260 tokens (limit 5000) (grew from 24960 bytes = 6240 tokens at HEAD)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+[HEAD unchanged after refusal]
+$ git 'add' '--' 'renamed.txt'
+[exit 0]
+$ git 'commit' '-m' 'Allow simultaneous rename and shrink'
+[main 9eda04a] Allow simultaneous rename and shrink
+ 1 file changed, 1 deletion(-)
+ rename old.txt => renamed.txt (99%)
+[exit 0]
+[HEAD advanced]
+RESULT: pass
+
+SCENARIO: Real dependency/codegen/binary artifacts are exempt, but an incidental do-not-edit sentence cannot bypass the cap
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+$ git 'add' '--' 'package-lock.json' 'generated.py' 'generated.c' 'opaque.bin' 'schema.gen' '.gitattributes'
+[exit 0]
+$ git 'commit' '-m' 'Accept large non-authored artifacts'
+[main (root-commit) e3e37f2] Accept large non-authored artifacts
+ 6 files changed, 7 insertions(+)
+ create mode 100644 .gitattributes
+ create mode 100644 generated.c
+ create mode 100644 generated.py
+ create mode 100644 opaque.bin
+ create mode 100644 package-lock.json
+ create mode 100644 schema.gen
+[exit 0]
+[HEAD advanced]
+$ git 'add' '--' 'authored.py'
+[exit 0]
+$ git 'commit' '-m' 'Refuse incidental prose and unstaged exemptions'
+precommit-token-cap: 1 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  authored.py: 21046 bytes = 5262 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+[HEAD unchanged after refusal]
+RESULT: pass
+
+SCENARIO: Multiple failures with space/newline paths are all refused and reported
+$ git 'init' '-q' '-b' 'main'
+[exit 0]
+$ git 'config' 'core.hooksPath' '.githooks'
+[exit 0]
+$ git 'add' '--' 'small.txt'
+[exit 0]
+$ git 'commit' '-m' 'Seed path handling repository'
+[main (root-commit) a8c2052] Seed path handling repository
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 small.txt
+[exit 0]
+[HEAD advanced]
+$ git 'add' '--' 'space name.txt' 'line\nbreak.txt' '-leading.txt'
+[exit 0]
+$ git 'commit' '-m' 'Refuse every oversized unusual path'
+precommit-token-cap: 3 staged file(s) exceed the 5000-token limit (tokens = bytes/4)
+
+  -leading.txt: 21000 bytes = 5250 tokens (limit 5000)
+  line
+break.txt: 21000 bytes = 5250 tokens (limit 5000)
+  space name.txt: 21000 bytes = 5250 tokens (limit 5000)
+
+How to split:
+  1. Split along existing responsibility boundaries - one concern per file.
+  2. Move helpers or sections into sibling files with the same naming convention.
+  3. Keep a thin entry point that sources or imports them, then update references and tests.
+  4. For documentation, split by heading into linked pages.
+
+An already-oversized existing file only has to stop growing: staging it at the same size or smaller passes, and splitting or shrinking it still helps.
+[exit 1]
+[HEAD unchanged after refusal]
+RESULT: pass
+
+All manual scenarios passed.
