@@ -7,6 +7,7 @@ read from ~/.config/<name>.key at call time and never printed, logged or stored.
 The ledger and the route cache never hold query text.
 """
 import contextlib, fcntl, hashlib, json, os, re, signal, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+from datetime import datetime
 from http.client import HTTPException
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -85,8 +86,23 @@ def key(name):
         return None
 
 
+def normalize_date(value):
+    if not value:
+        return ""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        pass
+    for fmt in ("%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            pass
+    return ""
+
+
 def norm(title, url, date, text):
-    return {"title": (title or "").strip(), "url": url or "", "date": (date or "")[:10],
+    return {"title": (title or "").strip(), "url": url or "", "date": normalize_date(date),
             "snippet": re.sub(r"^Published: \S+ ?", "", " ".join((text or "").split()))}
 
 
