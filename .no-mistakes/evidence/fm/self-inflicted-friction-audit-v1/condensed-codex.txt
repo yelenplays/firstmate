@@ -1,0 +1,14 @@
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Supervision host: on; it takes away-posture wakes and, where the dialog mirror is verified, eligible attended wakes itself, and hands the rest to you (protocol at the end of this block).
+- Ordinary wake: take the next foreground bin/fm-watch-checkpoint.sh checkpoint as directed below.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard, supervision host): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness codex --read-only 0 --afk 0 --afk-mode away --x-mode 0

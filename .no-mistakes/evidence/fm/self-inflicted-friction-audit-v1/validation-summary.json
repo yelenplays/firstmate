@@ -1,0 +1,9 @@
+{
+  "busy_compact_bytes": 6770,
+  "rules_before_wake_queue": true,
+  "detail_recovered": true,
+  "printed_ack_executed_and_queue_empty": true,
+  "herdr_teardown_exit_zero": true,
+  "visual_evidence": "Not applicable: executable CLI and generated agent-instruction output; no rendered UI changed.",
+  "baseline_note": "Initial compact-budget batch exceeded 240-second tool limit after Claude ASCII, Claude multilingual and Pi succeeded. Exact test-owned child PIDs terminated; remaining OMP case and separate-detail retention rerun successfully. Initial lab prepare/provision ownership refusal fixed using the helper provision contract; final provision/run/teardown succeeded. Process sampling was initially too short-lived; giving tasks real owned work directories exercised pane reads and proved concurrent per-task probes without stubs."
+}

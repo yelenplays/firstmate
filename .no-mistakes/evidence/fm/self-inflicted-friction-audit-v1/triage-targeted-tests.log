@@ -1,0 +1,4 @@
+ok - eligible tasks probe crew state and holds concurrently, and a probe cap keeps every verdict in order
+ok - terminal and parked tasks are never auto-acknowledged
+ok - open decisions, declared pauses, and captain holds prevent auto-ack
+ok - malformed queue rows remain visible and prevent auto-ack

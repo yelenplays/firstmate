@@ -1,0 +1,30 @@
+WAKE TRIAGE: 8 row(s), 4 task(s): 4 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792530726	4	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530726	5	signal	exited-1.status	signal: exited-1.status changed
+1792530726	6	signal	exited-2.status	signal: exited-2.status changed
+1792530726	7	signal	exited-3.status	signal: exited-3.status changed
+1792530727	8	signal	exited-4.status	signal: exited-4.status changed
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-1.status: working: implementation had started before agent exit
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-2.status: working: implementation had started before agent exit
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-3.status: working: implementation had started before agent exit
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-4.status: working: implementation had started before agent exit
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792530724	1	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530725	2	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530725	3	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+ACT NOW:
+- - C2 stale identity is not exact
+  crew: 
+exited-1 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+exited-2 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+exited-3 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+exited-4 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 22855.1792530725.IQqcCR

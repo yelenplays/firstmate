@@ -1,0 +1,128 @@
+$ fm-cd-pretool-check.sh --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf'
+exit=0
+stdout=
+stderr=
+Executed permitted command; resulting cwd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf
+$ fm-cd-pretool-check.sh --command 'cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf'
+exit=0
+stdout=
+stderr=
+Executed permitted command; resulting cwd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf
+$ fm-cd-pretool-check.sh --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf/bin/..'
+exit=0
+stdout=
+stderr=
+Executed permitted command; resulting cwd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf
+$ fm-cd-pretool-check.sh --command 'command cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf/home-alias'
+exit=0
+stdout=
+stderr=
+Executed permitted command; resulting cwd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf
+$ fm-cd-pretool-check.sh --command 'cd projects/foo'
+exit=2
+stdout={"decision":"deny","reason":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+$ fm-cd-pretool-check.sh --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf/bin'
+exit=2
+stdout={"decision":"deny","reason":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+$ fm-cd-pretool-check.sh --command 'cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf && cd projects/foo'
+exit=2
+stdout={"decision":"deny","reason":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell. Retry in one step as: (cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf && cd projects/foo)"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell. Retry in one step as: (cd -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf && cd projects/foo)"}
+
+$ fm-cd-pretool-check.sh --command 'cd -P /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf'
+exit=2
+stdout={"decision":"deny","reason":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+$ fm-cd-pretool-check.sh --command 'cd "$FM_HOME"'
+exit=2
+stdout={"decision":"deny","reason":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+$ fm-cd-pretool-check.sh --command 'pushd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/guard-n1pp0fvf'
+exit=2
+stdout={"decision":"deny","reason":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+$ fm-arm-pretool-check.sh --command 'for f in bin/fm-watch.sh bin/fm-send.sh; do git cat-file -s HEAD:$f; done'
+exit=0
+stdout=
+stderr=
+Executed permitted read; output: 201383
+64127
+
+$ fm-arm-pretool-check.sh --command 'wc -l bin/fm-watch.sh'
+exit=0
+stdout=
+stderr=
+Executed permitted read; output:     3889 bin/fm-watch.sh
+
+$ fm-arm-pretool-check.sh --command 'grep -n -m 1 "#!/" bin/fm-watch.sh'
+exit=0
+stdout=
+stderr=
+Executed permitted read; output: 1:#!/usr/bin/env bash
+
+$ fm-arm-pretool-check.sh --command 'cat bin/fm-watch.sh >/dev/null'
+exit=0
+stdout=
+stderr=
+Executed permitted read; output: 
+$ fm-arm-pretool-check.sh --command 'while read -r f; do echo "$f" >/dev/null; done < bin/fm-watch.sh'
+exit=0
+stdout=
+stderr=
+Executed permitted read; output: 
+$ fm-arm-pretool-check.sh --command 'bin/fm-watch.sh'
+exit=2
+stdout={"decision":"deny","reason":"[watcher-direct] bin/fm-watch.sh must not be run directly; arm the watcher with bin/fm-watch-arm.sh or run bin/fm-watch-checkpoint.sh instead"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[watcher-direct] bin/fm-watch.sh must not be run directly; arm the watcher with bin/fm-watch-arm.sh or run bin/fm-watch-checkpoint.sh instead"}
+
+$ fm-arm-pretool-check.sh --command 'bin/fm-watch-arm.sh &'
+exit=2
+stdout={"decision":"deny","reason":"[watcher-background] a protected watcher command cannot run in an asynchronous shell list or through nohup/disown"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[watcher-background] a protected watcher command cannot run in an asynchronous shell list or through nohup/disown"}
+
+$ fm-arm-pretool-check.sh --command 'pkill -f bin/fm-watch.sh'
+exit=2
+stdout={"decision":"deny","reason":"[broad-watcher-kill] a broad process kill targeting the firstmate watcher is forbidden"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[broad-watcher-kill] a broad process kill targeting the firstmate watcher is forbidden"}
+
+$ fm-arm-pretool-check.sh --command 'for f in bin/fm-watch.sh; do bash "$f"; done'
+exit=2
+stdout={"decision":"deny","reason":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --command 'for f in bin/fm-watch.sh; do cat "$f" | sh; done'
+exit=2
+stdout={"decision":"deny","reason":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --command 'for f in bin/fm-watch.sh; do echo "${BASH_CMDS[cat]:=$f}"; cat; done'
+exit=2
+stdout={"decision":"deny","reason":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --command 'for f in bin/fm-watch.sh; do git diff --ext-diff; done'
+exit=2
+stdout={"decision":"deny","reason":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+stderr={"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+All permitted home returns and data reads executed; all unsafe candidates were refused without execution.

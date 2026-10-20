@@ -1,0 +1,373 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home
+
+exit=0
+$ bin/fm-herdr-lab.sh provision fm-lab-friction-test-45194-21092
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-friction-test-45194-21092 workspace create --label friction-lab --cwd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0 --no-focus
+{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0","focused":true,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":40},"tab_id":"w1:t1","terminal_id":"term_65e4c14ef21c41","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"friction-lab","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}
+
+exit=0
+Workspace response saved; extracting the exact created pane.
+$ bash -c bin/fm-send.sh exited-1 "retain this steer for recovery" 2>/dev/null
+recorded-not-delivered: exited-1 agent in fm-lab-friction-test-45194-21092:w1:p1 has exited; record /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/exited-1.inbox/001.msg waits for recovery (stuck-crewmate-recovery); the watcher raises one stale wake and will not re-ring; do not resend
+
+exit=0
+$ bin/fm-herdr-lab.sh run fm-lab-friction-test-45194-21092 pane read w1:p1 --source visible --format text
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append stale "$1" "stale: $1" _ fm-lab-friction-test-45194-21092:w1:p1
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append stale "$1" "stale: $1" _ fm-lab-friction-test-45194-21092:w1:p1
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append stale "$1" "stale: $1" _ fm-lab-friction-test-45194-21092:w1:p1
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append stale "$1" "stale: $1" _ fm-lab-friction-test-45194-21092:w1:p1
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "signal: $1.status changed" _ exited-1
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "signal: $1.status changed" _ exited-2
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "signal: $1.status changed" _ exited-3
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "signal: $1.status changed" _ exited-4
+
+exit=0
+$ bin/fm-wake-triage.sh
+WAKE TRIAGE: 8 row(s), 4 task(s): 4 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792530726	4	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530726	5	signal	exited-1.status	signal: exited-1.status changed
+1792530726	6	signal	exited-2.status	signal: exited-2.status changed
+1792530726	7	signal	exited-3.status	signal: exited-3.status changed
+1792530727	8	signal	exited-4.status	signal: exited-4.status changed
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-1.status: working: implementation had started before agent exit
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-2.status: working: implementation had started before agent exit
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-3.status: working: implementation had started before agent exit
+wake annotation: latest wake-EVENT observed at drain, not current state: exited-4.status: working: implementation had started before agent exit
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792530724	1	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530725	2	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530725	3	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+ACT NOW:
+- - C2 stale identity is not exact
+  crew: 
+exited-1 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+exited-2 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+exited-3 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+exited-4 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 22855.1792530725.IQqcCR
+
+exit=0
+$ bin/fm-session-start.sh --reemit --source compact
+RE-EMIT CUE: if this output ends with "Output too large ... Full output saved to <path>",
+read that whole file now, before acting.
+
+SESSION START (CONTEXT RE-EMIT, COMPACT) - /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home
+This session holds the helm and lost only its context: the lock is re-verified and
+queued wakes are drained below; startup sweeps are not repeated (see READ-ONCE CONTRACT).
+
+LOCK
+lock acquired: harness pid 90684
+PI_WATCH_EXTENSION: not loaded - approve Pi project trust, then restart plain pi in this home for turn-end guard and background wake coverage; --full prints explicit extension paths.
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: pi (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Ordinary wake: the Pi extension already owns watcher continuity; do not arm another cycle.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness pi --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+CURRENT AGENTS.md - INSTRUCTION REFRESH
+The cached instruction contract is stale or unverified. Before acting, read the complete current contract:
+INSTRUCTION_REFRESH_REQUIRED: cat -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/AGENTS.md
+
+HOME ROLE
+fm-role: user (default)
+
+BOOTSTRAP
+(silent - all good)
+
+WAKE QUEUE
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+1792530726	4	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530726	5	signal	exited-1.status	signal: exited-1.status changed
+1792530726	6	signal	exited-2.status	signal: exited-2.status changed
+1792530726	7	signal	exited-3.status	signal: exited-3.status changed
+1792530727	8	signal	exited-4.status	signal: exited-4.status changed
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 22855.1792530725.IQqcCR
+
+READ-ONCE CONTRACT
+Uncut wake queue and bootstrap text: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/reemit-detail/20261020T211219Z-39078.txt
+This compact digest is cut to fit inline: nothing it omitted or shortened was lost.
+Full report, once, only if this turn needs it: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-session-start.sh --reemit --source compact --full
+One source: bin/fm-tasks-axi.sh list, state/<id>.meta, state/<id>.status, data/captain.md,
+data/learnings.md, data/projects.md. A STARTUP TRUNCATED banner names any stage that never ran.
+
+FLEET STATE
+
+Work under way (state/*.meta; last status is event history, not current state)
+exited-1: endpoint alive (herdr); last status: working: implementation had started before agent exit
+exited-2: endpoint alive (herdr); last status: working: implementation had started before agent exit
+exited-3: endpoint alive (herdr); last status: working: implementation had started before agent exit
+exited-4: endpoint alive (herdr); last status: working: implementation had started before agent exit
+
+Orphan status logs (state/*.status without matching .meta)
+(none)
+
+AFK
+absent
+
+NETWORK CHECKS
+completed off the startup path in 1s: GitHub authentication.
+(silent - no problems found)
+
+CONTEXT
+omitted: data/projects.md, data/secondmates.md, data/captain.md, data/captain-shared.md, data/learnings.md (--full prints them).
+
+RECENT CAPTAIN WORDS
+(no captain conversations captured yet; journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/data/history/days/)
+
+NEXT STEP
+Follow the supervision operating instructions block above for harness 'pi'.
+This script never starts supervision itself.
+
+The digest above is complete for this session start. The READ-ONCE CONTRACT
+section near the top of it governs what may still be read from disk.
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "$2" _ busy-1 OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "$2" _ busy-2 OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+
+exit=0
+$ bash -c . bin/fm-wake-lib.sh; fm_wake_append signal "$1.status" "$2" _ busy-3 OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+
+exit=0
+$ bin/fm-session-start.sh --reemit --source compact
+RE-EMIT CUE: if this output ends with "Output too large ... Full output saved to <path>",
+read that whole file now, before acting.
+
+SESSION START (CONTEXT RE-EMIT, COMPACT) - /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home
+This session holds the helm and lost only its context: the lock is re-verified and
+queued wakes are drained below; startup sweeps are not repeated (see READ-ONCE CONTRACT).
+
+LOCK
+lock acquired: harness pid 90684
+PI_WATCH_EXTENSION: not loaded - approve Pi project trust, then restart plain pi in this home for turn-end guard and background wake coverage; --full prints explicit extension paths.
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: pi (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Ordinary wake: the Pi extension already owns watcher continuity; do not arm another cycle.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness pi --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+CURRENT AGENTS.md - INSTRUCTION REFRESH
+The cached instruction contract is stale or unverified. Before acting, read the complete current contract:
+INSTRUCTION_REFRESH_REQUIRED: cat -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/AGENTS.md
+
+HOME ROLE
+fm-role: user (default)
+
+BOOTSTRAP
+(silent - all good)
+
+WAKE QUEUE
+OPEN DECISIONS (11 still open, folded from the durable status logs - not just the latest line):
+busy-1 [key=live-decision-3] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認 [truncated]
+busy-1 [key=live-decision-6] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認 [truncated]
+busy-1 [key=live-decision-9] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認 [truncated]
+(33 more line(s) cut from the compact digest; full: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/reemit-detail/20261020T211240Z-67297.txt)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 22855.1792530725.IQqcCR
+
+READ-ONCE CONTRACT
+Uncut wake queue and bootstrap text: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/reemit-detail/20261020T211240Z-67297.txt
+This compact digest is cut to fit inline: nothing it omitted or shortened was lost.
+Full report, once, only if this turn needs it: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-session-start.sh --reemit --source compact --full
+One source: bin/fm-tasks-axi.sh list, state/<id>.meta, state/<id>.status, data/captain.md,
+data/learnings.md, data/projects.md. A STARTUP TRUNCATED banner names any stage that never ran.
+
+FLEET STATE
+
+Work under way (state/*.meta; last status is event history, not current state)
+busy-1: endpoint alive (herdr); last status: needs-decision [key=live-decision-9]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確 [truncated]
+busy-10: endpoint alive (herdr); last status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-11: endpoint alive (herdr); last status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-12: endpoint alive (herdr); last status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-13: endpoint alive (herdr); last status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-2: endpoint alive (herdr); last status: needs-decision [key=live-decision-10]: OVERSIZED_LIVE_PAYLOAD 請選擇方案， [truncated]
+busy-3: endpoint alive (herdr); last status: needs-decision [key=live-decision-11]: OVERSIZED_LIVE_PAYLOAD 請選擇方案， [truncated]
+busy-4: endpoint alive (herdr); last status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作 [truncated]
+(9 more line(s) cut from the compact digest; full: state/<id>.meta and state/<id>.status)
+
+Orphan status logs (state/*.status without matching .meta)
+(none)
+
+AFK
+absent
+
+NETWORK CHECKS
+completed off the startup path in 2s: GitHub authentication.
+(silent - no problems found)
+
+CONTEXT
+omitted: data/projects.md, data/secondmates.md, data/captain.md, data/captain-shared.md, data/learnings.md (--full prints them).
+
+RECENT CAPTAIN WORDS
+(no captain conversations captured yet; journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/data/history/days/)
+
+NEXT STEP
+Follow the supervision operating instructions block above for harness 'pi'.
+This script never starts supervision itself.
+
+The digest above is complete for this session start. The READ-ONCE CONTRACT
+section near the top of it governs what may still be read from disk.
+
+exit=0
+$ cat /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/.test-tmp/live-home/state/reemit-detail/20261020T211240Z-67297.txt
+== WAKE QUEUE ==
+1792530726	4	stale	fm-lab-friction-test-45194-21092:w1:p1	stale: fm-lab-friction-test-45194-21092:w1:p1
+1792530726	5	signal	exited-1.status	signal: exited-1.status changed
+1792530726	6	signal	exited-2.status	signal: exited-2.status changed
+1792530726	7	signal	exited-3.status	signal: exited-3.status changed
+1792530727	8	signal	exited-4.status	signal: exited-4.status changed
+1792530757	9	signal	busy-1.status	OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+1792530757	10	signal	busy-2.status	OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+1792530758	11	signal	busy-3.status	OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 22855.1792530725.IQqcCR
+wake annotation: unread wake-EVENT since last drain, not current state: busy-1.status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-1.status: needs-decision [key=live-decision-3]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-1.status: needs-decision [key=live-decision-6]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: latest wake-EVENT observed at drain, not current state: busy-1.status: needs-decision [key=live-decision-9]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-2.status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-2.status: needs-decision [key=live-decision-1]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-2.status: needs-decision [key=live-decision-4]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-2.status: needs-decision [key=live-decision-7]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: latest wake-EVENT observed at drain, not current state: busy-2.status: needs-decision [key=live-decision-10]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-3.status: working: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-3.status: needs-decision [key=live-decision-2]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-3.status: needs-decision [key=live-decision-5]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: unread wake-EVENT since last drain, not current state: busy-3.status: needs-decision [key=live-decision-8]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+wake annotation: latest wake-EVENT observed at drain, not current state: busy-3.status: needs-decision [key=live-decision-11]: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。
+OPEN DECISIONS (11 still open, folded from the durable status logs - not just the latest line):
+busy-1 [key=live-decision-3] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-1 [key=live-decision-6] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-1 [key=live-decision-9] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-2 [key=live-decision-1] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-2 [key=live-decision-4] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-2 [key=live-decision-7] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-2 [key=live-decision-10] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認 [truncated]
+busy-3 [key=live-decision-2] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-3 [key=live-decision-5] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-3 [key=live-decision-8] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實 [truncated]
+busy-3 [key=live-decision-11] needs-decision: OVERSIZED_LIVE_PAYLOAD 請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認實作狀態。請選擇方案，確認 [truncated]
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+
+exit=0
+$ bash -c bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 22855.1792530725.IQqcCR
+
+exit=0
+$ bin/fm-supervision-instructions.sh --harness claude --state-only
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: claude (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Supervision host: on; it takes away-posture wakes and, where the dialog mirror is verified, eligible attended wakes itself, and hands the rest to you (protocol at the end of this block).
+- Ordinary wake: the Stop-owned auto-arm (bin/fm-claude-stop-autoarm.sh) already owns watcher continuity; run bin/fm-wake-triage.sh and handle the wake, and do not arm another cycle yourself.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard, supervision host): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness claude --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+exit=0
+$ bin/fm-supervision-instructions.sh --harness pi --state-only
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: pi (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Ordinary wake: the Pi extension already owns watcher continuity; do not arm another cycle.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness pi --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+exit=0
+$ bin/fm-supervision-instructions.sh --harness omp --state-only
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: omp (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Supervision host: on; it takes away-posture wakes and, where the dialog mirror is verified, eligible attended wakes itself, and hands the rest to you (protocol at the end of this block).
+- Ordinary wake: the omp extension already owns watcher continuity; do not arm another cycle.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard, supervision host): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness omp --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+exit=0
+$ bin/fm-supervision-instructions.sh --harness codex --state-only
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Supervision host: on; it takes away-posture wakes and, where the dialog mirror is verified, eligible attended wakes itself, and hands the rest to you (protocol at the end of this block).
+- Ordinary wake: take the next foreground bin/fm-watch-checkpoint.sh checkpoint as directed below.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard, supervision host): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-supervision-instructions.sh --harness codex --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+exit=0
+Live script checks passed. Busy multilingual compact output: 6770 bytes; full detail recovered and printed acknowledgement cleared queue.
+$ bin/fm-herdr-lab.sh teardown fm-lab-friction-test-45194-21092
+
+exit=0

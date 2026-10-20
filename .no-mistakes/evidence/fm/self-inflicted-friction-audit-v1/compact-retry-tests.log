@@ -1,0 +1,2 @@
+ok - the omp compact re-emit stays under the inline hook limit (8450 bytes), supervision first, cut text kept
+ok - each compact re-emit keeps its uncut text in its own file and only the newest 8 are kept

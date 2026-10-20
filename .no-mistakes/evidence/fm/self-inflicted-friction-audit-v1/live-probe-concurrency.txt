@@ -1,0 +1,14 @@
+Peak simultaneously observed real crew-state processes: 13
+34360 25806 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-1
+34580 25806 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-2
+34899 25806 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-3
+35326 25806 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-4
+35730 34360 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-1
+36161 34580 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-2
+36499 36161 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-2
+36563 36499 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-2
+36672 34899 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-3
+36937 35326 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-4
+36948 36672 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-3
+36977 36948 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-3
+37065 36937 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DHR1T6KYVV9PN7CDD65ME0/bin/fm-crew-state.sh exited-4

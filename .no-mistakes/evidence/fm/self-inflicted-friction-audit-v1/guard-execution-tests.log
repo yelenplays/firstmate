@@ -1,0 +1,7 @@
+ok - cd-guard: literal option terminator allows only a resolved home target across five harnesses
+ok - compound external diff cannot execute through the arm guard
+ok - execution-capable Git modes stay outside the compound exception
+ok - compound cat-file size probe reads watcher data without executing it
+ok - assigning expansions cannot execute a watcher through the compound read-only exception
+ok - printf cannot assign a variable to execute a watcher through the compound read-only exception
+ok - plain parameter references stay inside the compound read-only exception
