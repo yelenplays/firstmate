@@ -48,9 +48,13 @@
 #                       (bin/fm-branch-outcome.sh seed-tail).
 #                       An optional ACT FIRST priority list follows it (note below).
 #   4. supervision-instructions - the one emitted operating block for the
-#                       detected primary harness. A slim compact re-emit moves
-#                       this immediately after the lock, using current state,
-#                       condensed rules, and a command for the full block.
+#                       detected primary harness, then, for a non-Claude
+#                       primary, the uncut CAPTAIN RULES block (bin/fm-rules.sh
+#                       render) on full and compact digests alike. Claude gets
+#                       the same block from its own SessionStart hook. A slim
+#                       compact re-emit moves both immediately after the lock,
+#                       using current state, condensed supervision rules, and
+#                       a command for the full supervision block.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
 #   6. fleet digest   - on a full digest, a compact data/backlog.md
@@ -923,6 +927,17 @@ print_supervision_stage() {
     --afk-mode "$AFK_MODE" \
     --x-mode "$X_MODE_PRESENT" $SUPERVISION_STATE_ONLY
 
+  # Standing corrections are never cut or condensed, including in the slim
+  # digest: emit them immediately after supervision, before variable-size
+  # sections. docs/captain-rules.md owns the contract.
+  if [ "$PRIMARY_HARNESS" != claude ]; then
+    CAPTAIN_RULES_BLOCK=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-rules.sh" render 2>/dev/null || true)
+    if [ -n "$CAPTAIN_RULES_BLOCK" ]; then
+      section "CAPTAIN RULES"
+      printf '%s\n' "$CAPTAIN_RULES_BLOCK"
+    fi
+  fi
 }
 # --- 1. lock -----------------------------------------------------------
 stage lock

@@ -2220,6 +2220,12 @@ Nothing in the file is tracked or seeded; the captain's home writes it locally.
 A missing file, a missing heading, or a row without the token renders nothing and is not an error; a malformed or repeated token stops the scaffold with a message naming the row.
 `config/business-facts.md` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract, so a secondmate's own briefs for the same business carry the same block; secondmate charters carry none.
 
+## Captain rules (config/captain-rules.md)
+
+Gitignored `config/captain-rules.md` holds the captain's standing corrections, written only through [`bin/fm-rules.sh`](../bin/fm-rules.sh); [`docs/captain-rules.md`](captain-rules.md) owns the contract.
+`bin/fm-brief.sh` copies the rules into every ship and scout brief as a `# Captain rules` section after the task and any business facts, and the file is inherited into secondmate homes like `config/business-facts.md`.
+`FM_RULES_MAX_CHARS` bounds the always-loaded block (default 6000 characters).
+
 ## Cross-family review
 
 Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, preservation of recorded unknown builder history, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns family resolution, including recognized gateway model namespaces and legacy family aliases.

@@ -661,6 +661,16 @@ if [ "$KIND" != secondmate ]; then
 
 '"$BUSINESS_FACTS_SECTION"
 fi
+# Captain rules (bin/fm-rules.sh, docs/captain-rules.md): the same standing
+# corrections the primary session follows. No rules render nothing.
+CAPTAIN_RULES_SECTION=
+if [ "$KIND" != secondmate ]; then
+  CAPTAIN_RULES_SECTION=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \
+    "$SCRIPT_DIR/fm-rules.sh" brief-section 2>/dev/null || true)
+  [ -z "$CAPTAIN_RULES_SECTION" ] || CAPTAIN_RULES_SECTION=$'
+
+'"$CAPTAIN_RULES_SECTION"
+fi
 if WIKI_ROOT=$(fm_wiki_root "$CONFIG"); then
   WIKI_CONTEXT_SECTION=$(fm_wiki_context_section "$WIKI_ROOT" "$REPO" "$DATA/projects.md" 2>/dev/null) ||
     WIKI_CONTEXT_SECTION="# Wiki context
@@ -736,7 +746,7 @@ fi
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
-$TASK_SECTION$BUSINESS_FACTS_SECTION
+$TASK_SECTION$BUSINESS_FACTS_SECTION$CAPTAIN_RULES_SECTION
 
 $HERDR_SECTION$WIKI_CONTEXT_SECTION
 
@@ -815,7 +825,7 @@ DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE_BRANCH" "$UPSTREAM_CO
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
-$TASK_SECTION$BUSINESS_FACTS_SECTION
+$TASK_SECTION$BUSINESS_FACTS_SECTION$CAPTAIN_RULES_SECTION
 
 $HERDR_SECTION$WIKI_CONTEXT_SECTION
 

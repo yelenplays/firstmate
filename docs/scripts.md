@@ -90,6 +90,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-memory.sh` | Manage and search the plain-markdown memory store ([contract](memory.md)) |
 | [`fm-memory-capture.sh`](../bin/fm-memory-capture.sh) | Automatic capture of captain turns into the memory store at PreCompact and SessionEnd ([memory](memory.md#automatic-capture)) |
 | `fm-memory-capture.mjs` | Filter, model extraction, and verified writes behind fm-memory-capture.sh |
+| [`fm-rules.sh`](../bin/fm-rules.sh) | Record, render, and report the captain's standing corrections; capture hook and weekly check ([captain rules](captain-rules.md)) |
+| [`fm-rule-guard.sh`](../bin/fm-rule-guard.sh) | Deterministic checks that block a primary reply breaking a captain rule ([captain rules](captain-rules.md#from-rule-to-check)) |
 | [`fm-history.sh`](../bin/fm-history.sh) | Capture and search the private conversation journal and generate task cards and daily Logbooks ([configuration](configuration.md#operational-home-layout-and-state)) |
 | [`fm-logbook-refresh.sh`](../bin/fm-logbook-refresh.sh) | Best-effort Logbook generation and configured Deck refresh ([configuration](configuration.md#private-deck-checkout-configdeck-path)) |
 | `fm-memory-bm25.mjs` | BM25 index and query engine behind fm-memory.sh; owns the index format and staleness rule |

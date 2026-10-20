@@ -27,7 +27,8 @@ When any diagnostic needs captain attention, report the plain consequence and re
   Scout briefs check the same floor when scaffolded and ask for a text report instead of a Lavish loop, so scaffold a visual scout only after that rerun confirms compatibility.
 - `MISSING_MANUAL: <tool> (instructions: <url>)` - tell the captain why the tool is required and give them the printed instructions URL, but do not pass the tool to `bin/fm-bootstrap.sh install`; wait for the captain to complete the manual installation, then rerun session start to confirm the dependency is present.
 - `BACKEND_INVALID: <name> (known: <names>)` - the resolved runtime backend has no verified dependency or lifecycle contract, so do not dispatch work until the invalid `FM_BACKEND` or `config/backend` value is corrected to one of the listed backends.
-- `NEEDS_GH_AUTH` - ask the captain to run `! gh auth login` (interactive; you cannot run it for them).
+- `NEEDS_GH_AUTH` - `gh auth login` is interactive and you cannot run it for the captain: put `gh auth login` on the clipboard with `pbcopy`, ask the captain to paste it into a real Terminal window, then verify with `gh auth status` yourself.
+  Never hand it over as a `! gh auth login` line; see [captain rules](../../../docs/captain-rules.md).
   This probe now arrives from the deferred network stage, so it is also how an unreachable network shows up: `gh` cannot validate its token offline and reports the same failure. Confirm reachability before asking the captain to re-authenticate a credential that may be fine.
 - `NETWORK_CHECKS: <what did not complete>; rerun <command>` - the deferred network stage itself could not finish, so the checks it names are simply unknown, not failed.
   Rerun the printed command; it is idempotent and re-derives every finding.

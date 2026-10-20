@@ -523,6 +523,10 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/captain-rules.md",
+      "audience": "operator-current"
+    },
+    {
       "path": "docs/memory.md",
       "audience": "operator-current"
     },
