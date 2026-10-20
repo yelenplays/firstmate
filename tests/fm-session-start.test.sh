@@ -2859,13 +2859,52 @@ EOF
   assert_contains "$slim" "Theme pack: ny-trenches" "the slim digest dropped the chat voice"
   assert_contains "$slim" "captain turn 5" "the slim digest dropped the most recent captain words"
   assert_contains "$slim" "OPEN DECISIONS (" "the slim digest let wake annotations crowd out the open decisions"
-  detail="$home/state/.session-start-reemit.detail"
-  [ -s "$detail" ] || fail "the slim digest did not keep the uncut drain text"
+  detail=$(find "$home/state/reemit-detail" -type f -name '*.txt' 2>/dev/null | head -1)
+  [ -n "$detail" ] && [ -s "$detail" ] || fail "the slim digest did not keep the uncut drain text"
   assert_contains "$slim" "$detail" "the slim digest did not point at the uncut drain text"
   assert_contains "$(cat "$detail")" "OVERSIZED_PAYLOAD_MARKER $long" "the uncut drain text lost a wake row"
   assert_contains "$(cat "$detail")" "budget-key-11" "the uncut drain text lost an open decision"
 
   pass "a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept"
+}
+
+test_compact_reemit_keeps_each_presentation_detail_separately() {
+  local rec root home fakebin detail_dir i first second
+  rec=$(new_world compact-detail-files)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  make_fake_tmux "$fakebin" "fm-sess:live"
+  FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+  detail_dir="$home/state/reemit-detail"
+  mkdir -p "$detail_dir"
+  for i in 1 2 3 4 5 6 7 8 9; do
+    printf 'stale presentation %s\n' "$i" > "$detail_dir/2026010${i}T000000Z-$i.txt"
+    touch -t "2026010${i}0000" "$detail_dir/2026010${i}T000000Z-$i.txt"
+  done
+
+  append_wake "$home/state" signal task-a "done: FIRST_COMPACT_WAKE" || fail "seed first wake failed"
+  first=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact)
+  append_wake "$home/state" signal task-a "done: SECOND_COMPACT_WAKE" || fail "seed second wake failed"
+  second=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact)
+  first=$(printf '%s\n' "$first" | sed -n "s|^Uncut wake queue and bootstrap text: \($detail_dir/.*\)$|\1|p")
+  second=$(printf '%s\n' "$second" | sed -n "s|^Uncut wake queue and bootstrap text: \($detail_dir/.*\)$|\1|p")
+  [ -n "$first" ] && [ -n "$second" ] && [ "$first" != "$second" ] \
+    || fail "two compact re-emits did not each name their own detail file (first='$first' second='$second')"
+  assert_contains "$(cat "$first")" "FIRST_COMPACT_WAKE" "the second re-emit overwrote the first one's uncut drain text"
+  assert_contains "$(cat "$second")" "SECOND_COMPACT_WAKE" "the second re-emit did not keep its own uncut drain text"
+  [ "$(find "$detail_dir" -type f | wc -l | tr -d ' ')" = 8 ] \
+    || fail "the detail directory was not pruned to the newest 8 presentations"
+  [ ! -e "$detail_dir/20260101T000000Z-1.txt" ] || fail "pruning kept the oldest presentation"
+  [ -e "$detail_dir/20260109T000000Z-9.txt" ] || fail "pruning removed a recent presentation"
+
+  pass "each compact re-emit keeps its uncut text in its own file and only the newest 8 are kept"
 }
 
 test_compact_reemit_multilingual_fits_the_inline_hook_limit() {
@@ -3003,7 +3042,7 @@ $(hash_file_for_test "$root/AGENTS.md")" ] \
 }
 
 test_read_only_pi_compact_refreshes_against_its_own_session_identity() {
-  local rec root home fakebin holder_pid out baseline_before completion_before
+  local rec root home fakebin holder_pid out baseline_before completion_before detail_dir detail_before
   rec=$(new_world agents-refresh-read-only)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -3020,6 +3059,11 @@ EOF
   printf '%s\n' "$holder_pid" > "$home/state/.lock"
   baseline_before=$(cat "$home/state/.session-start-agents-baseline")
   completion_before=$(cat "$home/state/.session-start-complete")
+  # The owning session's uncut one-shot drain text, not yet read by it.
+  detail_dir="$home/state/reemit-detail"
+  mkdir -p "$detail_dir"
+  printf '%s\n' 'UNREAD STATUS: important one-shot answer' > "$detail_dir/20261020T120000Z-1.txt"
+  detail_before=$(cd "$detail_dir" && ls -1 && cat -- *)
 
   out=$(FM_FAKE_HARNESS=pi FM_FAKE_LIVE_HOLDER_PID="$holder_pid" \
     run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
@@ -3033,6 +3077,9 @@ EOF
     || fail "read-only compact mutated the competing session's baseline"
   [ "$(cat "$home/state/.session-start-complete")" = "$completion_before" ] \
     || fail "read-only compact mutated startup completion state"
+  [ "$(cd "$detail_dir" && ls -1 && cat -- *)" = "$detail_before" ] \
+    || fail "read-only compact overwrote or added to the owning session's uncut re-emit detail"
+  assert_not_contains "$out" "$detail_dir" "read-only compact pointed at a detail file it must not write"
 
   pass "read-only Pi compact refreshes against the rebuilding session identity without mutation"
 }
@@ -3593,6 +3640,7 @@ test_compact_instruction_refresh_fits_the_inline_hook_limit
 test_theme_section_follows_config_theme
 test_reemit_cue_survives_the_hook_output_preview
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact
+test_compact_reemit_keeps_each_presentation_detail_separately
 test_read_only_pi_compact_refreshes_against_its_own_session_identity
 test_codex_unreachable_reset_sources_do_not_claim_instruction_refresh
 test_agents_baseline_requires_sha256_and_successful_completion

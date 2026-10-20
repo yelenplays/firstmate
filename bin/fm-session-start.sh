@@ -271,8 +271,9 @@
 #             orphan status ids, the away posture, public commitments, network
 #             checks, the theme's address and no-op lines, and the newest
 #             captain words. Bulky sections have byte budgets that disclose
-#             omitted lines, and the uncut bootstrap and drain text is
-#             kept in state/.session-start-reemit.detail. It drops only what one
+#             omitted lines. The lock-owning session keeps the uncut bootstrap
+#             and drain text in one file per re-emit under state/reemit-detail/;
+#             a read-only session writes none and points at --full. It drops only what one
 #             command re-derives: the compact backlog, every state/*.meta body,
 #             status tails, the ACT FIRST list, and the curated CONTEXT files.
 #             This flag prints all of them. Every other source, and a fresh
@@ -478,7 +479,15 @@ subsection() { printf '\n%s\n%s\n' "$1" "$SUBRULE"; }
 # the bulk, and byte budgets for bulky sections. Lines a budget drops
 # are named with a count, and the complete bootstrap and drain text is kept in
 # REEMIT_DETAIL, because the drain has already spent its one-shot presentation.
-REEMIT_DETAIL="$STATE/.session-start-reemit.detail"
+# Each presentation gets its own file under REEMIT_DETAIL_DIR, so a later
+# re-emit never overwrites uncut text an earlier one pointed at; the newest
+# REEMIT_DETAIL_KEEP files are kept. Only the session that verified the lock
+# writes one: a read-only session leaves the directory alone, and its cut
+# notes point at REEMIT_REST, the --full re-emit, instead.
+REEMIT_DETAIL_DIR="$STATE/reemit-detail"
+REEMIT_DETAIL_KEEP=8
+REEMIT_DETAIL=""
+REEMIT_REST="$SCRIPT_DIR/fm-session-start.sh --reemit --source compact --full"
 if [ "$SLIM" -eq 1 ]; then
   section() { printf '\n%s\n' "$1"; }
   subsection() { printf '\n%s\n' "$1"; }
@@ -506,6 +515,7 @@ slim_capped() {
 
 # slim_detail <title> <text>: append one section of uncut text to REEMIT_DETAIL.
 slim_detail() {
+  [ -n "$REEMIT_DETAIL" ] || return 0
   (umask 077; printf '== %s ==\n%s\n\n' "$1" "$2" >> "$REEMIT_DETAIL") 2>/dev/null || true
 }
 
@@ -917,7 +927,13 @@ if [ "$LOCK_RC" -ne 0 ]; then
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
 if [ "$SLIM" -eq 1 ]; then
-  rm -f "$REEMIT_DETAIL" 2>/dev/null || true
+  if [ "$READ_ONLY" -eq 0 ] && (umask 077; mkdir -p "$REEMIT_DETAIL_DIR") 2>/dev/null; then
+    REEMIT_DETAIL="$REEMIT_DETAIL_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$$.txt"
+    REEMIT_REST=$REEMIT_DETAIL
+    # shellcheck disable=SC2012 # names are timestamp-pid, no odd characters
+    ls -1t "$REEMIT_DETAIL_DIR" 2>/dev/null | tail -n +"$REEMIT_DETAIL_KEEP" |
+      while IFS= read -r old; do rm -f "$REEMIT_DETAIL_DIR/$old"; done
+  fi
   print_supervision_stage
 fi
 print_agents_refresh_if_required "$REBUILDING_SESSION_PID"
@@ -980,7 +996,7 @@ if [ -z "$BOOT_OUT" ]; then
   printf '(silent - all good)\n'
 elif [ "$SLIM" -eq 1 ]; then
   slim_detail BOOTSTRAP "$BOOT_OUT"
-  printf '%s\n' "$BOOT_OUT" | slim_capped 600 160 "$REEMIT_DETAIL"
+  printf '%s\n' "$BOOT_OUT" | slim_capped 600 160 "$REEMIT_REST"
 else
   printf '%s\n' "$BOOT_OUT"
 fi
@@ -1042,7 +1058,7 @@ else
       "$SCRIPT_DIR/fm-branch-outcome.sh" startup-replay 2>&1) || BRANCH_REPLAY_OUT=
     if [ -n "$BRANCH_REPLAY_OUT" ] && [ "$SLIM" -eq 1 ]; then
       slim_detail 'BRANCH OUTCOME REPLAY' "$BRANCH_REPLAY_OUT"
-      printf '%s\n' "$BRANCH_REPLAY_OUT" | slim_capped 400 160 "$REEMIT_DETAIL"
+      printf '%s\n' "$BRANCH_REPLAY_OUT" | slim_capped 400 160 "$REEMIT_REST"
     elif [ -n "$BRANCH_REPLAY_OUT" ]; then
       printf '%s\n' "$BRANCH_REPLAY_OUT"
     fi
@@ -1065,9 +1081,9 @@ else
       /^wake annotation: / { notes[++n] = $0; next }
       { print }
       END { for (i = 1; i <= n; i++) print notes[i]; for (i = 1; i <= r; i++) print rows[i] }
-    ' | slim_capped 1600 140 "$REEMIT_DETAIL"
+    ' | slim_capped 1600 140 "$REEMIT_REST"
     printf '%s\n' "$DRAIN_OUT" | grep '^WAKE_ACK_REQUIRED:' | tail -n 1
-    printf 'Uncut wake queue and bootstrap text: %s\n' "$REEMIT_DETAIL"
+    printf 'Uncut wake queue and bootstrap text: %s\n' "$REEMIT_REST"
   else
     printf '%s\n' "$DRAIN_OUT"
   fi

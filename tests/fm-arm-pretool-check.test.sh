@@ -147,6 +147,9 @@ matrix_case D73 deny $'for f in a; do cat <<X\n$(bin/fm-watch.sh)\nX\ndone'
 matrix_case D74 deny 'for f in bin/fm-watch.sh; do cat "$f"; done &'
 matrix_case D75 deny 'for f in bin/fm-watch.sh; do git grep -O"$f" x; done'
 matrix_case D76 deny 'for f in bin/fm-watch.sh; do echo "$(bash "$f")"; done'
+matrix_case D77 deny 'for f in bin/fm-watch.sh; do echo "${BASH_CMDS[cat]:=$f}"; cat; done'
+matrix_case D78 deny 'for f in bin/fm-watch.sh; do echo "${!f}" "$((n=1))"; done'
+matrix_case D79 deny 'for BASH_CMDS in bin/fm-watch.sh; do cat; done'
 
 matrix_case E01 allow "bin/fm-watch-checkpoint.sh --seconds '180;still-one-arg'"
 matrix_case E02 allow "bin/fm-watch-checkpoint.sh --label 'fm-watch-arm.sh; literal argument'"
