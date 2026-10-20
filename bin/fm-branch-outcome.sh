@@ -163,7 +163,7 @@ RECORDED_AGO_JQ='def recorded_ago: ([$now - .epoch, 0] | max) as $s
     else "\($s / 86400 | floor)d" end;'
 
 usage() {
-  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | startup-replay | seed-tail" >&2
+  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] [--promote-retired] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | startup-replay | seed-tail" >&2
   exit 2
 }
 
@@ -503,8 +503,10 @@ case "$CMD" in
     SUMMARY=''
     WAKE=''
     SILENT=false
+    PROMOTE_RETIRED=0
     while [ "$#" -gt 0 ]; do
       case "$1" in
+        --promote-retired) PROMOTE_RETIRED=1; shift ;;
         --task) TASK=${2:-}; shift 2 || usage ;;
         --verdict) VERDICT=${2:-}; shift 2 || usage ;;
         --summary) SUMMARY=${2:-}; shift 2 || usage ;;
@@ -532,6 +534,13 @@ case "$CMD" in
       fm_lock_release "$LOCK"
       echo "error: refusing append because the outcome cursor is invalid or ahead of the store" >&2
       exit 1
+    fi
+    # A torn-down task's visible routine report is stored as captain, so the
+    # host and the Pi branch both wake MAIN to relay the finished result.
+    # Only the branch report surfaces opt in.
+    if [ "$PROMOTE_RETIRED" -eq 1 ] && [ "$VERDICT" = routine ] && [ "$SILENT" = false ] \
+        && fm_task_retired "$TASK"; then
+      VERDICT=captain
     fi
     SEQ=$(( LAST_SEQ + 1 ))
     capture_status_position "$TASK"

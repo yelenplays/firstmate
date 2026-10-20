@@ -56,6 +56,10 @@ FAKE_CLAUDE="$FAKEBIN/claude"
 #               ends
 #   captain-held the same, but record a captain outcome before the turn ends
 #   emptyresult the same as handle, but print {} as its result
+#   retire      tear the task down (meta and status log removed), then report
+#               its finished result with verdict routine
+#   retire-after report the finished result with verdict routine, then tear the
+#               task down later in the same turn
 #   noreport    drain and exit cleanly without a report
 #   go-away     the captain goes away (the record is written) mid-turn, then
 #               the turn reports verdict captain
@@ -96,12 +100,16 @@ verdict=routine
 [ "$mode" != go-away ] || verdict=captain
 case "$mode" in
   fail) exit 3 ;;
-  handle|information|information-failure|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
+  handle|information|information-failure|retire|retire-after|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
     case "$mode" in held|captain-held) read -r _ < "$FM_HOME/stub-release" ;; esac
     [ "$mode" != return-first ] || "$FM_REPO/bin/fm-afk-contract.sh" archive >> "$FM_HOME/engine-return.log" 2>&1
     [ "$mode" != go-away ] || "$FM_REPO/bin/fm-afk-contract.sh" enter --words 'gone mid-turn' >> "$FM_HOME/engine-return.log" 2>&1
     "$FM_REPO/bin/fm-lease.sh" claim "$task" >> "$FM_HOME/engine-lease.log" 2>&1
-    if [ "$mode" = captain ] || [ "$mode" = captain-held ] \
+    [ "$mode" != retire ] || rm -f "$STATE/$task.meta" "$STATE/$task.status"
+    if [ "$mode" = retire ] || [ "$mode" = retire-after ]; then
+      "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict routine \
+        --summary 'requested measurement finished; worker torn down' >> "$FM_HOME/engine-report.log" 2>&1
+    elif [ "$mode" = captain ] || [ "$mode" = captain-held ] \
       || [ "$mode" = captain-close-before-return ]; then
       "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict captain \
         --summary "stub escalated: $(printf '%s\n' "$drain" | grep -v '^WAKE_' | tr '\n' ' ' | cut -c1-400)" \
@@ -115,9 +123,10 @@ case "$mode" in
       esac
       "$FM_REPO/bin/fm-branch-report.sh" "${report_args[@]}" >> "$FM_HOME/engine-report.log" 2>&1
     fi
+    [ "$mode" != retire-after ] || rm -f "$STATE/$task.meta" "$STATE/$task.status"
     if [ "$mode" = information ]; then
       "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict routine \
-        --summary 'requested measurement finished successfully' >> "$FM_HOME/engine-report.log" 2>&1
+        --summary 'requested measurement still running' >> "$FM_HOME/engine-report.log" 2>&1
     elif [ "$mode" = information-failure ]; then
       "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict routine \
         --summary 'measurement artifact saved' >> "$FM_HOME/engine-report.log" 2>&1
@@ -984,18 +993,18 @@ test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main() {
   pass "host: an attended wake the branch may take is handled on the engine, and its routine outcome never wakes main"
 }
 
-test_attended_informational_completion_is_deferred_but_failure_wakes_main() {
+test_attended_routine_progress_is_deferred_but_failure_wakes_main() {
   local home drained
   home=$(make_home attended-information attended)
   echo information > "$home/stub-mode"
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "information: watcher never started"
-  append_status "$home" 'finished requested measurement'
+  append_status "$home" 'measuring'
   wait_until "$OUTCOME_WAIT_POLLS" handled_at_least "$home" 1 || fail "information: outcome was not handled"
-  [ ! -s "$home/host.rc" ] || fail "informational completion woke main"
+  [ ! -s "$home/host.rc" ] || fail "routine progress woke main"
   assert_absent "$home/state/.branch-outcomes-cursor" "deferral marked information read"
   drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
-  assert_contains "$drained" 'requested measurement finished successfully' "next main drain lost informational completion"
+  assert_contains "$drained" 'requested measurement still running' "next main drain lost routine progress"
   echo information-failure > "$home/stub-mode"
   append_status "$home" 'failed required validation'
   wait_until "$OUTCOME_WAIT_POLLS" host_exited "$home" || fail "failure after information never woke main"
@@ -1003,7 +1012,51 @@ test_attended_informational_completion_is_deferred_but_failure_wakes_main() {
   drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
   assert_contains "$drained" 'required validation failed; intervention needed' "main drain lost failure"
   assert_contains "$drained" 'measurement artifact saved' "mixed turn lost informational outcome"
-  pass "host: healthy informational completion waits for a real drain; a mixed failure turn wakes main immediately"
+  pass "host: routine progress waits for a real drain; a mixed failure turn wakes main immediately"
+}
+
+# A finished, torn-down task is news for the captain whatever verdict the
+# model chose: the store holds the routine report as captain, so main wakes
+# and the drain asks for the relay.
+test_attended_completion_with_routine_verdict_still_wakes_main() {
+  local home drained
+  home=$(make_home attended-retire attended)
+  echo retire > "$home/stub-mode"
+  mkdir -p "$home/data/demo"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" || fail "retire: watcher never started"
+  append_status "$home" 'measurement finished'
+  wait_until "$OUTCOME_WAIT_POLLS" host_exited "$home" \
+    || fail "a routine completion of a torn-down task never woke main: $(cat "$home/state/.supervision-host.log")"
+  assert_re '^supervision-host: branch-outcome: .*store rows 1\)' "$home/host.out" "the completion must open main processing"
+  assert_grep '"verdict":"captain"' "$home/state/branch-outcomes.jsonl" "the store must hold the retired task's report as captain"
+  assert_no_grep '"verdict":"routine"' "$home/state/branch-outcomes.jsonl" "the retired task's report stayed routine"
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  assert_contains "$drained" "a finished task's result is news to relay, not settled" "the drain must not let a completion read as settled"
+  assert_contains "$drained" 'requested measurement finished; worker torn down' "the drain lost the completion"
+  assert_contains "$drained" 'mark-processed' "a completion must ask for acknowledgement"
+  pass "host: a torn-down task's completion reported routine still wakes main and is presented for relay"
+}
+
+# The host's turn-end check catches a routine report written before the
+# teardown in the same turn, and the drain lists it apart as finished.
+test_attended_completion_reported_before_teardown_wakes_main() {
+  local home drained
+  home=$(make_home attended-retire-after attended)
+  echo retire-after > "$home/stub-mode"
+  mkdir -p "$home/data/demo"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" || fail "retire-after: watcher never started"
+  append_status "$home" 'measurement finished'
+  wait_until "$OUTCOME_WAIT_POLLS" host_exited "$home" \
+    || fail "a completion reported before its teardown never woke main: $(cat "$home/state/.supervision-host.log")"
+  assert_re '^supervision-host: branch-outcome: .*store rows 1\)' "$home/host.out" "the completion must open main processing"
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  assert_contains "$drained" "BRANCH OUTCOMES, FINISHED (tasks that finished or were torn down since your last drain; this is news for the captain" \
+    "the drain must list a finished task's routine row for relay"
+  assert_contains "$drained" '[seq 1] demo: requested measurement finished; worker torn down' "the finished listing lost the outcome"
+  assert_not_contains "$drained" 'BRANCH OUTCOMES, ROUTINE' "a finished task's row must not read as routine awareness"
+  pass "host: a completion reported before its teardown in the same turn still wakes main and is listed as finished"
 }
 
 test_attended_captain_outcome_reaches_main_through_branch_outcomes() {
@@ -3361,7 +3414,9 @@ queue_case test_branch_outcomes_keep_an_unshown_outcome_until_acknowledged
 queue_case test_branch_outcomes_keep_a_drain_presented_outcome_across_a_switch_to_pi
 queue_case test_branch_outcomes_keep_a_drain_presented_outcome_across_an_index_repair
 queue_case test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main
-queue_case test_attended_informational_completion_is_deferred_but_failure_wakes_main
+queue_case test_attended_routine_progress_is_deferred_but_failure_wakes_main
+queue_case test_attended_completion_with_routine_verdict_still_wakes_main
+queue_case test_attended_completion_reported_before_teardown_wakes_main
 queue_case test_attended_captain_outcome_reaches_main_through_branch_outcomes
 queue_case test_captain_leaving_mid_turn_keeps_its_captain_outcome_for_the_return
 queue_case test_quiet_record_without_its_daemon_is_a_present_captain

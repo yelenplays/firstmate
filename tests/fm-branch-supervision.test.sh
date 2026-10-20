@@ -50,7 +50,7 @@ test_branch_prompt_is_byte_stable_and_above_cache_floor() {
     *) fail "branch prompt lost the inlined recovery playbook" ;;
   esac
   case "$out_a" in
-    *"Report verdict routine for an informational result, including healthy completion of requested work, when neither the captain nor MAIN needs to act on it."*"A start or still-working update on requested work that brings no new artifact, finding, or decision is also verdict routine."*"Set silent true for a task-level routine outcome only when it says the worker is still busy, nothing new has happened since the last outcome, and no action was taken."*"Any routine outcome reporting an action, state change, or new result stays rendered; captain outcomes are never silent."*"Keep a healthy result as verdict routine unless"*"Keep an unchanged fleet review silent"*) ;;
+    *"Report verdict captain for the finished result of work the captain requested, even when that result is healthy."*"A start or still-working update on requested work that brings no new artifact, finding, or decision is verdict routine."*"Set silent true for a task-level routine outcome only when it says the worker is still busy, nothing new has happened since the last outcome, and no action was taken."*"Any routine outcome reporting an action, state change, or new result stays rendered; captain outcomes are never silent."*"Keep an unsolicited routine outcome as verdict routine"*"Keep an unchanged fleet review silent"*) ;;
     *) fail "branch prompt lost the requested-result, progress-routine, or routine-silence rules" ;;
   esac
   case "$out_a" in
@@ -174,6 +174,35 @@ PY
   assert_contains "$out" "malformed or non-sequential" "torn-tail refusal lost its diagnostic"
   [ "$(cat "$store")" = "$snapshot" ] || fail "failed append changed the torn outcome store"
   pass "outcome store is append-only and refuses sequence reuse after a torn tail"
+}
+
+# The branch report surfaces (bin/fm-branch-report.sh and the Pi report tool)
+# pass --promote-retired: a visible routine report for a torn-down task is
+# stored as captain, so both supervision paths wake MAIN to relay it. A live
+# task, a silent row, a name that never launched, and fleet stay routine.
+test_outcome_append_promotes_a_torn_down_tasks_routine_report() {
+  local home store
+  home="$TMP_ROOT/promote-home"
+  mkdir -p "$home/state" "$home/data/done-task" "$home/data/live-task" "$home/data/fleet"
+  printf 'project=demo\n' > "$home/state/live-task.meta"
+  store="$home/state/branch-outcomes.jsonl"
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+    --task done-task --verdict routine --summary 'bench finished; worker torn down' >/dev/null || fail "retired append failed"
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+    --task live-task --verdict routine --summary 'still working' >/dev/null || fail "live append failed"
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+    --task done-task --verdict routine --summary 'nothing new' --silent true >/dev/null || fail "silent append failed"
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+    --task never-launched --verdict routine --summary 'unknown name' >/dev/null || fail "unknown-task append failed"
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+    --task fleet --verdict routine --summary 'fleet review' >/dev/null || fail "fleet append failed"
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append \
+    --task done-task --verdict routine --summary 'no opt-in' >/dev/null || fail "plain append failed"
+  [ "$(jq -r '.verdict' "$store" | tr '\n' ' ')" = "captain routine routine routine routine routine " ] \
+    || fail "promotion picked the wrong rows: $(cat "$store")"
+  grep -F '"--silent", String(silent), "--promote-retired"]' "$ROOT/.pi/extensions/fm-branch-supervision.ts" >/dev/null \
+    || fail "the Pi report tool no longer opts its appends into retired-task promotion"
+  pass "outcome append stores a torn-down task's visible routine report as captain only when the report surface opts in"
 }
 
 test_outcome_append_keeps_a_bounded_display_tail() {
@@ -1580,6 +1609,7 @@ WRAPPER
 test_branch_prompt_is_byte_stable_and_above_cache_floor
 test_branch_prompt_routes_completed_scouts_through_guarded_cleanup
 test_outcome_store_is_append_only_with_cursor_reads
+test_outcome_append_promotes_a_torn_down_tasks_routine_report
 test_outcome_append_keeps_a_bounded_display_tail
 test_outcome_tail_keeps_whole_newest_rows_within_its_byte_budget
 test_outcome_seed_tail_creates_only_an_absent_display_tail

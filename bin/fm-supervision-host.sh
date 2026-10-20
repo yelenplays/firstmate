@@ -82,9 +82,8 @@
 # releases the branch's leases and grant, and counts the wake handled only
 # when that turn exited cleanly, recorded a durable report
 # (bin/fm-branch-report.sh), and left none of its granted rows in the wake
-# queue. A handled wake with only informational (routine) outcomes, including
-# healthy completions needing no action, never wakes main: those rows remain
-# unread for main's next real drain. Neither does any handled wake while away: captain outcomes wait in
+# queue. A handled wake with only routine outcomes never wakes
+# main, and neither does any handled wake while away: captain outcomes wait in
 # the outcome store for the return drain's BRANCH OUTCOMES section. A handled
 # attended wake that recorded a captain outcome exits with one "supervision-host: branch-outcome:"
 # line naming its store rows, without the close it handled; main drains, where
@@ -1031,15 +1030,24 @@ handle_wake() {  # <reason-lines>
 }
 
 # Verify every recorded outcome before deciding whether main must wake. The
-# prompt owns routine/informational versus captain/action classification; the
-# store, not a receipt's copied verdict, owns the outcome. No read or processed
-# cursor moves here, so deferred information survives until a real main drain.
+# store, not a receipt's copied verdict, owns the outcome: it already holds a
+# finished or torn-down task's report as captain (fm-branch-outcome.sh
+# --promote-retired), and a visible routine row whose task retired later in the
+# same turn joins too, so a completion wakes main whatever verdict the model
+# chose. No read or processed cursor moves here.
 turn_captain_seqs() {  # <turn>
-  local seqs rows
+  local seqs rows candidates seq verdict task out=
   seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1
   [ -n "$seqs" ] || return 1
   rows=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$seqs" 2>/dev/null) || return 1
-  printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "captain") | .seq | tostring) | join(", ")'
+  candidates=$(printf '%s\n' "$rows" | jq -rs '.[] | select(.verdict == "captain" or (.verdict == "routine" and .silent != true))
+    | "\(.seq)\t\(.verdict)\t\(.task)"') || return 1
+  while IFS=$'\t' read -r seq verdict task; do
+    [ -n "$seq" ] || continue
+    [ "$verdict" = captain ] || fm_task_retired "$task" || continue
+    out="$out${out:+, }$seq"
+  done <<< "$candidates"
+  printf '%s\n' "$out"
 }
 
 # Why an attended close stays with main exactly as the plain arm delivers it,

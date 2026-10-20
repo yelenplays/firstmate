@@ -3222,3 +3222,14 @@ EOF
 
   return 0
 }
+
+# A task is retired when bin/fm-teardown.sh has removed its live footprint
+# (neither meta nor status log is left) while the data directory teardown
+# retains still proves it once ran; the fleet pseudo-task and names that never
+# launched never count. A retired task's finished result is news for the
+# captain whatever verdict reported it (bin/fm-branch-outcome.sh --promote-retired).
+fm_task_retired() {  # <task>
+  [ -n "$1" ] && [ "$1" != fleet ] || return 1
+  [ ! -e "$STATE/$1.meta" ] && [ ! -e "$STATE/$1.status" ] || return 1
+  [ -d "${FM_DATA_OVERRIDE:-$FM_HOME/data}/$1" ]
+}

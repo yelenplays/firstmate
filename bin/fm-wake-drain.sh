@@ -794,7 +794,7 @@ EOF
 print_branch_outcomes_section() {
   local config rows through captain routine line seq task task_line target i
   local text='' used=0 shown=0 held=0 bytes item_bytes=600 captain_bytes=4000 routine_bytes=2000
-  local routine_lines='' routine_count=0 routine_shown=0
+  local routine_lines='' routine_count=0 routine_shown=0 done_rows='' done_lines='' routine_rows=''
   local -a captain_tasks=() captain_lines=() captain_line_bytes=()
   [ "$ACTOR" = main ] || return 0
   config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
@@ -818,7 +818,7 @@ print_branch_outcomes_section() {
           | .lines += ["\($r.seq)\t\($r.task)\t[seq \($r.seq)\(if .count[$r.task] > 1 then ", newest of \(.count[$r.task]) for this task" else "" end), recorded \($r.recordedAgo) ago] \($r.task): \($r.summary | gsub("[\t\n\r]"; " "))"])
       | .lines[]' 2>/dev/null) \
     || ! routine=$(printf '%s\n' "$rows" | jq -rs 'map(select(.unread and .verdict == "routine" and .silent != true)) | sort_by(.seq) | reverse | .[]
-      | "[seq \(.seq)] \(.task): \(.summary | gsub("[\t\n\r]"; " "))"' 2>/dev/null) \
+      | "\(.task)\t[seq \(.seq)] \(.task): \(.summary | gsub("[\t\n\r]"; " "))"' 2>/dev/null) \
     || case "$through" in ''|*[!0-9]*) true ;; *) false ;; esac; then
     printf 'BRANCH OUTCOMES SKIPPED: the outcome store could not be projected safely; nothing was marked read, so these outcomes are presented again on the next drain.\n' >&2
     return 1
@@ -850,7 +850,7 @@ print_branch_outcomes_section() {
 $captain
 ROWS
   if [ "$shown" -gt 0 ]; then
-    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one), and sort them into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
+    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one), and sort them into still open and already settled, such as a decision since answered or a PR since merged; a finished task's result is news to relay, not settled - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
 "
     for line in "${captain_lines[@]}"; do
       text="$text$line
@@ -862,7 +862,30 @@ ROWS
 "
   fi
 
+  # A routine row for a retired task (fm_task_retired) is a completion: news
+  # to relay, so it is listed apart from the awareness rows.
+  while IFS=$(printf '\t') read -r task line; do
+    [ -n "$line" ] || continue
+    if fm_task_retired "$task"; then
+      done_rows="$done_rows$line
+"
+    else
+      routine_rows="$routine_rows$line
+"
+    fi
+  done <<ROWS
+$routine
+ROWS
+  routine=${routine_rows%?}
   used=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    cap_outcome_line "$line" $((item_bytes - 1))
+    done_lines="$OUTCOME_LINE
+$done_lines"
+  done <<ROWS
+$done_rows
+ROWS
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     routine_count=$((routine_count + 1))
@@ -882,6 +905,10 @@ $routine_lines"
   done <<ROWS
 $routine
 ROWS
+  if [ -n "$done_lines" ]; then
+    text="${text}BRANCH OUTCOMES, FINISHED (tasks that finished or were torn down since your last drain; this is news for the captain: relay each result in your reply unless you already told the captain in chat, then nothing to acknowledge):
+$done_lines"
+  fi
   if [ "$routine_count" -gt 0 ]; then
     text="${text}BRANCH OUTCOMES, ROUTINE (handled by the supervision session since your last drain; for your awareness, nothing to acknowledge):
 "

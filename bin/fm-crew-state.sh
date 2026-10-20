@@ -25,7 +25,7 @@
 # Output is one stable, parseable, token-tight line firstmate can read every
 # heartbeat:
 #
-#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|none> · <detail>
+#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|backlog|none> · <detail>
 #
 # Logic, in order:
 #   1. Resolve worktree + backend target + kind from state/<id>.meta. A meta
@@ -214,7 +214,16 @@ emit() {  # <state> <source> [detail]
 
 # --- meta resolution --------------------------------------------------------
 
-[ -f "$META" ] || emit unknown none "no metadata for $ID"
+# A torn-down task has no meta, but its closed backlog item still knows the
+# truth; report that instead of hiding it behind unknown.
+if [ ! -f "$META" ]; then
+  BACKLOG_SHOW=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-tasks-axi.sh" show "$ID" 2>/dev/null) || BACKLOG_SHOW=
+  if [ "$(printf '%s\n' "$BACKLOG_SHOW" | sed -n 's/^  state: //p' | head -n 1)" = "done" ]; then
+    BACKLOG_CLOSED=$(printf '%s\n' "$BACKLOG_SHOW" | sed -n 's/^  closed: //p' | head -n 1)
+    emit "done" backlog "closed${BACKLOG_CLOSED:+ $BACKLOG_CLOSED}, no live metadata for $ID"
+  fi
+  emit unknown none "no metadata for $ID"
+fi
 
 meta_value() {  # <key>
   grep "^$1=" "$META" 2>/dev/null | tail -1 | cut -d= -f2- || true

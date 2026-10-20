@@ -41,10 +41,10 @@
 # host's own handback. Silent outcomes remain in the store but are not queued
 # or relayed as notes. An attended turn queues nothing: its captain rows reach
 # MAIN through the host's branch-outcome exit and the drain's BRANCH OUTCOMES
-# section (bin/fm-wake-drain.sh), and its informational routine rows (including
-# healthy completion needing no action) stay unread until MAIN's next real
-# drain. Decisions, blockers and failures keep the captain verdict; the prompt
-# owns those criteria, not summary keywords in this transport.
+# section (bin/fm-wake-drain.sh), and its routine rows stay in the store. A
+# routine report for a task that is already torn down is stored as captain by
+# bin/fm-branch-outcome.sh --promote-retired, so a completion wakes MAIN
+# whatever verdict was chosen.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -120,12 +120,15 @@ fi
 
 [ "$WAKE_SET" -eq 1 ] || WAKE=$(turn_field wake)
 
-set -- append --task "$TASK" --verdict "$VERDICT" --summary "$SUMMARY" --silent "$SILENT"
+set -- append --task "$TASK" --verdict "$VERDICT" --summary "$SUMMARY" --silent "$SILENT" --promote-retired
 [ -z "$WAKE" ] || set -- "$@" --wake "$WAKE"
 if ! SEQ=$("$SCRIPT_DIR/fm-branch-outcome.sh" "$@"); then
   echo "outcome store append failed (nothing recorded)" >&2
   exit 1
 fi
+# The store may have promoted a retired task's routine report to captain.
+STORED_VERDICT=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$SEQ" 2>/dev/null | jq -r '.verdict // empty' 2>/dev/null)
+case "$STORED_VERDICT" in routine|captain) VERDICT=$STORED_VERDICT ;; esac
 printf '%s\t%s\t%s\t%s\n' "$TURN" "$SEQ" "$VERDICT" "$TASK" >> "$RECEIPTS" || {
   echo "recorded seq $SEQ, but the host receipt could not be written; the host will hand this wake to MAIN" >&2
   exit 1

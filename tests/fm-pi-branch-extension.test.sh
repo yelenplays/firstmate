@@ -637,8 +637,10 @@ function dispatch(message, projects, heartbeat, eligible) {
   bus.emit("fm-branch-supervision:dispatch", offer);
   return offer;
 }
+// A positive wait returns as soon as the predicate holds; the 30s bound only
+// keeps a loaded host's slow script round trips from failing the suite.
 async function settle(predicate, label) {
-  for (let i = 0; i < 250; i += 1) {
+  for (let i = 0; i < 3000; i += 1) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
