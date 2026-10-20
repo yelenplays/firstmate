@@ -11,7 +11,7 @@
 # intent). bin/fm-dod-lib.sh owns the no-mistakes `--intent` contract those
 # subsections feed; bin/fm-spawn.sh refuses leftover placeholders and a
 # `## Captain's intent` line opening with a Captain label or address. The
-# test-authoring exception for Sonnet and Haiku workers is owned by
+# test-authoring exception for workers outside the test-author allowlist is owned by
 # bin/fm-dod-lib.sh. Secondmate charters still use a single `{TASK}` charter
 # fill. Firstmate may adjust other sections when the task genuinely deviates
 # (e.g. working an existing external PR instead of shipping a new one).

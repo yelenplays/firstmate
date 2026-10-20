@@ -58,13 +58,13 @@
 #   base_branch= in state/<id>.meta, which a relaunch reuses and later review and
 #   cleanup read; it is refused on secondmates and relaunches, and without it
 #   nothing changes.
-#   A ship or scout whose resolved --model is a Claude Sonnet or Haiku model
+#   A ship or scout whose resolved --model is outside the test-author allowlist
 #   records test_ban_model= and repeated test_ban_allowed=<path> values for
 #   captain-specified paths in state/<id>.meta; banned ship/scout launch briefs
 #   gain the No test authoring section. A ship relaunch onto a banned model also
 #   records test_ban_since=, the tests-first handoff commit, and every relaunch
 #   of a record that ever ran banned keeps that baseline. bin/fm-dod-lib.sh's
-#   test-authoring block owns the model list, path exception, handoff baseline,
+#   test-authoring block owns the allowlist, path exception, handoff baseline,
 #   section, and enforcing done gate.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
@@ -3815,7 +3815,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       TEST_BAN_SINCE=base
     fi
   fi
-  # bin/fm-dod-lib.sh's test-authoring block owns the model list, the captain
+  # bin/fm-dod-lib.sh's test-authoring block owns the allowlist, the captain
   # exception, and the section a banned ship receives; a scout records the ban
   # so a later promotion applies it.
   if fm_test_ban_model_applies "$MODEL"; then
