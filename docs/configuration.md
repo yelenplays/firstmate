@@ -1205,17 +1205,17 @@ Chain F is also the deterministic default when Jev exits non-zero, answers below
 `config/fm-search.json` is an optional per-home override (the file is untracked like all of `config/`); [`bin/fm-search.py`](../bin/fm-search.py)'s `DEFAULTS` mapping owns the accepted keys and default values.
 Only include the nested keys you want to override; omitted keys retain their defaults.
 These settings cover the Exa monthly cap (with headroom inside the $10 free credit), warning threshold, per-query prices and search types; TinyFish rolling per-minute and per-day limits; Jev confidence, query-size and route-cache limits; and per-hop timeouts.
-Keep budget and rate overrides within the providers' free allowances; the configured Exa warning threshold prints at most one search warning per month after a successfully parsed keyed response.
+Keep budget and rate overrides within the providers' free allowances; after a successfully parsed keyed response, the configured Exa warning threshold prints a search warning, at most once per month when its marker can be persisted.
 Keys are read at call time from `~/.config/exa.key` and `~/.config/tinyfish.key` and never printed, logged or stored; a missing key just removes that hop.
 The router never signs up for, upgrades or buys anything.
 
 `state/fm-search/ledger.tsv` gets one line per attempted provider call, including empty results and failures but excluding skipped hops.
 Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; only an HTTP error status counts as an unbilled rejection, so a timeout, a dropped connection or a malformed or undecodable body still records that price against the monthly cap.
-HTTP errors, network errors and timeouts record zero cost.
 `state/fm-search/route-cache.tsv` caches accepted class picks for the configured lifetime under a hash of the lowercased query.
 Neither file stores query text.
+Ledger and route-cache writes are best-effort: a write failure does not discard search results, but missing ledger entries can undercount spend and calls, weakening cap enforcement.
 `fm-search.sh --ledger` prints month-to-date spend and calls per provider.
-A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot get the lock within the hop timeout skips the hop.
+A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot create the lock or acquire it within the hop timeout skips the hop.
 Each hop's timeout is one wall-clock deadline over the whole exchange - connect, status line, headers and body - so a provider that trickles bytes cannot hold the hop.
 
 Every query goes to third-party providers, so never search with private data, names or client facts.
