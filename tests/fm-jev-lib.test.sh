@@ -13,6 +13,7 @@ set -u
 . "$ROOT/bin/fm-jev-lib.sh"
 # Every library call in this file runs as the "tests" call site unless a case
 # clears or overrides the tag.
+# shellcheck disable=SC2034 # Consumed by the sourced Jev library.
 FM_JEV_CALLER=tests
 
 unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
