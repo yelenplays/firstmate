@@ -101,7 +101,7 @@ def http(req, timeout):
                     raise HopError("timeout")
                 chunk = r.read1(65536)
                 if not chunk:
-                    return b"".join(body).decode()
+                    return b"".join(body)
                 body.append(chunk)
     except HopError:
         raise
@@ -147,7 +147,7 @@ def run_exa(kind, per_query, query, limit, timeout):
                        "contents": {"highlights": True}}).encode()
     raw = http(urllib.request.Request(EXA_URL, body, {"x-api-key": k, "Content-Type": "application/json"}), timeout)
     try:
-        d = parse_json(raw)
+        d = parse_json(raw.decode())
         out = [norm(x.get("title"), x.get("url"), x.get("publishedDate"), "\n".join(x.get("highlights") or []))
                for x in d.get("results", [])[:limit]]
         cost = (d.get("costDollars") or {}).get("total")
@@ -161,7 +161,7 @@ def run_tinyfish(query, limit, timeout, language):
     if language:
         params["language"] = language
     req = urllib.request.Request(TINYFISH_URL + "?" + urllib.parse.urlencode(params), headers={"X-API-Key": key("tinyfish")})
-    d = parse_json(http(req, timeout))
+    d = parse_json(http(req, timeout).decode())
     return [norm(x.get("title"), x.get("url"), x.get("date"), x.get("snippet")) for x in d.get("results", [])[:limit]], 0.0
 
 

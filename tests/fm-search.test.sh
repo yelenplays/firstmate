@@ -27,7 +27,7 @@ ALL_OUT="$TMP_ROOT/all-output.log"
 # --- stand-ins ------------------------------------------------------------------
 
 # The HTTP stub: each provider's behavior comes from $STUB/<exa|tinyfish>.mode
-# (ok, empty, 429, slow, lag, trickle); each request appends one JSON line to <name>.req.
+# (ok, empty, 429, slow, lag, trickle, utf8); each request appends one JSON line to <name>.req.
 cat > "$TMP_ROOT/stub_server.py" <<'PY'
 import http.server, json, os, sys, threading, time, urllib.parse
 stub, fix, exa_key, tf_key = sys.argv[1:5]
@@ -64,7 +64,7 @@ class H(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         try:
-            self.wfile.write(body.encode())
+            self.wfile.write(b"\xff" if m == "utf8" else body.encode())
         except OSError:
             pass
     def do_POST(self):
@@ -245,6 +245,7 @@ search --no-jev "hop probe $QMARK"
 expect_code 0 "$code" "hops: $err"
 assert_contains "$(trailer)" 'provider=ketch-multi hops=4' "hops: empty, 429 and timeout each hop on"
 assert_contains "$(cat "$STUB/ketch.calls")" '--multi' "hops: the last hop is ketch --multi"
+assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3==0' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "hops: an HTTP 429 Exa call has no cost"
 pass "an empty list, an HTTP 429 and a timeout each hop to the next provider"
 
 new_case trickle
@@ -254,6 +255,7 @@ search --chain K "trickle probe $QMARK"
 expect_code 0 "$code" "trickle: $err"
 assert_contains "$(trailer)" 'provider=tinyfish hops=2' "trickle: a trickled body times out and hops on"
 [ $(( $(date +%s) - started )) -lt 3 ] || fail "trickle: the 1 s hop deadline did not cover the body read"
+assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3==0' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "trickle: an Exa body timeout has no cost"
 pass "the hop deadline covers a trickled response body"
 
 new_case shape
@@ -263,6 +265,19 @@ expect_code 0 "$code" "shape: $err"
 assert_contains "$(trailer)" 'provider=tinyfish hops=2' "shape: a wrong-shaped reply hops on"
 assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3>0' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "shape: the billed Exa call is ledgered with its price"
 pass "a wrong-shaped JSON reply hops on instead of killing the chain"
+
+new_case invalid-utf8
+printf '%s\texa-lite\t7.99600\t0.80\t5\tjev\n' "$(date +%s)" > "$STATE/ledger.tsv"
+set_mode exa utf8
+search --chain K "invalid utf8 probe $QMARK"
+expect_code 0 "$code" "invalid utf8: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "invalid utf8: an undecodable reply hops on"
+assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3==0.004' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "invalid utf8: the HTTP 200 Exa call is ledgered at its configured price"
+search --chain K "invalid utf8 cap probe $QMARK"
+expect_code 0 "$code" "invalid utf8 cap: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "invalid utf8 cap: a capped Exa hop falls through"
+assert_equals 1 "$(reqs exa)" "invalid utf8 cap: the billed malformed reply prevents another Exa request"
+pass "an undecodable HTTP 200 Exa reply still counts toward the spending cap"
 
 new_case all-empty
 set_mode ketch-exa empty
