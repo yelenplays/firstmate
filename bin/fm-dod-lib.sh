@@ -817,11 +817,9 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # since the base add or modify a test file, naming the files. Under no-mistakes
 # the worker's handoff `done:` is checked before the pipeline runs, and
 # bin/fm-pr-check.sh forces the same check on the CI-ready report before it
-# records the PR, so a test file any pipeline commit adds or modifies on a banned
-# task, including a review fixer's, refuses the PR record. That pre-PR check
-# also bans, on every task, the test files a pipeline commit adds or modifies
-# when the model that ran its step is banned (fm_test_ban_pipeline_fixer_tests
-# below), so a Sonnet review fixer cannot write tests on an Opus task either.
+# records the PR, even when the forge supplies the head. The forced pre-PR
+# check also applies the pipeline-fixer contract below, independently of the
+# worker's lane.
 # End-to-end tests and running existing tests stay allowed.
 # Tests-first handoff: a ship may start on an allowlisted lane, commit
 # failing tests there, and then be relaunched onto a banned lane to implement
@@ -982,16 +980,20 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
   done
 }
 
-# Pipeline fixers: a no-mistakes step that changes the branch commits as
-# `no-mistakes(<step>): ...`, written by whichever model ran that step, not by
-# the task's worker. So the pre-PR check bans such a commit's test files by the
-# step's own model, on every task, whatever the worker's lane. The models a
-# step ran are read from no-mistakes' state database for the task's branch (its
-# writing invocations: <step>-fix, and <step> itself except for the read-only
-# review); with no recorded invocation, the no-mistakes config's models for the
-# step stand in (review_agents.fixer for review, else every agent in the
-# `agent:` chain, since its fallback may run any of them). A step whose models
-# are all unknown is not banned, like an unset worker model.
+# Pipeline-fixer contract: the forced pre-PR check inspects non-merge commits
+# since the base named `no-mistakes(<step>): ...`, independently of the worker's
+# lane. Attribution is conservative and step-wide, not per commit: any banned
+# candidate model for a step makes its added or modified test files refuse the
+# PR record, except captain-authorized paths and paths restored at HEAD to
+# their state before that commit. Deletions alone are not checked here.
+# Candidates come from successful writing invocations across runs on the task's
+# branch in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite: <step>-fix, and <step>
+# itself except for the read-only review. Without known recorded models, or
+# when sqlite3 or the database is unavailable, config.yaml in that same home
+# supplies review_agents.fixer for review, else every agent in the `agent:`
+# fallback chain. A step with no known candidate model is not banned, like an
+# unset worker model. tests/fm-dod-lib.test.sh and
+# tests/fm-pr-check-security.test.sh pin attribution and pre-PR enforcement.
 
 # Prints the no-mistakes config's settings as `<dotted.path>\t<value>` lines;
 # each list item, block or inline, prints under its list's path.
@@ -1050,8 +1052,8 @@ fm_test_ban_nm_agent_model() {  # <flat-config> <agent>
   [ -z "$model" ] || printf '%s\n' "$model"
 }
 
-# Prints, one per line, the models that wrote <step>'s commits on <branch>, or
-# with none recorded the models the no-mistakes config names for that step.
+# Prints candidate models for <step> on <branch> under the pipeline-fixer
+# contract above; these are not attributed to individual commits.
 fm_test_ban_nm_step_models() {  # <step> [<branch>]
   local step=$1 branch=${2:-} nm_home db models='' flat agent model
   nm_home=${NM_HOME:-$HOME/.no-mistakes}
@@ -1081,10 +1083,8 @@ fm_test_ban_nm_step_models() {  # <step> [<branch>]
   printf '%s\n' "$models" | sed '/^$/d'
 }
 
-# Prints `<sha>\t<step>\t<model>\t<path>` for each test file a pipeline commit
-# since the base adds or modifies while its step's model is banned, skipping
-# paths restored to their pre-commit state and captain-authorized paths in
-# <meta>. 1 when the base cannot be resolved;
+# Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
+# pipeline-fixer contract above. 1 when the base cannot be resolved;
 # stdout then holds a one-line reason.
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta>
   local wt=$1 meta=$2 base_ref mb sha subject step model banned path
@@ -1144,8 +1144,7 @@ fm_test_ban_should_check_pipeline() {  # <kind> <mode> <line> <meta> [force]
 
 # 0 when the test-authoring gate does not apply or finds no test files. 1 when
 # refused; stdout then holds a one-line reason naming the files. The worker's
-# lane is checked first; the forced pre-PR check then checks every pipeline
-# fixer commit by its own step's model.
+# lane is checked first, then the forced pre-PR pipeline-fixer check.
 fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
   local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path fixer
   fm_test_ban_accept_worker_done "$@" || return 1
