@@ -1,1 +1,0 @@
-/usr/bin/xgettext5.34.pl

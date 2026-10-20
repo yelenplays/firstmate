@@ -1,1 +1,0 @@
-/usr/bin/power_report.sh

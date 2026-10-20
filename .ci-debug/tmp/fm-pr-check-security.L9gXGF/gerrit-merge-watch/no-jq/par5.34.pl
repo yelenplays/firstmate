@@ -1,1 +1,0 @@
-/usr/bin/par5.34.pl

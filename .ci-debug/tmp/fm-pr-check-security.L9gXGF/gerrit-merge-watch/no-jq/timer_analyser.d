@@ -1,1 +1,0 @@
-/usr/bin/timer_analyser.d
