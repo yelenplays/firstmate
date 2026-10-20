@@ -163,7 +163,7 @@ RECORDED_AGO_JQ='def recorded_ago: ([$now - .epoch, 0] | max) as $s
     else "\($s / 86400 | floor)d" end;'
 
 usage() {
-  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] [--promote-retired] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | startup-replay | seed-tail" >&2
+  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] [--promote-finished] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | startup-replay | seed-tail" >&2
   exit 2
 }
 
@@ -503,10 +503,10 @@ case "$CMD" in
     SUMMARY=''
     WAKE=''
     SILENT=false
-    PROMOTE_RETIRED=0
+    PROMOTE_FINISHED=0
     while [ "$#" -gt 0 ]; do
       case "$1" in
-        --promote-retired) PROMOTE_RETIRED=1; shift ;;
+        --promote-finished) PROMOTE_FINISHED=1; shift ;;
         --task) TASK=${2:-}; shift 2 || usage ;;
         --verdict) VERDICT=${2:-}; shift 2 || usage ;;
         --summary) SUMMARY=${2:-}; shift 2 || usage ;;
@@ -524,6 +524,13 @@ case "$CMD" in
       echo "error: silent outcomes must have the routine verdict" >&2
       exit 2
     fi
+    TASK_FINISHED=0
+    if [ "$PROMOTE_FINISHED" -eq 1 ] && [ "$VERDICT" = routine ] && [ "$SILENT" = false ]; then
+      if fm_task_retired "$TASK" \
+          || [ "$(FM_HOME="$FM_HOME" "$FM_CREW_STATE_BIN" "$TASK" 2>/dev/null | sed -n '1s/^state: \([a-z]*\).*/\1/p')" = done ]; then
+        TASK_FINISHED=1
+      fi
+    fi
     fm_lock_acquire_wait "$LOCK"
     if ! LAST_SEQ=$(last_seq); then
       fm_lock_release "$LOCK"
@@ -535,13 +542,10 @@ case "$CMD" in
       echo "error: refusing append because the outcome cursor is invalid or ahead of the store" >&2
       exit 1
     fi
-    # A torn-down task's visible routine report is stored as captain, so the
-    # host and the Pi branch both wake MAIN to relay the finished result.
-    # Only the branch report surfaces opt in.
-    if [ "$PROMOTE_RETIRED" -eq 1 ] && [ "$VERDICT" = routine ] && [ "$SILENT" = false ] \
-        && fm_task_retired "$TASK"; then
-      VERDICT=captain
-    fi
+    # A visible routine report for a finished task (crew state done, or torn
+    # down) is stored as captain, so the host and the Pi branch both wake MAIN
+    # to relay the finished result. Only the branch report surfaces opt in.
+    [ "$TASK_FINISHED" -eq 0 ] || VERDICT=captain
     SEQ=$(( LAST_SEQ + 1 ))
     capture_status_position "$TASK"
     rm -f -- "$OUTCOME_INDEX_READY" || { fm_lock_release "$LOCK"; exit 1; }

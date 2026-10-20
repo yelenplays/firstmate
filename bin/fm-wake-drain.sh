@@ -881,8 +881,11 @@ ROWS
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     cap_outcome_line "$line" $((item_bytes - 1))
+    bytes=$(( OUTCOME_LINE_BYTES + 1 ))
+    [ $((used + bytes)) -le "$routine_bytes" ] || break
     done_lines="$OUTCOME_LINE
 $done_lines"
+    used=$((used + bytes))
   done <<ROWS
 $done_rows
 ROWS

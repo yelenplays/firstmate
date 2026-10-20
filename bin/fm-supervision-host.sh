@@ -1031,10 +1031,10 @@ handle_wake() {  # <reason-lines>
 
 # Verify every recorded outcome before deciding whether main must wake. The
 # store, not a receipt's copied verdict, owns the outcome: it already holds a
-# finished or torn-down task's report as captain (fm-branch-outcome.sh
-# --promote-retired), and a visible routine row whose task retired later in the
-# same turn joins too, so a completion wakes main whatever verdict the model
-# chose. No read or processed cursor moves here.
+# report for a task with crew state done or torn down as captain
+# (fm-branch-outcome.sh --promote-finished), and a visible routine row whose
+# task retired later in the same turn joins too. No read or processed cursor
+# moves here.
 turn_captain_seqs() {  # <turn>
   local seqs rows candidates seq verdict task out=
   seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1

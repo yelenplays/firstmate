@@ -177,7 +177,7 @@ PY
 }
 
 # The branch report surfaces (bin/fm-branch-report.sh and the Pi report tool)
-# pass --promote-retired: a visible routine report for a torn-down task is
+# pass --promote-finished: a visible routine report for a torn-down task or one with crew state done is
 # stored as captain, so both supervision paths wake MAIN to relay it. A live
 # task, a silent row, a name that never launched, and fleet stay routine.
 test_outcome_append_promotes_a_torn_down_tasks_routine_report() {
@@ -186,21 +186,33 @@ test_outcome_append_promotes_a_torn_down_tasks_routine_report() {
   mkdir -p "$home/state" "$home/data/done-task" "$home/data/live-task" "$home/data/fleet"
   printf 'project=demo\n' > "$home/state/live-task.meta"
   store="$home/state/branch-outcomes.jsonl"
-  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
     --task done-task --verdict routine --summary 'bench finished; worker torn down' >/dev/null || fail "retired append failed"
-  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
     --task live-task --verdict routine --summary 'still working' >/dev/null || fail "live append failed"
-  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
     --task done-task --verdict routine --summary 'nothing new' --silent true >/dev/null || fail "silent append failed"
-  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
     --task never-launched --verdict routine --summary 'unknown name' >/dev/null || fail "unknown-task append failed"
-  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-retired \
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
     --task fleet --verdict routine --summary 'fleet review' >/dev/null || fail "fleet append failed"
   FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append \
     --task done-task --verdict routine --summary 'no opt-in' >/dev/null || fail "plain append failed"
   [ "$(jq -r '.verdict' "$store" | tr '\n' ' ')" = "captain routine routine routine routine routine " ] \
     || fail "promotion picked the wrong rows: $(cat "$store")"
-  grep -F '"--silent", String(silent), "--promote-retired"]' "$ROOT/.pi/extensions/fm-branch-supervision.ts" >/dev/null \
+  mkdir -p "$home/fakebin"
+  printf '#!/usr/bin/env bash\ncase "$1" in live-done) echo "state: done · source: status-log · finished" ;; *) echo "state: working · source: pane" ;; esac\n' > "$home/fakebin/fm-crew-state.sh"
+  chmod +x "$home/fakebin/fm-crew-state.sh"
+  printf 'project=demo\n' > "$home/state/live-done.meta"
+  FM_CREW_STATE_BIN="$home/fakebin/fm-crew-state.sh" FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
+    --task live-done --verdict routine --summary 'bench finished before teardown' >/dev/null || fail "live-done append failed"
+  FM_CREW_STATE_BIN="$home/fakebin/fm-crew-state.sh" FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
+    --task live-task --verdict routine --summary 'still going' >/dev/null || fail "live working append failed"
+  [ "$(jq -r 'select(.task == "live-done") | .verdict' "$store")" = captain ] \
+    || fail "a routine report for a task with crew state done was not promoted before teardown"
+  [ "$(jq -r 'select(.task == "live-task") | .verdict' "$store" | tail -1)" = routine ] \
+    || fail "a working task's routine report was promoted"
+  grep -F '"--silent", String(silent), "--promote-finished"]' "$ROOT/.pi/extensions/fm-branch-supervision.ts" >/dev/null \
     || fail "the Pi report tool no longer opts its appends into retired-task promotion"
   pass "outcome append stores a torn-down task's visible routine report as captain only when the report surface opts in"
 }

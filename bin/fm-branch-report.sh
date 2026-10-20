@@ -42,9 +42,9 @@
 # or relayed as notes. An attended turn queues nothing: its captain rows reach
 # MAIN through the host's branch-outcome exit and the drain's BRANCH OUTCOMES
 # section (bin/fm-wake-drain.sh), and its routine rows stay in the store. A
-# routine report for a task that is already torn down is stored as captain by
-# bin/fm-branch-outcome.sh --promote-retired, so a completion wakes MAIN
-# whatever verdict was chosen.
+# visible routine report for a task whose crew state is done (bin/fm-crew-state.sh)
+# or that is already torn down is stored as captain by
+# bin/fm-branch-outcome.sh --promote-finished, so that completion wakes MAIN.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -120,7 +120,7 @@ fi
 
 [ "$WAKE_SET" -eq 1 ] || WAKE=$(turn_field wake)
 
-set -- append --task "$TASK" --verdict "$VERDICT" --summary "$SUMMARY" --silent "$SILENT" --promote-retired
+set -- append --task "$TASK" --verdict "$VERDICT" --summary "$SUMMARY" --silent "$SILENT" --promote-finished
 [ -z "$WAKE" ] || set -- "$@" --wake "$WAKE"
 if ! SEQ=$("$SCRIPT_DIR/fm-branch-outcome.sh" "$@"); then
   echo "outcome store append failed (nothing recorded)" >&2
