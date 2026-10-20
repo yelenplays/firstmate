@@ -2172,7 +2172,7 @@ This section is the single owner of the opt-in wiki integration for ship and sco
 With neither set, or with a directory that lacks `routing/estate.json`, briefs carry no wiki sections and cleanup checks nothing, so the feature is inert until configured.
 `config/wikis-root` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract; a home where the path does not resolve renders no wiki sections.
 
-A project's backing wikis come from its `data/projects.md` row: an optional `[wiki: A, B]` bracket directly after the mode bracket, or directly after the name when the row has none, lists vault names or card ids separated by commas, and names may contain spaces ([`bin/fm-project-mode.sh`](../bin/fm-project-mode.sh) `--wikis` prints them).
+A project's backing wikis come from its `data/projects.md` row: an optional `[wiki: A, B]` bracket after the name, in any order with the mode and [business-facts](#business-facts-in-briefs-configbusiness-factsmd) brackets, lists vault names or card ids separated by commas, and names may contain spaces ([`bin/fm-project-mode.sh`](../bin/fm-project-mode.sh) `--wikis` prints them).
 The token never changes the registered delivery posture.
 
 When configured, `bin/fm-brief.sh` adds a `# Wiki context` section resolved against `estate.json`'s `vaults[]`: each named vault with its path, card id, digest, entry page, and budget class, read cheapest first - digest, then entry page, then at most three further pages.

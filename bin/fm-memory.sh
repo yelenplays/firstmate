@@ -27,9 +27,10 @@
 #
 # A memory is one markdown file. `remember` writes
 # <category>/<slug>.md with frontmatter (category, created, updated, plus
-# optional expires and sensitivity) and a `# <topic>` title. Re-writing the
-# same category+topic preserves `created:` but replaces the body and optional
-# metadata; omitted expires/sensitivity values are not carried forward.
+# optional expires, sensitivity, and task) and a `# <topic>` title. Re-writing
+# the same category+topic preserves `created:` but replaces the body and optional
+# metadata; omitted expires/sensitivity/task values and any completed stamp
+# are not carried forward.
 # --expires accepts YYYY-MM-DD; --sensitivity accepts normal or private.
 # Every option must precede the topic. `body` comes
 # from the remaining arguments joined by spaces, or from stdin when no body
@@ -40,9 +41,9 @@
 #
 # --task <task-id> links a running-work note to the firstmate task it
 # describes (frontmatter `task: <id>`, ^[A-Za-z0-9][A-Za-z0-9._-]*$). The link
-# is optional and only meaningful for now/ notes. `complete-task` is the
-# mechanical close of that link: bin/fm-teardown.sh calls it once a ship or
-# scout task is cleaned up. Every now/ note whose `task:` equals <task-id> and
+# is optional and only meaningful for now/ notes. docs/memory.md owns the
+# cleanup trigger and its exceptions. `complete-task` is the mechanical close
+# of that link: every now/ note whose `task:` equals <task-id> and
 # that has no `completed:` yet is rewritten in place: the body becomes
 # "Erledigt <date> (<task-id>): <outcome>" plus the report path or PR URL, so
 # no "running" or "pending" wording survives, and `completed: <date>` is added
@@ -72,7 +73,7 @@
 #
 # Exit codes: 0 success (including zero recall hits); 1 merge conflicts;
 # 2 usage error, a node runtime problem, or a missing/unusable store component;
-# 3 an invalid category, topic slug, expires date shape, or sensitivity.
+# 3 an invalid category, topic slug, expires date shape, sensitivity, or task id.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

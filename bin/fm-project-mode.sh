@@ -35,15 +35,10 @@
 #   and whichever token is left over is the mode. <prefix> must not contain a space; an empty override
 #   ("branch=") resolves to "" for a bare "<task-id>" ship branch instead of the
 #   legacy "fm/<task-id>".
-# Any row may also carry a wiki token as a second bracket directly after the
-# mode bracket, or directly after the name when there is no mode bracket:
-#   - <name> [<mode>] [wiki: A, B] - <desc> (added <date>)
-#   - <name> [wiki: Some Wiki] - <desc> (added <date>)       -> no-mistakes off
-# The token names the project's backing wikis (comma-separated; names may
-# contain spaces) and never changes the delivery posture; bin/fm-wiki-lib.sh
-# owns its parser and bin/fm-brief.sh consumes it. A [facts: <business>] bracket
-# in the same position names the row's business-facts block instead
-# (bin/fm-business-facts-lib.sh); it never changes the posture either.
+# Optional wiki and facts metadata brackets do not change delivery posture.
+# docs/configuration.md "Wiki context in briefs" and "Business facts in briefs"
+# own their syntax and effect; bin/fm-wiki-lib.sh and bin/fm-business-facts-lib.sh
+# own their parsers, consumed by bin/fm-brief.sh.
 #
 # Registered modes:
 #   no-mistakes            full pipeline -> PR -> configured merge authority (default)

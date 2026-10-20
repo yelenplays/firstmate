@@ -17,8 +17,11 @@ The OpenViking categories carry over: `preferences`, `entities`, `events`; `reme
 A fourth category, `now`, holds short-lived current captain context, such as an open personal or project situation a follow-up may refer to implicitly.
 Automatically captured `now` entries carry an `expires` date; manually written entries may omit it and remain current indefinitely.
 An expired entry stays on disk but is no longer printed by `now`.
-A running-work note links to its task with `remember --task <task-id>`; when `bin/fm-teardown.sh` cleans up that ship or scout task it calls `complete-task`, which rewrites the linked `now` note in place to the outcome plus the report path or PR URL and stamps `completed:`, so recall stops saying the work is pending.
-Notes without a task link are never touched, and no note is deleted or moved.
+Use `remember`'s task link when recording running work in `now`; automatic capture does not infer that link.
+On non-forced ship or scout cleanup, `bin/fm-teardown.sh` calls `complete-task` to replace linked pending text with a completion summary and any report path or PR URL; scout cleanup requires an existing report for this update.
+Forced cleanup leaves the memory unchanged rather than claiming discarded work finished.
+The update is best effort: a failure warns without blocking cleanup.
+The [`fm-memory.sh` header](../bin/fm-memory.sh) owns task-link syntax and rewrite rules.
 `sensitivity: private` marks an entry that a non-Claude primary harness must not see in its session-start digest.
 Neither expiry nor sensitivity filters `recall`; these metadata control startup presentation, not access to the store.
 The BM25 index is `<store>/.index.json`, a disposable cache owned by [`bin/fm-memory-bm25.mjs`](../bin/fm-memory-bm25.mjs) that self-rebuilds whenever the tree drifts from its recorded manifest, so recall never answers from stale bytes.
@@ -30,6 +33,7 @@ During OpenViking migration, legacy session history and other non-memory Markdow
 See `bin/fm-memory.sh --help` for exact syntax.
 
 - `remember` writes or updates a memory from arguments or stdin.
+- `complete-task` closes task-linked running-work notes under the [cleanup contract](#layout).
 - `recall` ranks memories by BM25, with a JSON envelope available for recall-injection consumers.
 - `now` prints current entries newest first under a size cap; [automatic capture](#automatic-capture) describes startup delivery.
 - `merge-from` copies memories missing from this store without overwriting; differing files at the same relative path are conflicts for an operator to settle.

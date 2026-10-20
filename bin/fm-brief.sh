@@ -107,9 +107,8 @@
 # briefs"), ship and scout briefs also carry a "# Wiki context" section built
 # from the project's registry wiki token and a "# Wiki guide" step whose marker
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
-# A project row's [facts: <business>] token adds a "# Business facts" section
-# from config/business-facts.md right after the task; bin/fm-business-facts-lib.sh
-# owns the schema, and a malformed token stops the scaffold.
+# Business-facts setup and schema live in docs/configuration.md "Business facts
+# in briefs"; bin/fm-business-facts-lib.sh owns the parser and worker instruction.
 # Every ship and scout brief also carries a bounded, skippable "# Prior art" step
 # (past reports, wikis, GitHub); findings go in the ship guide or scout report guide.
 # Both crewmate scaffolds carry one shared rule against administering the

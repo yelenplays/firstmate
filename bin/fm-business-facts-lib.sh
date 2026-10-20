@@ -1,19 +1,8 @@
 # shellcheck shell=bash
-# Per-business facts for ship and scout briefs. A project row in
-# data/projects.md may carry a facts token, an extra bracket after the name or
-# after the mode and wiki brackets, in any order:
-#   - <name> [<mode>] [wiki: A] [facts: <business>] - <desc> (added <date>)
-# Several rows (umzugservice-bochum, -v2, ...) may name the same <business>.
-# The token never changes the delivery posture. <business> must match
-# ^[a-z0-9][a-z0-9._-]*$; anything else, an empty value, or a second facts
-# token on one row is malformed and fails loudly.
-#
-# The facts live in gitignored, captain-private config/business-facts.md, one
-# "## <business>" heading per business, free-form lines below it (Gewerbe
-# yes/no, VAT status, legal owner). The file is inherited into secondmate homes
-# like any other local config item (bin/fm-config-inherit-lib.sh), so their
-# own briefs resolve the same blocks. A missing file or a missing heading
-# renders nothing and is not an error.
+# Per-business facts for ship and scout briefs.
+# docs/configuration.md "Business facts in briefs" owns setup, the registry
+# token and facts-file schema, missing-data behavior, and inheritance.
+# This helper owns parsing and the rendered worker instruction.
 #
 # fm_facts_registry_name <registry> <project>
 #   Prints the project's facts name, or nothing. Returns 2 and prints the

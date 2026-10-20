@@ -86,7 +86,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-dispatch-replay.sh` | Replay labeled dispatch briefs under a live call budget and score recorded choices offline ([configuration](configuration.md#typed-dispatch-resolution-env-typesafe_api_key)) |
 | `fm-jev-retrieval-miss.sh` | Metadata-only Jev miss classifier; refuses excerpts and conflict lines (docs/configuration.md) |
 | `fm-wiki-ask.sh` | Config-gated wiki-tool ask; classifies no-match and missing-source only (docs/configuration.md) |
-| `fm-memory.sh` | Plain-markdown memory store: remember, BM25 recall, now entries, merge-from, list, reindex (docs/memory.md) |
+| `fm-memory.sh` | Manage and search the plain-markdown memory store ([contract](memory.md)) |
 | [`fm-memory-capture.sh`](../bin/fm-memory-capture.sh) | Automatic capture of captain turns into the memory store at PreCompact and SessionEnd ([memory](memory.md#automatic-capture)) |
 | `fm-memory-capture.mjs` | Filter, model extraction, and verified writes behind fm-memory-capture.sh |
 | [`fm-history.sh`](../bin/fm-history.sh) | Capture and search the private conversation journal and generate task cards and daily Logbooks ([configuration](configuration.md#operational-home-layout-and-state)) |
@@ -115,6 +115,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `backends/cmux.sh`       | Experimental cmux session-provider adapter                                           |
 | `fm-config-push.sh`      | Push declared inherited local material to live local or remote secondmates and send the placement-specific config reread when changed |
 | `fm-project-mode.sh`     | Resolve a project's registered delivery posture, forge binding, or ship-branch prefix from `data/projects.md` for fleet sync, home seeding, and the forge agreement a ship spawn or scout promotion applies |
+| `fm-business-facts-lib.sh` | Resolve and render per-business facts for worker briefs ([setup](configuration.md#business-facts-in-briefs-configbusiness-factsmd)) |
 | `fm-project-capacity-lib.sh` | Enforce per-project worker admission limits declared in `config/project-capacity` |
 | `fm-forge-detect.sh`     | Propose a clone's forge binding from its origin remote for project-add intake, never recording it |
 | `fm-merge-local.sh`      | Guarded local-only fast-forward landing and revert                                  |
