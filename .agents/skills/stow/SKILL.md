@@ -90,7 +90,7 @@ Every `/stow` invocation performs this complete pass, even when the session cont
 2. Read every current memory file completely: `data/captain.md`, `data/captain-shared.md`, and `data/learnings.md`.
    Treat an absent local file as absent, not as an invitation to manufacture content.
    Note any `Memory layering` declaration in them (schema: `docs/configuration.md`) and which declared tiers this session can reach; every later step consults it.
-   When neither `data/captain.md` nor `data/captain-shared.md` holds one, treat the local files as the only owners.
+   When neither `data/captain.md` nor `data/captain-shared.md` holds one, use AGENTS.md section 6's default routing.
    In a primary home, all three are curation inputs under their existing ownership rules.
    In a secondmate home, `data/captain-shared.md` is a read-only primary-owned input: count it, never edit it, and curate only the editable local files.
    Every mutation in the rest of this pass, including reinforcement, retiering, decay archival, legacy migration, consolidation, budget archival, and offload, applies only to an editable memory file.

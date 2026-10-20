@@ -12,7 +12,7 @@ Repeated corrections are surfaced for a deterministic check or a recorded reason
 All rules live in gitignored `config/captain-rules.md` of the primary home, one line per rule with a stable id and a small metadata comment.
 Every write goes through `bin/fm-rules.sh` (`add`, `confirm`, `revoke`, `check`, `nocheck`); hand edits are possible but lose the repeat count if the comment is broken.
 Writes are serialized by a store lock, so corrections recorded in parallel never overwrite each other.
-Secondmate propagation timing, live reread delivery, and failure handling follow the [inherited-local-material contract](../.agents/skills/secondmate-provisioning/references/inheritance.md).
+Secondmate file propagation and config reread instructions follow the [inherited-local-material contract](../.agents/skills/secondmate-provisioning/references/inheritance.md); [delivery to running consumers](#delivery-to-running-consumers) below owns rule-change delivery.
 A secondmate never records its own rules; route new corrections to main.
 
 Rules are for how firstmate works.
@@ -26,26 +26,28 @@ Rules are included in these context surfaces, regardless of model:
 | --- | --- | --- |
 | Claude main or secondmate | SessionStart hook `bin/fm-rules.sh session` | startup, resume, clear, and every compaction |
 | Codex, Pi, and other primaries | `CAPTAIN RULES` section of `bin/fm-session-start.sh`, inside the operating stage | full and compact digests |
-| Ship and scout workers | `# Captain rules` section of the brief from `bin/fm-brief.sh`, then a steering-inbox update per change | every scaffold and every saved change |
+| Ship and scout workers | `# Captain rules` section of the brief from `bin/fm-brief.sh`, then steering-inbox updates | every scaffold and rule-set change |
 
 Every surface carries every rule whole; no projection cuts the block.
-The size limit is enforced when a rule is written instead: an `add`, `confirm`, or `check` that would push the block past its budget is refused before it is saved, and the refusal asks to consolidate rules by restating an existing rule more briefly or revoking an obsolete one.
+The size limit is enforced when a rule is written instead: an `add`, `confirm`, or `check` that would grow the block beyond its budget is refused before it is saved, and the refusal asks to consolidate rules by restating an existing rule more briefly or revoking an obsolete one.
+Writes that do not grow the block remain possible even when it is already over budget.
 The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the budget and its exit code.
-Worker briefs include the complete rule set at scaffold time.
 
 ## Delivery to running consumers
 
-A saved change reaches everyone who already loaded the older rules before the save returns; no restart or manual push is needed.
+A change to the worker-facing rule set triggers delivery to running consumers before the save returns; no restart or manual push is needed when delivery succeeds.
 
 - Secondmate homes get the new `config/captain-rules.md` through the guarded config push, with that home's reread instruction.
-- Every running ship or scout worker of the primary home and of each local secondmate home gets the complete new set as one steering-inbox record, which replaces its brief's rules section.
+- Every running ship or scout worker of the primary home and of each local secondmate home gets the complete new set as one steering-inbox record instructing it to replace its brief's rules section.
+
+Successful delivery does not confirm that the receiving agent has read or applied the update.
 
 Additions, changed texts, revocations, and linked checks are delivered alike, in write order; an unchanged repeat sends nothing.
 When a consumer cannot be reached, the change stays saved, the command names that consumer and exits 5, and `bin/fm-rules.sh deliver` retries.
 Running workers of a remote secondmate are always reported as not reached; that home gets the new file through the push.
 The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the delivery order, record wording, and exit codes.
 Secondmate charters carry no rules section because the secondmate session loads them itself.
-Task worktrees, no-mistakes gates, and the supervision branch get no session block; a worker gets the rules only through its brief.
+Task worktrees, no-mistakes gates, and the supervision branch get no session block.
 
 ## Precedence
 
@@ -56,7 +58,7 @@ Inside a worker brief, the brief's task scope and safety rules still win over a 
 ## From correction to rule
 
 1. The Claude UserPromptSubmit hook `bin/fm-rules.sh prompt-hook` reads each captain prompt in the primary home's main session and matches correction and standing-rule phrasing such as "ab jetzt", "nie wieder", "hab ich dir schon gesagt", "from now on", or "do it yourself".
-   Wakes, notifications, and pasted content are skipped.
+   Recognized wakes and notifications are skipped, and `<pasted_content>` blocks are excluded from matching.
 2. A match writes a candidate under `state/captain-rules/candidates/` and tells main to decide.
 3. Main either records the rule with `bin/fm-rules.sh confirm <candidate> <rule-id> "<rule>"` and confirms it in one chat line ending with `"nein" nimmt sie zurueck`, or drops the candidate with `dismiss` and says nothing.
    A confirm that exits 5 saved the rule but could not reach every consumer; main says so in that line and retries with `deliver`.
