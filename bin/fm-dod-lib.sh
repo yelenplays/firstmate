@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Single owner of a ship task's mode-specific "Definition of done" block, of
 # the named-head reachability gate that accepts a ship `done:` claim, and of the
-# test-authoring ban on Claude Sonnet and Haiku lanes (its block below).
+# test-authoring ban on every lane outside the test-author allowlist (its block below).
 # Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
 # bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
@@ -799,23 +799,28 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
   [ "$mode" = local-only ] && fm_dod_ref_contains "$project" refs/heads "$sha"
 }
 
-# --- No test authoring on Claude Sonnet and Haiku lanes ---------------------
-# This block is the single owner of the test-authoring ban: which models it
-# covers, the launch section that tells the worker, the explicit captain
-# exception, what counts as a test file, and the done gate that enforces it.
+# --- No test authoring outside the test-author allowlist -------------------
+# This block is the single owner of the test-authoring ban: which models may
+# author tests, the launch section that tells every other worker, the explicit
+# captain exception, what counts as a test file, and the done gate that enforces it.
+# The ban is an allowlist: only Claude Opus, Claude Fable, and GPT Sol may author
+# tests (FM_TEST_AUTHOR_MODEL_PATTERNS), so Sonnet, Haiku, DeepSeek, GLM, and any
+# model added to a dispatch rule later are banned until listed here.
 # bin/fm-spawn.sh records test_ban_model=<model> in state/<id>.meta for a ship or
-# scout whose resolved --model matches FM_TEST_BAN_MODEL_PATTERNS, plus one
+# scout whose resolved --model is banned, plus one
 # test_ban_allowed=<path> record per path explicitly named under the
 # `### Captain-specified test` subsection. It appends fm_test_ban_overlay to a
 # banned ship or scout launch brief. bin/fm-promote.sh renders the same section
 # into a promoted ship's instructions and re-derives allowed paths from intent. An unset or `default` model is not
-# matched, because the harness default is not knowable at spawn.
+# banned, because the harness default is not knowable at spawn.
 # fm_dod_accept_ship_done refuses a ship `done:` from a banned task whose commits
 # since the base add or modify a test file, naming the files. Under no-mistakes
-# only the pre-validation handoff `done:` is checked: the later CI-ready report
-# carries the pipeline's own commits, which this ban does not cover. End-to-end
+# the worker's handoff `done:` is checked before the pipeline runs, and
+# bin/fm-pr-check.sh forces the same check on the CI-ready report before it
+# records the PR, so a test file any pipeline commit adds or modifies on a banned
+# task, including a review fixer's, refuses the PR record. End-to-end
 # tests and running existing tests stay allowed.
-# Tests-first handoff: a ship may start on a lane the ban does not cover, commit
+# Tests-first handoff: a ship may start on an allowlisted lane, commit
 # failing tests there, and then be relaunched onto a banned lane to implement
 # until they pass (`bin/fm-control.sh <id> relaunch --model <banned-model>`).
 # bin/fm-spawn.sh records test_ban_since=<HEAD> when such a relaunch moves a
@@ -829,24 +834,25 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # worker's authorship while any change it makes to them still is, and test
 # changes a merge or rebase brings in from the base are not. Tests left
 # uncommitted at the handoff count as the banned worker's.
-FM_TEST_BAN_MODEL_PATTERNS='*claude*sonnet* *claude*haiku* sonnet sonnet[[]* haiku haiku[[]*'
+FM_TEST_AUTHOR_MODEL_PATTERNS='*claude*opus* opus opus[[]* *claude*fable* fable fable[[]* *gpt-*-sol *gpt-*-sol-* *gpt-*-sol[[]*'
 FM_TEST_BAN_EXCEPTION_HEADING="### Captain-specified test"
 
-# 0 when <model> is on a lane whose workers may not author tests. Matching is
-# case-insensitive against the shell globs in FM_TEST_BAN_MODEL_PATTERNS, which
-# cover the Claude ids (claude-sonnet-*, claude-haiku-*, the older
-# claude-3-5-sonnet-* order), their provider-prefixed spellings such as
-# anthropic/claude-sonnet-* or us.anthropic.claude-haiku-*, and the Claude Code
-# aliases sonnet and haiku with an optional [context] suffix.
+# 0 when <model> is on a lane whose workers may not author tests: any named
+# model that matches none of the case-insensitive shell globs in
+# FM_TEST_AUTHOR_MODEL_PATTERNS. The globs cover the Claude Opus and Fable ids
+# (claude-opus-*, claude-fable-*), their provider-prefixed spellings such as
+# anthropic/claude-opus-* or us.anthropic.claude-opus-*, the Claude Code aliases
+# opus and fable with an optional [context] suffix, and GPT Sol ids such as
+# gpt-6.1-sol or openai-codex/gpt-6.1-sol.
 fm_test_ban_model_applies() {  # <model>
   local model pattern
   model=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
   [ -n "$model" ] && [ "$model" != default ] || return 1
-  for pattern in $FM_TEST_BAN_MODEL_PATTERNS; do
+  for pattern in $FM_TEST_AUTHOR_MODEL_PATTERNS; do
     # shellcheck disable=SC2254  # The pattern list holds intentional globs.
-    case "$model" in $pattern) return 0 ;; esac
+    case "$model" in $pattern) return 1 ;; esac
   done
-  return 1
+  return 0
 }
 
 # Prints test-file paths explicitly named in the captain test subsection.

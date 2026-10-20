@@ -465,19 +465,23 @@ test_worker_role_names_skill_and_fallback_file() {
 
 test_worker_role_names_skill_and_fallback_file
 
-# The test-authoring ban covers Claude Sonnet and Haiku spellings across
-# harnesses and nothing else.
+# The test-authoring ban is an allowlist: Opus, Fable, and GPT Sol spellings
+# across harnesses may author tests, and every other named model is banned.
 test_test_ban_model_list() {
   local model
   for model in claude-sonnet-5-5 claude-haiku-5-5 Claude-Sonnet-4-5 anthropic/claude-sonnet-4.5 \
     openrouter/anthropic/claude-haiku-4.5 us.anthropic.claude-haiku-4-5-v1:0 claude-3-5-sonnet-20241022 \
-    sonnet haiku 'sonnet[1m]'; do
+    sonnet haiku 'sonnet[1m]' opencode-go/deepseek-v4.1-flash opencode/deepseek-v4.1-flash-free \
+    deepseek-v4.1-flash glm-5.3-flash zai/glm-5.3-flash gpt-5.5 gpt-6-luna grok-4 kimi-k3 \
+    some-future-cheap-model opusish-local; do
     fm_test_ban_model_applies "$model" || fail "test ban missed model $model"
   done
-  for model in '' default claude-opus-5-5 opus claude-fable-5-1 gpt-5.5 grok-4 sonnetish-local; do
-    if fm_test_ban_model_applies "$model"; then fail "test ban matched model $model"; fi
+  for model in '' default claude-opus-5-5 Claude-Opus-5-5 anthropic/claude-opus-5.5 \
+    us.anthropic.claude-opus-5-5-v1:0 opus 'opus[1m]' claude-fable-5-1 fable 'fable[1m]' \
+    gpt-6.1-sol openai-codex/gpt-6.1-sol GPT-6.1-Sol gpt-6.1-sol-20261001; do
+    if fm_test_ban_model_applies "$model"; then fail "test ban matched allowlisted model $model"; fi
   done
-  pass "test ban covers Sonnet and Haiku spellings only"
+  pass "test ban allows only Opus, Fable, and GPT Sol spellings and bans every other named model"
 }
 
 test_test_ban_path_heuristic() {
