@@ -16,6 +16,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
 | Context size of no-mistakes pipeline agents | [Pipeline agent skill listing](#pipeline-agent-skill-listing-no-mistakesconfigyaml) |
 | Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
+| Web search for firstmate and workers | [Web search router](#web-search-router-configfm-searchjson) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -1186,6 +1187,33 @@ Names present in the registry produce no report; unknown or unverified names do 
 Each relaunch installs a fresh worker extension with the home's current list, so the replacement performs the same check.
 
 [`bin/fm-exclude-tools-lib.sh`](../bin/fm-exclude-tools-lib.sh) implements parsing and pre-launch validation for this contract; [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header owns the launch-flag mechanics.
+
+## Web search router (config/fm-search.json)
+
+`bin/fm-search.sh "<query>"` is the one web search command for firstmate and its workers; plain `ketch search` is not used because its SearXNG default returns nothing when the upstream engines are suspended.
+It prints normalized results (title, url, date, snippet) and a trailer line `provider=<p> hops=<n> lat=<s> cost=$<x> route=<jev|default|forced>`; `--json` prints `results` plus a `meta` block.
+Flags: `--limit N`, `--urls` (TinyFish first, a cheap URL list), `--deep` (Exa type `auto` first), `--chain F|K` (forces a chain), `--no-jev`, and `--ledger`.
+Exit codes: 0 with results, 3 when every hop is empty (one line per hop on stderr), 1 on a usage error.
+
+Routing sends the query text and nothing else to Jev for one class pick (docs, cli, error, seo_local, music, de_admin, stt, fresh).
+Docs, error and music walk chain K; every other class walks chain F.
+Chain F is also the deterministic default when Jev exits non-zero, answers below the confidence floor, `--no-jev` is set, the query exceeds `max_query_bytes`, or Jev refuses the query as sensitive.
+
+- Chain F: `exa-keyless` -> `exa-lite` -> `tinyfish` -> `ketch --multi`.
+- Chain K: `exa-lite` -> `tinyfish` -> `exa-keyless` -> `ketch --multi`.
+- A hop falls through to the next on an empty list, a non-2xx response, a timeout, a missing key, or a cap refusal.
+- `exa-keyless` and `ketch --multi` go through `ketch`, whose own configuration stays untouched.
+
+`config/fm-search.json` is an optional per-home override (the file is untracked like all of `config/`); the defaults below are built into `bin/fm-search.py` and the file only needs the keys it changes: the Exa monthly cap ($8, inside the $10 free credit; an 80% crossing prints one warning per month), the Exa search types, the TinyFish per-minute and per-day limits (below the free tier), the Jev confidence floor and route-cache hours, and the per-hop timeouts.
+Keys are read at call time from `~/.config/exa.key` and `~/.config/tinyfish.key` and never printed, logged or stored; a missing key just removes that hop.
+The router never signs up for, upgrades or buys anything.
+
+`state/fm-search/ledger.tsv` gets one line per provider call (`ts provider cost_usd lat_s n_results route`) and `state/fm-search/route-cache.tsv` caches the class pick for 24 hours under a hash of the lowercased query.
+Neither file stores query text.
+`fm-search.sh --ledger` prints month-to-date spend and calls per provider.
+
+Every query goes to third-party providers, so never search with private data, names or client facts.
+Test overrides: `FM_JEV_BIN`, `FM_SEARCH_KETCH_BIN`, `FM_SEARCH_EXA_URL`, `FM_SEARCH_TINYFISH_URL`, `FM_SEARCH_KEY_DIR`, `FM_SEARCH_STATE` and `FM_SEARCH_CONFIG` point the router at stubs.
 
 ## Worker account pin (config/claude-account, config/pi-account)
 
