@@ -1,0 +1,44 @@
+
+$ bin/fm-rules.sh add --check bang-interactive terminal-only Never\ hand\ over\ \!\ sudo\ commands\;\ copy\ the\ command\ with\ pbcopy\ and\ ask\ for\ a\ real\ Terminal\ window.
+added: terminal-only
+
+$ bin/fm-rules.sh add short-replies Keep\ routine\ replies\ short.
+added: short-replies
+
+$ bin/fm-rules.sh add short-replies Keep\ routine\ replies\ short.
+repeated: short-replies (seen 2)
+
+$ bin/fm-rules.sh list
+terminal-only	seen=1 check=bang-interactive	Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window.
+short-replies	seen=2	Keep routine replies short.
+
+$ bin/fm-rules.sh unchecked
+short-replies	seen=2	Keep routine replies short.
+
+$ bin/fm-rules.sh render
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window. [check: bang-interactive]
+- Keep routine replies short.
+REPEATED WITHOUT A CHECK - build a check in bin/fm-rule-guard.sh and link it with bin/fm-rules.sh check <rule-id> <check-id>, or record why not with bin/fm-rules.sh nocheck <rule-id> "<reason>":
+- short-replies (seen 2 times)
+
+$ bin/fm-rules.sh nocheck short-replies Reply\ length\ needs\ judgment\ about\ the\ task.
+no check recorded: short-replies
+
+$ bin/fm-rules.sh revoke short-replies
+revoked: short-replies
+
+$ bin/fm-rules.sh revoke short-replies
+fm-rules: no rule: short-replies
+[exit 1; expected 1]
+
+$ bin/fm-rules.sh list
+terminal-only	seen=1 check=bang-interactive	Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window.
+
+Persisted operator rule-store contract:
+# Captain rules
+<!-- fm-rules v1: one rule per line, written by bin/fm-rules.sh; docs/captain-rules.md owns the contract. -->
+
+- [terminal-only] Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window. <!-- since=2026-10-20 seen=1 check=bang-interactive -->
+

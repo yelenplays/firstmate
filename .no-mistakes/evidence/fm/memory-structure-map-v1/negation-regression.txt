@@ -1,0 +1,10 @@
+Regression reproduction: initial guard implementation at 7228da70 versus target fc32a9dd.
+
+Input: no worries, run ! sudo darwin-rebuild switch
+
+$ printf %s\n <input> | bash bin/.phase-baseline-rule-guard.sh scan
+Before fix: exit 0 (unsafe instruction accepted).
+
+$ printf %s\n <input> | bin/fm-rule-guard.sh scan
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+Target: exit 1 (unsafe instruction rejected).

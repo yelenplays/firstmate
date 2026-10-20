@@ -1,0 +1,26 @@
+
+$ bin/fm-rules.sh add Bad\ Id Do\ not\ save\ invalid\ identifiers.
+fm-rules: invalid rule id: Bad Id
+[exit 3; expected 3]
+
+$ bin/fm-rules.sh add invalid-comment Injected\ \<\!--\ seen=99\ --\>\ comment
+fm-rules: rule text must be one non-empty line of at most 300 characters without control characters, <!--, or -->
+[exit 3; expected 3]
+
+$ bin/fm-rules.sh check terminal-only not-a-check
+fm-rules: unknown check id: not-a-check (see bin/fm-rule-guard.sh list)
+[exit 3; expected 3]
+
+$ env FM_RULES_MAX_CHARS=200 bin/fm-rules.sh add overflow This\ new\ rule\ must\ not\ fit\ the\ intentionally\ tiny\ block\ budget.
+fm-rules: not saved: the captain rules block would be 450 characters, over its 200-character budget (FM_RULES_MAX_CHARS).
+fm-rules: consolidate rules first: restate an existing rule id with a shorter or merged text (add <rule-id> "<text>"), or revoke one that no longer applies (see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DJP1TKSR5VAZWYB5FJ334P/bin/fm-rules.sh list), then retry.
+[exit 4; expected 4]
+
+All refused operations left the persisted store unchanged.
+
+$ bin/fm-rules.sh add unauthorized Do\ not\ save\ divergent\ secondmate\ rules.
+fm-rules: this is a secondmate home; captain rules are recorded in the primary home only
+[exit 2; expected 2]
+
+$ bin/fm-rules.sh list
+terminal-only	seen=1 check=bang-interactive	Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window.

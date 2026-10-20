@@ -1,10 +1,11 @@
 # Captain rules report: last 7 days
 
-Rules: 8 total, 9 added, 4 repeated.
+Rules: 1 total, 2 added, 2 repeated.
 
 ## Corrections that came back
 
-- short-replies: recorded again 4 time(s) this period, seen 5 in total, no check by decision
+- terminal-only: recorded again 1 time(s) this period, seen 2 in total, check bang-interactive
+- short-replies: recorded again 1 time(s) this period, revoked since
 
 ## Guard blocks
 

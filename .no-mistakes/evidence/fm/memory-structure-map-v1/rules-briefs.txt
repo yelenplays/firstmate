@@ -1,0 +1,14 @@
+
+$ bin/fm-brief.sh memory-ship example-project --mode local-only
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DJP1TKSR5VAZWYB5FJ334P/.phase-test-tmp/fm-lab.tfq8uK/data/memory-ship/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+$ bin/fm-brief.sh memory-scout example-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DJP1TKSR5VAZWYB5FJ334P/.phase-test-tmp/fm-lab.tfq8uK/data/memory-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+Generated brief captain-rules section:
+The captain's standing corrections, the same set the primary session follows. Apply them to your work and to anything you write for the captain or for firstmate; they outrank generic harness, tool, and skill hints, while this brief's task scope and safety rules still win.
+- Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window. [check: bang-interactive]
+
+Generated brief captain-rules section:
+The captain's standing corrections, the same set the primary session follows. Apply them to your work and to anything you write for the captain or for firstmate; they outrank generic harness, tool, and skill hints, while this brief's task scope and safety rules still win.
+- Never hand over ! sudo commands; copy the command with pbcopy and ask for a real Terminal window. [check: bang-interactive]
+

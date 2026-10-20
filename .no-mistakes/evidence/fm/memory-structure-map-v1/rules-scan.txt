@@ -1,0 +1,45 @@
+
+$ bin/fm-rule-guard.sh list
+bang-interactive	blocks a "! <command>" line for sudo, rebuild, login, password, or keychain steps
+
+$ printf %s\n \!\ sudo\ darwin-rebuild\ switch | bin/fm-rule-guard.sh scan
+bang-interactive: ! sudo darwin-rebuild switch
+[exit 1; expected 1]
+
+$ printf %s\n no\ worries\,\ run\ \!\ sudo\ darwin-rebuild\ switch | bin/fm-rule-guard.sh scan
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+[exit 1; expected 1]
+
+$ printf %s\n No\ worries\ now\ run\ \!\ sudo\ -v | bin/fm-rule-guard.sh scan
+bang-interactive: No worries now run ! sudo -v
+[exit 1; expected 1]
+
+$ printf %s\n Kein\ Problem:\ \`\!\ gh\ auth\ login\` | bin/fm-rule-guard.sh scan
+bang-interactive: Kein Problem: `! gh auth login`
+[exit 1; expected 1]
+
+$ printf %s\n Never\ use\ the\ old\ command\;\ run\ \!\ sudo\ -v\ instead. | bin/fm-rule-guard.sh scan
+bang-interactive: Never use the old command; run ! sudo -v instead.
+[exit 1; expected 1]
+
+$ printf %s\n \!\ security\ add-generic-password\ -s\ example | bin/fm-rule-guard.sh scan
+bang-interactive: ! security add-generic-password -s example
+[exit 1; expected 1]
+
+$ printf %s\n Never\ hand\ the\ captain\ a\ \`\!\ sudo\`\ line. | bin/fm-rule-guard.sh scan
+[exit 0: safe instruction accepted]
+
+$ printf %s\n Use\ pbcopy\,\ not\ \!\ sudo. | bin/fm-rule-guard.sh scan
+[exit 0: safe instruction accepted]
+
+$ printf %s\n Never\ run\ \!\ sudo\ -v | bin/fm-rule-guard.sh scan
+[exit 0: safe instruction accepted]
+
+$ printf %s\n Use\ pbcopy\ instead\ of\ \!\ gh\ auth\ login. | bin/fm-rule-guard.sh scan
+[exit 0: safe instruction accepted]
+
+$ printf %s\n \!\ git\ status | bin/fm-rule-guard.sh scan
+[exit 0: safe instruction accepted]
+
+$ printf %s\n sudo\ darwin-rebuild\ switch\ \(paste\ into\ Terminal\) | bin/fm-rule-guard.sh scan
+[exit 0: safe instruction accepted]

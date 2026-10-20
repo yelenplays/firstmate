@@ -1,0 +1,39 @@
+
+$ bin/fm-rules.sh add terminal-only Never\ hand\ over\ \!\ sudo\ commands\;\ copy\ the\ command\ with\ pbcopy\ and\ ask\ for\ a\ real\ Terminal\ window.
+repeated: terminal-only (seen 2)
+
+$ bin/fm-rules.sh weekly-arm
+armed: state/captain-rules-weekly.check.sh
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DJP1TKSR5VAZWYB5FJ334P/.phase-test-tmp/fm-lab.tfq8uK/state/captain-rules-weekly.check.sh
+captain-rules weekly report due: run /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DJP1TKSR5VAZWYB5FJ334P/bin/fm-rules.sh report and send the captain its short version
+Second weekly check: silent, as required.
+
+$ bin/fm-rules.sh report --transcripts <isolated-home>/transcripts
+# Captain rules report: last 7 days
+
+Rules: 1 total, 2 added, 2 repeated.
+
+## Corrections that came back
+
+- terminal-only: recorded again 1 time(s) this period, seen 2 in total, check bang-interactive
+- short-replies: recorded again 1 time(s) this period, revoked since
+
+## Guard blocks
+
+- none
+- halted after the block cap: 0
+
+## Repeated without a check
+
+- none
+
+## Capture
+
+- candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now
+- transcripts: none found
+
+Armed check after report: silent, as required.
+
+$ bin/fm-rules.sh weekly-disarm
+disarmed: state/captain-rules-weekly.check.sh

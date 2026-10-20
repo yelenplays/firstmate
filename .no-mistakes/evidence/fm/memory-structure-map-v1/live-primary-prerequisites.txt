@@ -1,0 +1,9 @@
+Live-primary prerequisite check from run worktree:
+tmux is not on PATH; the required private fm-lab tmux socket cannot be started. No host search, installation, alternate checkout, or default session was used.
+/Users/yelen/.local/bin/claude
+2.1.305 (Claude Code)
+
+Marked lab session projection in this gate (no bypass):
+No block emitted: gate stand-down remains active even with a marked lab home.
+
+A real primary must be driven through the authorized private socket from this worktree. Missing tmux and the existing primary-scope gate stand-down leave model-level delivery, correction/retraction, and Stop interception untested.
