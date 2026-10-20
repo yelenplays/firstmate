@@ -11,9 +11,11 @@ trap 'rm -rf "$LAB"' EXIT
 
 cd "$LAB"
 mkdir bin
-cat > bin/fm-watch.sh <<'SH'
+# The marker path is absolute and written with builtins only, so the fixture
+# still records its execution after an attack has replaced PATH.
+cat > bin/fm-watch.sh <<SH
 #!/bin/sh
-: > "$(dirname "$0")/executed"
+: > "$LAB/bin/executed"
 SH
 chmod +x bin/fm-watch.sh
 watch="$LAB/bin/fm-watch.sh"
@@ -43,6 +45,33 @@ for command in \
   [ "$rc" -eq 2 ] || fail "side-effecting expansion must be denied, got exit $rc: $command"
 done
 pass 'assigning expansions cannot execute a watcher through the compound read-only exception'
+
+# printf assigns variables too: %n writes the variable it names, so
+# `printf '%n' PATH` sets PATH=0 and the next literal `cat` resolves to 0/cat.
+mkdir 0
+ln -s ../bin/fm-watch.sh 0/cat
+# shellcheck disable=SC2016 # Command fixtures intentionally preserve literal formats.
+printf_attack='for f in '"$watch"'; do cd '"$LAB"'; printf '"'"'%n'"'"' PATH; cat; done'
+
+# Prove the %n assignment really executes the script without the guard.
+/bin/bash -c "$printf_attack" >/dev/null 2>&1 </dev/null || :
+[ -f bin/executed ] || fail 'printf %n fixture did not execute the watcher-named script'
+rm bin/executed
+
+# shellcheck disable=SC2016 # Command fixtures intentionally preserve literal formats.
+for command in \
+  "$printf_attack" \
+  'for f in '"$watch"'; do cd '"$LAB"'; fmt=%n; printf "$fmt" PATH; cat; done' \
+  'for f in '"$watch"'; do cd '"$LAB"'; printf -v PATH 0; cat; done'; do
+  rc=0
+  "$CHECK" --command "$command" > guard.out 2> guard.err || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    /bin/bash -c "$command" >/dev/null 2>&1 </dev/null || :
+  fi
+  [ ! -e bin/executed ] || fail "guard allowed printf to execute the watcher: $command"
+  [ "$rc" -eq 2 ] || fail "variable-writing printf must be denied, got exit $rc: $command"
+done
+pass 'printf cannot assign a variable to execute a watcher through the compound read-only exception'
 
 # Plain parameter references still read watcher paths as data.
 # shellcheck disable=SC2016 # Command fixtures intentionally preserve literal expansions.

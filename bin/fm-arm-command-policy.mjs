@@ -920,14 +920,16 @@ function blessedProgram(analysis, context) {
 // watcher. Wrappers, dynamic command words, prefix assignments, output
 // redirection other than to /dev/null, heredocs, background lists, and `case`
 // stay unsupported, and no variable a tool or the shell may run as a program
-// (EXEC_VARIABLE) can be set by an assignment, a for loop, read, or printf -v.
+// (EXEC_VARIABLE) can be set by an assignment, a for loop, or read. printf is
+// not in the set at all: besides -v, a %n conversion assigns the variable it
+// names (`printf '%n' PATH`), and the format can arrive through an expansion.
 // Expansions are allow-listed rather than screened: an argument may expand only
 // a plain `$name`, `${name}` or special parameter (simpleExpansions), because
 // operator forms such as `${BASH_CMDS[cat]:=path}` assign while they expand and
 // can repoint the next literal command word at a watcher script; arithmetic
 // substitution is refused for the same reason.
 const READ_ONLY_COMMANDS = new Set([
-  "basename", "cat", "cd", "cut", "dirname", "echo", "false", "grep", "head", "ls", "printf",
+  "basename", "cat", "cd", "cut", "dirname", "echo", "false", "grep", "head", "ls",
   "pwd", "read", "realpath", "shasum", "stat", "tail", "test", "[", "tr", "true", "uniq", "wc",
 ]);
 const EXEC_VARIABLE = /^(?:GIT_[A-Z_]*|PAGER|MANPAGER|EDITOR|VISUAL|LESS[A-Z_]*|BASH_ENV|ENV|PATH|CDPATH|IFS|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|LD_[A-Z_]*|DYLD_[A-Z_]*|BASH|BASH_[A-Z0-9_]*)$/;
@@ -981,7 +983,6 @@ function readOnlyNode(tokens, depth) {
   if (position.prefixAssignments > 0 || !command.literal || command.subs.length > 0) return false;
   const args = position.words.slice(position.index + 1);
   if (command.value === "read" && !args.every((word) => word.value.startsWith("-") || safeVariableName(word.value))) return false;
-  if (command.value === "printf" && args.some((word) => word.value.startsWith("-v"))) return false;
   if (command.value === "git") {
     // Only the object-size probe needs this compound-command exception.
     // Other Git modes can invoke pagers, external diffs, filters, or hooks.
