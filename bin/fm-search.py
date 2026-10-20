@@ -206,9 +206,12 @@ def read_ledger():
 
 
 def append_ledger(provider, cost, lat, n, route):
-    os.makedirs(STATE, exist_ok=True)
-    with open(LEDGER, "a") as f:
-        f.write("%d\t%s\t%.5f\t%.2f\t%d\t%s\n" % (time.time(), provider, cost, lat, n, route))
+    try:
+        os.makedirs(STATE, exist_ok=True)
+        with open(LEDGER, "a") as f:
+            f.write("%d\t%s\t%.5f\t%.2f\t%d\t%s\n" % (time.time(), provider, cost, lat, n, route))
+    except OSError:
+        pass
 
 
 def exa_month_spend(rows, now):
@@ -223,8 +226,11 @@ def warn_exa(cfg, spend, now):
     marker = os.path.join(STATE, "exa-warned-" + month_of(now))
     if os.path.exists(marker):
         return
-    os.makedirs(STATE, exist_ok=True)
-    open(marker, "w").close()
+    try:
+        os.makedirs(STATE, exist_ok=True)
+        open(marker, "w").close()
+    except OSError:
+        pass
     sys.stderr.write("warning: exa spend $%.2f is %d%% of the $%.2f monthly cap\n" % (spend, spend / cap * 100, cap))
 
 
@@ -271,9 +277,12 @@ def cache_get(query, cfg, now):
 
 
 def cache_put(query, cls, now):
-    os.makedirs(STATE, exist_ok=True)
-    with open(ROUTE_CACHE, "a") as f:
-        f.write("%s\t%d\t%s\n" % (qhash(query), now, cls))
+    try:
+        os.makedirs(STATE, exist_ok=True)
+        with open(ROUTE_CACHE, "a") as f:
+            f.write("%s\t%d\t%s\n" % (qhash(query), now, cls))
+    except OSError:
+        pass
 
 
 def jev_class(query, cfg):
@@ -326,8 +335,12 @@ def tinyfish_blocked(cfg):
 @contextlib.contextmanager
 def capped(name, wait):
     """Hold the provider's lock across cap check, call and ledger line, so parallel workers cannot all pass one cap."""
-    os.makedirs(STATE, exist_ok=True)
-    with open(os.path.join(STATE, name + ".lock"), "a") as f:
+    try:
+        os.makedirs(STATE, exist_ok=True)
+        f = open(os.path.join(STATE, name + ".lock"), "a")
+    except OSError:
+        raise HopError("skipped: %s state dir unwritable, cap cannot be enforced" % name)
+    with f:
         deadline = time.monotonic() + wait
         while True:
             try:

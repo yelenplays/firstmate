@@ -421,6 +421,20 @@ assert_equals ketch-multi "$(printf '%s' "$out" | jq -r .meta.provider)" "normal
 assert_equals "$want" "$(printf '%s' "$out" | jq -S .results)" "normalize: ketch-multi"
 pass "every adapter normalizes to the same results"
 
+# --- unwritable state dir ----------------------------------------------------------------
+
+new_case state-unwritable
+rm -rf "$STATE"; : > "$STATE"
+search "state dir is a file $QMARK"
+expect_code 0 "$code" "unwritable state: bookkeeping must not kill the chain: $err"
+assert_contains "$(trailer)" 'provider=exa-keyless' "unwritable state: the keyless hop still answers"
+search --chain K "state dir is a file $QMARK"
+expect_code 0 "$code" "unwritable state K: $err"
+assert_contains "$(trailer)" 'provider=exa-keyless' "unwritable state K: capped paid hops are skipped, not run uncapped"
+assert_equals 00 "$(reqs exa)$(reqs tinyfish)" "unwritable state: no paid call without a cap check"
+rm -f "$STATE"
+pass "an unwritable state dir degrades to best-effort bookkeeping"
+
 # --- usage errors ------------------------------------------------------------------------
 
 new_case usage
