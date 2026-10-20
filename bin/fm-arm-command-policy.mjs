@@ -925,9 +925,6 @@ const READ_ONLY_COMMANDS = new Set([
   "basename", "cat", "cd", "cut", "dirname", "echo", "false", "grep", "head", "ls", "printf",
   "pwd", "read", "realpath", "shasum", "stat", "tail", "test", "[", "tr", "true", "uniq", "wc",
 ]);
-// git subcommands that read objects without a pager or external program flag
-// (git grep is absent because -O runs an arbitrary program).
-const READ_ONLY_GIT = new Set(["cat-file", "diff", "log", "ls-files", "ls-tree", "rev-parse", "show", "status"]);
 const EXEC_VARIABLE = /^(?:GIT_[A-Z_]*|PAGER|MANPAGER|EDITOR|VISUAL|LESS[A-Z_]*|BASH_ENV|ENV|PATH|CDPATH|IFS|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|LD_[A-Z_]*|DYLD_[A-Z_]*)$/;
 const LEADING_RESERVED = new Set(["if", "then", "else", "elif", "do", "while", "until", "!"]);
 const CLOSING_RESERVED = new Set(["done", "fi"]);
@@ -969,8 +966,10 @@ function readOnlyNode(tokens, depth) {
   if (command.value === "read" && !args.every((word) => word.value.startsWith("-") || safeVariableName(word.value))) return false;
   if (command.value === "printf" && args.some((word) => word.value.startsWith("-v"))) return false;
   if (command.value === "git") {
-    const sub = position.words[position.index + 1];
-    return Boolean(sub?.literal) && READ_ONLY_GIT.has(sub.value);
+    // Only the object-size probe needs this compound-command exception.
+    // Other Git modes can invoke pagers, external diffs, filters, or hooks.
+    return args.length === 3 && args[0].literal && args[0].value === "cat-file" &&
+      args[1].literal && args[1].value === "-s";
   }
   return READ_ONLY_COMMANDS.has(command.value);
 }
