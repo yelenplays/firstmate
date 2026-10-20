@@ -130,7 +130,7 @@ test_ranks_collected_items() {
     || fail "a dead task's status or the ack line was offered"
   assert_no_grep "$TS_KEY" "$LOG/argv" "the key reached curl argv"
   assert_grep "Bearer $TS_KEY" "$LOG/header" "the key did not travel on fd 3"
-  jq -e 'select(.purpose == "act-first" and .item_count == 7 and .choice == "i1")' \
+  jq -e 'select(.purpose == "act-first" and .caller == "act-first" and .item_count == 7 and .choice == "i1")' \
     "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null || fail "the call was not logged"
   jq -e 'select(.route == "typesafe" and .http == "200" and (.latency_ms | type) == "number")' \
     "$HOME_DIR/state/jev-act-first.jsonl" >/dev/null || fail "the call route and timing were not logged"

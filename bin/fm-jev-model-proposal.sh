@@ -111,6 +111,8 @@ FM_HOME=${FM_HOME:-$(cd "$SCRIPT_DIR/.." && pwd)}
 . "$SCRIPT_DIR/fm-never-send-lib.sh"
 # shellcheck source=bin/fm-model-denylist-lib.sh
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='model-proposal'
 
 # Bands copied from intake.specialist v2 (act 0.55, review 0.3). A too-low act
 # floor proposes switches Jev barely prefers; a too-high one hides real leads.

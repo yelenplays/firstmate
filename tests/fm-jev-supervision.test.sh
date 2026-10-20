@@ -148,7 +148,7 @@ test_status_triage_verdicts() {
   assert_equals suppress "$out" "noul 0.49 abstains"
 
   assert_present "$HOME_DIR/state/jev-status-triage.jsonl" "every call appends the JSONL record"
-  jq -e '.purpose == "status-triage" and .advisory == true and .escalate_only == true
+  jq -e '.purpose == "status-triage" and .caller == "status-triage" and .advisory == true and .escalate_only == true
       and .status == "suppress" and .noul == 0.49 and .verb_choice == "note"
       and .route == "typesafe" and .http == "200"' \
     "$HOME_DIR/state/jev-status-triage.jsonl" >/dev/null \
@@ -479,7 +479,7 @@ test_wedge_check_verdicts() {
   assert_equals escalate "$out" "noul at the 0.5 floor still escalates"
 
   assert_present "$HOME_DIR/state/jev-wedge-check.jsonl" "every call appends the JSONL record"
-  jq -e '.purpose == "wedge-check" and .advisory == true and .second_opinion == true
+  jq -e '.purpose == "wedge-check" and .caller == "wedge-check" and .advisory == true and .second_opinion == true
       and .status == "escalate" and .noul == 0.5' \
     "$HOME_DIR/state/jev-wedge-check.jsonl" >/dev/null \
     || fail "the JSONL record does not carry the advisory verdict fields: $(cat "$HOME_DIR/state/jev-wedge-check.jsonl")"

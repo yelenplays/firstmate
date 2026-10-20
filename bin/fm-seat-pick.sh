@@ -88,6 +88,8 @@ FM_HOME="${FM_HOME:-$FM_ROOT}"
 
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='seat-pick'
 
 usage() {
   awk '

@@ -49,6 +49,8 @@ FM_HOME="${FM_HOME:-$FM_ROOT}"
 
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='retrieval-miss'
 
 usage() {
   printf 'Usage: fm-jev-retrieval-miss.sh --query <text> --envelope-file <path> [--embeddings-enabled 0|1] [--openviking-enabled 0|1]\n' >&2

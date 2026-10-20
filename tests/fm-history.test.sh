@@ -135,6 +135,8 @@ SH
     and (.state.candidates | length >= 2)
     and all(.state.candidates[] | select(.kind == "day"); .date == (.id | split("/")[-1]))
   ' "$request" >/dev/null || fail 'Jev received fields outside the allowed page metadata'
+  assert_equals "$(tail -n 1 "$HOME_DIR/state/jev-history-find.jsonl" | jq -r '.caller')" history-find \
+    'the history choice record names the history-find call site'
   pass 'Jev history choices receive only locally retrieved page metadata'
 }
 

@@ -70,7 +70,7 @@ out=$(run_case "$URL") || fail 'eligible advisory failed'
 case "$out" in *"$URL: pass (p=0.8)"*'private-page content and required checks not certified'*'Human merge decision required.'*) ;; *) fail "missing advisory: $out" ;; esac
 jq -e '.state.tier == "team" and .state.changed_file_count == 2 and .state.prose_path_category == true and (.state | has("repo") | not)' "$TEST_JEV_REQUEST" >/dev/null || fail 'unsafe Jev state'
 if jq -c '.state' "$TEST_JEV_REQUEST" | grep -Eq 'FehlerWiki|github|/pull/|private-page|0123456789abcdef'; then fail 'PR identity or private prose leaked into Jev state'; fi
-jq -e '.verdict == "pass" and .merge_authority == false and .probability == 0.8' "$HOME_DIR/state/jev-pr-verdict.jsonl" >/dev/null || fail 'advisory was not recorded'
+jq -e '.verdict == "pass" and .caller == "pr-verdict" and .merge_authority == false and .probability == 0.8' "$HOME_DIR/state/jev-pr-verdict.jsonl" >/dev/null || fail 'advisory was not recorded'
 pass 'carded PR receives probability and reasons with metadata-only state'
 
 mkdir -p "$TMP_ROOT/override-state"

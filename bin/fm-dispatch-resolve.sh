@@ -207,6 +207,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
 # shellcheck source=bin/fm-private-guard-lib.sh
 . "$SCRIPT_DIR/fm-private-guard-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='dispatch-resolve'
 
 DEFAULT_MARGIN=0.4
 # Below this confidence the effort answer is not trusted and each profile's
@@ -1397,7 +1399,7 @@ if [ "$TYPED_OK" -eq 1 ]; then
         [ -n "$TYPESAFE_API_KEY_PRIVATE" ] && TYPESAFE_API_KEY=$TYPESAFE_API_KEY_PRIVATE
         [ -n "$OPENROUTER_API_KEY_PRIVATE" ] && OPENROUTER_API_KEY=$OPENROUTER_API_KEY_PRIVATE
         PICK_ERR=0
-        fm_jev_decide "$PICK_STATE" "$PICK_QUESTIONS" > "$PICK_FILE" || PICK_ERR=$?
+        fm_jev_decide "$PICK_STATE" "$PICK_QUESTIONS" --caller dispatch-runoff > "$PICK_FILE" || PICK_ERR=$?
         unset TYPESAFE_API_KEY OPENROUTER_API_KEY
         PICK_LAT=${FM_JEV_LAST_LATENCY_MS:-0}
         PICK_HTTP=${FM_JEV_LAST_HTTP:-000}

@@ -119,6 +119,7 @@ test_allowlisted_miss_logs_without_retry() {
     || fail "must log to state/jev-retrieval-miss.jsonl"
   line=$(cat "$HOME_DIR/state/jev-retrieval-miss.jsonl")
   assert_contains "$line" '"purpose":"retrieval-miss"' "log purpose is retrieval-miss"
+  assert_contains "$line" '"caller":"retrieval-miss"' "log names the retrieval-miss call site"
   assert_contains "$line" '"verdict":"vocab_divergence"' "log records the choice"
   assert_contains "$line" '"retry":false' "log retry is false"
   assert_contains "$line" '"config_write":false' "log config_write is false"

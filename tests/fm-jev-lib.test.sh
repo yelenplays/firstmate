@@ -11,6 +11,9 @@ set -u
 
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-jev-lib.sh"
+# Every library call in this file runs as the "tests" call site unless a case
+# clears or overrides the tag.
+FM_JEV_CALLER=tests
 
 unset TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE \
   OPENROUTER_API_KEY_PRIVATE JEV_ROUTE JEV_MODEL JEV_TIMEOUT JEV_URL \
@@ -396,6 +399,46 @@ test_missing_curl() {
   pass "missing curl is a usage failure"
 }
 
+# The tag gate runs before route resolution, so an untagged or malformed call
+# never reaches curl even with a key present.
+test_caller_tag_is_required_before_curl() {
+  local code out err leaked
+  unset OPENROUTER_API_KEY JEV_ROUTE
+  FM_JEV_CALLER='' TYPESAFE_API_KEY=$TS_KEY run_decide code out err
+  expect_code 2 "$code" "an untagged library call exits 2"
+  assert_equals "$err" "jev: caller tag required: set FM_JEV_CALLER or pass --caller <tag>; nothing sent" \
+    "an untagged library call names both ways to tag it"
+  assert_absent "$LOG/argv" "an untagged library call never calls curl"
+  [ -z "$out" ] || fail "an untagged library call must print no response, got '$out'"
+
+  for tag in 'Act-First' 'task:x' 'two words' '-lead' "$(printf 'a%.0s' $(seq 41))"; do
+    FM_JEV_CALLER=$tag TYPESAFE_API_KEY=$TS_KEY run_decide code out err
+    expect_code 2 "$code" "caller tag '$tag' exits 2"
+    assert_contains "$err" "caller tag must be lowercase kebab-case" "caller tag '$tag' is explained"
+    assert_absent "$LOG/argv" "caller tag '$tag' never calls curl"
+  done
+
+  reset_log
+  code=0
+  PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY \
+    fm_jev_decide "$STATE" "$QUESTIONS" --caller 'bad tag' > "$TMP_ROOT/out" 2> "$TMP_ROOT/stderr" || code=$?
+  expect_code 2 "$code" "an invalid --caller overrides a valid FM_JEV_CALLER and is refused"
+  assert_absent "$LOG/argv" "an invalid --caller never calls curl"
+
+  reset_log
+  code=0
+  PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" TYPESAFE_API_KEY=$TS_KEY \
+    fm_jev_decide "$STATE" "$QUESTIONS" --caller act-first > "$TMP_ROOT/out" 2> "$TMP_ROOT/stderr" || code=$?
+  expect_code 0 "$code" "a valid --caller is sent"
+  assert_equals "$FM_JEV_LAST_CALLER" act-first "--caller wins over FM_JEV_CALLER for one call"
+  assert_present "$LOG/argv" "a tagged call reaches curl"
+
+  leaked=$(FM_JEV_CALLER=inherited bash -c '. "$1/bin/fm-jev-lib.sh"; printf "[%s]" "${FM_JEV_CALLER-unset}"' _ "$ROOT")
+  assert_equals "$leaked" "[]" "sourcing the library clears an inherited caller tag"
+  unset TYPESAFE_API_KEY
+  pass "fm_jev_decide refuses untagged and malformed caller tags before curl"
+}
+
 test_confidence_floor() {
   fm_jev_choice_confidence_ok 0.7 || fail "0.7 must clear the default 0.7 floor"
   fm_jev_choice_confidence_ok 0.82 || fail "0.82 must clear the default 0.7 floor"
@@ -554,6 +597,27 @@ test_response_model_names_the_answering_build() {
   pass "response-model helper names the exact build that answered"
 }
 
+test_log_call_requires_a_caller_tag() {
+  local path code
+  path="$TMP_ROOT/caller-log.jsonl"
+  rm -f "$path"
+  code=0
+  FM_JEV_CALLER='' fm_jev_log_call '{"purpose":"untagged"}' "$path" 2> "$TMP_ROOT/stderr" || code=$?
+  expect_code 2 "$code" "an untagged log record is refused"
+  assert_contains "$(cat "$TMP_ROOT/stderr")" "log record needs a caller tag" "the refusal explains itself"
+  assert_absent "$path" "an untagged log record writes nothing"
+  code=0
+  FM_JEV_CALLER=tests fm_jev_log_call '{"purpose":"bad","caller":"Not A Tag"}' "$path" 2>/dev/null || code=$?
+  expect_code 2 "$code" "a malformed record caller is refused"
+  assert_absent "$path" "a malformed record caller writes nothing"
+
+  FM_JEV_CALLER=merge-gate fm_jev_log_call '{"purpose":"stamped"}' "$path"
+  assert_equals "$(tail -n 1 "$path" | jq -r '.caller')" merge-gate "a record without a caller gets FM_JEV_CALLER"
+  FM_JEV_CALLER='' fm_jev_log_call '{"purpose":"own","caller":"worker"}' "$path"
+  assert_equals "$(tail -n 1 "$path" | jq -r '.caller')" worker "a record's own valid caller is kept"
+  pass "log helper stamps or requires a caller tag on every record"
+}
+
 test_default_log_path() {
   local line
   rm -f "$HOME_DIR/state/jev-calls.jsonl"
@@ -586,10 +650,12 @@ test_bad_questions_do_not_call_curl
 test_http_error_is_hard_failure
 test_curl_transport_failure
 test_missing_curl
+test_caller_tag_is_required_before_curl
 test_confidence_floor
 test_probabilities_sum
 test_labeled_privacy_corpus
 test_compact_state_strips_secrets_and_refuses_oversized
 test_log_call_writes_jsonl_without_secrets
 test_response_model_names_the_answering_build
+test_log_call_requires_a_caller_tag
 test_default_log_path

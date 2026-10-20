@@ -111,7 +111,7 @@ fm_jev_compaction_score_jev() {
       {"summary":"Uncertain: it might be referenced again","signals":["file contents or tool output whose role in the task is unclear"]},
       {"summary":"Probably keep: the live prompt likely still needs it","signals":["a finding, diagnosis, or plan the agent stated","an error message not yet resolved","contents of a file the agent is still editing"]},
       {"summary":"Must keep: the live prompt depends on it","signals":["the user'"'"'s task, ask, or constraints","a decision or instruction later steps must follow"]}]}}'
-  resp="$(fm_jev_decide "$compact" "$questions")" || return 1
+  resp="$(fm_jev_decide "$compact" "$questions" --caller compaction)" || return 1
   score="$(printf '%s' "$resp" | jq -r --argjson q "$questions" '
     (($q.keep_value.criteria | length) - 1) as $top
     | .answers.keep_value.score

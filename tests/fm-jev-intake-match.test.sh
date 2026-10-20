@@ -128,7 +128,7 @@ test_jev_ranking_sends_only_ids_and_titles() {
   assert_no_grep "$BODY_MARKER" "$LOG/body" "a file body reached the request"
   assert_no_grep "$TS_KEY" "$LOG/argv" "the key reached curl argv"
   assert_grep "Bearer $TS_KEY" "$LOG/header" "the key did not travel on fd 3"
-  jq -e 'select(.purpose == "intake-match" and .ranking == "jev" and .choice == "wiki-layer-plan-v1")' \
+  jq -e 'select(.purpose == "intake-match" and .caller == "intake-match" and .ranking == "jev" and .choice == "wiki-layer-plan-v1")' \
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the call was not logged"
   jq -e 'select(.reference_chars == 43 and (.reference_sha256 | test("^[0-9a-f]{64}$")) and (has("reference") | not))' \
     "$HOME_DIR/state/jev-intake-match.jsonl" >/dev/null || fail "the log did not keep only the reference length and hash"

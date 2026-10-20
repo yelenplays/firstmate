@@ -104,6 +104,7 @@ test_allow_reaches_log() {
   [ -f "$HOME_DIR/state/jev-tool-gate.jsonl" ] || fail "allow must write $FM_HOME/state/jev-tool-gate.jsonl"
   line=$(cat "$HOME_DIR/state/jev-tool-gate.jsonl")
   assert_contains "$line" '"event":"jev-tool-gate"' "log line is a tool-gate event"
+  assert_contains "$line" '"caller":"tool-gate"' "log line names the tool-gate call site"
   assert_contains "$line" '"mode":"shadow"' "log records shadow mode"
   assert_contains "$line" '"policy":"allow"' "log records the deterministic allow"
   assert_contains "$line" '"choice":"allow"' "log records the Jev choice"

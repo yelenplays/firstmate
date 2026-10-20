@@ -1960,6 +1960,7 @@ A missing samples or rules file alerts once per missing-input attempt, updates `
 
 Shadow features that ask TypeSafe Jev share [`bin/fm-jev-lib.sh`](../bin/fm-jev-lib.sh) instead of each rolling a client.
 It is a sourceable library, not a user CLI; the script header owns route selection, models, key handling, helpers, and exact failure codes.
+Every library call and log record carries a stable call-site tag; an untagged call is refused before any request is built, and the script header owns how a sourcing script supplies the tag.
 Set `TYPESAFE_API_KEY` for the TypeSafe route, or `OPENROUTER_API_KEY` for OpenRouter when that is the only key or when `JEV_ROUTE=openrouter`.
 Typed dispatch resolution above uses this library for the HTTP call and owns the `JEV_ROUTE`, `JEV_MODEL`, `JEV_URL`, `JEV_BASE`, and `JEV_TIMEOUT` names.
 

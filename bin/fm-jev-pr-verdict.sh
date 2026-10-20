@@ -18,6 +18,8 @@ FM_WIKI_ROOT=${FM_WIKI_ROOT:-$HOME/Documents/Wikis}
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='pr-verdict'
 
 if [ "$#" -ne 1 ]; then
   printf 'Usage: fm-jev-pr-verdict.sh <canonical-github-pr-url>\n' >&2

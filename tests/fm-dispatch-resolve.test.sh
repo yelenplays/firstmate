@@ -1414,6 +1414,7 @@ expect_code 0 "$code" "shadow run exits 0"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "shadow still emits today's profile line"
 line=$(cat "$HOME_DIR/state/jev-dispatch-shadow.jsonl")
 assert_contains "$line" '"purpose":"dispatch-shadow"' "shadow writes a dispatch-shadow log line"
+assert_contains "$line" '"caller":"dispatch-resolve"' "the shadow line names the dispatch-resolve call site"
 assert_contains "$line" '"status":"clear"' "shadow records the Jev status"
 assert_contains "$line" '"harness":"cursor"' "shadow records the spawn axes"
 assert_equals 'jev-1.13.0' "$(jq -r .model <<<"$line")" "shadow records the pinned request model"

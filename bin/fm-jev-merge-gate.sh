@@ -157,6 +157,8 @@ CONFIG=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
 . "$SCRIPT_DIR/fm-jev-lib.sh"
 # shellcheck source=bin/fm-wiki-lib.sh
 . "$SCRIPT_DIR/fm-wiki-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='merge-gate'
 
 FM_MERGE_GATE_VERSION='fm-1 (port of agent-stack review.merge_gate v4)'
 # Band thresholds from review.merge_gate v4, tuned upstream against jev-1.13.0.

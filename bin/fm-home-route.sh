@@ -65,6 +65,8 @@ FM_HOME=${FM_HOME:-$(cd "$SCRIPT_DIR/.." && pwd)}
 . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
 # shellcheck source=bin/fm-backup-judge-lib.sh
 . "$SCRIPT_DIR/fm-backup-judge-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='home-route'
 LOG="$FM_HOME/state/home-route.jsonl"
 RECORDS="$FM_HOME/state/home-route"
 REG="$FM_HOME/data/secondmates.md"

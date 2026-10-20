@@ -51,6 +51,8 @@ HISTORY_DIR="$DATA_DIR/history"
 
 # shellcheck source=bin/fm-jev-lib.sh
 . "$SCRIPT_DIR/fm-jev-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='history-find'
 
 usage() {
   cat >&2 <<'EOF'

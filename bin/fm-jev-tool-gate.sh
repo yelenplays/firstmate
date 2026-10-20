@@ -133,6 +133,8 @@ MODE=$(_fm_jev_tool_gate_mode)
 
 # shellcheck source=bin/fm-jev-lib.sh
 . "$ROOT/bin/fm-jev-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='tool-gate'
 
 COMPACT=""
 if COMPACT=$(fm_jev_compact_state "$CMD"); then

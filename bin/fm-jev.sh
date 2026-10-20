@@ -188,8 +188,6 @@ FLAG_SHIFT=0
 parse_flags "$@"
 shift "$FLAG_SHIFT"
 [ -n "$CALLER" ] || die "caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent"
-[[ "$CALLER" =~ ^[a-z][a-z0-9-]{0,39}$ ]] \
-  || die "caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent"
 
 command -v jq >/dev/null 2>&1 || die "jq required"
 
@@ -197,6 +195,9 @@ command -v jq >/dev/null 2>&1 || die "jq required"
 . "$SCRIPT_DIR/fm-jev-lib.sh"
 # shellcheck source=bin/fm-model-denylist-lib.sh
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+fm_jev_caller_ok "$CALLER" \
+  || die "caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent"
+FM_JEV_CALLER=$CALLER
 
 # Build the normalized spec {state, questions:[{id,type,q,opts}]} on stdout.
 case "$SUB" in

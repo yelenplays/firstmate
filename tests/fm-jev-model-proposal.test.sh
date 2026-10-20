@@ -239,7 +239,7 @@ ids=$(grep -o 'Request id: [0-9a-f-]*' "$path" | awk '{print $3}')
 log="$HOME_DIR/state/jev-model-proposal.jsonl"
 [ "$(wc -l < "$log" | tr -d ' ')" -eq 3 ] || fail 'one log record per role expected'
 for id in $ids; do
-  jq -e --arg id "$id" 'select(.request_id == $id) | .purpose == "model-proposal" and (.state_sha256 | length) == 64' "$log" | grep -q true \
+  jq -e --arg id "$id" 'select(.request_id == $id) | .purpose == "model-proposal" and .caller == "model-proposal" and (.state_sha256 | length) == 64' "$log" | grep -q true \
     || fail "request id $id is not in the call log"
 done
 if grep -q 'well-scoped\|planning' "$log"; then fail 'the call log must not hold the state text'; fi
