@@ -1,0 +1,12 @@
+$ bin/fm-search.sh '--no-jev' '--limit' '2' 'Python pathlib documentation'
+1. pathlib — Object-oriented filesystem paths — Python 3.14.6 documentation
+   https://docs.python.org/3/library/pathlib.html
+   pathlib — Object-oriented filesystem paths — Python 3.15.0 documentation # `pathlib` — Object-oriented filesystem paths¶ Added in version 3.4. This module offers classes representing filesystem paths with semantics appropriate for different operating systems. Path classes are divided between pure paths, which provide purely computational operations without I/O, and concrete paths, which inherit fr
+2. pathlib — pathlib 1.0.1 documentation
+   https://pathlib.readthedocs.io/
+   # pathlib¶ Manipulating filesystem paths as string objects can quickly become cumbersome: multiple calls to os.path.join() or os.path.dirname(), etc. This module offers a set of classes featuring all the common operations on paths in an easy, object-oriented way. This module is best used with Python 3.2 or later, but it is also compatible with Python 2.6 and 2.7. Note This module has been included
+provider=exa-keyless hops=1 lat=1.5 cost=$0.0000 route=default
+
+[stderr]
+
+exit=0 elapsed=1.69s

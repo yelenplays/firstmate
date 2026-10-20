@@ -1,0 +1,6 @@
+$ bin/fm-search.sh '--urls' '--json' '--limit' '2' 'Python asyncio TaskGroup documentation'
+{"results": [{"title": "Coroutines and tasks", "url": "https://docs.python.org/3/library/asyncio-task.html", "date": "", "snippet": "This section outlines high-level asyncio APIs to work with coroutines and Tasks. use asyncio.TaskGroup which keeps a strong reference to each task,"}, {"title": "Creating and managing tasks - AnyIO - Read the Docs", "url": "https://anyio.readthedocs.io/en/latest/tasks.html", "date": "", "snippet": "The asyncio.TaskGroup class, added in Python 3.11, is very similar in design to the AnyIO TaskGroup class. The asyncio counterpart has some ..."}], "meta": {"provider": "tinyfish", "hops": 1, "lat": 1.62, "cost": 0.0, "route": "forced"}}
+
+[stderr]
+
+exit=0 elapsed=1.81s

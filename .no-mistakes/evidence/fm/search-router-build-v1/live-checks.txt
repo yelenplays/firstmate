@@ -1,0 +1,2 @@
+Real fm-search.sh + fm-jev.sh + ketch + Exa/TinyFish endpoints used; no provider stand-ins.
+Normalized result fields checked; case-folded repeat made no additional Jev call; forced/no-jev/long query made no Jev call; missing keys and cap guards reached real keyless fallback without keyed ledger rows; persisted router state contains no query text.

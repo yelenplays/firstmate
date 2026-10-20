@@ -1,0 +1,22 @@
+ok - a Jev pick of docs walks chain K
+ok - a Jev pick of seo_local walks chain F
+ok - a de_admin pick asks TinyFish in German
+ok - Jev exit 2, exit 1, confidence 0.69 and an unknown class fall back to chain F
+ok - a query over 300 bytes skips Jev
+ok - --no-jev and --chain never call Jev
+ok - the route cache answers a repeated query without Jev
+ok - an empty list, an HTTP 429 and a timeout each hop to the next provider
+ok - the hop deadline covers a trickled response body
+ok - a wrong-shaped JSON reply hops on instead of killing the chain
+ok - an undecodable HTTP 200 Exa reply still counts toward the spending cap
+ok - every hop empty exits 3 with one line per hop
+ok - a missing key removes its hop
+ok - the Exa monthly cap skips the keyed hop and the ledger reports it
+ok - the Exa cap counts the next request's price before calling
+ok - over the TinyFish per-minute cap the hop is skipped
+ok - parallel workers cannot all pass one TinyFish cap
+ok - --urls starts with TinyFish and --deep with Exa auto
+ok - every adapter normalizes to the same results
+ok - usage errors exit 1 and call nothing
+ok - no key in any output and no query text in the ledger or route cache
+# all fm-search tests passed

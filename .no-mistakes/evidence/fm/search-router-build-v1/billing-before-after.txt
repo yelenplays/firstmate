@@ -1,0 +1,63 @@
+=== before: two public CLI calls, HTTP 200 with invalid UTF-8, price $0.004 / cap $0.005 ===
+
+call 1 exit=3
+fm-search: exa-lite: malformed reply
+fm-search: tinyfish: skipped: no tinyfish key
+fm-search: exa-keyless: ketch exit 1
+fm-search: ketch-multi: ketch exit 1
+
+call 2 exit=3
+fm-search: exa-lite: malformed reply
+fm-search: tinyfish: skipped: no tinyfish key
+fm-search: exa-keyless: ketch exit 1
+fm-search: ketch-multi: ketch exit 1
+
+persisted ledger:
+1792506762	exa-lite	0.00000	0.03	0	forced
+1792506762	exa-keyless	0.00000	0.01	0	forced
+1792506762	ketch-multi	0.00000	0.02	0	forced
+1792506762	exa-lite	0.00000	0.02	0	forced
+1792506762	exa-keyless	0.00000	0.01	0	forced
+1792506762	ketch-multi	0.00000	0.00	0	forced
+
+fm-search ledger 2026-10 (UTC)
+exa-keyless  calls=2 cost=$0.0000
+exa-lite     calls=2 cost=$0.0000
+exa-deep     calls=0 cost=$0.0000
+tinyfish     calls=0 cost=$0.0000
+ketch-multi  calls=2 cost=$0.0000
+exa-total    $0.0000 of $0.01 cap (0%)
+
+Observed Exa HTTP requests: 2
+
+=== after: two public CLI calls, HTTP 200 with invalid UTF-8, price $0.004 / cap $0.005 ===
+
+call 1 exit=3
+fm-search: exa-lite: malformed reply
+fm-search: tinyfish: skipped: no tinyfish key
+fm-search: exa-keyless: ketch exit 1
+fm-search: ketch-multi: ketch exit 1
+
+call 2 exit=3
+fm-search: exa-lite: skipped: exa monthly cap reached
+fm-search: tinyfish: skipped: no tinyfish key
+fm-search: exa-keyless: ketch exit 1
+fm-search: ketch-multi: ketch exit 1
+
+persisted ledger:
+1792506762	exa-lite	0.00400	0.02	0	forced
+1792506762	exa-keyless	0.00000	0.01	0	forced
+1792506762	ketch-multi	0.00000	0.01	0	forced
+1792506763	exa-keyless	0.00000	0.01	0	forced
+1792506763	ketch-multi	0.00000	0.01	0	forced
+
+fm-search ledger 2026-10 (UTC)
+exa-keyless  calls=2 cost=$0.0000
+exa-lite     calls=1 cost=$0.0040
+exa-deep     calls=0 cost=$0.0000
+tinyfish     calls=0 cost=$0.0000
+ketch-multi  calls=2 cost=$0.0000
+exa-total    $0.0040 of $0.01 cap (80%)
+warning: exa spend crossed 80% of the monthly cap
+
+Observed Exa HTTP requests: 1

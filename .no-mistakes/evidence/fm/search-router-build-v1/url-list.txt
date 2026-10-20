@@ -1,0 +1,10 @@
+$ bin/fm-search.sh --urls --limit 2 Python pathlib documentation
+exit=0 elapsed_s=2.04
+STDOUT:
+1. pathlib — Object-oriented filesystem paths
+   https://docs.python.org/3/library/pathlib.html
+2. pathlib — pathlib 1.0.1 documentation
+   https://pathlib.readthedocs.io/
+provider=tinyfish hops=1 lat=1.6 cost=$0.0000 route=forced
+
+STDERR:

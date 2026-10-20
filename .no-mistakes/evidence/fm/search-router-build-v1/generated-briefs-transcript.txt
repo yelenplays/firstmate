@@ -1,0 +1,11 @@
+$ FM_HOME=<isolated worktree home> bin/fm-brief.sh search-proof-ship public-search-probe --mode local-only
+exit=0
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CTFAEA75YTPC3VMXP327HQ/.fm-search-briefs-59ffu7x1/data/search-proof-ship/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+Generated prompt includes the public fm-search.sh entrypoint and non-private-query rule. No worker was launched.
+
+$ FM_HOME=<isolated worktree home> bin/fm-brief.sh search-proof-scout public-search-probe --scout
+exit=0
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CTFAEA75YTPC3VMXP327HQ/.fm-search-briefs-59ffu7x1/data/search-proof-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+Generated prompt includes the public fm-search.sh entrypoint and non-private-query rule. No worker was launched.

@@ -1,0 +1,17 @@
+$ bin/fm-search.sh '--limit' '0' 'q'
+
+[stderr]
+usage: fm-search.sh [--limit N] [--json] [--urls | --deep] [--chain F|K] [--no-jev] "<query>"
+       fm-search.sh --ledger
+Web search router: Jev picks a query class, a provider chain (Exa, TinyFish, ketch) answers.
+  --limit N    results wanted (default 5)
+  --json       print {"results": [...], "meta": {...}} instead of text
+  --urls       cheap URL list: TinyFish first
+  --deep       hard question: Exa type auto first
+  --chain F|K  force the chain (F keyless first, K keyed first)
+  --no-jev     skip the Jev class pick and use chain F
+  --ledger     month-to-date spend and calls per provider
+Exit: 0 results, 3 every hop empty (one line per hop on stderr), 1 usage error.
+Send only non-private queries: the query goes to third-party providers.
+
+exit=1 elapsed=0.30s

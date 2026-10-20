@@ -1,0 +1,86 @@
+[
+  {
+    "name": "live-auto-docs",
+    "exit": 0,
+    "artifact": "live-auto-docs.txt",
+    "passed": true
+  },
+  {
+    "name": "live-cache-casefold",
+    "exit": 0,
+    "artifact": "live-cache-casefold.txt",
+    "passed": true
+  },
+  {
+    "name": "live-auto-local-seo",
+    "exit": 0,
+    "artifact": "live-auto-local-seo.txt",
+    "passed": true
+  },
+  {
+    "name": "live-no-jev-text",
+    "exit": 0,
+    "artifact": "live-no-jev-text.txt",
+    "passed": true
+  },
+  {
+    "name": "live-urls",
+    "exit": 0,
+    "artifact": "live-urls.txt",
+    "passed": true
+  },
+  {
+    "name": "live-deep",
+    "exit": 0,
+    "artifact": "live-deep.txt",
+    "passed": true
+  },
+  {
+    "name": "live-long-query",
+    "exit": 0,
+    "artifact": "live-long-query.txt",
+    "passed": true
+  },
+  {
+    "name": "live-jev-refusal-fallback",
+    "exit": 0,
+    "artifact": "live-jev-refusal-fallback.txt",
+    "passed": true
+  },
+  {
+    "name": "live-missing-keys",
+    "exit": 0,
+    "artifact": "live-missing-keys.txt",
+    "passed": true
+  },
+  {
+    "name": "live-cap-skip",
+    "exit": 0,
+    "artifact": "live-cap-skip.txt",
+    "passed": true
+  },
+  {
+    "name": "live-ledger",
+    "exit": 0,
+    "artifact": "live-ledger.txt",
+    "passed": true
+  },
+  {
+    "name": "live-usage-conflict",
+    "exit": 1,
+    "artifact": "live-usage-conflict.txt",
+    "passed": true
+  },
+  {
+    "name": "live-usage-limit",
+    "exit": 1,
+    "artifact": "live-usage-limit.txt",
+    "passed": true
+  },
+  {
+    "name": "live-usage-chain",
+    "exit": 1,
+    "artifact": "live-usage-chain.txt",
+    "passed": true
+  }
+]

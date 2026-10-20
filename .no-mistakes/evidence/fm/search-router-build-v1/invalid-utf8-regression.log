@@ -1,0 +1,11 @@
+ok - a Jev pick of docs walks chain K
+ok - a Jev pick of seo_local walks chain F
+ok - a de_admin pick asks TinyFish in German
+ok - Jev exit 2, exit 1, confidence 0.69 and an unknown class fall back to chain F
+ok - a query over 300 bytes skips Jev
+ok - --no-jev and --chain never call Jev
+ok - the route cache answers a repeated query without Jev
+ok - an empty list, an HTTP 429 and a timeout each hop to the next provider
+ok - the hop deadline covers a trickled response body
+ok - a wrong-shaped JSON reply hops on instead of killing the chain
+not ok - invalid utf8: the HTTP 200 Exa call is ledgered at its configured price (expected '1', got '0')

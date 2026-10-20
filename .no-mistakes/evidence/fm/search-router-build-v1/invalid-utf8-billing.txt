@@ -1,0 +1,53 @@
+OFFLINE HTTP fixture reproduction (not a live provider). Exa returns HTTP 200, body byte 0xff. Configured Exa price $0.004 and cap $0.005. After one billed response, a second Exa call must be skipped.
+
+$ bin/fm-search.sh --chain K --json invalid UTF8 response billing probe one
+exit=0
+{"results": [{"title": "Offline fallback", "url": "https://example.invalid/fallback", "date": "", "snippet": "Local stub, not live-provider evidence."}], "meta": {"provider": "tinyfish", "hops": 2, "lat": 0.05, "cost": 0.0, "route": "forced"}}
+
+
+$ bin/fm-search.sh --chain K --json invalid UTF8 response billing probe two
+exit=0
+{"results": [{"title": "Offline fallback", "url": "https://example.invalid/fallback", "date": "", "snippet": "Local stub, not live-provider evidence."}], "meta": {"provider": "tinyfish", "hops": 2, "lat": 0.14, "cost": 0.0, "route": "forced"}}
+
+
+$ bin/fm-search.sh --ledger
+exit=0
+fm-search ledger 2026-10 (UTC)
+exa-keyless  calls=0 cost=$0.0000
+exa-lite     calls=2 cost=$0.0000
+exa-deep     calls=0 cost=$0.0000
+tinyfish     calls=2 cost=$0.0000
+ketch-multi  calls=0 cost=$0.0000
+exa-total    $0.0000 of $0.01 cap (0%)
+
+
+Observed local HTTP requests:
+[
+  {
+    "provider": "exa",
+    "status": 200,
+    "body_hex": "ff"
+  },
+  {
+    "provider": "tinyfish",
+    "status": 200
+  },
+  {
+    "provider": "exa",
+    "status": 200,
+    "body_hex": "ff"
+  },
+  {
+    "provider": "tinyfish",
+    "status": 200
+  }
+]
+
+Persisted ledger.tsv:
+1792506201	exa-lite	0.00000	0.04	0	forced
+1792506201	tinyfish	0.00000	0.01	1	forced
+1792506201	exa-lite	0.00000	0.12	0	forced
+1792506201	tinyfish	0.00000	0.01	1	forced
+
+
+FAIL: two HTTP 200 Exa requests ran despite the cap allowing only one; both ledger costs are zero.

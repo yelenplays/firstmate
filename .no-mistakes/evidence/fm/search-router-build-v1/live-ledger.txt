@@ -1,0 +1,12 @@
+$ bin/fm-search.sh '--ledger'
+fm-search ledger 2026-10 (UTC)
+exa-keyless  calls=6 cost=$0.0000
+exa-lite     calls=3 cost=$0.0120
+exa-deep     calls=1 cost=$0.0070
+tinyfish     calls=1 cost=$0.0000
+ketch-multi  calls=0 cost=$0.0000
+exa-total    $0.0190 of $0.00 cap (0%)
+
+[stderr]
+
+exit=0 elapsed=0.22s
