@@ -1,1 +1,0 @@
-/usr/bin/bitesize.d

@@ -1,1 +1,0 @@
-/usr/bin/scandeps5.34.pl

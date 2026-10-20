@@ -1,3 +1,0 @@
-ok - the PR merge entrypoint refuses a captain-held task before merging
-ok - the local merge entrypoint refuses a captain-held task before merging
-ok - a released merge passes the guarded entrypoint and remains recently landed
