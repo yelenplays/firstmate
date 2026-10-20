@@ -2757,12 +2757,14 @@ EOF
   make_fake_ps_claude "$fakebin"
 
   out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the no-rules case did not run as codex"
   assert_not_contains "$out" "CAPTAIN RULES" "a home without rules must print no CAPTAIN RULES section"
 
   FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" add pbcopy-for-sudo \
     'Hand sudo steps over through pbcopy and a real Terminal window.' >/dev/null || fail "seeding a captain rule failed"
   rm -f "$home/state/.session-start-complete"
   out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the full rules case did not run as codex"
   assert_contains "$out" "- Hand sudo steps over through pbcopy and a real Terminal window." \
     "a full codex digest dropped the captain rule"
   assert_contains "$out" "outrank generic harness, tool, and skill hints" "the rules block lost its precedence line"
@@ -2772,10 +2774,12 @@ EOF
     || fail "the CAPTAIN RULES section must precede FLEET STATE (rules=$rules_at fleet=$fleet_at)"
 
   slim=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
+  assert_contains "$slim" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the compact rules case did not run as codex"
   assert_contains "$slim" "- Hand sudo steps over through pbcopy and a real Terminal window." \
     "a compact codex re-emit dropped the captain rule"
 
-  out=$(FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  out=$(run_named_harness_session_start claude "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: claude" "the Claude rules case did not run as claude"
   assert_not_contains "$out" "Hand sudo steps over through pbcopy" "a Claude digest repeated the rules its hook already loads"
   pass "the CAPTAIN RULES section rides full and compact non-Claude digests ahead of fleet state, and never a Claude one"
 }
