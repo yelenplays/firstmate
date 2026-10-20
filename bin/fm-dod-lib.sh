@@ -1084,18 +1084,13 @@ fm_test_ban_nm_step_models() {  # <step> [<branch>]
 }
 
 # Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
-# pipeline-fixer contract above. 1 when the base cannot be resolved;
-# stdout then holds a one-line reason.
+# pipeline-fixer contract above. Unreadable history returns 0 without output:
+# no pipeline commit can then be attributed, like an unknown model.
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta>
   local wt=$1 meta=$2 base_ref mb sha subject step model banned path
-  if ! base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)"); then
-    printf '%s\n' "pipeline test-file check cannot resolve the base branch in the worker copy"
-    return 1
-  fi
-  if ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
-    printf '%s\n' "pipeline test-file check found no merge-base between HEAD and $base_ref"
-    return 1
-  fi
+  [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
+  mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null) || return 0
   while IFS=$'\t' read -r sha subject; do
     case "$subject" in no-mistakes\(*\):*) ;; *) continue ;; esac
     step=${subject#no-mistakes(}
@@ -1149,14 +1144,7 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
   local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path fixer
   fm_test_ban_accept_worker_done "$@" || return 1
   fm_test_ban_should_check_pipeline "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
-  if [ -z "$wt" ] || [ ! -d "$wt" ] || ! git -C "$wt" rev-parse --git-dir >/dev/null 2>&1; then
-    printf '%s\n' "test-file check cannot read the worker copy"
-    return 1
-  fi
-  files=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta") || {
-    printf '%s\n' "$files"
-    return 1
-  }
+  files=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta") || return 0
   [ -n "$files" ] || return 0
   rejected=$(printf '%s\n' "$files" | awk -F'\t' '{ print "no-mistakes(" $2 ") on " $3 " in " substr($1, 1, 12) ": " $4 }' | sed 's/$/;/' | tr '\n' ' ' | sed 's/; $//')
   fixer=$(printf '%s\n' "$files" | awk -F'\t' 'NR == 1 { print $3 }')

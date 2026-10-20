@@ -1,0 +1,60 @@
+{
+  "backlog": {
+    "path": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DAWCT0WRXAZY0TJ3N80XYQ/.ci-debug/tmp/fm-contributions.1yjNvt/watcher-contribution/data/backlog.md",
+    "present": true,
+    "records": [
+      {
+        "hold_until": null,
+        "hold_bucket": null,
+        "title": "Contribution delivery",
+        "kind": "ship",
+        "id": "delivery",
+        "checked": false,
+        "structured": true,
+        "requires_child_metadata": false,
+        "blocked_by_ids": [],
+        "body_lines": [],
+        "merged": null,
+        "priority": null,
+        "hold_kind": null,
+        "raw": "- [ ] delivery - Contribution delivery https://github.com/o/r/pull/8 (repo: sample) (kind: ship) ",
+        "body_excerpt": null,
+        "pr_url": "https://github.com/o/r/pull/8",
+        "done": null,
+        "hold_reason": null,
+        "links": [
+          "https://github.com/o/r/pull/8"
+        ],
+        "report_path": null,
+        "state": "queued",
+        "completion": {
+          "verb": null,
+          "date": null
+        },
+        "blocked_by": null,
+        "hold_set": null,
+        "repo": "sample",
+        "hold_age_days": null,
+        "captain_actionable": false,
+        "since": null,
+        "current_role": "queued",
+        "local_note": null,
+        "unresolved_blocker_ids": [],
+        "reported": null,
+        "blocked_reason": null,
+        "order": 1
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "id": "delivery",
+      "kind": "ship",
+      "pr": {
+        "url": "https://github.com/o/r/pull/8",
+        "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "merge_authority": "attended"
+    }
+  ]
+}
