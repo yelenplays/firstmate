@@ -123,6 +123,8 @@ jq -en --arg f "$FLOOR" '$f | tonumber | . >= 0 and . <= 1' >/dev/null 2>&1 \
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 # shellcheck source=bin/fm-brief-heading-lib.sh
 . "$SCRIPT_DIR/fm-brief-heading-lib.sh"
+# shellcheck disable=SC2034 # Caller tag read by bin/fm-jev-lib.sh for every Jev call and log record.
+FM_JEV_CALLER='ask-user-gate'
 
 # --- the open gate ------------------------------------------------------------
 META="$STATE/$TASK.meta"

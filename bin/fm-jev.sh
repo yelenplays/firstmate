@@ -45,6 +45,11 @@
 # the same byte cap and privacy screen. docs/configuration.md "Never-use model
 # list" owns the list.
 #
+# Caller tag: every call requires --caller <tag>, such as worker for the brief's
+# Jev-first rule. bin/fm-jev-lib.sh's caller-tag contract owns validation.
+# A call without a valid tag is refused before anything is sent, so the log can
+# attribute every escalation to the call site that composed it.
+#
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
 # confidence TypeSafe reports on choice and score answers, 0.4 for a yes/no
@@ -56,15 +61,19 @@
 # refused before anything is sent, because a wide pick mostly escalates; the
 # caller narrows the list deterministically first. Score keeps its 10 levels.
 #
-# Log: every attempted call appends one metadata-only record (ts, caller -
-# task:$FM_TASK_ID when set, else home:<basename of the logging home> - purpose
-# worker-cli, route, requested model, response_model (the build that answered), http, latency, usage in/out token counts - named
+# Log: each invocation reaching fm_jev_decide appends one metadata-only record
+# (ts, caller -
+# the --caller call-site tag; origin - task:$FM_TASK_ID when set, else
+# home:<basename of the logging home>; purpose - worker-cli; route, requested
+# model, response_model (the build that answered), http, latency, usage in/out token counts - named
 # so fm_jev_log_call's token-key redaction leaves them readable - question count,
 # escalations, exit code, and items: one {type, options, conf} per question in
 # order, where options is the offered option count (0 for yes) and conf the
 # confidence the answer line reports, null when there is none; never the
 # working directory, state, question ids, or question text) through
-# fm_jev_log_call to the chosen home's state/jev-calls.jsonl. A log failure
+# fm_jev_log_call to the chosen home's state/jev-calls.jsonl. CLI refusals before
+# that shared-client call, including missing or invalid caller tags, append
+# nothing; library failures are logged even if curl never ran. A log failure
 # never changes the result.
 #
 # Exit: 0 every question answered, 2 at least one escalation, 1 any error
@@ -85,13 +94,13 @@ FM_JEV_CLI_INPUT_MAX=4096
 usage() {
   cat <<'EOF'
 fm-jev.sh - one typed Jev judgment (TypeSafe) with one output line per question.
-  fm-jev.sh pick  "<state>" "<question>" optA optB ...   pick one option, at most 8
-  fm-jev.sh yes   "<state>" "<question>"                 yes/no with probability p of yes
-  fm-jev.sh score "<state>" "<question>" lvl1 lvl2 ...   ordered levels, at most 10
-  fm-jev.sh batch < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
+  fm-jev.sh pick  --caller <tag> "<state>" "<question>" optA optB ...   pick one option, at most 8
+  fm-jev.sh yes   --caller <tag> "<state>" "<question>"                 yes/no with probability p of yes
+  fm-jev.sh score --caller <tag> "<state>" "<question>" lvl1 lvl2 ...   ordered levels, at most 10
+  fm-jev.sh batch --caller <tag> < {"state":"..","questions":[{"id":"x","type":"pick|yes|score","q":"..","opts":[..]}]}
     Several questions on one state in one call; opts is an array of label or label=meaning strings.
     First "=" splits label from meaning; later "=" stays in meaning; labels cannot contain "="; labels and meanings cannot contain controls.
-Flags follow the command: --json (raw response); --models (a model choice); --help prints this interface.
+Flags follow the command: --caller <tag> (required: the stable kebab-case call-site name, such as worker); --json (raw response); --models (a model choice); --help prints this interface.
 Model choices drop options on config/model-denylist.json and append the captain model rules to the state.
 Output: "pick: answer p=0.96 conf=0.94"; a batch uses its question id; escalation prints "ESCALATE conf=0.31 prior=X -> decide yourself".
 Exit: 0 answered, 2 any escalation, 1 error with a one-line reason; on 1 or 2 use your own judgment, never block.
@@ -155,9 +164,14 @@ contains_live_key() {
 # --- argv ------------------------------------------------------------------
 JSON=0
 MODELS=0
+CALLER=
 parse_flags() {
   while [ $# -gt 0 ]; do
     case "$1" in
+      --caller)
+        [ $# -ge 2 ] || die "--caller needs a tag"
+        CALLER=$2; FLAG_SHIFT=$((FLAG_SHIFT + 2)); shift 2 ;;
+      --caller=*) CALLER=${1#--caller=}; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
       --json) JSON=1; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
       --models) MODELS=1; FLAG_SHIFT=$((FLAG_SHIFT + 1)); shift ;;
       --help) usage; exit 0 ;;
@@ -174,6 +188,7 @@ shift
 FLAG_SHIFT=0
 parse_flags "$@"
 shift "$FLAG_SHIFT"
+[ -n "$CALLER" ] || die "caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent"
 
 command -v jq >/dev/null 2>&1 || die "jq required"
 
@@ -181,6 +196,9 @@ command -v jq >/dev/null 2>&1 || die "jq required"
 . "$SCRIPT_DIR/fm-jev-lib.sh"
 # shellcheck source=bin/fm-model-denylist-lib.sh
 . "$SCRIPT_DIR/fm-model-denylist-lib.sh"
+fm_jev_caller_ok "$CALLER" \
+  || die "caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent"
+FM_JEV_CALLER=$CALLER
 
 # Build the normalized spec {state, questions:[{id,type,q,opts}]} on stdout.
 case "$SUB" in
@@ -315,8 +333,8 @@ QUESTIONS=$(printf '%s' "$NORM" | jq -c '
                 else {type: "score", instructions: .q, criteria: [.opts[][1]]} end) } ]
   | from_entries')
 
-# caller: the dispatched task, else the home whose log receives the record.
-jev_caller() {
+# origin: the dispatched task, else the home whose log receives the record.
+jev_origin() {
   if [ -n "${FM_TASK_ID:-}" ]; then
     printf 'task:%s' "$FM_TASK_ID"
   else
@@ -330,7 +348,8 @@ log_call() {
     [.questions | to_entries[] | {type: .value.type, options: (.value.opts | length), conf: ($confs[.key] // null)}]') || items='[]'
   payload=$(jq -nc \
     --arg ts "$(fm_jev_iso_now)" \
-    --arg caller "$(jev_caller)" \
+    --arg caller "$CALLER" \
+    --arg origin "$(jev_origin)" \
     --argjson items "$items" \
     --arg route "${FM_JEV_LAST_ROUTE:-}" \
     --arg model "${FM_JEV_LAST_MODEL:-}" \
@@ -344,6 +363,7 @@ log_call() {
     '{
       ts: $ts,
       caller: $caller,
+      origin: $origin,
       purpose: "worker-cli",
       route: $route,
       model: $model,

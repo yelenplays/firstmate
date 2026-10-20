@@ -2073,10 +2073,10 @@ SH
   prompt=$(cat "$capture")
   jev="$checkout/bin/fm-jev.sh"
   [ -x "$jev" ] || fail "the launched Jev command path is not executable"
-  assert_contains "$prompt" "through $(expected_shell_quote "$jev") (its --help is the whole interface)" \
+  assert_contains "$prompt" "through $(expected_shell_quote "$jev") with --caller worker (its --help is the whole interface)" \
     "the agent prompt did not carry the shell-escaped checkout path"
   callable=${prompt#*through }
-  callable=${callable%% (its --help is the whole interface)*}
+  callable=${callable%% with --caller worker (its --help is the whole interface)*}
   [ "$callable" != "$prompt" ] || fail "the captured agent prompt did not contain the command"
   help=$(eval "$callable yes --help") || fail "the command embedded in the agent prompt did not execute"
   assert_contains "$help" "fm-jev.sh - one typed Jev judgment" \

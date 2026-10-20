@@ -74,7 +74,6 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-search.sh` | Route public web queries through provider fallbacks ([configuration](configuration.md#web-search-router-configfm-searchjson)) |
 | `fm-search.py` | The search adapter and accounting engine behind `fm-search.sh` |
 | `fm-jev.sh` | Compact typed judgments for closed-set decisions ([configuration](configuration.md)) |
-| `fm-jev-skill-select.sh` | Suggest optional skills ([configuration](configuration.md#jev-skill-selector-fm_jev_skill_select)) |
 | `fm-jev-intake-match.sh` | Match positional free-text captain references to backlog items and task records, keyword fallback ([configuration](configuration.md#jev-intake-match)) |
 | `fm-jev-act-first.sh` | ACT FIRST priority list of the session-start digest's actionable items, and its deferred Jev ranking ([configuration](configuration.md#jev-act-first-ranking-session-start)) |
 | `fm-jev-wedge-check.sh` | Bounded Jev second opinion and stuck-class label at the structural wedge boundary ([configuration](configuration.md#jev-supervision-triage)) |

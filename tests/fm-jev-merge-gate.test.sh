@@ -175,7 +175,7 @@ printf '%s' "$out" | jq -e '
   fail "decide output incomplete: $out"
 grep -q 'ops@example.com\|ghp_abcdefghij\|Long details' "$TEST_JEV_REQUEST" && fail 'free text reached Jev unredacted or beyond the first section'
 grep -q '"jev-1.13.0"' "$TEST_JEV_REQUEST" || fail 'the Jev call did not use the pinned model'
-jq -e 'select(.kind == "gate") | .mode == "shadow" and (.input_sha256 | length == 64) and .request_id == "req-1" and (has("input") | not)' "$LOG" >/dev/null ||
+jq -e 'select(.kind == "gate") | .mode == "shadow" and .caller == "merge-gate" and (.input_sha256 | length == 64) and .request_id == "req-1" and (has("input") | not)' "$LOG" >/dev/null ||
   fail 'gate record missing shadow mode, hash or request id'
 grep -q 'Adds the thing' "$LOG" && fail 'raw evidence text reached the log'
 pass 'decide prints {input, decision} with every field filled, MISSING or N/A, and logs only a hash'

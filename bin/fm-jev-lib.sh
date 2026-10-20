@@ -35,9 +35,21 @@
 # in a subshell with the API-key names unset so the secret is absent from the
 # child environment. Nothing prints, logs, or writes the key.
 #
+# Caller tag: every Jev call names its call site with a stable lowercase
+# kebab-case tag (starts with a letter, then letters, digits, or dashes;
+# at most 40 characters). A sourcing script sets the plain shell variable
+# FM_JEV_CALLER once after sourcing this file; fm_jev_decide --caller <tag>
+# overrides it for one call, even when the override is empty or invalid.
+# Initial sourcing clears any inherited FM_JEV_CALLER, so a tag is never
+# borrowed from a parent process.
+#
 # Public helpers:
-#   fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]
-#     POST {model, state, questions}. By default, <state> is a JSON object or
+#   fm_jev_caller_ok <tag>
+#     Succeeds when <tag> is a valid caller tag.
+#   fm_jev_decide <state> <questions-json> [--string] [--before-send <function>] [--caller <tag>]
+#     POST {model, state, questions}. Refuses with 2 before building a request
+#     when the resolved caller tag is missing or invalid; sets FM_JEV_LAST_CALLER
+#     to the tag used after validation. By default, <state> is a JSON object or
 #     array when the argument parses as one, otherwise a string; --string
 #     forces a JSON string. <questions-json> is a JSON object. An optional
 #     --before-send shell function receives the complete assembled request as
@@ -71,6 +83,11 @@
 #     scorer; it owns top-2 ordering and margin arithmetic.
 #   fm_jev_log_call <json-object> [<path>]
 #     Appends one JSONL line. Default path is $FM_HOME/state/jev-calls.jsonl.
+#     A record's string caller takes precedence; otherwise caller=$FM_JEV_CALLER.
+#     If the resulting tag is missing or invalid, refuses with 2 and writes
+#     nothing, even when FM_JEV_CALLER is valid but the record's string is not.
+#     A per-call --caller override does not change FM_JEV_CALLER; callers logging
+#     that override must supply it in the record's caller field.
 #     Known secret-shaped object keys are replaced with [redacted]; live
 #     TYPESAFE_API_KEY / OPENROUTER_API_KEY values are stripped from the line.
 #   fm_jev_compact_state <state>
@@ -133,6 +150,8 @@ if [ -n "${_FM_JEV_LIB_SOURCED:-}" ]; then
   return 0
 fi
 _FM_JEV_LIB_SOURCED=1
+FM_JEV_CALLER=''
+export -n FM_JEV_CALLER 2>/dev/null || true
 
 _FM_JEV_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _FM_JEV_ROOT="$(cd "$_FM_JEV_LIB_DIR/.." && pwd)"
@@ -151,6 +170,10 @@ FM_JEV_OPENROUTER_MODEL='typesafe/jev-1.13-20260917'
 FM_JEV_CONFIDENCE_FLOOR=0.7
 FM_JEV_STATE_MAX_BYTES=8192
 FM_JEV_TIMEOUT=25
+
+fm_jev_caller_ok() {
+  [[ "${1:-}" =~ ^[a-z][a-z0-9-]{0,39}$ ]]
+}
 
 _fm_jev_err() {
   printf 'jev: %s\n' "$1" >&2
@@ -284,7 +307,7 @@ _fm_jev_resolve_route() {
 }
 
 fm_jev_decide() {
-  local state questions request resp_file http t0 t1 timeout state_mode before_send
+  local state questions request resp_file http t0 t1 timeout state_mode before_send caller
   local _fm_jev_route _fm_jev_url _fm_jev_model _fm_jev_key
   export -n TYPESAFE_API_KEY OPENROUTER_API_KEY TYPESAFE_API_KEY_PRIVATE OPENROUTER_API_KEY_PRIVATE 2>/dev/null || true
   FM_JEV_LAST_ROUTE=''
@@ -293,8 +316,9 @@ fm_jev_decide() {
   FM_JEV_LAST_HTTP=''
   FM_JEV_LAST_LATENCY_MS=''
   FM_JEV_LAST_REQUEST_REJECTED=''
+  FM_JEV_LAST_CALLER=''
   if [ $# -lt 2 ]; then
-    _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]"
+    _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>] [--caller <tag>]"
     return 2
   fi
   state=$1
@@ -302,6 +326,7 @@ fm_jev_decide() {
   shift 2
   state_mode=auto
   before_send=''
+  caller=${FM_JEV_CALLER:-}
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --string)
@@ -310,18 +335,36 @@ fm_jev_decide() {
         ;;
       --before-send)
         if [ "$#" -lt 2 ] || [ -n "$before_send" ]; then
-          _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]"
+          _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>] [--caller <tag>]"
           return 2
         fi
         before_send=$2
         shift 2
         ;;
+      --caller)
+        if [ "$#" -lt 2 ]; then
+          _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>] [--caller <tag>]"
+          return 2
+        fi
+        caller=$2
+        shift 2
+        ;;
       *)
-        _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>]"
+        _fm_jev_err "usage: fm_jev_decide <state> <questions-json> [--string] [--before-send <function>] [--caller <tag>]"
         return 2
         ;;
     esac
   done
+  if [ -z "$caller" ]; then
+    _fm_jev_err "caller tag required: set FM_JEV_CALLER or pass --caller <tag>; nothing sent"
+    return 2
+  fi
+  fm_jev_caller_ok "$caller" || {
+    _fm_jev_err "caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent"
+    return 2
+  }
+  # shellcheck disable=SC2034 # Output global, read by the sourcing caller.
+  FM_JEV_LAST_CALLER=$caller
   command -v jq >/dev/null 2>&1 || { _fm_jev_err "jq required"; return 2; }
   command -v curl >/dev/null 2>&1 || { _fm_jev_err "curl not installed"; return 2; }
   printf '%s' "$questions" | jq -e 'type == "object"' >/dev/null 2>&1 || {
@@ -742,7 +785,7 @@ fm_jev_log_call() {
   json=$1
   home=$(_fm_jev_home)
   path=${2:-$home/state/jev-calls.jsonl}
-  line=$(printf '%s' "$json" | jq -c '
+  line=$(printf '%s' "$json" | jq -c --arg caller "${FM_JEV_CALLER:-}" '
     def redact:
       if type == "object" then
         with_entries(
@@ -755,11 +798,16 @@ fm_jev_log_call() {
       else .
       end;
     if type == "object" then redact else empty end
+    | if (.caller | type) == "string" then . else .caller = $caller end
   ' 2>/dev/null) || line=''
   if [ -z "$line" ]; then
     _fm_jev_err "log payload must be a JSON object"
     return 2
   fi
+  fm_jev_caller_ok "$(printf '%s' "$line" | jq -r '.caller')" || {
+    _fm_jev_err "log record needs a caller tag: set FM_JEV_CALLER or add a valid caller field; nothing written"
+    return 2
+  }
   line=$(_fm_jev_redact_live_keys "$line")
   dir=$(dirname "$path")
   mkdir -p "$dir" || { _fm_jev_err "could not create $dir"; return 1; }

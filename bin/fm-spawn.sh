@@ -73,17 +73,6 @@
 #   or the Decisions API and the openrouter-decisions skill is installed, the
 #   overlay also names that skill before the intent contract
 #   (fm_brief_decisions_skill_overlay in bin/fm-dod-lib.sh owns the test).
-#   After that overlay is published, a live Jev skill selection may append the
-#   chosen skills to the same launch-brief (bin/fm-jev-skill-select.sh --overlay).
-#   Live load needs FM_JEV_SKILL_SELECT=live, config/jev-skill-select-live,
-#   and data/<task-id>/jev-skill-query.txt containing an explicitly safe query.
-#   The caller must supply only query text there, never page content, excerpts,
-#   or conflict lines. Raw brief text is never used as a fallback; missing or
-#   blank queries skip selection. Project skills come from the refreshed worker
-#   worktree; selected skill files must still be readable at overlay publication.
-#   Shadow, none, a Jev outage, and a failed load leave the overlay unchanged
-#   and never refuse the spawn; docs/configuration.md "Jev skill selector"
-#   owns the operator contract.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>]
 #   --relaunch launches a replacement agent for an EXISTING task into that
 #   task's own recorded worktree, reusing its recorded endpoint when that
@@ -3773,101 +3762,6 @@ fi
   exit 1
 }
 
-# Live Jev skill load is fail-open: missing opt-in, Choice none, or a Jev
-# outage must leave this spawn's launch overlay identical to today's and
-# must not refuse the worker. bin/fm-jev-skill-select.sh owns the decision
-# rule and live_loaded; this is only the hop into the published overlay.
-fm_spawn_jev_skill_summary() {
-  local query="$DATA/$ID/jev-skill-query.txt"
-  [ -f "$query" ] && [ -r "$query" ] || return 0
-  LC_ALL=C tr '\n\r' '  ' < "$query" | cut -c1-400 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-}
-
-fm_spawn_jev_skill_dirs() {
-  local dir codex_skills=
-  if [ "${HARNESS:-}" = codex ]; then
-    codex_skills="${CODEX_HOME:-${HOME:+$HOME/.codex}}"
-    [ -z "$codex_skills" ] || codex_skills="$codex_skills/skills"
-  fi
-  for dir in \
-    "$codex_skills" \
-    "${WT:+$WT/.agents/skills}" \
-    "${WT:+$WT/.claude/skills}" \
-    "${HOME:+$HOME/.agents/skills}" \
-    "${HOME:+$HOME/.claude/skills}" \
-    "${HOME:+$HOME/.grok/skills}" \
-    "${HOME:+$HOME/.pi/agent/skills}"; do
-    [ -n "$dir" ] || continue
-    [ -d "$dir" ] && [ -r "$dir" ] || continue
-    printf '%s\n' "$dir"
-  done
-}
-
-fm_spawn_jev_skill_shadow_dirs() {
-  local dir codex_skills=
-  if [ "${HARNESS:-}" = codex ]; then
-    codex_skills="${CODEX_HOME:-${HOME:+$HOME/.codex}}"
-    [ -z "$codex_skills" ] || codex_skills="$codex_skills/skills"
-  fi
-  for dir in \
-    "${HOME:+$HOME/.agents/skills}" \
-    "${HOME:+$HOME/.claude/skills}" \
-    "${HOME:+$HOME/.grok/skills}" \
-    "${HOME:+$HOME/.pi/agent/skills}" \
-    "$codex_skills"; do
-    [ -n "$dir" ] || continue
-    [ -d "$dir" ] && [ -r "$dir" ] || continue
-    printf '%s\n' "$dir"
-  done
-}
-
-fm_spawn_shadow_jev_skills() {
-  local query="$DATA/$ID/jev-skill-query.txt"
-  local summary dir
-  local -a args
-  [ "$KIND" = ship ] || [ "$KIND" = scout ] || return 0
-  [ "${FM_JEV_SKILL_SELECT:-shadow}" = shadow ] || return 0
-  [ -x "$FM_ROOT/bin/fm-jev-skill-select.sh" ] || return 0
-  [ -n "${HARNESS:-}" ] || return 0
-  [ -f "$query" ] && [ -r "$query" ] || return 0
-  summary=$(fm_spawn_jev_skill_summary)
-  [ -n "$summary" ] || return 0
-  args=(--launch-id "$SPAWN_GEN" --harness "$HARNESS" --task-id "$ID" --summary "$summary")
-  while IFS= read -r dir; do
-    [ -n "$dir" ] || continue
-    args+=(--skills-dir "$dir")
-  done < <(fm_spawn_jev_skill_shadow_dirs)
-  printf '%s\n' "$SPAWN_GEN" >> "$DATA/$ID/jev-skill-launches" || return 0
-  env JEV_TIMEOUT=4 \
-    "$FM_ROOT/bin/fm-jev-skill-select.sh" "${args[@]}" >/dev/null 2>&1 || true
-  return 0
-}
-
-fm_spawn_apply_jev_skills() {
-  local confirm="$CONFIG/jev-skill-select-live"
-  local summary dir
-  local -a args
-  [ "$KIND" = ship ] || [ "$KIND" = scout ] || return 0
-  [ "${FM_JEV_SKILL_SELECT:-shadow}" = live ] || return 0
-  [ -f "$confirm" ] || return 0
-  [ -x "$FM_ROOT/bin/fm-jev-skill-select.sh" ] || return 0
-  [ -n "${HARNESS:-}" ] || return 0
-  [ -n "${BRIEF:-}" ] && [ -f "$BRIEF" ] || return 0
-
-  summary=$(fm_spawn_jev_skill_summary)
-  [ -n "$summary" ] || return 0
-  args=(--harness "$HARNESS" --task-id "$ID" --overlay "$BRIEF" --summary "$summary")
-  while IFS= read -r dir; do
-    [ -n "$dir" ] || continue
-    args+=(--skills-dir "$dir")
-  done < <(fm_spawn_jev_skill_dirs)
-
-  # Bound so a hung Jev call cannot stall launch. 4s HTTP + 2s slack.
-  fm_run_timed 6 env JEV_TIMEOUT=4 "$FM_ROOT/bin/fm-jev-skill-select.sh" "${args[@]}" \
-    >/dev/null 2>&1 || true
-  return 0
-}
-
 TEST_BAN_MODEL=
 TEST_BAN_ALLOWED_PATHS=
 TEST_BAN_SINCE=
@@ -3960,15 +3854,6 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     rm -f -- "$BRIEF_TMP"
     echo "error: could not publish current launch contract for $SOURCE_BRIEF" >&2
     exit 1
-  fi
-  JEV_SKILL_RECORD="$STATE/$ID.jev-skills.json"
-  if [ -f "$JEV_SKILL_RECORD" ]; then
-    JEV_SKILL_RECORD_TMP="${JEV_SKILL_RECORD}.tmp.${BASHPID:-$$}"
-    if ! { jq '.live_loaded = false' "$JEV_SKILL_RECORD" > "$JEV_SKILL_RECORD_TMP" &&
-      mv "$JEV_SKILL_RECORD_TMP" "$JEV_SKILL_RECORD"; }; then
-      rm -f -- "$JEV_SKILL_RECORD_TMP"
-      echo "warning: could not reset Jev skill launch evidence for $ID" >&2
-    fi
   fi
 fi
 
@@ -5332,8 +5217,6 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" "$BASE_BRANCH" || exit 1
 fi
 SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
-fm_spawn_shadow_jev_skills || true
-fm_spawn_apply_jev_skills || true
 
 # Re-assert the durable task copy after either treehouse acquisition or endpoint
 # adoption. This also updates Herdr's restored pane shell before any harness is

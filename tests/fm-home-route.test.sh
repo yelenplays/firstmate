@@ -81,7 +81,7 @@ jq -e '.state.task_summary == "Rewrite the FAQ page of the Lay Distribution mark
   and (.questions.lead.criteria | keys) == ["frontend", "lay", "main"]
   and (.questions | has("consult_lay") and has("consult_frontend") and (has("consult_zimmer") | not))
   and (tostring | contains("lay-faq") | not)' "$PAYLOAD" >/dev/null || fail 'outbound state or option set violated'
-last_event | jq -e '.event == "decide" and .task_id == "lay-faq" and .route == "frontend+lay" and .lead == "frontend" and .consult == ["lay"]
+last_event | jq -e '.event == "decide" and .caller == "home-route" and .task_id == "lay-faq" and .route == "frontend+lay" and .lead == "frontend" and .consult == ["lay"]
   and .source == "jev" and .probability == 0.98 and .response_model == "typesafe/jev-1.13-20260917" and .consult_probabilities.lay == 0.79' >/dev/null ||
   fail 'decision not logged'
 pass 'Lay site task routes to frontend with lay consulted, from approved scopes only'

@@ -210,6 +210,7 @@ test_act_sends_jev_decision_with_resolve_key() {
     "each question offers the ask-user-authority classes"
   assert_equals "$(last_log | jq -c '[.purpose, .outcome, .code, .jev_called, .sent, .findings]')" \
     '["ask-user-gate","act","decided",true,true,["F1","F2"]]' "the decision is logged as Jev's"
+  assert_equals "$(last_log | jq -r '.caller')" ask-user-gate "the record names the ask-user-gate call site"
   assert_not_contains "$(cat "$HOME_DIR/state/jev-ask-user.jsonl")" "trailing newline" "the log carries no finding text"
   pass "fm-jev-ask-user: a confident in-scope verdict answers the gate through fm-send"
 }

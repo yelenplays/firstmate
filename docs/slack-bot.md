@@ -19,7 +19,7 @@ Every step carries one owner tag:
 
 - **[you]** - only the person can do it (a Slack consent click, the token paste, or the channel invite), so the agent stops, tells the person exactly what to do, and waits.
 - **[agent]** - the person's firstmate (or any agent in that home) runs it and checks the result.
-- **[Jev]** - a closed-set pick the agent puts through one typed Jev call (`bin/fm-jev.sh`); when Jev escalates or does not answer, the agent asks the person instead.
+- **[Jev]** - a closed-set pick the agent puts through one typed Jev call (`bin/fm-jev.sh batch --caller slack-setup`); when Jev escalates or does not answer, the agent asks the person instead.
 
 Rules for the agent running this guide:
 
