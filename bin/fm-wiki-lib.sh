@@ -69,7 +69,7 @@ fm_wiki_registry_names() {
       rest = $0
       sub(/^[ \t]*-[ \t]+/, "", rest)
       rest = substr(rest, length(n) + 1)
-      for (k = 0; k < 2; k++) {
+      for (k = 0; k < 4; k++) {
         sub(/^[ \t]+/, "", rest)
         if (substr(rest, 1, 1) != "[") break
         close_at = index(rest, "]")

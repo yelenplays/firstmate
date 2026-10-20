@@ -46,6 +46,9 @@
 # Primary config/brief-include.md carries the captain's standing worker
 # instructions (bin/fm-brief.sh), so a secondmate's own ship and scout briefs
 # carry the same home brief additions.
+# Primary config/business-facts.md carries the per-business facts blocks
+# (bin/fm-business-facts-lib.sh), so a secondmate's own briefs for projects on
+# the same business carry the same blocks.
 # It also pushes
 # the one primary-authoritative shared captain-preference file,
 # data/captain-shared.md, into each secondmate home's data/ as a read-only copy.
@@ -102,7 +105,7 @@ FM_SHARED_CAPTAIN_MODE="444"
 # The declared inheritable set (space-separated, config-dir-relative item paths).
 # Extend here to inherit more of the primary's local config; override via the
 # environment only in tests. Items must not contain whitespace.
-FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send private-markers model-denylist.json crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers wikis-root supervision-host-off theme brief-include.md firstmate-role}"
+FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send private-markers model-denylist.json crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers wikis-root supervision-host-off theme brief-include.md business-facts.md firstmate-role}"
 
 # firstmate-role additionally carries a proof-of-state receipt: a scoped role
 # grant (or its recorded absence) authorizes a secondmate home only while

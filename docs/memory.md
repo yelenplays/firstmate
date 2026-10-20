@@ -17,6 +17,8 @@ The OpenViking categories carry over: `preferences`, `entities`, `events`; `reme
 A fourth category, `now`, holds short-lived current captain context, such as an open personal or project situation a follow-up may refer to implicitly.
 Automatically captured `now` entries carry an `expires` date; manually written entries may omit it and remain current indefinitely.
 An expired entry stays on disk but is no longer printed by `now`.
+A running-work note links to its task with `remember --task <task-id>`; when `bin/fm-teardown.sh` cleans up that ship or scout task it calls `complete-task`, which rewrites the linked `now` note in place to the outcome plus the report path or PR URL and stamps `completed:`, so recall stops saying the work is pending.
+Notes without a task link are never touched, and no note is deleted or moved.
 `sensitivity: private` marks an entry that a non-Claude primary harness must not see in its session-start digest.
 Neither expiry nor sensitivity filters `recall`; these metadata control startup presentation, not access to the store.
 The BM25 index is `<store>/.index.json`, a disposable cache owned by [`bin/fm-memory-bm25.mjs`](../bin/fm-memory-bm25.mjs) that self-rebuilds whenever the tree drifts from its recorded manifest, so recall never answers from stale bytes.

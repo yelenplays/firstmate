@@ -41,7 +41,9 @@
 #   - <name> [wiki: Some Wiki] - <desc> (added <date>)       -> no-mistakes off
 # The token names the project's backing wikis (comma-separated; names may
 # contain spaces) and never changes the delivery posture; bin/fm-wiki-lib.sh
-# owns its parser and bin/fm-brief.sh consumes it.
+# owns its parser and bin/fm-brief.sh consumes it. A [facts: <business>] bracket
+# in the same position names the row's business-facts block instead
+# (bin/fm-business-facts-lib.sh); it never changes the posture either.
 #
 # Registered modes:
 #   no-mistakes            full pipeline -> PR -> configured merge authority (default)
@@ -175,7 +177,7 @@ parsed=$(awk -v n="$NAME" '
     after = substr($0, plen + 1);
     if (after != "" && substr(after, 1, 2) != " [" && substr(after, 1, 3) != " - ") next
     mode="no-mistakes"; yolo="off"; branch="fm/"; forge="none"; witness="";
-    if (substr(after, 1, 2) == " [" && substr(after, 1, 7) != " [wiki:") {   # a leading wiki token is not a mode
+    if (substr(after, 1, 2) == " [" && substr(after, 1, 7) != " [wiki:" && substr(after, 1, 8) != " [facts:") {   # a leading wiki or facts token is not a mode
       s="";
       nk = split(after, rest, " ");
       for (i=1; i<=nk; i++) { s = s (s==""?"":" ") rest[i]; if (rest[i] ~ /\]$/) break }

@@ -2203,6 +2203,17 @@ Both commands refuse a symlinked task directory or draft: `pending` skips it wit
 
 The daily schedule itself is home-local operator setup, not tracked code.
 
+## Business facts in briefs (config/business-facts.md)
+
+This section is the single owner of the per-business facts block; [`bin/fm-business-facts-lib.sh`](../bin/fm-business-facts-lib.sh)'s header owns the parser and the rendered wording.
+Several project rows can sit on one business (`umzugservice-bochum`, `-v2`, and so on), so the facts are kept once per business, not per project.
+A `data/projects.md` row names its business with a `[facts: <business>]` bracket after the name, in any order with the mode and `[wiki: ...]` brackets; `<business>` matches `^[a-z0-9][a-z0-9._-]*$` and the token never changes the delivery posture.
+The facts live in gitignored `config/business-facts.md`: one `## <business>` heading per business, then short free-form lines such as Gewerbe yes/no, VAT status, and legal owner.
+Nothing in the file is tracked or seeded; the captain's home writes it locally.
+`bin/fm-brief.sh` copies the matching block into every ship and scout brief as a `# Business facts` section right after the task, with the instruction to read it before any form, signup, directory entry, or legal or tax step.
+A missing file, a missing heading, or a row without the token renders nothing and is not an error; a malformed or repeated token stops the scaffold with a message naming the row.
+`config/business-facts.md` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract, so a secondmate's own briefs for the same business carry the same block; secondmate charters carry none.
+
 ## Cross-family review
 
 Every in-scope task's exact head is reviewed by an AI family other than the one that built it; [`bin/fm-cross-review.sh`](../bin/fm-cross-review.sh)'s header owns the evidence rules, preservation of recorded unknown builder history, subcommands, record formats, and exit codes, and [`bin/fm-ai-family-lib.sh`](../bin/fm-ai-family-lib.sh) owns family resolution, including recognized gateway model namespaces and legacy family aliases.
