@@ -1,0 +1,1 @@
+mr view 7 -R https://gitlab.example/group/subgroup/project -F json

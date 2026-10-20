@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+[ -z "${FM_TEST_NM_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_TEST_NM_LOG"
+[ "${1:-} ${2:-}" = "axi status" ] || exit 2
+[ "${FM_TEST_NM_FAIL:-0}" = 0 ] || exit 1
+head=$(git rev-parse HEAD 2>/dev/null) || exit 1
+pipeline=${FM_TEST_NM_PIPELINE_HEAD:-$head}
+printf 'run:\n  id: "RUNFIXTURE"\n  branch: fm/task\n  status: completed\n  head_sha: %s\noutcome: %s\n' \
+  "$pipeline" "${FM_TEST_NM_OUTCOME-passed}"
+printf 'branch_sync:\n  state: %s\n  local:\n    head: %s\n  pipeline:\n    current_head: %s\n' \
+  "${FM_TEST_NM_SYNC_STATE:-synchronized}" "$head" "$pipeline"
+if [ -n "${FM_TEST_NM_NEXT_ACTION:-}" ]; then
+  printf '  next_action:\n    code: %s\n    command: no-mistakes axi status\n' "$FM_TEST_NM_NEXT_ACTION"
+fi

@@ -1,0 +1,4 @@
+[
+{"name":"fixture-one","url":"https://git.example.com","ssh_host":"git.example.com","user":"someone","default":"true"}
+,{"name":"fixture-two","url":"http://code.internal:3000/","ssh_host":"code.internal","user":"other","default":"false"}
+]

@@ -1,0 +1,15 @@
+[
+  [
+    {
+      "id": 12,
+      "user": {
+        "login": "maintainer"
+      },
+      "author_association": "OWNER",
+      "body": "Please clarify the contract",
+      "html_url": "https://github.com/o/r/pull/8#issuecomment-12",
+      "updated_at": "2026-09-16T08:01:00Z",
+      "submitted_at": "2026-09-16T08:01:00Z"
+    }
+  ]
+]

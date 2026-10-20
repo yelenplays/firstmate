@@ -1,0 +1,37 @@
+[
+  {
+    "schema": "fm-contributions.v1",
+    "task": "delivery",
+    "records": [
+      {
+        "url": "https://github.com/o/r/pull/8",
+        "kind": "pr",
+        "checked_at": "2026-09-16T08:00:00Z",
+        "error": null,
+        "pending": [],
+        "seen": [],
+        "verdict": null,
+        "observation": {
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "open",
+          "draft": false,
+          "mergeable": "mergeable",
+          "can_merge": false,
+          "review_decision": "APPROVED",
+          "reviews": [],
+          "checks": [
+            {
+              "name": "test",
+              "id": 1,
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-09-16T08:00:00Z"
+            }
+          ],
+          "events": [],
+          "absent_checks": []
+        }
+      }
+    ]
+  }
+]

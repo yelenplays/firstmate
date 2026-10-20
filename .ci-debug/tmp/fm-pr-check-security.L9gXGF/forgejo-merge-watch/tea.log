@@ -1,0 +1,9 @@
+login list --output json
+api --login main --repo o/r /repos/{owner}/{repo}/pulls/7
+login list --output json
+api --login main --repo o/r /repos/{owner}/{repo}/pulls/7
+login list --output json
+api --login main --repo o/r /repos/{owner}/{repo}/pulls/7
+login list --output json
+login list --output json
+api --login main --repo o/r /repos/{owner}/{repo}/pulls/7
