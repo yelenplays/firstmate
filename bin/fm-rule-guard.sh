@@ -17,7 +17,8 @@
 #                     need a real Terminal window: put the command on the
 #                     clipboard with pbcopy and verify the result yourself. A
 #                     line where a negation (never, nie, kein, not, ...) comes
-#                     before the "!" quotes the rule and passes.
+#                     before the "!" in the same clause (no comma, semicolon,
+#                     colon, or period between) quotes the rule and passes.
 #
 # `--claude` reads `.last_assistant_message` from the Stop payload and acts only
 # in a primary seat (the main home or a secondmate home, never a task worktree,
@@ -69,6 +70,7 @@ scan_text() {
     my $line = $_;
     while ($line =~ /(?:^|[\s`"\x27(>*])!\s+(?=[^\n]*?(?:\bsudo\b|\bdarwin-rebuild\b|\bnixos-rebuild\b|\brebuild\.sh\b|\blogin\b|\bauth\s+refresh\b|\bpasswd\b|\badd-generic-password\b|\bop\s+signin\b))/g) {
       my $before = lc substr($line, 0, $-[0]);
+      $before =~ s/^.*[,;:.]//;
       next if $before =~ /\b(?:nie|niemals|never|kein|keine|keinen|no|not|nicht|don\x27t|statt|instead\s+of)\b/;
       print "bang-interactive: $line\n";
       $hit = 1;
