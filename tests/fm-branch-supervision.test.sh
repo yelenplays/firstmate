@@ -177,9 +177,9 @@ PY
 }
 
 # The branch report surfaces (bin/fm-branch-report.sh and the Pi report tool)
-# pass --promote-finished: a visible routine report for a torn-down task or one with crew state done is
-# stored as captain, so both supervision paths wake MAIN to relay it. A live
-# task, a silent row, a name that never launched, and fleet stay routine.
+# pass --promote-finished: a routine report for a torn-down task or one with crew state done is
+# stored as captain, silent or not, so both supervision paths wake MAIN to
+# relay it. A live task, a name that never launched, and fleet stay routine.
 test_outcome_append_promotes_a_torn_down_tasks_routine_report() {
   local home store
   home="$TMP_ROOT/promote-home"
@@ -198,7 +198,7 @@ test_outcome_append_promotes_a_torn_down_tasks_routine_report() {
     --task fleet --verdict routine --summary 'fleet review' >/dev/null || fail "fleet append failed"
   FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append \
     --task done-task --verdict routine --summary 'no opt-in' >/dev/null || fail "plain append failed"
-  [ "$(jq -r '.verdict' "$store" | tr '\n' ' ')" = "captain routine routine routine routine routine " ] \
+  [ "$(jq -r '.verdict' "$store" | tr '\n' ' ')" = "captain routine captain routine routine routine " ] \
     || fail "promotion picked the wrong rows: $(cat "$store")"
   mkdir -p "$home/fakebin"
   cat > "$home/fakebin/fm-crew-state.sh" <<'EOF'
@@ -217,13 +217,13 @@ EOF
     || fail "a working task's routine report was promoted"
   grep -F '"--silent", String(silent), "--promote-finished"]' "$ROOT/.pi/extensions/fm-branch-supervision.ts" >/dev/null \
     || fail "the Pi report tool no longer opts its appends into retired-task promotion"
-  pass "outcome append stores a torn-down task's visible routine report as captain only when the report surface opts in"
+  pass "outcome append stores a torn-down task's routine report, silent or not, as captain only when the report surface opts in"
 }
 
 # A routine report written before its task finished in the same turn is
 # handed back as one captain row at turn end; a still-working task, a silent
-# row, and a task already followed by a captain row are left alone, and a
-# second handback appends nothing.
+# row for a task a visible row already covers, and a task already followed by
+# a captain row are left alone, and a second handback appends nothing.
 test_finished_handback_appends_captain_rows_for_tasks_finished_after_report() {
   local home store out
   home="$TMP_ROOT/handback-home"
@@ -249,6 +249,53 @@ test_finished_handback_appends_captain_rows_for_tasks_finished_after_report() {
   out=$(outcome finished-handback --seqs 1,2,3,4) || fail "repeated finished-handback failed"
   [ -z "$out" ] && [ "$(wc -l < "$store")" -eq 6 ] || fail "a repeated handback appended again: $out"
   pass "finished-handback hands back a routine report as captain once when its task finished later in the turn"
+}
+
+# Completion outranks the model's silence. A silent no-change report for a
+# finished task, whether the task finished before the report or later in the
+# same turn, reaches main as one visible captain row that points at the
+# finished result instead of presenting the stale note as that result. A
+# working task's silent report stays silent, and a repeated handback appends
+# nothing.
+test_silent_report_for_a_finished_task_reaches_main_as_a_result_pointer() {
+  local home store out pointer
+  home="$TMP_ROOT/silent-finished-home"
+  mkdir -p "$home/state" "$home/data/early" "$home/data/late" "$home/data/busy" "$home/fakebin"
+  for task in early late busy; do printf 'project=demo\n' > "$home/state/$task.meta"; done
+  # shellcheck disable=SC2016 # the stub expands its own arguments.
+  printf '#!/usr/bin/env bash\nif [ -e "$FM_HOME/state/$1.meta" ]; then echo "state: working · source: pane"; else echo "state: done · source: backlog"; fi\n' \
+    > "$home/fakebin/crew-state"
+  chmod +x "$home/fakebin/crew-state"
+  store="$home/state/branch-outcomes.jsonl"
+  outcome() { FM_CREW_STATE_BIN="$home/fakebin/crew-state" FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" "$@"; }
+  pointer='finished; its last report was a no-change note (Worker is still busy; no new result yet), so read the finished result before relaying it'
+
+  # Torn down before the report: promoted at append time.
+  rm -f "$home/state/early.meta"
+  outcome append --promote-finished --task early --verdict routine --silent true --summary 'Worker is still busy; no new result yet' >/dev/null \
+    || fail "early append failed"
+  [ "$(jq -c 'select(.seq == 1) | [.verdict, .silent]' "$store")" = '["captain",false]' ] \
+    || fail "a silent report for a torn-down task was not stored as a visible captain row: $(cat "$store")"
+  assert_contains "$(jq -r 'select(.seq == 1) | .summary' "$store")" "early $pointer" "the promoted silent row must point at the finished result"
+
+  # Still working at report time, finished later in the turn: handed back.
+  outcome append --promote-finished --task late --verdict routine --silent true --summary 'Worker is still busy; no new result yet' >/dev/null \
+    || fail "late append failed"
+  outcome append --promote-finished --task late --verdict routine --silent true --summary 'Worker is still busy; no new result yet' >/dev/null \
+    || fail "second late append failed"
+  outcome append --promote-finished --task busy --verdict routine --silent true --summary 'Worker is still busy; no new result yet' >/dev/null \
+    || fail "busy append failed"
+  [ "$(jq -c 'select(.seq >= 2) | [.verdict, .silent]' "$store" | sort -u)" = '["routine",true]' ] \
+    || fail "a working task's silent report must stay silent: $(cat "$store")"
+  rm -f "$home/state/late.meta"
+  out=$(outcome finished-handback --seqs 2,3,4) || fail "finished-handback failed"
+  [ "$out" = 5 ] || fail "a finished task's silent rows must be handed back once, and a working task's never: $out $(cat "$store")"
+  [ "$(jq -c 'select(.seq == 5) | [.task, .verdict, .silent]' "$store")" = '["late","captain",false]' ] \
+    || fail "the handed-back row is not a visible captain row: $(cat "$store")"
+  assert_contains "$(jq -r 'select(.seq == 5) | .summary' "$store")" "late $pointer" "the handed-back row must point at the finished result"
+  out=$(outcome finished-handback --seqs 2,3,4) || fail "repeated finished-handback failed"
+  [ -z "$out" ] && [ "$(wc -l < "$store")" -eq 5 ] || fail "a repeated handback appended again: $out"
+  pass "a finished task's silent report reaches main as one visible result pointer, in either report order; a working task's stays silent"
 }
 
 test_outcome_append_keeps_a_bounded_display_tail() {
@@ -1657,6 +1704,7 @@ test_branch_prompt_routes_completed_scouts_through_guarded_cleanup
 test_outcome_store_is_append_only_with_cursor_reads
 test_outcome_append_promotes_a_torn_down_tasks_routine_report
 test_finished_handback_appends_captain_rows_for_tasks_finished_after_report
+test_silent_report_for_a_finished_task_reaches_main_as_a_result_pointer
 test_outcome_append_keeps_a_bounded_display_tail
 test_outcome_tail_keeps_whole_newest_rows_within_its_byte_budget
 test_outcome_seed_tail_creates_only_an_absent_display_tail

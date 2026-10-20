@@ -459,7 +459,7 @@ Deterministic entry delivery owns captain visibility.
 
 The branch prompt's "Verdict: routine or captain" section owns the classification criteria, including task-level silence eligibility and the rule to escalate doubt.
 The report tool also opts into the store's completion promotion contract in [`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`.
-When a wake turn settles, the extension rechecks its visible routine rows through that script's `finished-handback` under the same completion contract.
+When a wake turn settles, the extension rechecks its routine rows, silent ones included, through that script's `finished-handback` under the same completion contract.
 
 The prompt's "PR identity: copy or abstain" section owns where a PR URL in a summary or tool argument may come from:
 

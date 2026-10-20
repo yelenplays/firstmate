@@ -1280,7 +1280,8 @@ export default function (pi: ExtensionAPI) {
           }
           durableReportRevision += 1;
           const seq = Number(appended.stdout);
-          if (wakeRoutineSeqs && verdict === "routine" && !silent && Number.isSafeInteger(seq)) wakeRoutineSeqs.push(seq);
+          // Silent rows too: completion outranks the model's silence.
+          if (wakeRoutineSeqs && verdict === "routine" && Number.isSafeInteger(seq)) wakeRoutineSeqs.push(seq);
           if (!Number.isSafeInteger(seq) || seq < 1 || !(await reconcileUnreadOutcomes(toolGeneration))) {
             return {
               content: [{ type: "text", text: `recorded seq ${appended.stdout}, but visible delivery or cursor advancement failed` }],

@@ -64,6 +64,7 @@ FAKE_CLAUDE="$FAKEBIN/claude"
 #               reads done, then mark it done in the current-state
 #               reader ($FM_HOME/crew-state-now) with its meta and status log
 #               retained, as when cleanup is deferred
+#   silent-done-after the same, but the report is a silent no-change note
 #   noreport    drain and exit cleanly without a report
 #   go-away     the captain goes away (the record is written) mid-turn, then
 #               the turn reports verdict captain
@@ -104,7 +105,7 @@ verdict=routine
 [ "$mode" != go-away ] || verdict=captain
 case "$mode" in
   fail) exit 3 ;;
-  handle|information|information-failure|retire|retire-after|done-after|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
+  handle|information|information-failure|retire|retire-after|done-after|silent-done-after|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
     case "$mode" in held|captain-held) read -r _ < "$FM_HOME/stub-release" ;; esac
     [ "$mode" != return-first ] || "$FM_REPO/bin/fm-afk-contract.sh" archive >> "$FM_HOME/engine-return.log" 2>&1
     [ "$mode" != go-away ] || "$FM_REPO/bin/fm-afk-contract.sh" enter --words 'gone mid-turn' >> "$FM_HOME/engine-return.log" 2>&1
@@ -124,11 +125,14 @@ case "$mode" in
         return-silent|return-fail-silent)
           report_args=(--task "$task" --verdict routine --summary 'still working; nothing new has happened; no action was taken' --silent true)
           ;;
+        silent-done-after)
+          report_args=(--task "$task" --verdict routine --summary 'Worker is still busy; no new result yet' --silent true)
+          ;;
       esac
       "$FM_REPO/bin/fm-branch-report.sh" "${report_args[@]}" >> "$FM_HOME/engine-report.log" 2>&1
     fi
     [ "$mode" != retire-after ] || rm -f "$STATE/$task.meta" "$STATE/$task.status"
-    [ "$mode" != done-after ] || printf 'state: done · source: status-log\n' > "$FM_HOME/crew-state-now"
+    case "$mode" in done-after|silent-done-after) printf 'state: done · source: status-log\n' > "$FM_HOME/crew-state-now" ;; esac
     if [ "$mode" = information ]; then
       "$FM_REPO/bin/fm-branch-report.sh" --task "$task" --verdict routine \
         --summary 'requested measurement still running' >> "$FM_HOME/engine-report.log" 2>&1
@@ -1127,6 +1131,36 @@ test_attended_completion_done_after_report_with_records_retained_wakes_main() {
   assert_contains "$drained" ' ago] demo: requested measurement finished; worker torn down' "the drain must present the completion as a captain outcome"
   assert_not_contains "$drained" 'BRANCH OUTCOMES, ROUTINE' "a done task's result must not read as routine awareness"
   pass "host: a task done after its routine report, with its records retained, is handed back as captain and wakes main"
+}
+
+# Completion outranks the model's silence: a silent no-change report written
+# before the task read done in the same turn still wakes main, as one visible
+# captain row that points at the finished result.
+test_attended_silent_report_for_a_task_done_later_in_the_turn_wakes_main() {
+  local home drained
+  home=$(make_home attended-silent-done-after attended)
+  echo silent-done-after > "$home/stub-mode"
+  mkdir -p "$home/fakebin"
+  # Not done yet, and not working either, so wake triage hands the wake to the
+  # engine instead of absorbing it.
+  printf 'state: unknown · source: pane\n' > "$home/crew-state-now"
+  # shellcheck disable=SC2016 # the stub expands its own variables.
+  printf '#!/usr/bin/env bash\ncat "$FM_HOME/crew-state-now"\n' > "$home/fakebin/fm-crew-state.sh"
+  chmod +x "$home/fakebin/fm-crew-state.sh"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" || fail "silent-done-after: watcher never started"
+  append_status "$home" 'measurement finished'
+  wait_until "$OUTCOME_WAIT_POLLS" host_exited "$home" \
+    || fail "a task done after its silent report never woke main: $(cat "$home/state/.supervision-host.log")"
+  [ "$(jq -c 'select(.seq == 1) | [.verdict, .silent]' "$home/state/branch-outcomes.jsonl")" = '["routine",true]' ] \
+    || fail "fixture: the report must be stored silent before the task read done: $(cat "$home/state/branch-outcomes.jsonl")"
+  assert_re '^supervision-host: branch-outcome: .*store rows 2\)' "$home/host.out" "the completion must open main processing"
+  [ "$(jq -c 'select(.seq == 2) | [.task, .verdict, .silent]' "$home/state/branch-outcomes.jsonl")" = '["demo","captain",false]' ] \
+    || fail "the silent report was not handed back as a visible captain row: $(cat "$home/state/branch-outcomes.jsonl")"
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  assert_contains "$drained" "demo: demo finished; its last report was a no-change note (Worker is still busy; no new result yet), so read the finished result before relaying it" \
+    "the drain must present a pointer to the finished result, not the stale note as the result"
+  pass "host: a silent report for a task done later in the turn is handed back as a visible result pointer and wakes main"
 }
 
 test_attended_captain_outcome_reaches_main_through_branch_outcomes() {
@@ -3489,6 +3523,7 @@ queue_case test_attended_routine_progress_is_deferred_but_failure_wakes_main
 queue_case test_attended_completion_with_routine_verdict_still_wakes_main
 queue_case test_attended_completion_reported_before_teardown_wakes_main
 queue_case test_attended_completion_done_after_report_with_records_retained_wakes_main
+queue_case test_attended_silent_report_for_a_task_done_later_in_the_turn_wakes_main
 queue_case test_attended_captain_outcome_reaches_main_through_branch_outcomes
 queue_case test_captain_leaving_mid_turn_keeps_its_captain_outcome_for_the_return
 queue_case test_quiet_record_without_its_daemon_is_a_present_captain

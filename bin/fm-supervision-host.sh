@@ -1030,8 +1030,8 @@ handle_wake() {  # <reason-lines>
   return 1
 }
 
-# Hand back, as captain rows, the turn's visible routine reports whose task
-# finished later in the turn: torn down, or done with its records retained
+# Hand back, as captain rows, the turn's routine reports, silent ones
+# included, whose task finished later in the turn: torn down, or done with its records retained
 # while cleanup waits. The shared store command does it, as Pi's turn end does
 # (fm-branch-outcome.sh finished-handback), so the completion is captain in the
 # store for main, the drain, and the return alike. Sets TURN_HANDBACK_SEQS.
@@ -1041,7 +1041,7 @@ turn_finished_handback() {  # <turn>
   seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1
   [ -n "$seqs" ] || return 0
   rows=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$seqs" 2>/dev/null) || return 1
-  routine=$(printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "routine" and .silent != true) | .seq) | join(",")') || return 1
+  routine=$(printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "routine") | .seq) | join(",")') || return 1
   [ -n "$routine" ] || return 0
   TURN_HANDBACK_SEQS=$("$SCRIPT_DIR/fm-branch-outcome.sh" finished-handback --seqs "$routine" 2>/dev/null) || return 1
   TURN_HANDBACK_SEQS=$(printf '%s\n' "$TURN_HANDBACK_SEQS" | paste -sd , -)

@@ -2503,19 +2503,13 @@ EOF
   pass "a heartbeat review survives a check row arriving before its drain"
 }
 
-# The report tool refuses a task the wake being handled never named: the
-# refused-ack loop's ghost reports were typed from memory about a task whose
-# records teardown had already removed, while the prompt was a stale row for
-# another pane. A signal or stale wake may report only the tasks its rows
-# resolve to, with fleet refused too; a heartbeat review is unscoped and
-# refuses nothing by task id. The wake's own task still goes through, and
-# nothing refused ever reaches the durable store.
 # A finished task reaches main as news to relay on Pi, whichever order the
 # branch reports and tears down in. A routine report for a task already torn
 # down is stored as captain; a routine report written before the teardown in
 # the same turn is handed back as captain when the turn settles. Either way
 # main's processing request tells it to relay the finished result, never to
-# drop it as settled.
+# drop it as settled. A silent no-change note before teardown is handed back
+# too, as a visible pointer to the finished result.
 test_finished_task_reaches_main_as_news_in_either_report_order() {
   local repo home out status
   repo="$TMP_ROOT/finished-relay-root"
@@ -2596,6 +2590,24 @@ if (handed.verdict !== "captain" || handed.summary !== "Second bench finished; c
 if (!outcomeScript(["unprocessed"]).includes("Second bench finished")) throw new Error("the handed-back completion is not open for main");
 assertRelayRequest(requestsBefore, "Second bench finished; cleaning up.");
 if (existsSync(meta)) throw new Error("fixture: teardown did not remove the meta");
+outcomeScript(["mark-processed", "--through", String(rows().at(-1).seq)]);
+requestsBefore = processing().length;
+
+// A silent no-change note before teardown in the same turn: completion
+// outranks the silence, so the handback adds one visible captain row that
+// points main at the finished result instead of relaying the stale note.
+writeFileSync(meta, `project=${approvedProject}\nwindow=fm-branch-driver\n`);
+await wakeTurn(3, async (report) => {
+  const result = await report.execute("silent", { task: "branch-driver", verdict: "routine", summary: "Worker is still busy; no new result yet.", silent: true }, undefined, undefined, {});
+  if (result.isError) throw new Error(`silent report before teardown failed: ${JSON.stringify(result)}`);
+  if (rows().at(-1).silent !== true) throw new Error("a live task's silent report lost its silence before the task finished");
+  rmSync(meta);
+});
+const pointer = rows().at(-1);
+if (pointer.verdict !== "captain" || pointer.silent !== false || !pointer.summary.includes("read the finished result before relaying it")) {
+  throw new Error(`a silent report written before teardown was not handed back as a visible result pointer: ${JSON.stringify(rows())}`);
+}
+assertRelayRequest(requestsBefore, "branch-driver finished; its last report was a no-change note");
 process.exit(0);
 EOF
   status=$?
@@ -2604,6 +2616,13 @@ EOF
   pass "Pi: a finished task reaches main as a relay-this processing request whether the branch reports before or after teardown"
 }
 
+# The report tool refuses a task the wake being handled never named: the
+# refused-ack loop's ghost reports were typed from memory about a task whose
+# records teardown had already removed, while the prompt was a stale row for
+# another pane. A signal or stale wake may report only the tasks its rows
+# resolve to, with fleet refused too; a heartbeat review is unscoped and
+# refuses nothing by task id. The wake's own task still goes through, and
+# nothing refused ever reaches the durable store.
 test_branch_report_refuses_a_task_the_wake_did_not_name() {
   local repo home out status
   repo="$TMP_ROOT/ghost-report-root"
