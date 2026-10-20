@@ -1,0 +1,93 @@
+[
+  {
+    "name": "Banned model cannot register a branch adding tests",
+    "model": "sonnet",
+    "exit": 1,
+    "error": "error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Banned model cannot register a branch adding tests",
+    "model": "haiku",
+    "exit": 1,
+    "error": "error: no test authoring on haiku: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Banned model cannot register a branch adding tests",
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "exit": 1,
+    "error": "error: no test authoring on opencode/deepseek-v4.1-flash-free: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Banned model cannot register a branch adding tests",
+    "model": "zai/glm-5.3-flash",
+    "exit": 1,
+    "error": "error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Banned model cannot register a branch adding tests",
+    "model": "some-future-cheap-model",
+    "exit": 1,
+    "error": "error: no test authoring on some-future-cheap-model: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Allowed/default lane reaches ordinary named-head check",
+    "model": "opus",
+    "exit": 1,
+    "error": "error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Allowed/default lane reaches ordinary named-head check",
+    "model": "fable",
+    "exit": 1,
+    "error": "error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Allowed/default lane reaches ordinary named-head check",
+    "model": "openai-codex/gpt-6.1-sol",
+    "exit": 1,
+    "error": "error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Allowed/default lane reaches ordinary named-head check",
+    "model": "default",
+    "exit": 1,
+    "error": "error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Code-only implementation preserves the handed-over tests",
+    "model": "sonnet",
+    "exit": 1,
+    "error": "error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Sonnet cannot weaken handed-over tests",
+    "model": "sonnet",
+    "exit": 1,
+    "error": "error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "GLM cannot delete handed-over tests",
+    "model": "zai/glm-5.3-flash",
+    "exit": 1,
+    "error": "error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  },
+  {
+    "name": "Captain-authorized path does not authorize its sibling",
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "exit": 1,
+    "error": "error: no test authoring on opencode/deepseek-v4.1-flash-free: the branch adds, modifies, or deletes unauthorized test files tests/extra.test.sh; revert those changes and report done again",
+    "metadata_unchanged": true
+  }
+]

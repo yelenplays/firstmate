@@ -1,0 +1,103 @@
+## Banned model cannot register a branch adding tests
+model: sonnet
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## Banned model cannot register a branch adding tests
+model: haiku
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on haiku: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## Banned model cannot register a branch adding tests
+model: opencode/deepseek-v4.1-flash-free
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on opencode/deepseek-v4.1-flash-free: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## Banned model cannot register a branch adding tests
+model: zai/glm-5.3-flash
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## Banned model cannot register a branch adding tests
+model: some-future-cheap-model
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on some-future-cheap-model: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## Allowed/default lane reaches ordinary named-head check
+model: opus
+policy: allowed
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy
+metadata unchanged: True
+
+## Allowed/default lane reaches ordinary named-head check
+model: fable
+policy: allowed
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy
+metadata unchanged: True
+
+## Allowed/default lane reaches ordinary named-head check
+model: openai-codex/gpt-6.1-sol
+policy: allowed
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy
+metadata unchanged: True
+
+## Allowed/default lane reaches ordinary named-head check
+model: default
+policy: allowed
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy
+metadata unchanged: True
+
+## Code-only implementation preserves the handed-over tests
+model: sonnet
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: named head a5aaa64be00a2fae407978d23f2f9cebfd370a87 is unreachable outside the worker copy
+metadata unchanged: True
+
+## Sonnet cannot weaken handed-over tests
+model: sonnet
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## GLM cannot delete handed-over tests
+model: zai/glm-5.3-flash
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+metadata unchanged: True
+
+## Captain-authorized path does not authorize its sibling
+model: opencode/deepseek-v4.1-flash-free
+policy: banned
+$ FM_HOME=<isolated home> bin/fm-pr-check.sh probe https://github.com/fm-validation-nonexistent/local-probe/pull/82
+exit: 1
+error: no test authoring on opencode/deepseek-v4.1-flash-free: the branch adds, modifies, or deletes unauthorized test files tests/extra.test.sh; revert those changes and report done again
+metadata unchanged: True
