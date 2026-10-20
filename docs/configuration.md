@@ -1214,6 +1214,7 @@ Neither file stores query text.
 
 Every query goes to third-party providers, so never search with private data, names or client facts.
 Test overrides: `FM_JEV_BIN`, `FM_SEARCH_KETCH_BIN`, `FM_SEARCH_EXA_URL`, `FM_SEARCH_TINYFISH_URL`, `FM_SEARCH_KEY_DIR`, `FM_SEARCH_STATE` and `FM_SEARCH_CONFIG` point the router at stubs.
+[`tests/fm-search.test.sh`](../tests/fm-search.test.sh) uses them to run offline against a stub Jev, a stub `ketch` and a local HTTP stub for Exa and TinyFish, with provider payloads under `tests/fixtures/fm-search/`; no test reaches a paid API.
 
 ## Worker account pin (config/claude-account, config/pi-account)
 

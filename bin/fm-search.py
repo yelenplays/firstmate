@@ -62,7 +62,7 @@ class HopError(Exception):
 
 def load_config():
     cfg = json.loads(json.dumps(DEFAULTS))
-    path = os.environ.get("FM_SEARCH_CONFIG") or os.path.join(ROOT, "config", "fm-search.json")
+    path = os.environ.get("FM_SEARCH_CONFIG") or os.path.join(FM_HOME, "config", "fm-search.json")
     try:
         with open(path) as f:
             user = json.load(f)

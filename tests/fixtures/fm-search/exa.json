@@ -1,0 +1,24 @@
+{
+ "requestId": "fixture",
+ "results": [
+  {
+   "title": "Coroutines and tasks",
+   "url": "https://docs.python.org/3/library/asyncio-task.html",
+   "publishedDate": "2026-03-04T10:00:00.000Z",
+   "highlights": [
+    "This section outlines high-level asyncio APIs to work with coroutines and Tasks. Coroutines, Awaitables, Creating tasks, Task cancellation, Task groups, ..."
+   ]
+  },
+  {
+   "title": "How to prevent python3.11 TaskGroup from canceling all ...",
+   "url": "https://stackoverflow.com/questions/75250788/how-to-prevent-python3-11-taskgroup-from-canceling-all-the-tasks",
+   "publishedDate": null,
+   "highlights": [
+    "I just discovered new features of Python 3.11 like ExceptionGroup and TaskGroup and I'm confused with the following TaskGroup behavior: if one or more ..."
+   ]
+  }
+ ],
+ "costDollars": {
+  "total": 0.005
+ }
+}
