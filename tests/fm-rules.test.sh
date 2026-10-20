@@ -181,6 +181,120 @@ test_concurrent_writes_keep_every_rule() {
   pass 'concurrent adds, repeats, and confirms all survive with correct counts under the store lock'
 }
 
+# A tab is ordinary copied whitespace: it is stored as a space so no projection
+# splits the rule, while other control characters are refused unsaved.
+test_tabs_survive_and_control_characters_are_refused() {
+  local out rc file="$HOME_DIR/config/captain-rules.md" view
+  fresh_home
+  out=$(run_env "$RULES" add tabbed $'Use\tthe clipboard\t\tfor sudo.') || fail "a tabbed rule was refused: $out"
+  assert_equals 'added: tabbed' "$out" 'the tabbed add did not report success'
+  for view in list render session brief-section; do
+    out=$(run_env "$RULES" "$view" </dev/null)
+    assert_contains "$out" 'Use the clipboard  for sudo.' "$view lost or split the tabbed rule"
+    assert_not_contains "$out" 'seen 2026' "$view read the date as the repeat count"
+  done
+  assert_equals $'tabbed\tseen=1\tUse the clipboard  for sudo.' "$(run_env "$RULES" list)" 'list split the tabbed rule'
+  printf -- '- [hand-tab] Hand\tedited rule. <!-- since=2026-10-20 seen=1 -->\n' >> "$file"
+  assert_contains "$(run_env "$RULES" render)" '- Hand edited rule.' 'a hand-edited tab split the rendered rule'
+
+  local before
+  before=$(cat "$file")
+  for text in $'Carriage\rreturn' $'Bell\arule' $'Two\nlines'; do
+    out=$(run_env "$RULES" add ctrl-rule "$text" 2>&1); rc=$?
+    expect_code 3 "$rc" 'a rule with a control character must be refused'
+    assert_contains "$out" 'control characters' 'the refusal did not name control characters'
+  done
+  assert_equals "$before" "$(cat "$file")" 'a refused control-character rule changed the store'
+  assert_no_grep '"rule":"ctrl-rule"' "$HOME_DIR/state/captain-rules/log.jsonl" 'a refused rule was logged as saved'
+  pass 'tabs are stored as spaces so every projection keeps the rule whole, and control characters are refused unsaved'
+}
+
+# Stub tmux for fm-send's inbox doorbell, as tests/fm-send-inbox.test.sh does.
+make_tmux_stub() {  # <dir> -> fakebin
+  local fb="$1/fakebin"
+  mkdir -p "$fb"
+  cat > "$fb/tmux" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  display-message) for a in "$@"; do case "$a" in *cursor_y*) printf '1\n'; exit 0 ;; esac; done; printf 'fakepane\n' ;;
+  capture-pane) printf '\xe2\x95\xad\xe2\x94\x80\xe2\x95\xae\n\xe2\x94\x82 \xe2\x94\x82\n\xe2\x95\xb0\xe2\x94\x80\xe2\x95\xaf\n' ;;
+esac
+exit 0
+SH
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$fb/sleep"
+  chmod +x "$fb/tmux" "$fb/sleep"
+  printf '%s\n' "$fb"
+}
+
+inbox_bodies() {  # <state-dir> <task-id> -> every record body, oldest first
+  local rec
+  for rec in "$1/$2.inbox"/*.msg "$1/$2.inbox/handled"/*.msg; do
+    [ -f "$rec" ] || continue
+    printf '%s\t%s\n' "$(basename "$rec")" "$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$rec" | tr '\n' ' ')"
+  done | sort | cut -f2-
+}
+
+# Consumers that already loaded the rules - a running worker of this home, a
+# secondmate home, and that secondmate's running worker - get every saved
+# change without a restart or a manual push, and a consumer that cannot be
+# reached is reported instead of claimed.
+test_saved_changes_reach_running_consumers() {
+  local fb sm="$TMP_ROOT/sm-home" out rc brief last
+  fresh_home
+  rm -rf "$sm"
+  mkdir -p "$sm/state" "$sm/config" "$sm/data" "$sm/bin"
+  printf 'sm\n' > "$sm/.fm-secondmate-home"
+  : > "$sm/AGENTS.md"
+  fb=$(make_tmux_stub "$TMP_ROOT")
+  deliver_env() { run_env env PATH="$fb:$PATH" FM_SEND_SETTLE=0 "$@"; }
+
+  deliver_env "$RULES" add first-rule 'First standing rule.' >/dev/null || fail 'seeding the first rule failed'
+  FM_HOME="$HOME_DIR" "$ROOT/bin/fm-brief.sh" live-worker some-proj --scout >/dev/null || fail 'scaffolding the worker failed'
+  brief="$HOME_DIR/data/live-worker/brief.md"
+  assert_grep '- First standing rule.' "$brief" 'the existing worker brief lacks the first rule'
+  fm_write_meta "$HOME_DIR/state/live-worker.meta" 'window=sess:fm-live-worker' 'kind=scout' 'harness=claude'
+  fm_write_meta "$HOME_DIR/state/sm.meta" 'window=sess:fm-sm' 'kind=secondmate' 'harness=claude' "home=$sm"
+  fm_write_meta "$sm/state/sm-worker.meta" 'window=sess:fm-sm-worker' 'kind=ship' 'harness=claude'
+
+  out=$(deliver_env "$RULES" add new-rule 'Apply this new correction in every running worker now.' 2>&1) \
+    || fail "saving a correction with live consumers failed: $out"
+  assert_contains "$out" 'added: new-rule' 'the save did not report success'
+  assert_contains "$out" '2 running worker(s), 1 secondmate home(s), 0 not reached' 'the save did not report its delivery'
+  assert_grep '[new-rule] Apply this new correction' "$sm/config/captain-rules.md" 'the secondmate home did not receive the new rule'
+  for last in "$(inbox_bodies "$HOME_DIR/state" live-worker | tail -n 1)" "$(inbox_bodies "$sm/state" sm-worker | tail -n 1)"; do
+    assert_contains "$last" 'CAPTAIN RULES UPDATE' 'a running worker got no rules update'
+    assert_contains "$last" '- Apply this new correction in every running worker now.' 'the update lacks the new rule'
+    assert_contains "$last" '- First standing rule.' 'the update is not the complete set'
+  done
+
+  deliver_env "$RULES" add new-rule 'Apply the restated correction everywhere.' >/dev/null || fail 'restating the rule failed'
+  last=$(inbox_bodies "$HOME_DIR/state" live-worker | tail -n 1)
+  assert_contains "$last" '- Apply the restated correction everywhere.' 'a changed text did not reach the worker'
+  assert_not_contains "$last" 'every running worker now' 'the worker still got the old text'
+  deliver_env "$RULES" revoke new-rule >/dev/null || fail 'revoking the rule failed'
+  last=$(inbox_bodies "$sm/state" sm-worker | tail -n 1)
+  assert_not_contains "$last" 'restated correction' 'a revocation did not reach the secondmate worker'
+  assert_no_grep '[new-rule]' "$sm/config/captain-rules.md" 'the revocation did not reach the secondmate home'
+  local count
+  count=$(inbox_bodies "$HOME_DIR/state" live-worker | grep -c 'CAPTAIN RULES UPDATE')
+  deliver_env "$RULES" add first-rule 'First standing rule.' >/dev/null || fail 'repeating the unchanged rule failed'
+  assert_equals "$count" "$(inbox_bodies "$HOME_DIR/state" live-worker | grep -c 'CAPTAIN RULES UPDATE')" \
+    'an unchanged repeat sent a redundant update'
+
+  printf 'not a directory\n' > "$HOME_DIR/state/stuck.inbox"
+  fm_write_meta "$HOME_DIR/state/stuck.meta" 'window=sess:fm-stuck' 'kind=ship' 'harness=claude'
+  out=$(deliver_env "$RULES" add late-rule 'A rule one worker cannot receive.' 2>&1); rc=$?
+  expect_code 5 "$rc" 'an unreached consumer must exit 5'
+  assert_contains "$out" 'added: late-rule' 'the save itself was not reported'
+  assert_contains "$out" 'not delivered: worker stuck' 'the unreached worker was not named'
+  assert_contains "$out" 'fm-rules.sh deliver' 'the failure did not name the retry'
+  assert_grep '[late-rule]' "$HOME_DIR/config/captain-rules.md" 'the rule was not saved'
+  rm -f "$HOME_DIR/state/stuck.inbox" "$HOME_DIR/state/stuck.meta"
+  out=$(deliver_env "$RULES" deliver 2>&1) || fail "the retry failed: $out"
+  assert_contains "$(inbox_bodies "$HOME_DIR/state" live-worker | tail -n 1)" '- A rule one worker cannot receive.' 'the retry did not deliver'
+  pass 'saved additions, restatements, and revocations reach running workers and secondmate homes, and an unreached consumer is reported'
+}
+
 test_writes_refuse_in_a_secondmate_home() {
   local out rc
   fresh_home
@@ -349,6 +463,8 @@ test_report_and_weekly_check() {
 test_store_records_repeats_and_checks
 test_projections_carry_every_rule_and_overflow_is_refused
 test_concurrent_writes_keep_every_rule
+test_tabs_survive_and_control_characters_are_refused
+test_saved_changes_reach_running_consumers
 test_writes_refuse_in_a_secondmate_home
 test_prompt_hook_captures_and_confirms
 test_hooks_stand_down_outside_their_scope

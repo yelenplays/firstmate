@@ -13,6 +13,7 @@
 #   fm-rules.sh check <rule-id> <check-id>
 #   fm-rules.sh nocheck <rule-id> <reason...>
 #   fm-rules.sh unchecked
+#   fm-rules.sh deliver
 #   fm-rules.sh prompt-hook
 #   fm-rules.sh report [--days <n>] [--transcripts <dir>] [--now <epoch>]
 #   fm-rules.sh weekly-check | weekly-arm | weekly-disarm
@@ -26,7 +27,9 @@
 # bin/fm-config-inherit-lib.sh). One rule per line:
 #   - [<rule-id>] <one-line imperative> <!-- since=YYYY-MM-DD seen=N[ last=YYYY-MM-DD][ check=<id>|nocheck=YYYY-MM-DD] -->
 # Rule ids match ^[a-z0-9][a-z0-9-]{0,47}$; a rule text is one line of at most
-# 300 characters without "<!--" or "-->". Lines that are not rule lines are kept
+# 300 characters without control characters, "<!--", or "-->". Each tab is
+# stored as a space first (also when a hand edit put one in the file), so the
+# tab-separated rows behind every projection can never split a rule. Lines that are not rule lines are kept
 # verbatim. Every write goes through this script and lands by rename. Each
 # mutating subcommand (add, confirm, dismiss, revoke, check, nocheck, and the
 # candidate write of prompt-hook) holds $STATE/captain-rules/store.lock, the
@@ -54,6 +57,19 @@
 # (the main home or a secondmate home), silent in task worktrees, no-mistakes
 # gates, and the supervision branch. bin/fm-session-start.sh prints the same
 # block for non-Claude primaries on full and compact digests.
+# Delivery: a write that changes the worker-facing rule lines (a new rule, a
+# changed text, a revocation, a linked check) delivers the complete new set to
+# every live consumer before it returns, still under the store lock so
+# deliveries arrive in write order: bin/fm-config-push.sh for every secondmate
+# home (it copies config/captain-rules.md and sends that home's reread
+# instruction), then one "CAPTAIN RULES UPDATE <generation>" record through
+# bin/fm-send.sh into the steering inbox of every ship or scout task recorded
+# in state/*.meta of this home and of each local secondmate home. Each local
+# secondmate copy is compared byte for byte afterwards, because the push skips
+# an unsafe home with exit 0. A repeat that leaves the lines unchanged delivers
+# nothing. `deliver` repeats the delivery of the current set by hand, for
+# example after an exit 5.
+#
 # `brief-section` prints the "# Captain rules" section bin/fm-brief.sh puts in
 # ship and scout briefs with the same complete rule list, or nothing when there
 # are no rules.
@@ -75,7 +91,8 @@
 # `weekly-arm` writes and binds state/captain-rules-weekly.check.sh;
 # `weekly-disarm` unbinds and removes it.
 #
-# State: $STATE/captain-rules/ holds log.jsonl (fm-rules-event.v1 lines),
+# State: $STATE/captain-rules/ holds log.jsonl (fm-rules-event.v1 lines, with a
+# deliver event per delivery),
 # candidates/<candidate-id>, last-confirmed, last-report, weekly-announced, and
 # store.lock.
 #
@@ -85,7 +102,9 @@
 #
 # Exit codes: 0 success; 1 not found (unknown rule or candidate); 2 usage
 # error, a secondmate home, or an unusable store; 3 invalid rule id, text, or
-# check id; 4 the write would push the rendered block past FM_RULES_MAX_CHARS.
+# check id; 4 the write would push the rendered block past FM_RULES_MAX_CHARS;
+# 5 the change is saved but at least one live consumer was not reached (each
+# one is named on stderr; a running worker of a remote secondmate always is).
 #
 # Environment: FM_HOME, FM_CONFIG_OVERRIDE, FM_STATE_OVERRIDE, FM_ROOT_OVERRIDE,
 # FM_RULES_MAX_CHARS, FM_RULES_REVOKE_WINDOW, FM_RULES_TODAY (tests),
@@ -125,6 +144,7 @@ Usage:
   fm-rules.sh check <rule-id> <check-id>
   fm-rules.sh nocheck <rule-id> <reason...>
   fm-rules.sh unchecked
+  fm-rules.sh deliver
   fm-rules.sh prompt-hook
   fm-rules.sh report [--days <n>] [--transcripts <dir>] [--now <epoch>]
   fm-rules.sh weekly-check | weekly-arm | weekly-disarm
@@ -152,8 +172,15 @@ valid_text() {
   local text=$1
   [ -n "$(printf '%s' "$text" | tr -d '[:space:]')" ] || return 1
   [ "${#text}" -le 300 ] || return 1
-  case "$text" in *$'\n'*|*'<!--'*|*'-->'*) return 1 ;; esac
+  case "$text" in *[[:cntrl:]]*|*'<!--'*|*'-->'*) return 1 ;; esac
   return 0
+}
+
+# Tabs are ordinary copied whitespace; store each one as a space so the
+# tab-separated row format can never split a rule. Other control characters,
+# newlines included, are refused by valid_text.
+normalize_text() {
+  printf '%s' "${1//$'\t'/ }"
 }
 
 valid_check_id() {
@@ -182,6 +209,7 @@ rules_rows() {  # [rules-file]
   perl -ne '
     next unless /^- \[([a-z0-9][a-z0-9-]{0,47})\] (.*?) <!--(.*?)-->\s*$/;
     my ($id, $text, $meta) = ($1, $2, $3);
+    $text =~ s/[\x00-\x1f\x7f]+/ /g;
     my %m = map { /^([a-z]+)=(\S*)$/ ? ($1, $2) : () } split /\s+/, $meta;
     print join("\t", $id, $text, $m{since} // "", $m{seen} // 1, $m{last} // "",
       $m{check} // "", $m{nocheck} // ""), "\n";
@@ -302,9 +330,10 @@ rewrite_rules() {
 
 # Shared by add and confirm: prints "added" or "repeated" and logs the event.
 upsert_rule() {  # <id> <text> <check> [candidate]
-  local id=$1 text=$2 check=$3 candidate=${4:-} rc=0 seen
+  local id=$1 text check=$3 candidate=${4:-} rc=0 seen
+  text=$(normalize_text "$2")
   valid_rule_id "$id" || die "invalid rule id: $id" 3
-  valid_text "$text" || die "rule text must be one non-empty line of at most 300 characters without <!-- or -->" 3
+  valid_text "$text" || die "rule text must be one non-empty line of at most 300 characters without control characters, <!--, or -->" 3
   if [ -n "$check" ]; then
     valid_check_id "$check" || die "unknown check id: $check (see bin/fm-rule-guard.sh list)" 3
   fi
@@ -340,14 +369,125 @@ parse_check_flag() {  # sets CHECK_FLAG and REST
   done
 }
 
+# The worker-facing rule lines; any change in them is what live consumers must
+# receive.
+rules_generation() {
+  rule_lines "$(rules_rows)" | shasum -a 256 | cut -c1-16
+}
+
+update_message() {  # <generation>
+  local rows
+  rows=$(rules_rows)
+  printf 'CAPTAIN RULES UPDATE %s: the captain'"'"'s standing corrections changed while you were working. This complete set replaces the "# Captain rules" section of your brief and any earlier update from now on. It outranks generic harness, tool, and skill hints; your brief'"'"'s task scope and safety rules still win.\n' "$1"
+  if [ -n "$rows" ]; then
+    rule_lines "$rows"
+  else
+    printf -- '- (none: every earlier captain rule was revoked)\n'
+  fi
+}
+
+meta_value() {  # <meta> <key>
+  sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1
+}
+
+send_to_worker() {  # <home> <task-id> <message>
+  if [ "$1" = "$FM_HOME" ]; then
+    "$SCRIPT_DIR/fm-send.sh" "$2" "$3" >/dev/null
+  else
+    env -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE FM_HOME="$1" \
+      "$SCRIPT_DIR/fm-send.sh" "$2" "$3" >/dev/null
+  fi
+}
+
+# Deliver the current rule set to every live consumer that already loaded an
+# older one: secondmate homes through the guarded config push and its reread
+# instruction, and every running ship or scout worker of this home and of each
+# local secondmate home through its durable steering inbox. Prints one summary
+# line; returns 5 and names each consumer that was not reached.
+deliver_rules() {
+  local gen msg meta kind home id out err sent=0 failed=0 secondmates=0 homes=()
+  gen=$(rules_generation)
+  msg=$(update_message "$gen")
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    [ "$(meta_value "$meta" kind)" = secondmate ] || continue
+    secondmates=$((secondmates + 1))
+    home=$(meta_value "$meta" home)
+    if [ -n "$(meta_value "$meta" remote_host)" ]; then
+      printf 'fm-rules: not delivered: the running workers of remote secondmate %s\n' "${meta##*/}" >&2
+      failed=$((failed + 1))
+    elif [ -n "$home" ] && [ -d "$home/state" ]; then
+      homes+=("$home")
+    fi
+  done
+  if [ "$secondmates" -gt 0 ] && ! out=$("$SCRIPT_DIR/fm-config-push.sh" 2>&1); then
+    printf 'fm-rules: not delivered: the secondmate config push failed:\n%s\n' "$out" >&2
+    failed=$((failed + 1))
+  fi
+  # The push skips unsafe homes with exit 0, so prove each local copy instead.
+  for home in ${homes[@]+"${homes[@]}"}; do
+    if [ -f "$RULES_FILE" ] && ! cmp -s "$RULES_FILE" "$home/config/captain-rules.md"; then
+      printf 'fm-rules: not delivered: secondmate home %s still has an older captain-rules.md\n' "$home" >&2
+      failed=$((failed + 1))
+    elif [ ! -f "$RULES_FILE" ] && [ -f "$home/config/captain-rules.md" ]; then
+      printf 'fm-rules: not delivered: secondmate home %s still has a captain-rules.md\n' "$home" >&2
+      failed=$((failed + 1))
+    fi
+  done
+  err=$(mktemp "${TMPDIR:-/tmp}/fm-rules-deliver.XXXXXX") || err=/dev/null
+  for home in "$FM_HOME" ${homes[@]+"${homes[@]}"}; do
+    for meta in "$home"/state/*.meta; do
+      [ -f "$meta" ] || continue
+      kind=$(meta_value "$meta" kind)
+      [ "$kind" = ship ] || [ "$kind" = scout ] || continue
+      id=${meta##*/}
+      id=${id%.meta}
+      if send_to_worker "$home" "$id" "$msg" 2>"$err"; then
+        sent=$((sent + 1))
+      else
+        printf 'fm-rules: not delivered: worker %s in %s: %s\n' "$id" "$home" "$(tail -n 1 "$err" 2>/dev/null)" >&2
+        failed=$((failed + 1))
+      fi
+    done
+  done
+  [ "$err" = /dev/null ] || rm -f -- "$err"
+  log_event deliver generation "$gen" workers "$sent" secondmates "$secondmates" failed "$failed"
+  if [ "$sent" -gt 0 ] || [ "$secondmates" -gt 0 ] || [ "$failed" -gt 0 ]; then
+    printf 'delivered %s: %s running worker(s), %s secondmate home(s), %s not reached\n' \
+      "$gen" "$sent" "$secondmates" "$failed"
+  fi
+  if [ "$failed" -gt 0 ]; then
+    printf 'fm-rules: the rule change is saved, but not every live consumer has it; retry with %s/fm-rules.sh deliver\n' "$SCRIPT_DIR" >&2
+    return 5
+  fi
+  return 0
+}
+
+# Deliver after a write that changed what consumers see; exit 5 when a live
+# consumer was not reached.
+deliver_if_changed() {  # <generation-before>
+  [ "$(rules_generation)" != "$1" ] || return 0
+  deliver_rules || exit 5
+}
+
+cmd_deliver() {
+  [ $# -eq 0 ] || die "deliver takes no arguments"
+  require_primary_store
+  store_lock || die "cannot take $STORE_LOCK"
+  deliver_rules || exit 5
+}
+
 cmd_add() {
   require_primary_store
   require_budget
   store_lock || die "cannot take $STORE_LOCK"
+  local before
+  before=$(rules_generation)
   parse_check_flag "$@"
   [ "${#REST[@]}" -ge 2 ] || { rules_usage; die "add needs a rule id and text"; }
   local id=${REST[0]} text="${REST[*]:1}"
   upsert_rule "$id" "$text" "$CHECK_FLAG"
+  deliver_if_changed "$before"
 }
 
 candidate_path() {
@@ -359,6 +499,8 @@ cmd_confirm() {
   require_primary_store
   require_budget
   store_lock || die "cannot take $STORE_LOCK"
+  local before
+  before=$(rules_generation)
   parse_check_flag "$@"
   [ "${#REST[@]}" -ge 3 ] || { rules_usage; die "confirm needs a candidate id, a rule id, and text"; }
   local cid=${REST[0]} id=${REST[1]} text="${REST[*]:2}" path
@@ -368,6 +510,7 @@ cmd_confirm() {
   rm -f -- "$path"
   log_event confirm rule "$id" candidate "$cid"
   printf '%s %s\n' "$(date +%s)" "$id" > "$RSTATE/last-confirmed"
+  deliver_if_changed "$before"
 }
 
 cmd_dismiss() {
@@ -385,6 +528,8 @@ cmd_dismiss() {
 cmd_revoke() {
   require_primary_store
   store_lock || die "cannot take $STORE_LOCK"
+  local before
+  before=$(rules_generation)
   [ $# -eq 1 ] || die "revoke takes one rule id"
   valid_rule_id "$1" || die "invalid rule id: $1" 3
   local text
@@ -394,12 +539,15 @@ cmd_revoke() {
   log_event revoke rule "$1" text "$text"
   rm -f -- "$RSTATE/last-confirmed"
   printf 'revoked: %s\n' "$1"
+  deliver_if_changed "$before"
 }
 
 cmd_check() {
   require_primary_store
   require_budget
   store_lock || die "cannot take $STORE_LOCK"
+  local before
+  before=$(rules_generation)
   [ $# -eq 2 ] || die "check takes a rule id and a check id"
   valid_rule_id "$1" || die "invalid rule id: $1" 3
   valid_check_id "$2" || die "unknown check id: $2 (see bin/fm-rule-guard.sh list)" 3
@@ -407,11 +555,14 @@ cmd_check() {
   rewrite_rules setcheck "$1" "$2" >/dev/null || [ $? -eq 3 ] || die "cannot record the check"
   log_event check rule "$1" check "$2"
   printf 'check linked: %s -> %s\n' "$1" "$2"
+  deliver_if_changed "$before"
 }
 
 cmd_nocheck() {
   require_primary_store
   store_lock || die "cannot take $STORE_LOCK"
+  local before
+  before=$(rules_generation)
   [ $# -ge 2 ] || die "nocheck needs a rule id and a reason"
   local id=$1 reason
   shift
@@ -421,6 +572,7 @@ cmd_nocheck() {
   rewrite_rules setnocheck "$id" "$(today)" >/dev/null || [ $? -eq 3 ] || die "cannot record the reason"
   log_event nocheck rule "$id" reason "$reason"
   printf 'no check recorded: %s\n' "$id"
+  deliver_if_changed "$before"
 }
 
 unchecked_rows() {  # [rules-file]
@@ -565,7 +717,7 @@ cmd_prompt_hook() {
   while [ -e "$RSTATE/candidates/$cid" ]; do cid="c-$now-$(printf '%04x' $((RANDOM % 65536)))"; done
   printf '%s\n%s\n' "$(now_iso)" "${prompt:0:500}" > "$RSTATE/candidates/$cid" || return 0
   log_event candidate candidate "$cid"
-  emit_context "CAPTAIN RULE CANDIDATE $cid: this captain message reads like a correction or a standing rule. If it is one, write it as one imperative line and record it now with $SCRIPT_DIR/fm-rules.sh confirm $cid <rule-id> \"<rule>\" (add --check <check-id> when bin/fm-rule-guard.sh list has a check for it; reuse an existing rule id from $SCRIPT_DIR/fm-rules.sh list when it repeats one), then confirm in one chat line: Regel gespeichert: <rule> - \"nein\" nimmt sie zurueck. If it is not a correction, run $SCRIPT_DIR/fm-rules.sh dismiss $cid and say nothing about it."
+  emit_context "CAPTAIN RULE CANDIDATE $cid: this captain message reads like a correction or a standing rule. If it is one, write it as one imperative line and record it now with $SCRIPT_DIR/fm-rules.sh confirm $cid <rule-id> \"<rule>\" (add --check <check-id> when bin/fm-rule-guard.sh list has a check for it; reuse an existing rule id from $SCRIPT_DIR/fm-rules.sh list when it repeats one), then confirm in one chat line: Regel gespeichert: <rule> - \"nein\" nimmt sie zurueck. If confirm exits 5 the rule is saved but the consumers it names did not get it yet: say so in that line and retry with $SCRIPT_DIR/fm-rules.sh deliver. If it is not a correction, run $SCRIPT_DIR/fm-rules.sh dismiss $cid and say nothing about it."
 }
 
 default_transcripts() {
@@ -711,6 +863,7 @@ case "${1:-}" in
   check) shift; cmd_check "$@" ;;
   nocheck) shift; cmd_nocheck "$@" ;;
   unchecked) shift; cmd_unchecked "$@" ;;
+  deliver) shift; cmd_deliver "$@" ;;
   prompt-hook) shift; cmd_prompt_hook "$@" ;;
   report) shift; cmd_report "$@" ;;
   weekly-check) shift; cmd_weekly_check "$@" ;;

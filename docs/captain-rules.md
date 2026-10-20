@@ -26,12 +26,24 @@ Rules are included in these context surfaces, regardless of model:
 | --- | --- | --- |
 | Claude main or secondmate | SessionStart hook `bin/fm-rules.sh session` | startup, resume, clear, and every compaction |
 | Codex, Pi, and other primaries | `CAPTAIN RULES` section of `bin/fm-session-start.sh`, inside the operating stage | full and compact digests |
-| Ship and scout workers | `# Captain rules` section of the brief from `bin/fm-brief.sh` | every scaffold |
+| Ship and scout workers | `# Captain rules` section of the brief from `bin/fm-brief.sh`, then a steering-inbox update per change | every scaffold and every saved change |
 
 Every surface carries every rule whole; no projection cuts the block.
 The size limit is enforced when a rule is written instead: an `add`, `confirm`, or `check` that would push the block past its budget is refused before it is saved, and the refusal asks to consolidate rules by restating an existing rule more briefly or revoking an obsolete one.
 The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the budget and its exit code.
-Worker briefs include the complete rule set at scaffold time; existing briefs are not rewritten when a rule changes.
+Worker briefs include the complete rule set at scaffold time.
+
+## Delivery to running consumers
+
+A saved change reaches everyone who already loaded the older rules before the save returns; no restart or manual push is needed.
+
+- Secondmate homes get the new `config/captain-rules.md` through the guarded config push, with that home's reread instruction.
+- Every running ship or scout worker of the primary home and of each local secondmate home gets the complete new set as one steering-inbox record, which replaces its brief's rules section.
+
+Additions, changed texts, revocations, and linked checks are delivered alike, in write order; an unchanged repeat sends nothing.
+When a consumer cannot be reached, the change stays saved, the command names that consumer and exits 5, and `bin/fm-rules.sh deliver` retries.
+Running workers of a remote secondmate are always reported as not reached; that home gets the new file through the push.
+The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the delivery order, record wording, and exit codes.
 Secondmate charters carry no rules section because the secondmate session loads them itself.
 Task worktrees, no-mistakes gates, and the supervision branch get no session block; a worker gets the rules only through its brief.
 
@@ -47,6 +59,7 @@ Inside a worker brief, the brief's task scope and safety rules still win over a 
    Wakes, notifications, and pasted content are skipped.
 2. A match writes a candidate under `state/captain-rules/candidates/` and tells main to decide.
 3. Main either records the rule with `bin/fm-rules.sh confirm <candidate> <rule-id> "<rule>"` and confirms it in one chat line ending with `"nein" nimmt sie zurueck`, or drops the candidate with `dismiss` and says nothing.
+   A confirm that exits 5 saved the rule but could not reach every consumer; main says so in that line and retries with `deliver`.
 4. A bare "nein" right after a confirmation makes the hook inject the matching `revoke` command.
 
 The hook never writes a rule itself; only main's `confirm` or an explicit `add` does.
@@ -81,7 +94,7 @@ Running the report resets the week.
 
 ## Verification
 
-[`tests/fm-rules.test.sh`](../tests/fm-rules.test.sh) and [`tests/fm-rule-guard.test.sh`](../tests/fm-rule-guard.test.sh) cover the store, capture instructions, brief projection, report, and guard behavior offline.
+[`tests/fm-rules.test.sh`](../tests/fm-rules.test.sh) and [`tests/fm-rule-guard.test.sh`](../tests/fm-rule-guard.test.sh) cover the store, capture instructions, brief projection, delivery to running consumers, report, and guard behavior offline.
 [`tests/fm-session-start.test.sh`](../tests/fm-session-start.test.sh) covers non-Claude rule delivery in full and compact digests.
 The opt-in [`tests/fm-rules-live-e2e.test.sh`](../tests/fm-rules-live-e2e.test.sh) exercises the three Claude registrations against the real harness: SessionStart context, action on an injected candidate, and Stop-guard interception followed by either a clean rewrite or a captain-facing halt, plus a forced halt that proves Claude Code honors it.
 Its header owns invocation and model selection; offline coverage alone does not establish live context delivery or interception.
