@@ -46,10 +46,10 @@
 # list" owns the list.
 #
 # Caller tag: every call names its call site with --caller <tag>, a stable
-# lowercase kebab-case name (letters, digits, dashes; at most 40 characters)
-# such as worker for the brief's Jev-first rule. A call without a valid tag is
-# refused before anything is sent, so the log can attribute every escalation
-# to the call site that composed it.
+# lowercase kebab-case name (starts with a letter, then letters, digits, or
+# dashes; at most 40 characters), such as worker for the brief's Jev-first rule.
+# A call without a valid tag is refused before anything is sent, so the log can
+# attribute every escalation to the call site that composed it.
 #
 # Escalation floor: a verdict whose confidence is below the floor prints
 # ESCALATE. The default floor follows the confidence source: 0.5 for the
@@ -62,17 +62,18 @@
 # refused before anything is sent, because a wide pick mostly escalates; the
 # caller narrows the list deterministically first. Score keeps its 10 levels.
 #
-# Log: every attempted call appends one metadata-only record (ts, caller - the
-# --caller tag - origin - task:$FM_TASK_ID when set, else home:<basename of the
-# logging home> - purpose
-# worker-cli, route, requested model, response_model (the build that answered), http, latency, usage in/out token counts - named
+# Log: each transport attempt appends one metadata-only record (ts, caller -
+# the --caller call-site tag; origin - task:$FM_TASK_ID when set, else
+# home:<basename of the logging home>; purpose - worker-cli; route, requested
+# model, response_model (the build that answered), http, latency, usage in/out token counts - named
 # so fm_jev_log_call's token-key redaction leaves them readable - question count,
 # escalations, exit code, and items: one {type, options, conf} per question in
 # order, where options is the offered option count (0 for yes) and conf the
 # confidence the answer line reports, null when there is none; never the
 # working directory, state, question ids, or question text) through
-# fm_jev_log_call to the chosen home's state/jev-calls.jsonl. A log failure
-# never changes the result.
+# fm_jev_log_call to the chosen home's state/jev-calls.jsonl. Preflight refusals,
+# including missing or invalid caller tags, append nothing. A log failure never
+# changes the result.
 #
 # Exit: 0 every question answered, 2 at least one escalation, 1 any error
 # (usage, privacy refusal, missing key, transport, malformed response) with a
