@@ -153,7 +153,7 @@ def parse_json(raw):
 
 def run_ketch(args, query, limit, timeout):
     try:
-        p = subprocess.run([KETCH, "search", query, "--limit", str(limit), "--json"] + args,
+        p = subprocess.run([KETCH, "search", "--limit", str(limit), "--json"] + args + ["--", query],
                            capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         raise HopError("timeout")
