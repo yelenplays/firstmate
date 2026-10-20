@@ -58,11 +58,17 @@ reset_log() {
 }
 
 # run_jev <exit-var> <out-var> <err-var> [args...] - runs with the key in the
-# environment and FM_HOME on the temporary home; stdin passes through.
+# environment and FM_HOME on the temporary home; stdin passes through. The
+# command gets --caller "$JEV_TEST_CALLER" (default tests) right after the
+# subcommand; JEV_TEST_CALLER='' sends no tag.
 run_jev() {
   local __code=$1 __out=$2 __err=$3 __o __e __c
   local invoke_key=${JEV_TEST_API_KEY-$KEY} invoke_home=${JEV_TEST_HOME:-$HOME_DIR}
+  local invoke_caller=${JEV_TEST_CALLER-tests}
   shift 3
+  if [ $# -gt 0 ] && [ -n "$invoke_caller" ]; then
+    set -- "$1" --caller "$invoke_caller" "${@:2}"
+  fi
   __o="$TMP_ROOT/run.out"
   __e="$TMP_ROOT/run.err"
   PATH="$FAKEBIN:$PATH" TYPESAFE_API_KEY="$invoke_key" FM_HOME="$invoke_home" \
@@ -81,7 +87,7 @@ test_help_is_short_and_complete() {
   lines=$(printf '%s\n' "$out" | wc -l)
   lines=${lines// /}
   [ "$lines" -lt 15 ] || fail "--help is $lines lines, want under 15"
-  for word in pick yes score batch --json ESCALATE TYPESAFE_API_KEY; do
+  for word in pick yes score batch --caller --json ESCALATE TYPESAFE_API_KEY; do
     assert_contains "$out" "$word" "--help names $word"
   done
   assert_contains "$out" 'First "=" splits label from meaning' "--help documents option parsing"
@@ -96,6 +102,45 @@ test_help_is_short_and_complete() {
   assert_contains "$out" "same OS user with full file access" "--help explains worker filesystem access"
   assert_not_contains "$out" "typesafe-key" "--help does not advertise a persistent key cache"
   pass "fm-jev.sh: --help is the whole interface in under 15 lines"
+}
+
+test_caller_tag_is_mandatory() {
+  local code out err tag
+  respond '{"answers":{"yes":{"noul":0.97}}}'
+  rm -f "$HOME_DIR/state/jev-calls.jsonl"
+  for cmd in yes batch; do
+    reset_log
+    if [ "$cmd" = batch ]; then
+      JEV_TEST_CALLER='' run_jev code out err batch <<<'{"state":"s","questions":[{"type":"yes","q":"Done?"}]}'
+    else
+      JEV_TEST_CALLER='' run_jev code out err yes "s" "Done?"
+    fi
+    assert_equals "$code" 1 "an untagged $cmd call is an error"
+    assert_equals "$err" "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent" \
+      "an untagged $cmd call names the missing flag on one stderr line"
+    assert_equals "$out" "" "an untagged $cmd call prints no answer"
+    assert_absent "$LOG/body" "an untagged $cmd call sends nothing"
+  done
+  for tag in "Worker" "task:demo" "two words" $'worker\nother' "-worker" "$(printf 'a%.0s' $(seq 41))"; do
+    reset_log
+    JEV_TEST_CALLER='' run_jev code out err yes --caller "$tag" "s" "Done?"
+    assert_equals "$code" 1 "caller tag '$tag' is refused"
+    assert_contains "$err" "caller tag must be lowercase kebab-case" "the refusal of '$tag' says what a tag looks like"
+    assert_absent "$LOG/body" "caller tag '$tag' sends nothing"
+  done
+  reset_log
+  JEV_TEST_CALLER='' run_jev code out err yes --caller
+  assert_equals "$code" 1 "--caller without a value is an error"
+  assert_equals "$err" "fm-jev: --caller needs a tag" "a bare --caller names the missing value"
+  assert_absent "$HOME_DIR/state/jev-calls.jsonl" "a refused call appends no log record"
+
+  reset_log
+  JEV_TEST_CALLER='' run_jev code out err yes --json --caller=slack-setup "s" "Done?"
+  assert_equals "$code" 0 "--caller=<tag> after another flag is accepted"
+  assert_equals "$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl" | jq -r '.caller')" "slack-setup" "the = form logs its tag"
+  JEV_TEST_CALLER='' run_jev code out err yes --help
+  assert_equals "$code" 0 "--help needs no caller tag"
+  pass "fm-jev.sh: every call must carry a valid caller tag before anything is sent"
 }
 
 test_pick_answers_one_line() {
@@ -936,7 +981,7 @@ test_privacy_guard_screens_checkout_env_without_fm_home() {
   printf 'TYPESAFE_API_KEY=%s\n' "$KEY-checkout" > "$main/.env"
   reset_log
   env -u FM_HOME -u TYPESAFE_API_KEY OPENROUTER_API_KEY="$KEY-or" PATH="$FAKEBIN:$PATH" \
-    "$main/bin/fm-jev.sh" yes "the key is $KEY-checkout" "Done?" \
+    "$main/bin/fm-jev.sh" yes --caller tests "the key is $KEY-checkout" "Done?" \
     > "$TMP_ROOT/guard.out" 2> "$TMP_ROOT/guard.err"
   code=$?
   assert_equals "$code" 1 "the checkout .env key is refused with FM_HOME unset"
@@ -950,7 +995,7 @@ test_privacy_guard_screens_checkout_env_without_fm_home() {
   printf 'OPENROUTER_API_KEY=%s\n' "$openrouter_key" > "$home/.env"
   reset_log
   env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME="$home" PATH="$FAKEBIN:$PATH" \
-    "$main/bin/fm-jev.sh" yes "provider credential $openrouter_key" "Done?" \
+    "$main/bin/fm-jev.sh" yes --caller tests "provider credential $openrouter_key" "Done?" \
     > "$TMP_ROOT/home-router.out" 2> "$TMP_ROOT/home-router.err"
   code=$?
   assert_equals "$code" 1 "the FM_HOME OpenRouter key is refused when the TypeSafe key comes from checkout config"
@@ -972,8 +1017,9 @@ test_log_records_metadata_only() {
   line=$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl")
   printf '%s' "$line" | jq -e '.ts | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")' >/dev/null \
     || fail "the record timestamp is a UTC second: $line"
-  assert_equals "$(printf '%s' "$line" | jq -r '.caller')" "home:$(basename "$HOME_DIR")" \
-    "with no task id the caller is the logging home"
+  assert_equals "$(printf '%s' "$line" | jq -r '.caller')" "tests" "the record names the call site's caller tag"
+  assert_equals "$(printf '%s' "$line" | jq -r '.origin')" "home:$(basename "$HOME_DIR")" \
+    "with no task id the origin is the logging home"
   assert_equals "$(printf '%s' "$line" | jq -c '.items')" '[{"type":"yes","options":0,"conf":0.94}]' \
     "a yes answer logs its type, no options, and the printed confidence"
   assert_equals "$(printf '%s' "$line" | jq -c '{purpose, model, response_model, http, usage, questions, escalated, exit}')" \
@@ -986,12 +1032,13 @@ test_log_records_metadata_only() {
     "the metadata record does not store the working directory"
 
   respond '{"answers":{"vault":{"choice":"A","confidence":0.31,"probabilities":{"A":0.6,"B":0.4}},"size":{"score":1,"confidence":0.8,"probabilities":{"0":0.1,"1":0.8,"2":0.1}},"ok":{"noul":0.9}}}'
-  FM_TASK_ID=demo-task-v1 run_jev code out err batch <<'JSON'
+  FM_TASK_ID=demo-task-v1 JEV_TEST_CALLER=worker run_jev code out err batch <<'JSON'
 {"state":"s","questions":[{"id":"vault","type":"pick","q":"Which?","opts":["A","B"]},{"id":"size","type":"score","q":"How large?","opts":["S","M","L"]},{"id":"ok","type":"yes","q":"Fine?"}]}
 JSON
   assert_equals "$code" 2 "the low-confidence pick escalates the batch"
   line=$(tail -n 1 "$HOME_DIR/state/jev-calls.jsonl")
-  assert_equals "$(printf '%s' "$line" | jq -r '.caller')" "task:demo-task-v1" "a dispatched worker logs its task id as the caller"
+  assert_equals "$(printf '%s' "$line" | jq -c '{caller, origin}')" '{"caller":"worker","origin":"task:demo-task-v1"}' \
+    "a dispatched worker logs its caller tag and its task id as the origin"
   assert_equals "$(printf '%s' "$line" | jq -c '.items')" \
     '[{"type":"pick","options":2,"conf":0.31},{"type":"score","options":3,"conf":0.8},{"type":"yes","options":0,"conf":0.8}]' \
     "a batch logs each question's type, option count, and confidence in order, escalated or not"
@@ -1023,7 +1070,7 @@ test_key_discovery_needs_no_env_setup() {
   printf 'TYPESAFE_API_KEY=%s\n' "$KEY-own" > "$main/.env"
   reset_log
   out=$(cd "$TMP_ROOT" && env -u FM_HOME -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY PATH="$FAKEBIN:$PATH" \
-    "$main/bin/fm-jev.sh" yes s q)
+    "$main/bin/fm-jev.sh" yes --caller tests s q)
   assert_equals "$out" "yes: yes p=0.97 conf=0.94" "the checkout .env answers with no env setup"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the checkout .env supplies the request key"
 
@@ -1035,7 +1082,7 @@ test_key_discovery_needs_no_env_setup() {
   make_checkout "$wt"
   reset_log
   out=$(cd "$TMP_ROOT" && env -u FM_HOME -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY PATH="$FAKEBIN:$PATH" \
-    "$wt/bin/fm-jev.sh" yes s q)
+    "$wt/bin/fm-jev.sh" yes --caller tests s q)
   assert_equals "$out" "yes: yes p=0.97 conf=0.94" "a pooled worktree copy finds the main checkout .env without an env key"
   assert_equals "$(cat "$LOG/header")" "Authorization: Bearer $KEY-own" "the main checkout .env key is used"
 
@@ -1064,7 +1111,7 @@ test_key_discovery_needs_no_env_setup() {
   printf 'OTHER_SETTING=value\n' > "$nokey/.env"
   reset_log
   env -u TYPESAFE_API_KEY -u OPENROUTER_API_KEY FM_HOME="$nokey" PATH="$FAKEBIN:$PATH" \
-    "$nokey/bin/fm-jev.sh" yes s q > "$TMP_ROOT/nokey.out" 2> "$TMP_ROOT/nokey.err"
+    "$nokey/bin/fm-jev.sh" yes --caller tests s q > "$TMP_ROOT/nokey.out" 2> "$TMP_ROOT/nokey.err"
   code=$?
   assert_equals "$code" 1 "a missing TypeSafe key is refused"
   assert_contains "$(cat "$TMP_ROOT/nokey.err")" "TYPESAFE_API_KEY missing" "the missing key is named"
@@ -1074,7 +1121,7 @@ test_key_discovery_needs_no_env_setup() {
   printf 'OPENROUTER_API_KEY=%s\nJEV_ROUTE=openrouter\n' "$KEY-or" > "$nokey/.env"
   reset_log
   env -u TYPESAFE_API_KEY FM_HOME="$nokey" OPENROUTER_API_KEY="$KEY-or" JEV_ROUTE=openrouter PATH="$FAKEBIN:$PATH" \
-    "$nokey/bin/fm-jev.sh" yes s q > "$TMP_ROOT/openrouter-only.out" 2> "$TMP_ROOT/openrouter-only.err"
+    "$nokey/bin/fm-jev.sh" yes --caller tests s q > "$TMP_ROOT/openrouter-only.out" 2> "$TMP_ROOT/openrouter-only.err"
   code=$?
   assert_equals "$code" 1 "an OpenRouter key alone cannot authorize the worker command"
   assert_contains "$(cat "$TMP_ROOT/openrouter-only.err")" "TYPESAFE_API_KEY missing" \
@@ -1212,6 +1259,7 @@ test_other_choices_and_absent_list_stay_unchanged() {
 }
 
 test_help_is_short_and_complete
+test_caller_tag_is_mandatory
 test_pick_answers_one_line
 test_key_stays_out_of_child_environments
 test_unoffered_multiline_choice_cannot_forge_output

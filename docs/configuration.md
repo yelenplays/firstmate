@@ -1970,14 +1970,15 @@ For ship and scout tasks that mention Jev or decision calls, `bin/fm-spawn.sh` a
 It reuses the caller library above and pins its route and URL to TypeSafe production, regardless of `OPENROUTER_API_KEY`, `JEV_ROUTE`, `JEV_URL`, or `JEV_BASE`.
 It resolves `TYPESAFE_API_KEY` from the process environment, then `$FM_HOME/.env`, then the `.env` of the firstmate home that owns the command checkout.
 For pooled worktrees, it finds that home through `git rev-parse --git-common-dir`; `.env` values use the shared `fmx_env_get` accessor.
-Its `--help` is its whole interface, flags follow the command, and the header owns the privacy refusal, escalation floor, output, and exit codes.
+Its `--help` is its whole interface, flags follow the command, and the header owns the caller tag, privacy refusal, escalation floor, output, and exit codes.
+Every call must name its call site with `--caller <tag>`; an untagged call is refused before anything is sent, and the brief's Jev-first rule passes `--caller worker`.
 A question whose options name a model follows the [never-use model list](#never-use-model-list-configmodel-denylistjson).
 Callers must pass only task facts and never personal data or private-vault content; refusing obvious secrets, email addresses, and phone numbers is only a safety net, not a general personal-data detector.
 Standard ship and scout launches, plus Devin launches, carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; raw launch commands remain unchanged.
 The key itself is not added to the launch command or environment, so standard spawned workers must resolve `TYPESAFE_API_KEY` from the firstmate home `.env`; an environment-only key intentionally does not cross that launch boundary.
 A pick question offers at most 8 options; a longer list is refused before anything is sent, so the caller narrows it first.
 Each call appends a metadata-only record, without the working directory, state, question ids, or question text, to that home's `state/jev-calls.jsonl`.
-The record names its time, its caller (the dispatched task, else the home), and each question's type, option count, and confidence, so escalation rates can be audited per caller and per question shape; the script header owns the exact fields.
+The record names its time, its caller tag, its origin (the dispatched task, else the home), and each question's type, option count, and confidence, so escalation rates can be audited per call site, per task, and per question shape; the script header owns the exact fields.
 Crew workers run as the operator's same OS user and have full file access; they are not sandboxed and can read files available to that user.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)
