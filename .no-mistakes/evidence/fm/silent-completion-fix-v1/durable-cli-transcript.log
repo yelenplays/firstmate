@@ -1,0 +1,57 @@
+$ fm-tasks-axi.sh add cli-bench "Calculate requested bench result" --kind scout
+ok: added cli-bench (scout) -> Queued
+task:
+  id: cli-bench
+  title: Calculate requested bench result
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start cli-bench` to move it to in flight
+  - Run `tasks-axi block cli-bench --by <other>` to record a dependency
+$ fm-tasks-axi.sh done cli-bench --note "Result: 6 * 7 = 42"
+ok: done cli-bench -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+$ fm-crew-state.sh cli-bench
+state: done · source: backlog · closed 2026-10-20, no live metadata for cli-bench
+$ fm-branch-outcome.sh append --promote-finished --task cli-bench --verdict routine --summary "Requested calculation finished: 42"
+1
+$ fm-branch-outcome.sh lookup --seqs 1
+{"seq":1,"epoch":1792518011,"task":"cli-bench","wake":"","verdict":"captain","summary":"Requested calculation finished: 42","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+$ fm-branch-outcome.sh append --promote-finished --task cli-bench --verdict routine --silent true --summary "No new update"
+2
+$ fm-branch-outcome.sh lookup --seqs 2
+{"seq":2,"epoch":1792518012,"task":"cli-bench","wake":"","verdict":"routine","summary":"No new update","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+$ fm-branch-outcome.sh append --promote-finished --task unknown-task --verdict routine --summary "Still investigating"
+3
+{"seq":3,"epoch":1792518016,"task":"unknown-task","wake":"","verdict":"routine","summary":"Still investigating","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+$ fm-branch-report.sh --task cli-bench --verdict captain --summary "Unauthorized report" (no branch actor or host turn)
+report refused: only the supervision branch reports outcomes; MAIN acts on them instead
+Refused exit: 3
+$ fm-branch-outcome.sh present
+{"seq":1,"epoch":1792518011,"task":"cli-bench","wake":"","verdict":"captain","summary":"Requested calculation finished: 42","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+{"seq":2,"epoch":1792518012,"task":"cli-bench","wake":"","verdict":"routine","summary":"No new update","silent":true,"statusEndpoint":0,"statusIdent":"-","unread":true}
+{"seq":3,"epoch":1792518016,"task":"unknown-task","wake":"","verdict":"routine","summary":"Still investigating","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true}
+$ fm-branch-outcome.sh mark-processed --through 1 (before presentation acknowledgement)
+error: refusing processed advancement beyond the read cursor (0)
+Refused premature processing exit: 1
+$ fm-branch-outcome.sh mark-read --through 3; fm-branch-outcome.sh unprocessed
+{"seq":1,"epoch":1792518011,"task":"cli-bench","wake":"","verdict":"captain","summary":"Requested calculation finished: 42","silent":false,"statusEndpoint":0,"statusIdent":"-","recordedAgo":"0m"}
+$ fm-branch-outcome.sh mark-processed --through 1; fm-branch-outcome.sh unprocessed
+$ fm-branch-outcome.sh list (rows retained after acknowledgement)
+{"seq":1,"epoch":1792518011,"task":"cli-bench","wake":"","verdict":"captain","summary":"Requested calculation finished: 42","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792518012,"task":"cli-bench","wake":"","verdict":"routine","summary":"No new update","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792518016,"task":"unknown-task","wake":"","verdict":"routine","summary":"Still investigating","silent":false,"statusEndpoint":0,"statusIdent":"-"}

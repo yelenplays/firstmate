@@ -1,0 +1,7 @@
+Injected test probe: exec sleep 60 (not a live worker)
+Command: fm-branch-outcome.sh append --promote-finished --task live-task --verdict routine --summary "Report survives a hung crew-state probe"
+Elapsed seconds: 10.947
+Exit: 0
+Receipt: 1
+
+Stored row: {"seq":1,"epoch":1792518082,"task":"live-task","wake":"","verdict":"routine","summary":"Report survives a hung crew-state probe","silent":false,"statusEndpoint":0,"statusIdent":"-"}

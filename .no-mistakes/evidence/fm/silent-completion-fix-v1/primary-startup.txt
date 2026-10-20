@@ -1,0 +1,39 @@
+
+ ▐▛███▛█   Claude Code v2.1.304
+▝▜██████▀  Opus 5.5 (1M context) with xhigh effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                          ◉ xhigh · /effort
+─────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "edit fm-dispatch-resolve.test.sh to..."
+─────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7…
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent

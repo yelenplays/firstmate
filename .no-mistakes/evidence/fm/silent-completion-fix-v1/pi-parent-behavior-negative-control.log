@@ -1,0 +1,8 @@
+not ok - a finished task must reach main as news in either report order: file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7/[eval1]:59
+  throw new Error(`a report written before teardown was not handed back as captain: ${JSON.stringify(after)}`);
+        ^
+
+Error: a report written before teardown was not handed back as captain: [{"seq":1,"epoch":1792518144,"task":"branch-driver","wake":"","verdict":"captain","summary":"Requested bench finished; worker cleaned up.","silent":false,"statusEndpoint":0,"statusIdent":"-"},{"seq":2,"epoch":1792518147,"task":"branch-driver","wake":"","verdict":"routine","summary":"Second bench finished; cleaning up.","silent":false,"statusEndpoint":0,"statusIdent":"-"}]
+    at file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7/[eval1]:59:9
+
+Node.js v26.11.0: expected exit 0, got 1

@@ -1,0 +1,8 @@
+not ok - a finished task must reach main as news in either report order: file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7/[eval1]:45
+if (rows().at(-1).verdict !== "captain") throw new Error(`a torn-down task's routine report was not stored as captain: ${JSON.stringify(rows())}`);
+                                               ^
+
+Error: a torn-down task's routine report was not stored as captain: [{"seq":1,"epoch":1792517977,"task":"branch-driver","wake":"","verdict":"routine","summary":"Requested bench finished; worker cleaned up.","silent":false,"statusEndpoint":0,"statusIdent":"-"}]
+    at file:///Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7/[eval1]:45:48
+
+Node.js v26.11.0: expected exit 0, got 1

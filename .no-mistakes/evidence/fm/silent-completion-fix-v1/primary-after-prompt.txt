@@ -1,0 +1,39 @@
+
+ ▐▛███▛█   Claude Code v2.1.304
+▝▜██████▀  Opus 5.5 (1M context) with xhigh effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7
+
+
+❯ This is an isolated completion-delivery validation lab, not the operator fleet. For this
+  probe only, do not run commands, spawn agents, initialize anything, or change files. Reply
+  exactly LAB_PRIMARY_READY. The tracked startup and stop hooks should run normally.
+
+⏺ LAB_PRIMARY_READY
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✻ Zigzagging… (running Stop hooks… 4/5 · 5s · ↓ 175 tokens · thinking with xhigh effort)
+                          You've used 79% of your weekly limit · resets 5pm (Europe/Berlin)
+─────────────────────────────────────────────────────────────────────────────────────────────
+❯
+─────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M5D5CHGG2K8HYYGHVZ4GNMW7…
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent
