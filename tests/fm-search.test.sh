@@ -261,7 +261,7 @@ set_mode exa shape
 search --chain K "shape probe $QMARK"
 expect_code 0 "$code" "shape: $err"
 assert_contains "$(trailer)" 'provider=tinyfish hops=2' "shape: a wrong-shaped reply hops on"
-assert_equals 1 "$(awk -F'\t' '$2=="exa-lite"' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "shape: the billed Exa call is still ledgered"
+assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3>0' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "shape: the billed Exa call is ledgered with its price"
 pass "a wrong-shaped JSON reply hops on instead of killing the chain"
 
 new_case all-empty

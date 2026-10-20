@@ -58,7 +58,9 @@ Send only non-private queries: the query goes to third-party providers."""
 
 
 class HopError(Exception):
-    pass
+    def __init__(self, reason, cost=0.0):
+        super().__init__(reason)
+        self.cost = cost
 
 
 def load_config():
@@ -144,11 +146,14 @@ def run_exa(kind, per_query, query, limit, timeout):
     body = json.dumps({"query": query, "type": kind, "numResults": limit,
                        "contents": {"highlights": True}}).encode()
     raw = http(urllib.request.Request(EXA_URL, body, {"x-api-key": k, "Content-Type": "application/json"}), timeout)
-    d = parse_json(raw)
-    out = [norm(x.get("title"), x.get("url"), x.get("publishedDate"), "\n".join(x.get("highlights") or []))
-           for x in d.get("results", [])[:limit]]
-    cost = (d.get("costDollars") or {}).get("total")
-    return out, float(cost) if cost is not None else per_query
+    try:
+        d = parse_json(raw)
+        out = [norm(x.get("title"), x.get("url"), x.get("publishedDate"), "\n".join(x.get("highlights") or []))
+               for x in d.get("results", [])[:limit]]
+        cost = (d.get("costDollars") or {}).get("total")
+        return out, float(cost) if cost is not None else per_query
+    except (HopError, ValueError, TypeError, AttributeError, KeyError):
+        raise HopError("malformed reply", per_query)
 
 
 def run_tinyfish(query, limit, timeout, language):
@@ -326,8 +331,9 @@ def logged(hop, route, call):
     try:
         results, cost = call()
     except (HopError, ValueError, TypeError, AttributeError, KeyError) as e:
-        append_ledger(hop, 0.0, time.time() - t0, 0, route)
-        raise e if isinstance(e, HopError) else HopError("malformed reply")
+        e = e if isinstance(e, HopError) else HopError("malformed reply")
+        append_ledger(hop, e.cost, time.time() - t0, 0, route)
+        raise e
     append_ledger(hop, cost, time.time() - t0, len(results), route)
     return results, cost
 
