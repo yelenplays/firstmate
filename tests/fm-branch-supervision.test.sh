@@ -201,7 +201,10 @@ test_outcome_append_promotes_a_torn_down_tasks_routine_report() {
   [ "$(jq -r '.verdict' "$store" | tr '\n' ' ')" = "captain routine routine routine routine routine " ] \
     || fail "promotion picked the wrong rows: $(cat "$store")"
   mkdir -p "$home/fakebin"
-  printf '#!/usr/bin/env bash\ncase "$1" in live-done) echo "state: done · source: status-log · finished" ;; *) echo "state: working · source: pane" ;; esac\n' > "$home/fakebin/fm-crew-state.sh"
+  cat > "$home/fakebin/fm-crew-state.sh" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in live-done) echo "state: done · source: status-log · finished" ;; *) echo "state: working · source: pane" ;; esac
+EOF
   chmod +x "$home/fakebin/fm-crew-state.sh"
   printf 'project=demo\n' > "$home/state/live-done.meta"
   FM_CREW_STATE_BIN="$home/fakebin/fm-crew-state.sh" FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --promote-finished \
