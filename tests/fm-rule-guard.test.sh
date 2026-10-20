@@ -41,7 +41,9 @@ test_scan_flags_handed_over_interactive_lines() {
   # shellcheck disable=SC2016 # Backticks are literal reply markdown.
   for text in '! sudo darwin-rebuild switch --flake .' 'Run this:  `! gh auth login`' \
     'Then: ! ~/dotfiles/rebuild.sh' '(! security add-generic-password -s x)' '> ! op signin' \
-    '! sudo -v' '- ! passwd' 'no worries, run ! sudo darwin-rebuild switch'; do
+    '! sudo -v' '- ! passwd' 'no worries, run ! sudo darwin-rebuild switch' \
+    'No worries you can now run ! sudo darwin-rebuild switch' \
+    'No worries now run ! sudo darwin-rebuild switch'; do
     out=$(printf '%s\n' "$text" | "$GUARD" scan); rc=$?
     expect_code 1 "$rc" "scan missed: $text"
     assert_contains "$out" 'bang-interactive: ' "scan did not name the check for: $text"
@@ -49,7 +51,8 @@ test_scan_flags_handed_over_interactive_lines() {
   # shellcheck disable=SC2016 # Backticks are literal reply markdown.
   for text in 'Never hand the captain a `! sudo` line.' 'Nie wieder `! gh auth login` schicken.' \
     'Done! sudo is no longer needed.' 'Wow! login works now.' '! git status' 'Use pbcopy, not ! sudo.' \
-    'sudo darwin-rebuild switch (pasted into Terminal)'; do
+    'sudo darwin-rebuild switch (pasted into Terminal)' 'Never run ! sudo -v' \
+    'Do not ever run ! sudo -v'; do
     out=$(printf '%s\n' "$text" | "$GUARD" scan) || fail "scan flagged: $text ($out)"
   done
   assert_contains "$("$GUARD" list)" 'bang-interactive' 'list did not print the check registry'

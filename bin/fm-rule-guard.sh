@@ -16,9 +16,9 @@
 #                     sudo, rebuild, login, password, or keychain step. Those
 #                     need a real Terminal window: put the command on the
 #                     clipboard with pbcopy and verify the result yourself. A
-#                     line where a negation (never, nie, kein, not, ...) comes
-#                     before the "!" in the same clause (no comma, semicolon,
-#                     colon, or period between) quotes the rule and passes.
+#                     negation (never, nie, kein, not, ...) within the three
+#                     words before "!" in the same clause quotes the rule and
+#                     passes, as does "Never hand the captain a" before "!".
 #
 # `--claude` reads `.last_assistant_message` from the Stop payload and acts only
 # in a primary seat (the main home or a secondmate home, never a task worktree,
@@ -71,7 +71,11 @@ scan_text() {
     while ($line =~ /(?:^|[\s`"\x27(>*])!\s+(?=[^\n]*?(?:\bsudo\b|\bdarwin-rebuild\b|\bnixos-rebuild\b|\brebuild\.sh\b|\blogin\b|\bauth\s+refresh\b|\bpasswd\b|\badd-generic-password\b|\bop\s+signin\b))/g) {
       my $before = lc substr($line, 0, $-[0]);
       $before =~ s/^.*[,;:.]//;
-      next if $before =~ /\b(?:nie|niemals|never|kein|keine|keinen|no|not|nicht|don\x27t|statt|instead\s+of)\b/;
+      # Preserve the longer rule quotation without allowing distant negation.
+      next if $before =~ /\bnever\s+hand\s+the\s+captain\s+a\s*$/;
+      my @words = $before =~ /[\w\x27]+/g;
+      my $nearby = join " ", (@words > 3 ? @words[-3..-1] : @words);
+      next if $nearby =~ /\b(?:nie|niemals|never|kein|keine|keinen|no|not|nicht|don\x27t|statt|instead\s+of)\b/;
       print "bang-interactive: $line\n";
       $hit = 1;
       last;
