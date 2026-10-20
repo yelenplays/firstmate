@@ -5978,8 +5978,8 @@ fi
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   [ -z "$UPSTREAM_CONSENT" ] || echo "upstream_consent=$UPSTREAM_CONSENT"
   echo "model=${MODEL:-default}"
-  # The test-authoring ban, only when the model is on its list, so an unbanned
-  # task record stays byte-identical.
+  # Omit ban metadata for unaffected tasks to preserve their record format;
+  # bin/fm-dod-lib.sh owns applicability.
   [ -z "$TEST_BAN_MODEL" ] || echo "test_ban_model=$TEST_BAN_MODEL"
   if [ -n "$TEST_BAN_MODEL" ]; then
     while IFS= read -r allowed_path; do
