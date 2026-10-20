@@ -1,4 +1,0 @@
-armed: state/task-a.check.sh
-verified: https://github.com/o/r/pull/2 is queued (state=OPEN, merged=false, isInMergeQueue=true)
-warn: no registry at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DAWCT0WRXAZY0TJ3N80XYQ/.ci-debug/tmp/fm-pr-check-security.L9gXGF/merge-authority-retirement-replacement/home/data/projects.md; defaulting project to no-mistakes off
-armed: post-merge watch for task-a on 111111111111 is already in phase checks

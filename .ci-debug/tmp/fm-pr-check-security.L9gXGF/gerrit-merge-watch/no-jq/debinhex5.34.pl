@@ -1,1 +1,0 @@
-/usr/bin/debinhex5.34.pl
