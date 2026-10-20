@@ -602,10 +602,10 @@ export default function (pi: ExtensionAPI) {
   // never named is never stored or delivered. Null outside a wake prompt and
   // during a heartbeat review, which is not scoped by task.
   let wakeTaskScope: { rows: string[]; tasks: Set<string> } | null = null;
-  // Visible routine rows fm_branch_report stored during the wake prompt being
-  // handled; when it settles, bin/fm-branch-outcome.sh finished-handback hands
-  // back as captain any whose task finished later in the same turn. Null
-  // outside a wake prompt.
+  // Routine reports, silent ones included, recorded during this wake prompt.
+  // At settlement, bin/fm-branch-outcome.sh finished-handback hands back as
+  // captain any whose task finished later in the same turn. Null outside a
+  // wake prompt.
   let wakeRoutineSeqs: number[] | null = null;
   let mainStreaming = false;
   let shuttingDown = false;
