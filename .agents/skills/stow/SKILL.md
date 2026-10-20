@@ -224,7 +224,7 @@ A local skill exists only in this home, so offloading an entry out of `data/capt
 2. **Route each finding using AGENTS.md's knowledge-routing table.**
    AGENTS.md section 6 is the source of truth for destinations.
    Do not re-derive or duplicate that mapping here.
-   Match each finding against the home's declared memory tiers first and capture a tier-owned finding to that tier, falling back to the local files only for classes no declared tier owns.
+   Route new corrections of how firstmate works through [captain rules](../../../docs/captain-rules.md); match other findings against the home's declared memory tiers first and capture a tier-owned finding to that tier, falling back to the local files only for classes no declared tier owns.
    When the owning tier is unreachable from this session, write the finding to the startup-loaded local memory file its class would otherwise use, or keep it where it already lives, carrying the pending-capture marker for that tier; it is still an exception for the receipt, never a reason to treat the local copy as sufficient.
 3. **Write within the existing boundaries.**
    - Captain preferences and fleet-local operational facts belong in the destination selected by AGENTS.md after the required whole-file curation pass.

@@ -114,5 +114,5 @@ Secondmates resolve the same commands against their own `$FM_HOME`; nothing is s
 
 No vector embeddings, no semantic similarity beyond keyword BM25, no bulk session-archive ingestion, no vikingbot, and no resident model backend.
 The only model-backed memory extraction path is [automatic capture](#automatic-capture).
-Corrections of how firstmate works are not memories: they become [captain rules](captain-rules.md), which are always loaded and can be enforced by a check.
+Corrections of how firstmate works are governed by [captain rules](captain-rules.md), not by memory recall; automatic capture can still retain them as memories.
 Adding any of the rest back is a new decision, not a repair.
