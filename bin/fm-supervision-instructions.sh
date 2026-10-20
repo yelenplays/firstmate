@@ -286,7 +286,7 @@ if [ -n "$HOST_SNIPPET" ]; then
 fi
 ordinary_wake_line
 if [ "$STATE_ONLY" -eq 1 ]; then
-  printf '%s\n' 'Condensed operating rules (the whole block below holds the detail):'
+  printf '%s\n' 'Condensed operating rules (the whole-block command at the end of this section prints the detail):'
   printf '%s\n' '- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.'
   printf '%s\n' '- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.'
   printf '%s\n' '- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.'
