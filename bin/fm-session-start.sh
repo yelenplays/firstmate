@@ -1053,7 +1053,7 @@ else
       /^wake annotation: / { notes[++n] = $0; next }
       { print }
       END { for (i = 1; i <= n; i++) print notes[i]; for (i = 1; i <= r; i++) print rows[i] }
-    ' | slim_capped 2000 140 "$REEMIT_DETAIL"
+    ' | slim_capped 1600 140 "$REEMIT_DETAIL"
     printf '%s\n' "$DRAIN_OUT" | grep '^WAKE_ACK_REQUIRED:' | tail -n 1
     printf 'Uncut wake queue and bootstrap text: %s\n' "$REEMIT_DETAIL"
   else
@@ -1142,7 +1142,7 @@ if [ "$SLIM" -eq 1 ]; then
   done)
   if [ -n "$SLIM_TASKS" ]; then
     META_FOUND=1
-    printf '%s\n' "$SLIM_TASKS" | slim_capped 1800 125 "state/<id>.meta and state/<id>.status"
+    printf '%s\n' "$SLIM_TASKS" | slim_capped 1600 125 "state/<id>.meta and state/<id>.status"
   fi
 else
   subsection "Work under way (state/*.meta)"
@@ -1334,7 +1334,7 @@ if [ "$REEMIT" -eq 1 ]; then
       # Newest words first into the budget: reverse, cut, and restore the order,
       # so the budget drops the oldest turns and the note naming them leads.
       printf '%s\n' "$HISTORY_RECENT" | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }' \
-        | slim_capped 1300 240 "$SCRIPT_DIR/fm-history.sh recent --n 5" \
+        | slim_capped 1100 240 "$SCRIPT_DIR/fm-history.sh recent --n 5" \
         | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }'
     else
       printf '%s\n' "$HISTORY_RECENT"

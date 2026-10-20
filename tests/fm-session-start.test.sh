@@ -2794,7 +2794,7 @@ EOF
 # pack - must still fit under 9 KB, with the supervision state ahead of the
 # bulk, the acknowledgement line whole, and the cut text kept on disk.
 test_compact_reemit_fits_the_inline_hook_limit() {
-  local rec root home fakebin slim bytes i long sup_line wake_line ack detail
+  local rec root home fakebin slim bytes i long sup_line wake_line rules_line ack detail
   rec=$(new_world compact-budget)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -2838,6 +2838,12 @@ EOF
   [ -n "$sup_line" ] && [ -n "$wake_line" ] && [ "$sup_line" -lt "$wake_line" ] \
     || fail "the supervision state must print ahead of the wake queue (supervision line ${sup_line:-none}, wake line ${wake_line:-none})"
   assert_contains "$slim" "fm-supervision-instructions.sh --harness claude" "the slim digest did not name the whole supervision block"
+  rules_line=$(printf '%s\n' "$slim" | grep -n '^Condensed operating rules' | head -n 1 | cut -d: -f1)
+  [ -n "$rules_line" ] && [ "$rules_line" -lt "$wake_line" ] \
+    || fail "the condensed supervision rules must print ahead of the wake queue (rules line ${rules_line:-none}, wake line ${wake_line:-none})"
+  assert_contains "$slim" "WAKE_ACK_REQUIRED acknowledgement" "the condensed rules lost the acknowledgement rule"
+  assert_contains "$slim" "never kill the watcher" "the condensed rules lost the watcher-ownership rule"
+  assert_contains "$slim" "turn-end guard is the final backstop" "the condensed rules lost the turn-end guard rule"
   ack=$(printf '%s\n' "$slim" | grep -c '^WAKE_ACK_REQUIRED: .*--ack-through [0-9][0-9]* --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$')
   [ "$ack" = 1 ] || fail "the slim digest must carry exactly one whole acknowledgement line"
   assert_contains "$slim" "cut from the compact digest" "the slim digest did not disclose what its budget cut"

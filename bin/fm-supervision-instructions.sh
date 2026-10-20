@@ -11,7 +11,7 @@
 # command becomes the host; on a home that does not run it the output is
 # unchanged.
 # --state-only prints the title, the "Current state" lines, and the command that
-# prints the whole block, for the slim compact re-emit (bin/fm-session-start.sh),
+# prints the whole block, plus condensed operating rules, for the slim compact re-emit (bin/fm-session-start.sh),
 # which must stay under a harness's inline hook-output limit.
 set -eu
 
@@ -286,6 +286,12 @@ if [ -n "$HOST_SNIPPET" ]; then
 fi
 ordinary_wake_line
 if [ "$STATE_ONLY" -eq 1 ]; then
+  printf '%s\n' 'Condensed operating rules (the whole block below holds the detail):'
+  printf '%s\n' '- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.'
+  printf '%s\n' '- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.'
+  printf '%s\n' '- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.'
+  printf '%s\n' '- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.'
+  printf '%s\n' '- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.'
   printf -- '- Whole block (wake handling, arm ownership, turn-end guard%s): %s/fm-supervision-instructions.sh --harness %s --read-only %s --afk %s --afk-mode %s --x-mode %s\n' \
     "${HOST_SNIPPET:+, supervision host}" "$SCRIPT_DIR" "$HARNESS" "$READ_ONLY" "$AFK" "$AFK_MODE" "$X_MODE"
   exit 0
