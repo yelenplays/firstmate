@@ -1,0 +1,121 @@
+[
+  {
+    "name": "Opus registers without a readable origin base and records the real forge head",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Banned Sonnet cannot register without an origin base",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Opus initially registers a readable worker copy",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Opus re-registers after worker removal using the already recorded forge head",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Banned Sonnet cannot register a missing worker copy",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Opus registers when origin and HEAD have no merge-base",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Banned Sonnet is still refused when origin has no merge-base",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Opus task refuses Sonnet-fixer added and modified tests despite real forge head",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Reverting unauthorized fixer changes restores PR registration",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Allowlisted test-step changes register successfully",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Exact captain-authorized fixer test path registers",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "opencode-go/deepseek-v4.1-flash worker cannot register unauthorized unit tests",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "opencode-go/deepseek-v4.1-flash worker can register implementation and e2e only",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "zai/glm-5.3-flash worker cannot register unauthorized unit tests",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "zai/glm-5.3-flash worker can register implementation and e2e only",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Sonnet registers unchanged tests inherited at handoff",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  },
+  {
+    "name": "Changing a handed-over test blocks registration",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-pr-registration.log",
+    "reason": ""
+  }
+]

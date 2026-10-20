@@ -1,0 +1,93 @@
+HEAD=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+Real GitHub reads only; no external writes, no fake harness/forge. Histories and lane metadata are synthetic inputs.
+
+
+## Opus registers without a readable origin base and records the real forge head
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-no-origin https://github.com/yelenplays/firstmate/pull/187
+exit=0
+stdout:
+armed: state/opus-no-origin.check.sh
+
+stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/opus-no-origin
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/opus-no-origin
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/opus-no-origin
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
+
+merge poll present=True
+
+## Banned Sonnet cannot register without an origin base
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh sonnet-no-origin https://github.com/yelenplays/firstmate/pull/187
+exit=1
+stdout:
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: test-file check cannot resolve the base branch in the worker copy
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-sonnet-5-5
+branch=fm/sonnet-no-origin
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/sonnet-no-origin
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/sonnet-no-origin
+test_ban_model=claude-sonnet-5-5
+
+merge poll present=False
+
+## Opus initially registers a readable worker copy
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-missing https://github.com/yelenplays/firstmate/pull/187
+exit=0
+stdout:
+armed: state/opus-missing.check.sh
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/opus-missing
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/opus-missing
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/opus-missing
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
+
+merge poll present=True
+
+## Opus re-registers after worker removal using the already recorded forge head
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-missing https://github.com/yelenplays/firstmate/pull/187
+exit=0
+stdout:
+armed: state/opus-missing.check.sh
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/opus-missing
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/opus-missing
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-1tupojo0/projects/opus-missing
+pr=https://github.com/yelenplays/firstmate/pull/187
+
+merge poll present=True
+DRIVER ERROR: AssertionError('Opus re-registers after worker removal using the already recorded forge head: no actual forge head')
+Disposable lab removed; no supervisor or worker process was launched.

@@ -1,0 +1,112 @@
+HEAD=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+Real GitHub reads only; no external writes, no fake harness/forge. Histories and lane metadata are synthetic inputs.
+
+
+## Opus registers without a readable origin base and records the real forge head
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-no-origin https://github.com/yelenplays/firstmate/pull/187
+exit=0
+stdout:
+armed: state/opus-no-origin.check.sh
+
+stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/opus-no-origin
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/opus-no-origin
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/opus-no-origin
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
+
+merge poll present=True
+
+## Banned Sonnet cannot register without an origin base
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh sonnet-no-origin https://github.com/yelenplays/firstmate/pull/187
+exit=1
+stdout:
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: test-file check cannot resolve the base branch in the worker copy
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-sonnet-5-5
+branch=fm/sonnet-no-origin
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/sonnet-no-origin
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/sonnet-no-origin
+test_ban_model=claude-sonnet-5-5
+
+merge poll present=False
+
+## Opus registers when origin and HEAD have no merge-base
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-unrelated https://github.com/yelenplays/firstmate/pull/187
+exit=0
+stdout:
+armed: state/opus-unrelated.check.sh
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/opus-unrelated
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/opus-unrelated
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/opus-unrelated
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
+
+merge poll present=True
+
+## Banned Sonnet is still refused when origin has no merge-base
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh sonnet-unrelated https://github.com/yelenplays/firstmate/pull/187
+exit=1
+stdout:
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: test-file check found no merge-base between HEAD and refs/remotes/origin/main
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-sonnet-5-5
+branch=fm/sonnet-unrelated
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/sonnet-unrelated
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/sonnet-unrelated
+test_ban_model=claude-sonnet-5-5
+
+merge poll present=False
+
+## Opus task refuses Sonnet-fixer added and modified tests despite real forge head
+$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh pipeline-banned https://github.com/yelenplays/firstmate/pull/187
+exit=1
+stdout:
+
+stderr:
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 4934ec36f330: tests/fixer.test.sh; no-mistakes(review) on claude-sonnet-5-5 in 7597e2bdb499: tests/existing.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+
+Persisted task metadata:
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/pipeline-banned
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/pipeline-banned
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-w0yw09w_/projects/pipeline-banned
+
+merge poll present=False
+DRIVER ERROR: AssertionError('')
+Disposable lab removed; no supervisor or worker process was launched.

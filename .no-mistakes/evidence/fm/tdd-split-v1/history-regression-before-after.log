@@ -1,0 +1,9 @@
+before-CI-fix missing-copy opus: exit=1; stdout='test-file check cannot read the worker copy\n'; stderr=''
+target-16ff368 missing-copy opus: exit=0; stdout=''; stderr=''
+before-CI-fix missing-copy sonnet: exit=1; stdout='test-file check cannot read the worker copy\n'; stderr=''
+target-16ff368 missing-copy sonnet: exit=1; stdout='test-file check cannot read the worker copy\n'; stderr=''
+before-CI-fix no-origin opus: exit=1; stdout='pipeline test-file check cannot resolve the base branch in the worker copy\n'; stderr=''
+target-16ff368 no-origin opus: exit=0; stdout=''; stderr=''
+before-CI-fix no-origin sonnet: exit=1; stdout='test-file check cannot resolve the base branch in the worker copy\n'; stderr=''
+target-16ff368 no-origin sonnet: exit=1; stdout='test-file check cannot resolve the base branch in the worker copy\n'; stderr=''
+The same history inputs reproduce the Opus refusal before the fix and silent acceptance after it; Sonnet remains refused in both revisions.
