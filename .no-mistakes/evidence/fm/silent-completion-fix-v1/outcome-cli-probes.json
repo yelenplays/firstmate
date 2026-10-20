@@ -1,0 +1,158 @@
+[
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "lookup",
+      "--seqs",
+      "1"
+    ],
+    "exit": 0,
+    "stdout": "{\"seq\":1,\"epoch\":1792507832,\"task\":\"license-bench\",\"wake\":\"\",\"verdict\":\"captain\",\"summary\":\"It's the MIT License (Copyright 2026 Kun Chen), and commercial use is allowed, including selling copies, with the one condition that the copyright notice and the permission notice stay in all copies or substantial portions of the Software.\",\"silent\":false,\"statusEndpoint\":347,\"statusIdent\":\"strong:16777230:189509123:1792507831.068301527\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "append",
+      "--promote-finished",
+      "--task",
+      "license-bench",
+      "--verdict",
+      "routine",
+      "--summary",
+      "No new result",
+      "--silent",
+      "true"
+    ],
+    "exit": 0,
+    "stdout": "2\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "lookup",
+      "--seqs",
+      "2"
+    ],
+    "exit": 0,
+    "stdout": "{\"seq\":2,\"epoch\":1792507885,\"task\":\"license-bench\",\"wake\":\"\",\"verdict\":\"routine\",\"summary\":\"No new result\",\"silent\":true,\"statusEndpoint\":347,\"statusIdent\":\"strong:16777230:189509123:1792507831.068301527\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "append",
+      "--promote-finished",
+      "--task",
+      "fleet",
+      "--verdict",
+      "routine",
+      "--summary",
+      "No new result",
+      "--silent",
+      "false"
+    ],
+    "exit": 0,
+    "stdout": "3\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "lookup",
+      "--seqs",
+      "3"
+    ],
+    "exit": 0,
+    "stdout": "{\"seq\":3,\"epoch\":1792507887,\"task\":\"fleet\",\"wake\":\"\",\"verdict\":\"routine\",\"summary\":\"No new result\",\"silent\":false,\"statusEndpoint\":0,\"statusIdent\":\"-\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "append",
+      "--promote-finished",
+      "--task",
+      "never-launched",
+      "--verdict",
+      "routine",
+      "--summary",
+      "No new result",
+      "--silent",
+      "false"
+    ],
+    "exit": 0,
+    "stdout": "4\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "lookup",
+      "--seqs",
+      "4"
+    ],
+    "exit": 0,
+    "stdout": "{\"seq\":4,\"epoch\":1792507889,\"task\":\"never-launched\",\"wake\":\"\",\"verdict\":\"routine\",\"summary\":\"No new result\",\"silent\":false,\"statusEndpoint\":0,\"statusIdent\":\"-\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "append",
+      "--promote-finished",
+      "--task",
+      "license-bench",
+      "--verdict",
+      "routine",
+      "--summary",
+      "It's the MIT License (Copyright 2026 Kun Chen), and commercial use is allowed, including selling copies, with the one condition that the copyright notice and the permission notice stay in all copies or substantial portions of the Software."
+    ],
+    "exit": 0,
+    "stdout": "5\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "lookup",
+      "--seqs",
+      "5"
+    ],
+    "exit": 0,
+    "stdout": "{\"seq\":5,\"epoch\":1792507890,\"task\":\"license-bench\",\"wake\":\"\",\"verdict\":\"captain\",\"summary\":\"It's the MIT License (Copyright 2026 Kun Chen), and commercial use is allowed, including selling copies, with the one condition that the copyright notice and the permission notice stay in all copies or substantial portions of the Software.\",\"silent\":false,\"statusEndpoint\":0,\"statusIdent\":\"-\"}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "append",
+      "--promote-finished",
+      "--task",
+      "hung-task",
+      "--verdict",
+      "routine",
+      "--summary",
+      "Dependency timeout must not block durable reporting"
+    ],
+    "exit": 0,
+    "stdout": "6\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-branch-outcome.sh",
+      "lookup",
+      "--seqs",
+      "6"
+    ],
+    "exit": 0,
+    "stdout": "{\"seq\":6,\"epoch\":1792507901,\"task\":\"hung-task\",\"wake\":\"\",\"verdict\":\"routine\",\"summary\":\"Dependency timeout must not block durable reporting\",\"silent\":false,\"statusEndpoint\":0,\"statusIdent\":\"-\"}\n",
+    "stderr": ""
+  },
+  {
+    "dependency_timeout_elapsed_seconds": 10.9,
+    "contract": "Visible routine outcomes remain durable without an unbounded crew-state dependency; timed-out state is not promoted."
+  }
+]

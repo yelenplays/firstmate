@@ -1,0 +1,80 @@
+
+⏺ Bash(SP=/private/tmp/claude-501/-Users-yelen--no-mistakes-worktrees-548b8aa73bec-01M5CSNV4CBJJ0M8YPZZK3BZXV/e5bb74f6-
+      29bd-4073-b254-15c3a6ae056a/scratchpad; ls -la "…)
+  ⎿  digest.txt  13.3K
+
+     📊 1 files, 0 dirs (1 .txt)
+     … +23 lines
+  ⎿  Created .test-lab-home/scratch/session-start-digest.txt (+165 -0)
+        1 +
+        2 +================================================================================
+        3 +SESSION START - /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSNV4CBJJ0M8YPZZK3BZXV/.test-lab
+          +-home
+        4 +================================================================================
+        5 +
+        6 +LOCK
+        7 +--------------------------------------------------------------------------------
+        8 +lock acquired: harness pid 38698
+        9 +
+       10 +HOME ROLE
+       11 +--------------------------------------------------------------------------------
+       12 +fm-role: user (default)
+       13 +
+       14 +BOOTSTRAP
+       15 +--------------------------------------------------------------------------------
+       16 +(silent - all good)
+       17 +
+       18 +WAKE QUEUE
+       19 +--------------------------------------------------------------------------------
+       20 +(no queued wakes)
+       21 +================================================================================
+       22 +SUPERVISION OPERATING INSTRUCTIONS - primary harness: claude
+       23 +================================================================================
+       24 +Current state:
+       25 +- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+       26 +- Away/quiet mode: inactive.
+       27 +- X mode: inactive; use the default watcher cadence.
+       28 +- Supervision host: on; it takes away-posture wakes and, where the dialog mirror is verified, eligibl
+          +e attended wakes itself, and hands the rest to you (protocol at the end of this block).
+❯ Lab boundary reminder: intentional files including scratch/digests must stay under FM_HOME, not /tmp or your home (…
+       29 +- Ordinary wake: the Stop-owned auto-arm (bin/fm-claude-stop-autoarm.sh) already owns watcher continu
+          +ity; run bin/fm-wake-triage.sh and handle the wake, and do not arm another cycle yourself.
+       30 +
+       31 +Mode: Claude Stop-hook-owned supervision.
+       32 +
+       33 +When this session owns supervision and away mode is not active:
+       34 +1. For a wake without completed hook-side triage (step 3), drain first with `bin/fm-wake-triage.sh`.
+       35 +   Act on every ACT NOW, NOTICES and STANDING entry.
+       36 +   Triage you run by hand never acknowledges; after handling, run its exact `WAKE_ACK_REQUIRED` comma
+          +nd.
+       37 +   If the triage itself fails, read any `state/.wake-triage.pending.*` output, then use `bin/fm-wake-
+          +drain.sh`.
+       38 +2. Routine watcher arm and re-arm are owned by the Stop `asyncRewake` hook (`bin/fm-claude-stop-autoa
+          +rm.sh`), never by you.
+       39 +   Every turn end while supervision is needed launches or attaches one home-scoped watcher cycle with
+          + no model command and no model tokens.
+       40 +   A close needing your handling wakes you through the hook's exit-2 rewake, delivered as a `Stop hoo
+          +k feedback` message ([hook-side triage](../watcher-continuity.md#hook-side-wake-triage)).
+     … 125 more lines
+
+  Ran 1 shell command
+
+⏺ Captain, the LICENSE worker is registered here and I'm waiting on it.
+
+  - Worker: the LICENSE investigation (license-bench) is recorded in this lab. It has gone quiet but hasn't sent a
+    result yet.
+  - Monitoring: the normal monitoring takes over when this turn ends. I haven't started any new task or interfered with
+    the worker.
+  - Lab boundary fixed: I had saved a copy of the startup report in a temp folder outside the lab. I moved it to
+    /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSNV4CBJJ0M8YPZZK3BZXV/.test-lab-home/scratch/session-start-di
+    gest.txt, and nothing of mine is left outside the lab.
+
+  As soon as the worker's result arrives, I'll send you the LICENSE finding without waiting to be asked.
+
+✻ Churned for 21s · done 4:48 PM
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M5CSNV4CBJJ0M8YPZZK3BZXV | 71f30e0d | ctx 9%
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent

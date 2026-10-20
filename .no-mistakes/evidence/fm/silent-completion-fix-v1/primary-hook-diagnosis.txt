@@ -1,0 +1,40 @@
+  item still shows on every check: cleanup of the finished investigation. I did not run it because it was outside what
+  you asked for.
+
+  Why the project hooks did nothing in this terminal: the hooks are loaded, but each one checks where it is running and
+  stops silently.
+  - Settings are not the cause. The terminal started with claude --settings <worktree>/.claude/settings.json. There is
+    no disableAllHooks or managed-hooks-only setting anywhere. The workspace trust comes from the shared repository
+    entry.
+  - What stops them: bin/fm-sessionstart-run.sh:128, bin/fm-host-mirror.sh:154 and the cd guard all call
+    fm_primary_scope_matches "$FM_ROOT" (bin/fm-primary-scope-lib.sh:41). That check only accepts a plain checkout
+    (git-dir equal to git-common-dir) or a folder marked with .fm-secondmate-home.
+  - This terminal's code folder is neither. It is a linked worktree: git-dir is
+    .../548b8aa73bec.git/worktrees/01M5CSNV... and the common dir is .../548b8aa73bec.git.
+  - The check ignores FM_HOME. It tests the code folder (FM_ROOT), not the test home. A valid .test-lab-home does not
+    help.
+  - Proof: in this environment the predicates return seat=y, root=n, scope=n, lock=y. Replaying the mirror hook and the
+    session-start hook by hand with real hook input exits 0, prints nothing, and creates no .host-mirror* file. The
+    transcript also shows only user-level hooks producing output.
+
+  Fix: start the lab terminal from a plain checkout of the code, or have the lab put a secondmate marker on its code
+  folder. Either one makes these hooks act. I changed no settings or code, ran no validation, and wrote only inside the
+  test home.
+
+⏺ Ran 5 stop hooks
+  ⎿  Stop hook error: Finish gate: you ended the turn with a question instead of a result. Take the next step
+  yourself now. Stop again only when the goal is reached and verified (proof: command output, test, diff read
+  back, screenshot). If the question really is a one-way-door decision, restate it in one line with your
+  recommendation and keep working on what does not depend on it. If everything is already verified, end with at
+  most one short question.
+
+⏺ Captain, the job you asked for is done and checked. My last message ended with a statement about the fix, not a
+  question. Nothing else is left within the limits you set.
+
+  -
+                                                                             Stop hook error occurred · ctrl+o to see
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 (1M context) | ~/.no-mistakes/worktrees/548b8aa73bec/01M5CSNV4CBJJ0M8YPZZK3BZXV | 71f30e0d | ctx 10%
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent

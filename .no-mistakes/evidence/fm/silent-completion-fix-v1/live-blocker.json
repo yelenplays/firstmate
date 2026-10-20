@@ -1,0 +1,11 @@
+{
+  "head": "71f30e0d66783d2dc69166278e61cfd7dffe7ef2",
+  "primary_scope_probe": "primary_root_matches_exit=1\nmarked_lab_home_exit=0\n",
+  "lab_records": {
+    ".host-mirror.jsonl": false,
+    ".supervision-host": false,
+    ".watch.lock": false,
+    ".last-watcher-beat": false
+  },
+  "note": "Real Claude primary launched in named Herdr lab with normal login, both default project settings and explicit --settings .claude/settings.json. No automatic completion reached chat. The linked worktree is not an eligible primary root. No global configuration or scope guards changed."
+}

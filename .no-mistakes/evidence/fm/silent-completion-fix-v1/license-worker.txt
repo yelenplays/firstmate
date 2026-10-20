@@ -1,0 +1,7 @@
+.test-lab-home/projects/license-bench on  HEAD [?]
+❯ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSNV4CBJJ0M8YPZZK3BZXV/.test-lab-home/run-worker.sh
+g1792507669.49222.18641
+
+WORKER_FINISHED: It's the MIT License (Copyright 2026 Kun Chen), and commercial use is allowed, including selling copies
+, with the one condition that the copyright notice and the permission notice stay in all copies or substantial portions
+of the Software.

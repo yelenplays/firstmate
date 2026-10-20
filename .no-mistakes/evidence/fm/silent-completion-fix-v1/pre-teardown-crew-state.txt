@@ -1,0 +1,1 @@
+state: done · source: status-log · LICENSE investigation finished; report at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSNV4CBJJ0M8YPZZK3BZXV/.test-lab-home/data/license-bench/report.md
