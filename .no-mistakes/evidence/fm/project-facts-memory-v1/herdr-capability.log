@@ -1,0 +1,5 @@
+session=fm-lab-facts-memory-49835-5855
+provision_exit=0
+{"client":{"version":"0.9.0","channel":"stable","protocol":22,"endpoint_protocol_generation":1,"endpoint_capabilities":["surface_interest","presentation_effects_fence","health_check"],"binary":"/opt/homebrew/bin/herdr","session":"fm-lab-facts-memory-49835-5855"},"server":{"status":"running","running":true,"version":"0.9.0","protocol":22,"capabilities":{"live_handoff":true,"detached_server_daemon":false,"endpoint_protocol_generation":1,"surface_interest":true,"health_check":true},"compatible":true,"endpoint_compatible":true,"socket":"/Users/yelen/.config/herdr/sessions/fm-lab-facts-memory-49835-5855/herdr.sock","session":"fm-lab-facts-memory-49835-5855","restart_needed":false,"server_binary_stale":false},"update":{"restart_needed":false,"server_binary_stale":false}}
+fm-herdr-lab: run forbids a leading option before the Herdr subcommand; it could shift a server or session lifecycle operation past the guard or subvert session isolation
+teardown_exit=0

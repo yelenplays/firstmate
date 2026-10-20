@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Ship and scout briefs receive only their shared business facts",
+    "result": "pass"
+  },
+  {
+    "name": "Malformed and duplicate business links refuse brief creation",
+    "result": "pass"
+  },
+  {
+    "name": "Business facts preserve local-only delivery posture in either token order",
+    "result": "fail",
+    "error": "{'facts_after_mode': 'local-only off', 'facts_before_mode': 'no-mistakes off'}"
+  },
+  {
+    "name": "Inherited business facts reach second-home generated brief",
+    "result": "pass"
+  },
+  {
+    "name": "Complete linked work updates recall and now, preserves unrelated notes, and is idempotent",
+    "result": "pass"
+  },
+  {
+    "name": "Unsafe memory task identifiers are rejected without creating a note",
+    "result": "pass"
+  }
+]

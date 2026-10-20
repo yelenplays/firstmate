@@ -1,0 +1,8 @@
+{
+  "now/other-pending.md": "---\ncategory: now\ncreated: 2026-10-20\nupdated: 2026-10-20\ntask: other-task\n---\n# Other pending\n\nOther still running\n",
+  "now/headroom-followup.md": "---\ncategory: now\ncreated: 2026-10-20\nupdated: 2026-10-20\ntask: headroom-retest-v1\ncompleted: 2026-10-20\n---\n# Headroom followup\n\nErledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/headroom-retest-v1/report.md\n",
+  "now/ship-landing.md": "---\ncategory: now\ncreated: 2026-10-20\nupdated: 2026-10-20\ntask: landed-ship\ncompleted: 2026-10-20\n---\n# Ship landing\n\nErledigt 2026-10-20 (landed-ship): abgeschlossen. PR: https://example.test/pull/42\n",
+  "now/headroom-comparison.md": "---\ncategory: now\ncreated: 2026-10-20\nupdated: 2026-10-20\ntask: headroom-retest-v1\ncompleted: 2026-10-20\n---\n# Headroom comparison\n\nErledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/headroom-retest-v1/report.md\n",
+  "now/unlinked-situation.md": "---\ncategory: now\ncreated: 2026-10-20\nupdated: 2026-10-20\n---\n# Unlinked situation\n\nUnlinked still running\n",
+  "events/headroom-historic.md": "---\ncategory: events\ncreated: 2026-10-20\nupdated: 2026-10-20\ntask: headroom-retest-v1\n---\n# Headroom historic\n\nHistorical started record\n"
+}

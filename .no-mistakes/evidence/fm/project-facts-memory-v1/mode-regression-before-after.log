@@ -1,0 +1,5 @@
+Order-independence regression: base versus target public CLI
+base moving-before: no-mistakes off
+target moving-before: local-only off
+base moving-after: local-only off
+target moving-after: local-only off

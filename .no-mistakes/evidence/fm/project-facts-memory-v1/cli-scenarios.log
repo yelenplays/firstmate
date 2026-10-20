@@ -1,0 +1,135 @@
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh moving-scout moving-site --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/moving-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh moving-ship moving-v2 --mode local-only
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/moving-ship/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh unmapped-scout unmapped --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/unmapped-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh invalid-0 bad-project --scout
+
+error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/projects.md row for bad-project has a malformed [facts: ../escape] token; want [facts: <business>] with <business> matching ^[a-z0-9][a-z0-9._-]*$
+
+exit: 1
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh invalid-1 bad-project --scout
+
+error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/projects.md row for bad-project carries more than one [facts: ...] token
+
+exit: 1
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh invalid-2 bad-project --scout
+
+error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/projects.md row for bad-project has a malformed [facts: ] token; want [facts: <business>] with <business> matching ^[a-z0-9][a-z0-9._-]*$
+
+exit: 1
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-project-mode.sh moving-site
+local-only off
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-project-mode.sh moving-v2
+no-mistakes off
+
+
+exit: 0
+ASSERTION FAILURE AssertionError({'facts_after_mode': 'local-only off', 'facts_before_mode': 'no-mistakes off'})
+$ bash -c . bin/fm-config-inherit-lib.sh; propagate_inheritable_config "$1" "$2" inherit /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/config /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/second-home/config
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-brief.sh inherited-scout moving-site --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/second-home/data/inherited-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category now --task headroom-retest-v1 Headroom comparison Vergleichstest 0.41 laeuft, Ergebnis steht noch aus
+now/headroom-comparison.md
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category now --task other-task Other investigation other investigation running
+now/other-investigation.md
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category now Unlinked note unlinked pending
+now/unlinked-note.md
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category events --task headroom-retest-v1 Headroom history Historical context
+events/headroom-history.md
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh recall --json Headroom
+{"version":1,"dir":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/memories","count":2,"documents":[{"path":"events/headroom-history.md","score":0.792,"title":"Headroom history","snippet":"# Headroom history Historical context "},{"path":"now/headroom-comparison.md","score":0.532,"title":"Headroom comparison","snippet":"# Headroom comparison Vergleichstest 0.41 laeuft, Ergebnis steht noch aus "}]}
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh complete-task headroom-retest-v1 --report /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/headroom-retest-v1/report.md --outcome 0.41 wins
+completed: now/headroom-comparison.md
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh recall --json Headroom
+{"version":1,"dir":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/memories","count":2,"documents":[{"path":"events/headroom-history.md","score":0.928,"title":"Headroom history","snippet":"# Headroom history Historical context "},{"path":"now/headroom-comparison.md","score":0.791,"title":"Headroom comparison","snippet":"# Headroom comparison Erledigt 2026-10-20 (headroom-retest-v1): 0.41 wins. Berich..."}]}
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh now
+- Unlinked note: unlinked pending
+- Other investigation: other investigation running
+- Headroom comparison: Erledigt 2026-10-20 (headroom-retest-v1): 0.41 wins. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.gate-validation/home/data/headroom-retest-v1/report.md
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh complete-task headroom-retest-v1 --outcome SHOULD NOT OVERWRITE
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh complete-task missing-task
+
+
+exit: 0
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category now --task ../escape Invalid note body
+
+memory: invalid --task id (want ^[A-Za-z0-9][A-Za-z0-9._-]*$): ../escape
+
+exit: 3
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh complete-task ../escape
+
+memory: invalid task id: ../escape
+
+exit: 3
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category now --task bad task Invalid note body
+
+memory: invalid --task id (want ^[A-Za-z0-9][A-Za-z0-9._-]*$): bad task
+
+exit: 3
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh complete-task bad task
+
+memory: invalid task id: bad task
+
+exit: 3
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh remember --category now --task -leading Invalid note body
+
+memory: invalid --task id (want ^[A-Za-z0-9][A-Za-z0-9._-]*$): -leading
+
+exit: 3
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/bin/fm-memory.sh complete-task -leading
+
+memory: invalid task id: -leading
+
+exit: 3

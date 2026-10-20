@@ -1,0 +1,349 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/finished-investigation
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/finished-investigation
+[exit 0]
+
+$ bin/fm-tasks-axi.sh add finished-investigation Disposable investigation --kind scout --repo moving-site
+ok: added finished-investigation (scout, repo moving-site) -> Queued
+task:
+  id: finished-investigation
+  title: Disposable investigation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: moving-site
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start finished-investigation` to move it to in flight
+  - Run `tasks-axi block finished-investigation --by <other>` to record a dependency
+[exit 0]
+
+$ bin/fm-tasks-axi.sh start finished-investigation
+ok: start finished-investigation -> In flight
+help[1]:
+  - Run `tasks-axi done finished-investigation --pr <url>` when it ships
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task finished-investigation Headroom finished-investigation Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+now/headroom-finished-investigation.md
+[exit 0]
+
+$ bin/fm-teardown.sh finished-investigation --scout-complete
+wrote data/history/tasks/finished-investigation.md
+teardown finished-investigation complete (window none, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/finished-investigation/missing-scratch, legacy record accepted without spawn_gen: endpoint missing, incarnation legacy-20261020T102115Z-2555)
+Backlog: finished-investigation is closed in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/finished-investigation/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/finished-investigation
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[exit 0]
+
+$ bin/fm-memory.sh recall Headroom
+0.288	now/headroom-finished-investigation.md	Headroom finished-investigation
+    # Headroom finished-investigation Erledigt 2026-10-20 (finished-investigation): U...
+[exit 0]
+
+Persisted memory contract after cleanup:
+---
+category: now
+created: 2026-10-20
+updated: 2026-10-20
+task: finished-investigation
+completed: 2026-10-20
+---
+# Headroom finished-investigation
+
+Erledigt 2026-10-20 (finished-investigation): Untersuchung abgeschlossen. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/finished-investigation/data/finished-investigation/report.md
+
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/missing-report
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/missing-report
+[exit 0]
+
+$ bin/fm-tasks-axi.sh add missing-report Disposable investigation --kind scout --repo moving-site
+ok: added missing-report (scout, repo moving-site) -> Queued
+task:
+  id: missing-report
+  title: Disposable investigation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: moving-site
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start missing-report` to move it to in flight
+  - Run `tasks-axi block missing-report --by <other>` to record a dependency
+[exit 0]
+
+$ bin/fm-tasks-axi.sh start missing-report
+ok: start missing-report -> In flight
+help[1]:
+  - Run `tasks-axi done missing-report --pr <url>` when it ships
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task missing-report Headroom missing-report Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+now/headroom-missing-report.md
+[exit 0]
+
+$ bin/fm-teardown.sh missing-report --scout-complete
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/missing-report
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: scout task missing-report has no report at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/missing-report/data/missing-report/report.md.
+The report is the work product. Have the crewmate write it, or use --force after explicit discard approval.
+[exit 1]
+
+$ bin/fm-memory.sh recall Headroom
+0.396	now/headroom-missing-report.md	Headroom missing-report
+    # Headroom missing-report Headroom-Vergleichstest laeuft; Ergebnis steht noch aus...
+[exit 0]
+
+Persisted memory contract after cleanup:
+---
+category: now
+created: 2026-10-20
+updated: 2026-10-20
+task: missing-report
+---
+# Headroom missing-report
+
+Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-with-report
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-with-report
+[exit 0]
+
+$ bin/fm-tasks-axi.sh add discard-with-report Disposable investigation --kind scout --repo moving-site
+ok: added discard-with-report (scout, repo moving-site) -> Queued
+task:
+  id: discard-with-report
+  title: Disposable investigation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: moving-site
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start discard-with-report` to move it to in flight
+  - Run `tasks-axi block discard-with-report --by <other>` to record a dependency
+[exit 0]
+
+$ bin/fm-tasks-axi.sh start discard-with-report
+ok: start discard-with-report -> In flight
+help[1]:
+  - Run `tasks-axi done discard-with-report --pr <url>` when it ships
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task discard-with-report Headroom discard-with-report Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+now/headroom-discard-with-report.md
+[exit 0]
+
+$ bin/fm-teardown.sh discard-with-report --force
+wrote data/history/tasks/discard-with-report.md
+teardown discard-with-report complete (window none, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-with-report/missing-scratch, legacy record accepted without spawn_gen: endpoint missing, incarnation legacy-20261020T102134Z-22763)
+Backlog: discard-with-report is closed in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-with-report/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-with-report
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[exit 0]
+
+$ bin/fm-memory.sh recall Headroom
+0.396	now/headroom-discard-with-report.md	Headroom discard-with-report
+    # Headroom discard-with-report Headroom-Vergleichstest laeuft; Ergebnis steht noc...
+[exit 0]
+
+Persisted memory contract after cleanup:
+---
+category: now
+created: 2026-10-20
+updated: 2026-10-20
+task: discard-with-report
+---
+# Headroom discard-with-report
+
+Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-without-report
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-without-report
+[exit 0]
+
+$ bin/fm-tasks-axi.sh add discard-without-report Disposable investigation --kind scout --repo moving-site
+ok: added discard-without-report (scout, repo moving-site) -> Queued
+task:
+  id: discard-without-report
+  title: Disposable investigation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: moving-site
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start discard-without-report` to move it to in flight
+  - Run `tasks-axi block discard-without-report --by <other>` to record a dependency
+[exit 0]
+
+$ bin/fm-tasks-axi.sh start discard-without-report
+ok: start discard-without-report -> In flight
+help[1]:
+  - Run `tasks-axi done discard-without-report --pr <url>` when it ships
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task discard-without-report Headroom discard-without-report Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+now/headroom-discard-without-report.md
+[exit 0]
+
+$ bin/fm-teardown.sh discard-without-report --force
+wrote data/history/tasks/discard-without-report.md
+teardown discard-without-report complete (window none, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-without-report/missing-scratch, legacy record accepted without spawn_gen: endpoint missing, incarnation legacy-20261020T102144Z-30112)
+Backlog: discard-without-report is closed in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-without-report/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/discard-without-report
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[exit 0]
+
+$ bin/fm-memory.sh recall Headroom
+0.396	now/headroom-discard-without-report.md	Headroom discard-without-report
+    # Headroom discard-without-report Headroom-Vergleichstest laeuft; Ergebnis steht ...
+[exit 0]
+
+Persisted memory contract after cleanup:
+---
+category: now
+created: 2026-10-20
+updated: 2026-10-20
+task: discard-without-report
+---
+# Headroom discard-without-report
+
+Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/memory-readonly
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/memory-readonly
+[exit 0]
+
+$ bin/fm-tasks-axi.sh add memory-readonly Disposable investigation --kind scout --repo moving-site
+ok: added memory-readonly (scout, repo moving-site) -> Queued
+task:
+  id: memory-readonly
+  title: Disposable investigation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: moving-site
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start memory-readonly` to move it to in flight
+  - Run `tasks-axi block memory-readonly --by <other>` to record a dependency
+[exit 0]
+
+$ bin/fm-tasks-axi.sh start memory-readonly
+ok: start memory-readonly -> In flight
+help[1]:
+  - Run `tasks-axi done memory-readonly --pr <url>` when it ships
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task memory-readonly Headroom memory-readonly Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+now/headroom-memory-readonly.md
+[exit 0]
+
+$ bin/fm-teardown.sh memory-readonly --scout-complete
+wrote data/history/tasks/memory-readonly.md
+teardown memory-readonly complete (window none, worktree /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/memory-readonly/missing-scratch, legacy record accepted without spawn_gen: endpoint missing, incarnation legacy-20261020T102152Z-38150)
+Backlog: memory-readonly is closed in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/memory-readonly/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/memory-readonly
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+mktemp: mkstemp failed on /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cleanup/memory-readonly/data/memories/now/.mem.W23NTe: Permission denied
+memory: mktemp failed
+warning: could not update the now/ memory note linked to memory-readonly; cleanup continues
+[exit 0]
+
+$ bin/fm-memory.sh recall Headroom
+0.396	now/headroom-memory-readonly.md	Headroom memory-readonly
+    # Headroom memory-readonly Headroom-Vergleichstest laeuft; Ergebnis steht noch au...
+[exit 0]
+
+Persisted memory contract after cleanup:
+---
+category: now
+created: 2026-10-20
+updated: 2026-10-20
+task: memory-readonly
+---
+# Headroom memory-readonly
+
+Headroom-Vergleichstest laeuft; Ergebnis steht noch aus
+
+All recovered-scout cleanup scenario assertions passed.

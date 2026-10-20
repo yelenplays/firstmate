@@ -1,0 +1,204 @@
+$ bin/fm-project-mode.sh moving-site
+local-only off
+[exit 0]
+
+$ bin/fm-project-mode.sh moving-v2
+local-only off
+[exit 0]
+
+$ bin/fm-project-mode.sh --raw delivery-first
+direct-PR on
+[exit 0]
+
+$ bin/fm-project-mode.sh --branch-prefix delivery-first
+work/
+[exit 0]
+
+$ bin/fm-project-mode.sh --forge delivery-first
+forgejo
+[exit 0]
+
+$ bin/fm-project-mode.sh --witness delivery-first
+https://example.test/health
+[exit 0]
+
+$ bin/fm-project-mode.sh --raw facts-first
+direct-PR on
+[exit 0]
+
+$ bin/fm-project-mode.sh --branch-prefix facts-first
+work/
+[exit 0]
+
+$ bin/fm-project-mode.sh --forge facts-first
+forgejo
+[exit 0]
+
+$ bin/fm-project-mode.sh --witness facts-first
+https://example.test/health
+[exit 0]
+
+$ bin/fm-project-mode.sh --raw wiki-first
+direct-PR on
+[exit 0]
+
+$ bin/fm-project-mode.sh --branch-prefix wiki-first
+work/
+[exit 0]
+
+$ bin/fm-project-mode.sh --forge wiki-first
+forgejo
+[exit 0]
+
+$ bin/fm-project-mode.sh --witness wiki-first
+https://example.test/health
+[exit 0]
+
+$ bin/fm-brief.sh ship-facts moving-site --mode local-only --herdr-lab
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/ship-facts/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+Generated ship-facts brief business-facts block:
+# Business facts
+These are the recorded facts of the business behind this project (moving).
+Read them before any form, signup, directory entry, or legal or tax step, and never claim or request anything they contradict (for example a registration the business does not have).
+
+Gewerbe: nein; noch nicht angemeldet.
+VAT: keine Umsatzsteuer-ID.
+Legal owner: Max Muster (Privatperson).
+
+# Herdr isolation - HARD SAFETY CONTRACT
+This brief was explicitly scaffolded with `--herdr-lab` because the task will drive Herdr lifecycle behavior.
+On Herdr 0.7.3 the API socket is not relocatable by `HERDR_CONFIG_PATH`, `XDG_CONFIG_HOME`, or `HOME`.
+A named non-`default` session plus an explicit `--session <name
+
+$ bin/fm-brief.sh scout-facts moving-v2 --scout --herdr-lab
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/scout-facts/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+Generated scout-facts brief business-facts block:
+# Business facts
+These are the recorded facts of the business behind this project (moving).
+Read them before any form, signup, directory entry, or legal or tax step, and never claim or request anything they contradict (for example a registration the business does not have).
+
+Gewerbe: nein; noch nicht angemeldet.
+VAT: keine Umsatzsteuer-ID.
+Legal owner: Max Muster (Privatperson).
+
+# Herdr isolation - HARD SAFETY CONTRACT
+This brief was explicitly scaffolded with `--herdr-lab` because the task will drive Herdr lifecycle behavior.
+On Herdr 0.7.3 the API socket is not relocatable by `HERDR_CONFIG_PATH`, `XDG_CONFIG_HOME`, or `HOME`.
+A named non-`default` session plus an explicit `--session <name
+
+$ bin/fm-brief.sh bad bad --scout
+error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/projects.md row for bad has a malformed [facts: ../moving] token; want [facts: <business>] with <business> matching ^[a-z0-9][a-z0-9._-]*$
+[exit 1]
+
+$ bin/fm-brief.sh duplicate duplicate --scout
+error: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/projects.md row for duplicate carries more than one [facts: ...] token
+[exit 1]
+
+$ bin/fm-brief.sh plain plain --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/plain/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ bin/fm-brief.sh missing missing --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/missing/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ propagate_secondmate_inheritance
+[exit 0]
+
+$ bin/fm-brief.sh inherited-scout moving-v2 --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/second/data/inherited-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task headroom-retest-v1 Headroom comparison Headroom-Vergleichstest 0.41 laeuft, Ergebnis steht noch aus
+now/headroom-comparison.md
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task headroom-retest-v1 Headroom followup Headroom result pending
+now/headroom-followup.md
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task other-task Other pending Other still running
+now/other-pending.md
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now Unlinked situation Unlinked still running
+now/unlinked-situation.md
+[exit 0]
+
+$ bin/fm-memory.sh remember --category events --task headroom-retest-v1 Headroom historic Historical started record
+events/headroom-historic.md
+[exit 0]
+
+$ bin/fm-memory.sh recall Headroom
+0.784	now/headroom-followup.md	Headroom followup
+    # Headroom followup Headroom result pending 
+0.609	now/headroom-comparison.md	Headroom comparison
+    # Headroom comparison Headroom-Vergleichstest 0.41 laeuft, Ergebnis steht noch au...
+0.585	events/headroom-historic.md	Headroom historic
+    # Headroom historic Historical started record 
+[exit 0]
+
+$ bin/fm-memory.sh complete-task headroom-retest-v1 --report /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/headroom-retest-v1/report.md --outcome Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt
+completed: now/headroom-comparison.md
+completed: now/headroom-followup.md
+[exit 0]
+
+$ bin/fm-memory.sh recall Headroom
+0.758	events/headroom-historic.md	Headroom historic
+    # Headroom historic Historical started record 
+0.69	now/headroom-comparison.md	Headroom comparison
+    # Headroom comparison Erledigt 2026-10-20 (headroom-retest-v1): Untersuchung abge...
+0.69	now/headroom-followup.md	Headroom followup
+    # Headroom followup Erledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgesc...
+[exit 0]
+
+$ bin/fm-memory.sh recall Bericht
+0.611	now/headroom-comparison.md	Headroom comparison
+    ...headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC27...
+0.611	now/headroom-followup.md	Headroom followup
+    ...headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC27...
+[exit 0]
+
+$ bin/fm-memory.sh now
+- Unlinked situation: Unlinked still running
+- Other pending: Other still running
+- Headroom followup: Erledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/headroom-retest-v1/report.md
+- Headroom comparison: Erledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CCAH0SEX7ZN7PXPC274FMA/.test-project-facts/cli/home/data/headroom-retest-v1/report.md
+[exit 0]
+
+$ bin/fm-memory.sh complete-task headroom-retest-v1 --outcome Overwrite attempt
+[exit 0]
+
+$ bin/fm-memory.sh complete-task unknown-task
+[exit 0]
+
+$ bin/fm-memory.sh remember --category now --task landed-ship Ship landing Implementation running
+now/ship-landing.md
+[exit 0]
+
+$ bin/fm-memory.sh complete-task landed-ship --pr https://example.test/pull/42 --outcome abgeschlossen
+completed: now/ship-landing.md
+[exit 0]
+
+$ bin/fm-memory.sh recall https://example.test/pull/42
+7.147	now/ship-landing.md	Ship landing
+    # Ship landing Erledigt 2026-10-20 (landed-ship): abgeschlossen. PR: https://example.test/pull/42 
+0.478	now/headroom-comparison.md	Headroom comparison
+    # Headroom comparison Erledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /U...
+0.478	now/headroom-followup.md	Headroom followup
+    # Headroom followup Erledigt 2026-10-20 (headroom-retest-v1): Untersuchung abgeschlossen; Version 0.41 bleibt bevorzugt. Bericht: /U...
+[exit 0]
+
+$ bin/fm-memory.sh complete-task ../escape
+memory: invalid task id: ../escape
+[exit 3]
+
+$ bin/fm-memory.sh remember --task bad/task Invalid link body
+memory: invalid --task id (want ^[A-Za-z0-9][A-Za-z0-9._-]*$): bad/task
+[exit 3]
+
+All real CLI scenario assertions passed.
