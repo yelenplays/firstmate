@@ -59,7 +59,7 @@ class H(http.server.BaseHTTPRequestHandler):
             except OSError:
                 pass
             return
-        body = json.dumps({"results": []}) if m == "empty" else open(os.path.join(fix, name + ".json")).read()
+        body = json.dumps({"results": []}) if m == "empty" else json.dumps(["not", "a", "dict"]) if m == "shape" else open(os.path.join(fix, name + ".json")).read()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -255,6 +255,14 @@ expect_code 0 "$code" "trickle: $err"
 assert_contains "$(trailer)" 'provider=tinyfish hops=2' "trickle: a trickled body times out and hops on"
 [ $(( $(date +%s) - started )) -lt 3 ] || fail "trickle: the 1 s hop deadline did not cover the body read"
 pass "the hop deadline covers a trickled response body"
+
+new_case shape
+set_mode exa shape
+search --chain K "shape probe $QMARK"
+expect_code 0 "$code" "shape: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "shape: a wrong-shaped reply hops on"
+assert_equals 1 "$(awk -F'\t' '$2=="exa-lite"' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "shape: the billed Exa call is still ledgered"
+pass "a wrong-shaped JSON reply hops on instead of killing the chain"
 
 new_case all-empty
 set_mode ketch-exa empty

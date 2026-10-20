@@ -325,9 +325,9 @@ def logged(hop, route, call):
     t0 = time.time()
     try:
         results, cost = call()
-    except HopError:
+    except (HopError, ValueError, TypeError, AttributeError, KeyError) as e:
         append_ledger(hop, 0.0, time.time() - t0, 0, route)
-        raise
+        raise e if isinstance(e, HopError) else HopError("malformed reply")
     append_ledger(hop, cost, time.time() - t0, len(results), route)
     return results, cost
 
