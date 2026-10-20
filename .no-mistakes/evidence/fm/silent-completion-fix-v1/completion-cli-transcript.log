@@ -1,0 +1,126 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DF17BJ0TV9G41NVZXX1R4R/.fm-cli-b14s_l50
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DF17BJ0TV9G41NVZXX1R4R/.fm-cli-b14s_l50
+
+exit=0
+$ bin/fm-tasks-axi.sh add search-bench 'Search bench result visibility' --kind scout
+ok: added search-bench (scout) -> Queued
+task:
+  id: search-bench
+  title: Search bench result visibility
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start search-bench` to move it to in flight
+  - Run `tasks-axi block search-bench --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-crew-state.sh search-bench
+state: unknown · source: none · no metadata for search-bench
+
+exit=0
+$ bin/fm-branch-outcome.sh append --task search-bench --verdict routine --summary 'Measurement still running' --promote-finished
+1
+
+exit=0
+$ bin/fm-tasks-axi.sh done search-bench --note 'Measured result: fixture benchmark output' --no-prune
+ok: done search-bench -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+
+exit=0
+$ bin/fm-crew-state.sh search-bench
+state: done · source: backlog · closed 2026-10-20, no live metadata for search-bench
+
+exit=0
+$ bin/fm-branch-outcome.sh append --task search-bench --verdict routine --summary 'Search bench completed: result ready' --promote-finished
+2
+
+exit=0
+$ bin/fm-branch-outcome.sh lookup --seqs 2
+{"seq":2,"epoch":1792527519,"task":"search-bench","wake":"","verdict":"captain","summary":"Search bench completed: result ready","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+$ bin/fm-branch-outcome.sh append --task search-bench --verdict routine --summary 'No new activity' --silent true --promote-finished
+3
+
+exit=0
+$ bin/fm-branch-outcome.sh lookup --seqs 3
+{"seq":3,"epoch":1792527520,"task":"search-bench","wake":"","verdict":"routine","summary":"No new activity","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+$ bin/fm-tasks-axi.sh add late-finish 'Result completes after report' --kind ship
+ok: added late-finish (ship) -> Queued
+task:
+  id: late-finish
+  title: Result completes after report
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start late-finish` to move it to in flight
+  - Run `tasks-axi block late-finish --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-branch-outcome.sh append --task late-finish --verdict routine --summary 'Finished result awaiting cleanup' --promote-finished
+4
+
+exit=0
+$ bin/fm-branch-outcome.sh lookup --seqs 4
+{"seq":4,"epoch":1792527521,"task":"late-finish","wake":"","verdict":"routine","summary":"Finished result awaiting cleanup","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+$ bin/fm-tasks-axi.sh done late-finish --no-prune
+ok: done late-finish -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+
+exit=0
+$ bin/fm-branch-outcome.sh finished-handback --seqs 4
+5
+
+exit=0
+$ bin/fm-branch-outcome.sh lookup --seqs 5
+{"seq":5,"epoch":1792527524,"task":"late-finish","wake":"","verdict":"captain","summary":"Finished result awaiting cleanup","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+$ bin/fm-branch-outcome.sh finished-handback --seqs 4
+
+exit=0
+$ bin/fm-branch-report.sh --task search-bench --verdict routine --summary 'Unauthorized report'
+report refused: only the supervision branch reports outcomes; MAIN acts on them instead
+
+exit=3
+$ bin/fm-branch-outcome.sh list
+{"seq":1,"epoch":1792527517,"task":"search-bench","wake":"","verdict":"routine","summary":"Measurement still running","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792527519,"task":"search-bench","wake":"","verdict":"captain","summary":"Search bench completed: result ready","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792527520,"task":"search-bench","wake":"","verdict":"routine","summary":"No new activity","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792527521,"task":"late-finish","wake":"","verdict":"routine","summary":"Finished result awaiting cleanup","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792527524,"task":"late-finish","wake":"","verdict":"captain","summary":"Finished result awaiting cleanup","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+OBSERVATIONS: backlog completion promotes visible routine to captain; progress and silent rows remain routine; turn-end recheck appends one captain row and repeated recheck adds none; unauthorized report refused. These CLI checks do not prove automatic chat delivery.

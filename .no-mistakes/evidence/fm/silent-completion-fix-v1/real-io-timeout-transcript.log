@@ -1,0 +1,14 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DF17BJ0TV9G41NVZXX1R4R/.fm-io-stall-y_v5isqc
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DF17BJ0TV9G41NVZXX1R4R/.fm-io-stall-y_v5isqc
+
+exit=0
+Setup: data/backlog.md is a FIFO without a writer; the real crew-state -> tasks-axi show path blocks on opening it. No FM_CREW_STATE_BIN override or fake CLI is used.
+$ bin/fm-branch-outcome.sh append --task io-stall --verdict routine --summary 'Result remains durably reportable when current-state I/O hangs' --promote-finished
+1
+
+exit=0
+$ bin/fm-branch-outcome.sh lookup --seqs 1
+{"seq":1,"epoch":1792527778,"task":"io-stall","wake":"","verdict":"routine","summary":"Result remains durably reportable when current-state I/O hangs","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+Observed: append returned in 10.94s; persisted verdict=routine; current-state I/O did not block durable reporting indefinitely.

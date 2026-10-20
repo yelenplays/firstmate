@@ -1,0 +1,13 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DF17BJ0TV9G41NVZXX1R4R/.fm-bounds-8_6w6eka
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DF17BJ0TV9G41NVZXX1R4R/.fm-bounds-8_6w6eka
+
+exit=0
+$ bin/fm-branch-outcome.sh append --task timeout-test --verdict routine --summary 'Probe unavailable, report remains durable' --promote-finished
+1
+
+exit=0
+$ bin/fm-branch-outcome.sh lookup --seqs 1
+{"seq":1,"epoch":1792527612,"task":"timeout-test","wake":"","verdict":"routine","summary":"Probe unavailable, report remains durable","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+
+exit=0
+FAULT-INJECTION RESULT: elapsed=10.79s, persisted verdict=routine
