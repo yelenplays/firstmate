@@ -1,0 +1,10 @@
+{
+  "real_live_searches_have_valid_normalized_schema_and_limits": true,
+  "expected_exit_codes": true,
+  "jev_docs_pick_and_case_insensitive_cache_hit": true,
+  "one_real_jev_request_for_two_searches": true,
+  "cache_uses_lowercase_query_hash": true,
+  "ledger_has_only_six_metadata_fields_and_no_query_text": true,
+  "ledger_total_usd": 0.027,
+  "targeted_test_selection_succeeds_with_preexisting_mirror_excluded_for_child_only": true
+}

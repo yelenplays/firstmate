@@ -1,0 +1,39 @@
+[
+  {
+    "command": [
+      "bin/fm-test-run.sh",
+      "--list",
+      "--changed",
+      "--base",
+      "415ba24ad758986931bedaa018ad9a8826a905cf"
+    ],
+    "exit": 1,
+    "stderr": "fm-test-run: no changed-test mapping for source path: mirror/.crawl.log",
+    "context": "Initial attempt included the pre-existing untracked mirror; no suites ran. Retry scopes core.excludesFile to child process only."
+  },
+  {
+    "command": [
+      "bin/fm-test-run.sh",
+      "--list",
+      "--changed",
+      "--base",
+      "415ba24ad758986931bedaa018ad9a8826a905cf"
+    ],
+    "exit": 0,
+    "stdout": "tests/fm-agy-harness.test.sh\ntests/fm-arm-pretool-check.test.sh\ntests/fm-ask-user-authority.test.sh\ntests/fm-bearings-board.test.sh\ntests/fm-brief.test.sh\ntests/fm-calm-claude-mod.test.sh\ntests/fm-calm-pi-extension.test.sh\ntests/fm-captain-hold-lifecycle.test.sh\ntests/fm-cd-pretool-check.test.sh\ntests/fm-classify-decision-key.test.sh\ntests/fm-commandcode-harness.test.sh\ntests/fm-composer-ghost.test.sh\ntests/fm-composer-lib.test.sh\ntests/fm-credguard-install.test.sh\ntests/fm-credguard-read.test.sh\ntests/fm-crew-state.test.sh\ntests/fm-devin-harness.test.sh\ntests/fm-documentation-audiences.test.sh\ntests/fm-dod-lib.test.sh\ntests/fm-ensure-agents-md.test.sh\ntests/fm-forge-detect.test.sh\ntests/fm-fork-free-helpers.test.sh\ntests/fm-grok-harness.test.sh\ntests/fm-harness-adapter-references.test.sh\ntests/fm-harness-precedence.test.sh\ntests/fm-herdr-lab.test.sh\ntests/fm-hermes-agent.test.sh\ntests/fm-kimi-harness.test.sh\ntests/fm-lint-workflows.test.sh\ntests/fm-lint.test.sh\ntests/fm-matt-pointers.test.sh\ntests/fm-muse-harness.test.sh\ntests/fm-omp-harness.test.sh\ntests/fm-operational-input.test.sh\ntests/fm-pi-primary-types.test.sh\ntests/fm-pi-role-agents.test.sh\ntests/fm-project-mode.test.sh\ntests/fm-rovo-harness.test.sh\ntests/fm-send-popup-settle.test.sh\ntests/fm-send-settle.test.sh\ntests/fm-skill-path.test.sh\ntests/fm-subagent-pretool-check.test.sh\ntests/fm-supervision-instructions.test.sh\ntests/fm-task-delivery.test.sh\ntests/fm-test-isolation-proof.test.sh\ntests/fm-test-run.test.sh\ntests/fm-timeout-lib.test.sh\ntests/fm-tmux-submit-busy.test.sh\ntests/fm-trace-context-lib.test.sh\ntests/fm-transition-lib.test.sh\ntests/fm-vendor-auth-probe.test.sh\ntests/fm-branch-supervision.test.sh\ntests/fm-busy-adapter-wiring.test.sh\ntests/fm-busy-state.test.sh\ntests/fm-classify-corr-token.test.sh\ntests/fm-claude-primary.test.sh\ntests/fm-claude-stop-autoarm.test.sh\ntests/fm-cursor-harness.test.sh\ntests/fm-dispatch-replay.test.sh\ntests/fm-dispatch-resolve.test.sh\ntests/fm-dispatch-selftest.test.sh\ntests/fm-extension-binding.test.sh\ntests/fm-free-model-canary.test.sh\ntests/fm-free-research-lane.test.sh\ntests/fm-gitignore-config.test.sh\ntests/fm-jev-retrieval-miss.test.sh\ntests/fm-live-gate.test.sh\ntests/fm-no-mistakes-required.test.sh\ntests/fm-peek-remote.test.sh\ntests/fm-pending-reply.test.sh\ntests/fm-pi-branch-extension.test.sh\ntests/fm-procevent-quota.test.sh\ntests/fm-procevent-when.test.sh\ntests/fm-procevent.test.sh\ntests/fm-project-origin.test.sh\ntests/fm-public-followup.test.sh\ntests/fm-quota-choose.test.sh\ntests/fm-remote-entrypoint.test.sh\ntests/fm-remote-secondmate-parent-binding.test.sh\ntests/fm-search-dates.test.sh\ntests/fm-search.test.sh\ntests/fm-send-remote-delivery.test.sh\ntests/fm-spawn-pool-base-freshen.test.sh\ntests/fm-test-fixture-cleanup.test.sh\ntests/fm-test-fixtures.test.sh\ntests/fm-theme.test.sh\ntests/fm-voice-relay.test.sh\ntests/fm-wake-drain-open-decisions-cursor.test.sh\ntests/fm-wake-drain-open-decisions.test.sh\ntests/fm-wake-drain-outcome-backstop.test.sh\ntests/fm-wiki-ask.test.sh\n",
+    "stderr": "",
+    "context": "child-process-only untracked exclusion for mirror and temporary selector directory"
+  },
+  {
+    "command": [
+      "bin/fm-test-run.sh",
+      "--list-scheduled",
+      "tests/fm-search.test.sh",
+      "tests/fm-search-dates.test.sh"
+    ],
+    "exit": 0,
+    "stdout": "tests/fm-search.test.sh\ntests/fm-search-dates.test.sh\n",
+    "stderr": "",
+    "context": "child-process-only untracked exclusion for mirror and temporary selector directory"
+  }
+]

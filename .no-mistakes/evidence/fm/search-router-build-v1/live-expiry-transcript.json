@@ -1,0 +1,31 @@
+[
+  {
+    "name": "Expired route entry triggers a fresh real Jev class pick",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Python asyncio TaskGroup reference documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 3.29,
+    "stdout": "{\"results\": [{\"title\": \"Coroutines and tasks\", \"url\": \"https://docs.python.org/3/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"This section outlines high-level asyncio APIs to work with coroutines and Tasks. Coroutines, Awaitables, Creating tasks, Task cancellation, Task groups, ...\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 2, \"lat\": 3.01, \"cost\": 0.0, \"route\": \"jev\", \"class\": \"docs\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "Daily cap blocks TinyFish even below the minute cap",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python unittest official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 3.08,
+    "stdout": "{\"results\": [{\"title\": \"unittest \u2014 Unit testing framework\", \"url\": \"http://docs.python.org/dev/library/unittest.html\", \"date\": \"\", \"snippet\": \"condition is true. @ unittest. skipUnless ( condition , reason ) \u00b6 Skip the decorated test unless condition is true. @ unittest. Section: check that s.split fails when the separator is not a string Some users will find that they have existing test code that they would like to run from unittest , without converting every old test function to a TestCase subclass. For this reason, unittest provides a FunctionTestCase class. This subclass of TestCase can be used to wrap an existing test function. Set-up and tear-down functions can also be provided. Given the following test function: def testSomething (): something = makeSomething () assert something . name is not None # ... one can create an equivalent test case instance as follows, with optional set-up and tear-down methods: testcase\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.76, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  }
+]

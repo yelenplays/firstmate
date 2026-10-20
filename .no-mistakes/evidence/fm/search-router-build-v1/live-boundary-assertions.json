@@ -1,0 +1,7 @@
+{
+  "zero_exa_cap_made_no_exa_calls": true,
+  "tinyfish_second_call_blocked": true,
+  "missing_keys_never_called_keyed_providers": true,
+  "long_query_skipped_jev": true,
+  "all_cli_exits_and_shapes_matched_contract": true
+}

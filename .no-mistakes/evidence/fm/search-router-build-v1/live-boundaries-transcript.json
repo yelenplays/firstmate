@@ -1,0 +1,63 @@
+[
+  {
+    "name": "Zero Exa budget skips keyed Exa and returns TinyFish result",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python unittest official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 3.65,
+    "stdout": "{\"results\": [{\"title\": \"unittest — Unit testing framework — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/unittest.html\", \"date\": \"\", \"snippet\": \"The unittest module provides a rich set of tools for constructing and running tests. This section demonstrates that a small subset of the tools suffice to meet ...\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 2, \"lat\": 3.39, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "TinyFish rate cap and zero Exa cap prohibit additional keyed calls",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python unittest official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.06,
+    "stdout": "{\"results\": [{\"title\": \"unittest — Unit testing framework — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/unittest.html\", \"date\": \"\", \"snippet\": \"setUpModule and tearDownModule ¶ These should be implemented as functions: ``` def setUpModule (): createConnection () def tearDownModule (): closeConnection () ``` If an exception is raised in a `setUpModule` then none of the tests in the module will be run and the `tearDownModule` will not be run. If the exception is a `SkipTest` exception then the module will be reported as having been skipped instead of as an error. To add cleanup code that must be run even in the case of an exception, use `addModuleCleanup` : unittest. addModuleCleanup ( _function_ , _/_ , _* args_ , _** kwargs_ ) ¶ Add a function to be called after `tearDownModule()` to cleanup resources used during the test class. Functions will be called in reverse order to the order they are added ( LIFO ). They are called with any arguments and keyword arguments passed into `addModuleCleanup()` when they are added. If `setUpModule()` fails, meaning that `tearDownModule()` is not called, then any cleanup functions added will still be called. Added in version 3.8.\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 1.83, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "Missing keys preserve free-provider fallbacks or four-hop exhaustion",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python unittest official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.41,
+    "stdout": "{\"results\": [{\"title\": \"unittest — Unit testing framework\", \"url\": \"http://docs.python.org/dev/library/unittest.html\", \"date\": \"\", \"snippet\": \"if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s OK The above examples show the most commonly used unittest features which are sufficient to meet many everyday testing needs. The remainder of the documentation explores if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s Command-Line Interface ¶ if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s The unittest module can be used from the command line to run tests from modules, classes or even individual test methods: python - m unittest test_module1 test_module2 py if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s Command-line options ¶ if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s unittest supports these command-line options: -b , --buffer ¶ The standard output and standard error streams are buffered during the test run. Output during a passing tes if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s Test Discovery ¶ if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s Added in version 3.2. Unittest supports simple test discovery. In order to be compatible with test discovery, all of the test files must be modules or packages importable if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s Organizing test code ¶ if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s The basic building blocks of unit testing are test cases — single scenarios that must be set up and checked for correctness. In unittest , test cases are represented by u if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s class WidgetTestCase ( unittest . TestCase ): def setUp ( self ): self . widget = Widget ( 'The widget' ) if __name__ == '__main__' : unittest . main () A test case is created by subclassing unittest.TestCase . The three individual tests are defined with methods whose names s Re-using old test code ¶\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.07, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "Over-300-byte query bypasses Jev",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Python documentation reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference reference "
+    ],
+    "exit": 0,
+    "elapsed_s": 7.45,
+    "stdout": "{\"results\": [{\"title\": \"The Python Language Reference — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/reference/index.html\", \"date\": \"\", \"snippet\": \"This reference manual describes the syntax and core semantics of the language. It is terse, but attempts to be exact and complete. Elsewhere, the built-in object types and functions are described in Python built-ins reference. Standard library modules are described in The Python standard library.\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 3, \"lat\": 7.17, \"cost\": 0.0, \"route\": \"default\"}}\n",
+    "stderr": ""
+  }
+]
