@@ -129,9 +129,10 @@ This backstop mirrors the protected-execution fail-closed rule and covers forms 
 It is gated on the grammar being unsupported: in grammar the classifier does model, command-position analysis is authoritative, so data mentions such as `echo 'pkill -f fm-watch'` and a loop that only names the watcher without a kill verb such as `for f in 1; do echo fm-watch; done` remain allowed.
 
 One narrow allowance sits before the `unclassifiable-protected-command` deny: a compound command that only reads protected scripts as data.
-`readOnlyProgram` admits it only when every executed command word, at every nesting depth including substitutions and groups, is a literal tool from a fixed read-only set (`cat`, `wc`, `grep`, `echo`, `printf`, `ls`, `head`, `tail`, and similar) or `git` with a read-only subcommand (`cat-file`, `show`, `log`, `diff`, `ls-files`, `ls-tree`, `rev-parse`, `status`).
+`readOnlyProgram` admits it only when every executed command word, at every nesting depth including substitutions and groups, is a literal tool from a fixed read-only set (`cat`, `wc`, `grep`, `echo`, `printf`, `ls`, `head`, `tail`, and similar) or exactly `git cat-file -s <object>`.
+Other Git modes stay outside this compound-command exception because they can invoke pagers, external diffs, filters, or hooks; `tests/fm-arm-git-execution.test.sh` covers that execution boundary.
 So `for f in bin/fm-watch.sh bin/fm-send.sh; do git cat-file -s HEAD:$f; done` and `while read -r f; do wc -l "$f"; done < bin/fm-watch.sh` are allowed.
-Everything else keeps failing closed: a dynamic or other command word (`"$f"`, `bash "$f"`, `sh` in a pipe), any wrapper, a prefix assignment, an output redirection other than to `/dev/null`, a heredoc, a background list, `case`, `git grep` (its `-O` runs a program), and setting any variable a tool or the shell may run as a program (`GIT_*`, `PAGER`, `EDITOR`, `PATH`, `BASH_ENV`, and similar) by assignment, `for`, `read`, or `printf -v`.
+Everything else keeps failing closed: a dynamic or other command word (`"$f"`, `bash "$f"`, `sh` in a pipe), any wrapper, a prefix assignment, an output redirection other than to `/dev/null`, a heredoc, a background list, `case`, `git grep` (its `-O` runs a program), any `printf -v`, and setting any variable a tool or the shell may run as a program (`GIT_*`, `PAGER`, `EDITOR`, `PATH`, `BASH_ENV`, and similar) by assignment, `for`, or `read`.
 
 ## Stable reason codes
 

@@ -98,7 +98,8 @@ A close that carries a `supervision-host:` line, or comes from a host that exite
 That second test is a whitelist: queue rows, working status annotations of routine tasks, the acknowledgement line, the queued-wakes warning, the `OPEN DECISIONS` count line, and the persistent `UNFINISHED EXECUTION` obligations.
 Any other line keeps the wake, including unread status, branch outcomes, record divergence, a watcher-down banner, and recovered drain output.
 Queued decisions, terminal statuses, and firstmate-owned execution items stay ACT NOW.
-The two live reads behind a routine verdict, `bin/fm-crew-state.sh` and `bin/fm-captain-hold.sh open`, run as concurrent background probes for every task that passed the file clauses, at most `FM_WAKE_TRIAGE_PROBE_JOBS` (default 8) processes at once, and their verdicts are folded in row order.
+The two live reads behind a routine verdict, `bin/fm-crew-state.sh` and `bin/fm-captain-hold.sh open`, run as concurrent background probes for every task that passed the file clauses, and their verdicts are folded in row order.
+The [`bin/fm-wake-triage.sh` header](../bin/fm-wake-triage.sh) owns the configurable batch launch threshold.
 A probe that leaves no result keeps its task ACT NOW.
 The drain's fleet-wide scan can list a decision before that row is queued ([decision presentation owner](architecture.md#event-driven-supervision)), so every listed decision is ACT NOW with its text in the triage summary, which the hook never cuts; a byte-capped list is ACT NOW too.
 Execution obligations are reconciled on every drain while their check row is rate-limited, so triage likewise records the firstmate-owned `UNFINISHED EXECUTION` entries it delivers in `state/.wake-triage.execution`, and any other firstmate-owned entry is ACT NOW with its next action in the summary.

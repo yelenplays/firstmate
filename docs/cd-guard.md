@@ -13,7 +13,7 @@ the watcher-arm PreToolUse seatbelt (`bin/fm-arm-pretool-check.sh`, `docs/arm-pr
 The primary firstmate shell persists its working directory across tool calls.
 A stray persistent top-level `cd projects/<clone>` therefore silently relocates the shell, so the next firstmate-owned command - a backlog write, an `fm-*` lifecycle call - runs inside a project clone instead of the home.
 That has actually happened: a persistent top-level `cd` caused a firstmate-owned backlog write to execute inside a project clone rather than the home.
-The seatbelt denies exactly that command shape - a cwd change that persists to the primary shell - before it runs.
+The seatbelt denies that command shape before it runs, with the narrow return-to-home allowance defined below.
 
 This guard is not a general sandbox.
 It classifies shell command positions only; it never evaluates, expands, sources, or runs any byte of the submitted command.
@@ -37,7 +37,7 @@ Secondmate child crew and scout worktrees are likewise inert under the linked-wo
 
 The discriminator is persistence to the parent shell's cwd, not the mere presence of the token `cd`.
 
-The guard **blocks** a `cd`, `pushd`, or `popd` builtin that runs in an executed top-level position in the parent shell, because such a command persistently changes the primary shell's own working directory.
+Except for the return-to-home allowance below, the guard **blocks** a `cd`, `pushd`, or `popd` builtin that runs in an executed top-level position in the parent shell, because such a command persistently changes the primary shell's own working directory.
 This covers a bare `cd projects/foo`, `cd ..`, `cd`, `cd -`, an absolute `cd /some/path` (still a persistent relocation of the parent shell), `pushd <dir>`, `popd`, a leading-assignment form such as `X=1 cd foo`, quoted or escaped command-word fragments that cook to a bare builtin, and any list form where the builtin runs in the parent shell (`cd x && cmd`, `cmd; cd x`, `cmd || cd x`, `command cd x`, `command -p cd x`, `command -- cd x`, `builtin cd x`, `command builtin cd x`, `cd x >/dev/null`, and newline-separated lists).
 
 The guard **allows** everything else, including these safe scoped forms that must never be blocked:
@@ -52,9 +52,8 @@ The guard **allows** everything else, including these safe scoped forms that mus
   An expanded operand (`cd "$FM_HOME"`), an option (`cd -P <home>`), `pushd <home>`, or any other directory, a subdirectory of the home included, stays blocked.
 - The token `cd` appearing as data: quoted text (`echo "cd projects/foo"`), a comment, a substring of another word (`cdk`, `abcd`, `record`), a `printf` payload, or any later argument word.
 
-An absolute-path `cd` is blocked on purpose: the ALLOW carve-out for absolute paths is for commands that address a target by absolute path, not for `cd`, which relocates the shell itself regardless of whether its argument is relative or absolute.
-Blocking a top-level `cd` is safe in the strong sense: the guard's steady state is "always at the home", so a return-to-home `cd` is redundant rather than necessary, and the block never causes a wrong-directory write.
-That same redundancy is why the return-to-home form is allowed: it cannot move the shell anywhere but the home, and denying it only cost a retry.
+An absolute-path `cd` outside the return-to-home allowance is blocked on purpose: an absolute operand does not prevent a persistent relocation of the shell.
+The guard's steady state is "always at the home", so the allowed return-to-home form is redundant rather than necessary and cannot strand the shell in a project clone.
 
 ### Accepted non-goals
 
@@ -74,7 +73,7 @@ Every deny carries one stable code in square brackets before its prose reason.
 | `persistent-cd` | A top-level `cd`/`pushd`/`popd` would persistently change the primary shell's own working directory. |
 
 The reason directs the caller to reach the target without moving the shell by using `git -C <dir>`, placing an absolute path on the intended command itself, or scoping the `cd` to a subshell.
-It does not permit `cd /home/project`, because an absolute-path `cd` remains a persistent directory change and is denied.
+An absolute operand alone does not exempt a directory change; only the return-to-home allowance above does.
 
 ## Transport and fail-open behavior
 

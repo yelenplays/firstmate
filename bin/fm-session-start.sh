@@ -48,7 +48,9 @@
 #                       (bin/fm-branch-outcome.sh seed-tail).
 #                       An optional ACT FIRST priority list follows it (note below).
 #   4. supervision-instructions - the one emitted operating block for the
-#                       detected primary harness.
+#                       detected primary harness. A slim compact re-emit moves
+#                       this immediately after the lock, using current state,
+#                       condensed rules, and a command for the full block.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
 #   6. fleet digest   - on a full digest, a compact data/backlog.md
@@ -58,8 +60,9 @@
 #                       flag), and a cheap per-task endpoint-liveness read.
 #                       A slim compact re-emit omits the backlog, meta bodies,
 #                       status tails, and orphan status logs, but keeps the
-#                       away posture and one identity/endpoint/last-status line
-#                       per live task. These local sections are read-only; the
+#                       away posture and a byte-capped list of live-task
+#                       identity/endpoint/last-status lines. These local sections
+#                       are read-only; the
 #                       per-task reads are bounded and crash-isolated so one
 #                       cannot abort the digest. They run serially, so with a
 #                       wedged backend the stage's ceiling is tasks x the
@@ -90,8 +93,8 @@
 # EVERY nonzero child exit, not only the bound: a child that dies or is killed
 # mid-stage must never truncate the digest silently.
 #
-# ACT FIRST: on the locked path, after the wake queue, the --local mode of
-# bin/fm-jev-act-first.sh prints a bounded priority view from the drain output
+# ACT FIRST: on the locked full-digest path, after the wake queue, the --local
+# mode of bin/fm-jev-act-first.sh prints a bounded priority view from the drain output
 # and current live-task status tails, without a model or network call. That
 # same drain output is handed to the deferred network stage, which ranks it
 # with Jev and current status tails in a separate publication and wake
@@ -135,8 +138,9 @@
 # contract that only arrives after the payload it governs is the first thing a
 # truncated digest loses, and it carries the truncation caveat that keeps it
 # honest when a stage below it never ran.
-# The LOCK/BOOTSTRAP/WAKE-QUEUE safety preamble keeps its order: it establishes
-# mutation authority and this turn's work queue before anything else is read.
+# A full digest keeps the LOCK/BOOTSTRAP/WAKE-QUEUE safety preamble in order.
+# A slim compact re-emit moves condensed supervision immediately after LOCK,
+# ahead of the byte-capped bootstrap and wake queue sections.
 #
 # On a Pi primary, the supervision-block step also checks whether Pi's two
 # tracked primary extensions are loaded and prints a PI_WATCH_EXTENSION
@@ -258,15 +262,16 @@
 #   --full    Print the complete digest even for a compact re-emit. A compact
 #             re-emit (--reemit --source compact) prints a SLIM digest by
 #             default, sized to stay under 9 KB (see SLIM SIZE BUDGET): the lock
-#             line, then the supervision block's current state and the command
-#             for the whole block, bootstrap diagnostics, the wake queue (the
-#             drain's OPEN DECISIONS, UNREAD STATUS, UNFINISHED EXECUTION and
+#             line, then the supervision block's current state, condensed
+#             operating rules, and command for the whole block, bootstrap
+#             diagnostics, the wake queue (the drain's OPEN DECISIONS,
+#             UNREAD STATUS, UNFINISHED EXECUTION and
 #             BRANCH OUTCOMES sections ahead of its annotations and raw rows)
-#             with its WAKE_ACK_REQUIRED line whole, one line per live task, the
+#             with its WAKE_ACK_REQUIRED line whole, budgeted live-task lines, the
 #             orphan status ids, the away posture, public commitments, network
 #             checks, the theme's address and no-op lines, and the newest
-#             captain words. Every variable-size section is cut to a byte budget
-#             that names what it cut, and the uncut bootstrap and drain text is
+#             captain words. Bulky sections have byte budgets that disclose
+#             omitted lines, and the uncut bootstrap and drain text is
 #             kept in state/.session-start-reemit.detail. It drops only what one
 #             command re-derives: the compact backlog, every state/*.meta body,
 #             status tails, the ACT FIRST list, and the curated CONTEXT files.
@@ -469,8 +474,8 @@ subsection() { printf '\n%s\n%s\n' "$1" "$SUBRULE"; }
 # and a harness replaces hook output over its inline limit (Claude: about 10 KB)
 # with a file path and a 2 KB preview, so a model that does not re-read the file
 # loses everything after the preview. The slim digest therefore stays under
-# 9 KB: one-line section titles, the supervision block's current state ahead of
-# the bulk, and a byte budget per variable-size section. Lines a budget drops
+# 9 KB: one-line section titles, supervision state and condensed rules ahead of
+# the bulk, and byte budgets for bulky sections. Lines a budget drops
 # are named with a count, and the complete bootstrap and drain text is kept in
 # REEMIT_DETAIL, because the drain has already spent its one-shot presentation.
 REEMIT_DETAIL="$STATE/.session-start-reemit.detail"
@@ -1086,9 +1091,9 @@ fi
 
 # --- 4. supervision operating instructions ----------------------------------
 # A slim compact re-emit prints this right after the lock, ahead of every
-# variable-size section, and only as the current-state lines plus the command
-# for the whole block (see SLIM SIZE BUDGET); every other digest prints the
-# whole block here.
+# variable-size section, as current-state lines, condensed operating rules,
+# and the command for the whole block (see SLIM SIZE BUDGET); every other
+# digest prints the whole block here.
 [ "$SLIM" -eq 1 ] || print_supervision_stage
 
 # --- 5. read-once contract -------------------------------------------------

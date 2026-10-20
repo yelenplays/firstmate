@@ -21,6 +21,12 @@
 # A branch actor delegates to the drain without absorption.
 # docs/watcher-continuity.md "Hook-side wake triage" owns eligibility,
 # away-mode exclusion, and presentation-delivery safety.
+#
+# FM_WAKE_TRIAGE_PROBE_JOBS (default 8) is the positive-integer batch launch
+# threshold for concurrent crew-state and captain-hold probes. Each eligible
+# task launches a pair; before the next pair, reaching the threshold waits for
+# the entire batch. An odd threshold therefore permits one extra probe.
+# Unset, empty, nonnumeric, and zero values use the default.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -152,7 +158,7 @@ meta_for_stale() {
 
 # The two live reads (crew state and captain hold) dominate a triage's wall
 # time, so every task that passes the cheap file clauses gets them as
-# background probes, at most FM_WAKE_TRIAGE_PROBE_JOBS processes at a time.
+# background probes, batched under the launch threshold documented above.
 # Verdicts are folded afterwards in the original row order. A probe that left
 # no result reads as an empty crew line (C3) or an unavailable hold (C6), so
 # a lost probe can only keep a row ACT NOW.
