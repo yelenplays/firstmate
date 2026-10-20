@@ -1,0 +1,33 @@
+[
+  {
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-jev-lib.sh; fm_jev_decide \"Build exited zero.\" '{\"build\":{\"type\":\"noul\",\"instructions\":\"Did the build succeed?\"}}'"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "jev: caller tag required: set FM_JEV_CALLER or pass --caller <tag>; nothing sent\n"
+  },
+  {
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-jev-lib.sh; fm_jev_log_call '{\"purpose\":\"untagged-proof\"}'"
+    ],
+    "exit": 2,
+    "stdout": "",
+    "stderr": "jev: log record needs a caller tag: set FM_JEV_CALLER or add a valid caller field; nothing written\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev-act-first.sh",
+      "--drain-file",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D9Q6N38KC8WMSXQ8Q0RC89/.test-tmp/jev-library-live-3kd3vymy/drain.txt"
+    ],
+    "drain": "OPEN DECISIONS (1):\nneeds-decision [key=build]: choose whether to repair the broken release build\n\n1700000000\t1\theartbeat\troutine\troutine progress update\n",
+    "exit": 0,
+    "stdout": "1. decision needs-decision [key=build]: choose whether to repair the broken release build (p=1.0)\n",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,147 @@
+[
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "Worker",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "task:demo",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "two words",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "worker\nother",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "-worker",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "batch"
+    ],
+    "stdin": "{\"state\": \"Build finished with exit code zero.\", \"questions\": [{\"id\": \"built\", \"type\": \"yes\", \"q\": \"Did the build succeed?\"}]}",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n"
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "worker",
+      "Build finished with exit code zero.",
+      "Did the build succeed?"
+    ],
+    "stdin": null,
+    "exit": 0,
+    "stdout": "yes: yes p=0.98 conf=0.96\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bin/fm-jev.sh",
+      "batch",
+      "--caller=live-validation"
+    ],
+    "stdin": "{\"state\": \"The build exited zero. The tests exited zero.\", \"questions\": [{\"id\": \"built\", \"type\": \"yes\", \"q\": \"Did the build succeed?\"}, {\"id\": \"tests\", \"type\": \"pick\", \"q\": \"What was the test result?\", \"opts\": [\"passed\", \"failed\"]}]}",
+    "exit": 0,
+    "stdout": "built: yes p=0.96 conf=0.92\ntests: passed p=1 conf=1\n",
+    "stderr": ""
+  }
+]
