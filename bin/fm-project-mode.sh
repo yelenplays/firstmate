@@ -177,7 +177,9 @@ parsed=$(awk -v n="$NAME" '
     after = substr($0, plen + 1);
     if (after != "" && substr(after, 1, 2) != " [" && substr(after, 1, 3) != " - ") next
     mode="no-mistakes"; yolo="off"; branch="fm/"; forge="none"; witness="";
-    if (substr(after, 1, 2) == " [" && substr(after, 1, 7) != " [wiki:" && substr(after, 1, 8) != " [facts:") {   # a leading wiki or facts token is not a mode
+    # Skip leading metadata brackets, not the delivery bracket following them.
+    while (after ~ /^ \[(wiki|facts):[^]]*\]/) sub(/^ \[(wiki|facts):[^]]*\]/, "", after)
+    if (substr(after, 1, 2) == " [") {
       s="";
       nk = split(after, rest, " ");
       for (i=1; i<=nk; i++) { s = s (s==""?"":" ") rest[i]; if (rest[i] ~ /\]$/) break }
