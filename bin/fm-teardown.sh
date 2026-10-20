@@ -3709,7 +3709,10 @@ fi
 # A now/ memory note linked to this task (fm-memory.sh remember --task) stops
 # saying the work is running: fm-memory.sh complete-task rewrites it with the
 # outcome and the report or PR link. Best effort; unlinked notes are untouched.
-if [ "$KIND" = scout ] || [ "$KIND" = ship ]; then
+# Skipped for a forced teardown and for a scout without a report: that work did
+# not finish, so its note must not claim it did.
+if { [ "$KIND" = scout ] || [ "$KIND" = ship ]; } && [ "$FORCE" != --force ] \
+  && { [ "$KIND" != scout ] || [ -f "$DATA/$ID/report.md" ]; }; then
   memory_complete_args=()
   if [ "$KIND" = scout ]; then
     memory_complete_args=(--outcome "Untersuchung abgeschlossen" --report "$DATA/$ID/report.md")
