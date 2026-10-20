@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+case " $* " in
+  *"task-a.merge-authority "*)
+    [ -d "$FM_TEST_CONTROL_LOCK" ] || exit 91
+    ;;
+esac
+exec "$FM_TEST_REAL_MV" "$@"

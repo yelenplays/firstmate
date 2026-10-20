@@ -1,0 +1,9 @@
+pr view https://github.com/o/r/pull/1 --json isDraft
+pr view https://github.com/o/r/pull/1 --json headRefOid -q .headRefOid
+pr view https://github.com/o/r/pull/1 --json headRefOid -q .headRefOid
+pr view https://github.com/o/r/pull/1 --json state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,statusCheckRollup
+api repos/o/r/branches/main
+api --paginate repos/o/r/rules/branches/main
+pr merge 1 --repo o/r --match-head-commit 0123456789abcdef0123456789abcdef01234567 --squash
+pr view https://github.com/o/r/pull/2 --json isDraft
+pr view https://github.com/o/r/pull/2 --json headRefOid -q .headRefOid

@@ -819,6 +819,57 @@ test_test_ban_pipeline_fixer_on_an_allowlisted_task() {
   pass "pre-PR check bans a banned pipeline fixer's tests on an allowlisted task"
 }
 
+# Without readable history no pipeline commit can be attributed. The optional
+# pipeline check accepts silently, but a banned worker still has to prove its
+# own test-file changes are allowed.
+test_test_ban_unreadable_pipeline_history() {
+  local scenario wt meta reason expected orphan
+  meta="$TMP_ROOT/unreadable-pipeline.meta"
+  for scenario in empty missing invalid no-origin named-base no-merge-base; do
+    wt="$TMP_ROOT/unreadable-pipeline-$scenario"
+    case "$scenario" in
+      empty) wt=; expected='test-file check cannot read the worker copy' ;;
+      missing) expected='test-file check cannot read the worker copy' ;;
+      invalid)
+        mkdir -p "$wt"
+        printf 'gitdir: missing\n' > "$wt/.git"
+        expected='test-file check cannot read the worker copy'
+        ;;
+      *)
+        fm_git_init_commit "$wt"
+        expected='test-file check cannot resolve the base branch in the worker copy'
+        if [ "$scenario" = named-base ]; then
+          git -C "$wt" update-ref refs/remotes/origin/main HEAD
+          expected='test-file check cannot resolve the base branch origin/release in the worker copy'
+        elif [ "$scenario" = no-merge-base ]; then
+          orphan=$(git -C "$wt" commit-tree 'HEAD^{tree}' -m 'unrelated base')
+          git -C "$wt" update-ref refs/remotes/origin/main "$orphan"
+          expected='test-file check found no merge-base between HEAD and refs/remotes/origin/main'
+        fi
+        ;;
+    esac
+    printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\n' > "$meta"
+    [ "$scenario" != named-base ] || printf 'base_branch=release\n' >> "$meta"
+    reason=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta" 2>&1) \
+      || fail "pipeline attribution refused $scenario history: $reason"
+    [ -z "$reason" ] || fail "pipeline attribution printed a reason for $scenario history: $reason"
+    reason=$(fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 2>&1) \
+      || fail "Opus pre-PR check refused $scenario history: $reason"
+    [ -z "$reason" ] || fail "Opus pre-PR check printed a reason for $scenario history: $reason"
+
+    printf 'test_ban_model=claude-sonnet-5-5\n' >> "$meta"
+    if reason=$(fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1); then
+      fail "banned worker pre-PR check accepted $scenario history"
+    fi
+    [ "$reason" = "$expected" ] || fail "banned worker refusal changed for $scenario: $reason"
+    if reason=$(fm_test_ban_accept_done ship no-mistakes "$wt" 'done: implemented' "$meta"); then
+      fail "banned worker handoff accepted $scenario history"
+    fi
+    [ "$reason" = "$expected" ] || fail "banned worker handoff refusal changed for $scenario: $reason"
+  done
+  pass "unreadable pipeline history accepts Opus silently and still refuses banned workers"
+}
+
 # A step whose fallback chain can run a banned model is banned, and a run's
 # recorded fixer model wins over the config.
 test_test_ban_pipeline_fixer_model_resolution() {
@@ -861,5 +912,6 @@ test_test_ban_gate_measures_from_the_tests_first_handoff
 test_test_ban_handoff_ignores_test_changes_from_the_base
 test_test_ban_pipeline_fixer_on_an_allowlisted_task
 test_test_ban_pipeline_fixer_model_resolution
+test_test_ban_unreadable_pipeline_history
 
 echo "all fm-dod-lib tests passed"

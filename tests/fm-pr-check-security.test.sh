@@ -871,6 +871,37 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
   pass "fm-pr-check bans a banned pipeline fixer's tests by its own model, not the worker's"
 }
 
+# An unresolved origin base cannot attribute a fixer commit on an Opus task;
+# registration still succeeds with a forge head, unlike a banned worker.
+test_test_ban_registration_without_pipeline_history() {
+  local dir lane head
+  for lane in opus sonnet; do
+    dir=$(make_case "test-ban-no-origin-$lane")
+    write_task_meta "$dir"
+    printf 'model=claude-%s-5-5\n' "$lane" >> "$dir/home/state/task-a.meta"
+    if [ "$lane" = sonnet ]; then
+      printf 'test_ban_model=claude-sonnet-5-5\n' >> "$dir/home/state/task-a.meta"
+    fi
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    git -C "$dir/wt" update-ref -d refs/remotes/origin/main
+    if [ "$lane" = opus ]; then
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/83 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "Opus registration refused an unresolved base: $(cat "$dir/stderr")"
+      grep -qx 'pr=https://github.com/o/r/pull/83' "$dir/home/state/task-a.meta" \
+        || fail "Opus registration did not record the PR with an unresolved base"
+      [ -f "$dir/home/state/task-a.check.sh" ] || fail "Opus registration did not arm a poll with an unresolved base"
+    else
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/83 \
+        > "$dir/stdout" 2> "$dir/stderr" && fail "banned worker registered with an unresolved base"
+      grep -Fq 'test-file check cannot resolve the base branch' "$dir/stderr" \
+        || fail "banned worker refusal changed: $(cat "$dir/stderr")"
+      ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "banned worker recorded a PR with an unresolved base"
+      [ ! -e "$dir/home/state/task-a.check.sh" ] || fail "banned worker armed a poll with an unresolved base"
+    fi
+  done
+  pass "registration accepts an unresolved pipeline base on Opus and still refuses banned workers"
+}
+
 test_valid_recording_and_merge_derivation() {
   local dir expected sidecar count rc
   dir=$(make_case valid-recording)
@@ -3753,6 +3784,7 @@ test_unpushed_named_head_refuses_registration
 test_test_ban_runs_when_forge_head_is_available
 test_test_ban_covers_pipeline_fixer_commits
 test_test_ban_covers_banned_fixers_on_allowlisted_tasks
+test_test_ban_registration_without_pipeline_history
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert

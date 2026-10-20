@@ -1,0 +1,12 @@
+{
+  "state": "open",
+  "user": {
+    "login": "author"
+  },
+  "head": {
+    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "draft": false,
+  "mergeable": true,
+  "merged_at": null
+}
