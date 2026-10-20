@@ -71,6 +71,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-credguard-read.mjs` | Credential read guard: refuse a worker tool call that would print a credential file or environment; `--keys` lists key names only (docs/credguard.md) |
 | `fm-credguard-install.mjs` | Wire the credential read guard into every installed worker harness, idempotently (docs/credguard.md) |
 | `fm-jev-tool-gate.sh` | Remainder Jev Choice after a deterministic arm-policy allow; shadow-log default (docs/arm-pretool-check.md) |
+| `fm-search.sh` | Route public web queries through provider fallbacks ([configuration](configuration.md#web-search-router-configfm-searchjson)) |
+| `fm-search.py` | The search adapter and accounting engine behind `fm-search.sh` |
 | `fm-jev.sh` | Compact typed judgments for closed-set decisions ([configuration](configuration.md)) |
 | `fm-jev-skill-select.sh` | Suggest optional skills ([configuration](configuration.md#jev-skill-selector-fm_jev_skill_select)) |
 | `fm-jev-intake-match.sh` | Match positional free-text captain references to backlog items and task records, keyword fallback ([configuration](configuration.md#jev-intake-match)) |

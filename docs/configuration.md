@@ -1191,9 +1191,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Web search router (config/fm-search.json)
 
 `bin/fm-search.sh "<query>"` is the one web search command for firstmate and its workers; plain `ketch search` is not used because its SearXNG default returns nothing when the upstream engines are suspended.
-It prints normalized results (title, url, date, snippet) and a trailer line `provider=<p> hops=<n> lat=<s> cost=$<x> route=<jev|default|forced>`; `--json` prints `results` plus a `meta` block.
-Flags: `--limit N`, `--urls` (TinyFish first, a cheap URL list), `--deep` (Exa type `auto` first), `--chain F|K` (forces a chain), `--no-jev`, and `--ledger`.
-Exit codes: 0 with results, 3 when every hop is empty (one line per hop on stderr), 1 on a usage error.
+The [script header](../bin/fm-search.sh) owns output and ledger formats; its `--help` output owns flags and exit codes.
 
 Routing sends the query text and nothing else to Jev for one class pick (docs, cli, error, seo_local, music, de_admin, stt, fresh).
 Docs, error and music walk chain K; every other class walks chain F.
@@ -1201,14 +1199,20 @@ Chain F is also the deterministic default when Jev exits non-zero, answers below
 
 - Chain F: `exa-keyless` -> `exa-lite` -> `tinyfish` -> `ketch --multi`.
 - Chain K: `exa-lite` -> `tinyfish` -> `exa-keyless` -> `ketch --multi`.
-- A hop falls through to the next on an empty list, a non-2xx response, a timeout, a missing key, or a cap refusal.
+- A hop falls through to the next on an empty list, a non-2xx response, a malformed reply, a timeout, a missing key, or a cap refusal.
 - `exa-keyless` and `ketch --multi` go through `ketch`, whose own configuration stays untouched.
 
-`config/fm-search.json` is an optional per-home override (the file is untracked like all of `config/`); the defaults below are built into `bin/fm-search.py` and the file only needs the keys it changes: the Exa monthly cap ($8, inside the $10 free credit; an 80% crossing prints one warning per month), the Exa search types, the TinyFish per-minute and per-day limits (below the free tier), the Jev confidence floor and route-cache hours, and the per-hop timeouts.
+`config/fm-search.json` is an optional per-home override (the file is untracked like all of `config/`); [`bin/fm-search.py`](../bin/fm-search.py)'s `DEFAULTS` mapping owns the accepted keys and default values.
+Only include the nested keys you want to override; omitted keys retain their defaults.
+These settings cover the Exa monthly cap (with headroom inside the $10 free credit), warning threshold, per-query prices and search types; TinyFish rolling per-minute and per-day limits; Jev confidence, query-size and route-cache limits; and per-hop timeouts.
+Keep budget and rate overrides within the providers' free allowances; the configured Exa warning threshold prints at most one search warning per month after a successfully parsed keyed response.
 Keys are read at call time from `~/.config/exa.key` and `~/.config/tinyfish.key` and never printed, logged or stored; a missing key just removes that hop.
 The router never signs up for, upgrades or buys anything.
 
-`state/fm-search/ledger.tsv` gets one line per provider call (`ts provider cost_usd lat_s n_results route`) and `state/fm-search/route-cache.tsv` caches the class pick for 24 hours under a hash of the lowercased query.
+`state/fm-search/ledger.tsv` gets one line per attempted provider call, including empty results and failures but excluding skipped hops.
+Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; a completed HTTP response with a malformed or undecodable body still records that price against the monthly cap.
+HTTP errors, network errors and timeouts record zero cost.
+`state/fm-search/route-cache.tsv` caches accepted class picks for the configured lifetime under a hash of the lowercased query.
 Neither file stores query text.
 `fm-search.sh --ledger` prints month-to-date spend and calls per provider.
 A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot get the lock within the hop timeout skips the hop.
@@ -2211,7 +2215,9 @@ The vault's `cloud` flag bounds what the worker may open: `ja` gets that full la
 When `<wikis-root>/ProjektWiki/wiki/<project>/<project>.md` exists it is named first.
 A missing token or unreadable estate gets a fallback line pointing at the routing cards; unresolved names are listed with the same guidance while other resolved wikis still render, and none of these conditions fails the scaffold.
 
-Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks same-work records with `bin/fm-jev-intake-match.sh`, analogous past reports and guides with a local `rg --no-ignore` search using one pattern per topic word (capped at five hits), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), and GitHub (`ketch code`, `gh-axi`). For the matcher, workers send Jev only a short neutral project/topic reference, never personal data, names, email addresses, or secrets. Ship findings go in the task guide at `data/<task-id>/guide.md`; scout findings go in a `Prior art` section of `data/<task-id>/report.md`, which serves as the scout's guide.
+Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks same-work records with `bin/fm-jev-intake-match.sh`, analogous past reports and guides with a local `rg --no-ignore` search using one pattern per topic word (capped at five hits), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), GitHub (`ketch code`, `gh-axi`), and the [web search router](#web-search-router-configfm-searchjson).
+For the matcher, workers send Jev only a short neutral project/topic reference, never personal data, names, email addresses, or secrets.
+Ship findings go in the task guide at `data/<task-id>/guide.md`; scout findings go in a `Prior art` section of `data/<task-id>/report.md`, which serves as the scout's guide.
 The step is skippable for a trivial fix with a stated reason in the same destination, and an unavailable source is noted there and skipped rather than waited on; a secondmate charter does not carry it.
 
 The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with reusable task knowledge and useful sources to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
