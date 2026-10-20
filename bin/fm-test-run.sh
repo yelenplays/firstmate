@@ -855,7 +855,6 @@ tests/fm-jev-lib.test.sh 1005
 tests/fm-jev-model-proposal.test.sh 1565
 tests/fm-jev-pr-verdict.test.sh 1800
 tests/fm-jev-retrieval-miss.test.sh 1363
-tests/fm-jev-skill-select.test.sh 77991
 tests/fm-jev-supervision.test.sh 6220
 tests/fm-jev-tool-gate.test.sh 611
 tests/fm-jev.test.sh 8666
@@ -947,7 +946,7 @@ tests/fm-spawn-compact-adviser-disable.test.sh 21654
 tests/fm-skill-path.test.sh 1853
 tests/fm-spawn-dispatch-profile.test.sh 197548
 tests/fm-spawn-orca-worktree.test.sh 2400
-tests/fm-spawn-jev-skill-live.test.sh 49907
+tests/fm-spawn-no-skill-jev.test.sh 8000
 tests/fm-spawn-pool-base-freshen.test.sh 68652
 tests/fm-spawn-truth-path.test.sh 10650
 tests/fm-spawn-worktree-settle.test.sh 9309

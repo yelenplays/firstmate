@@ -2023,47 +2023,6 @@ It is shadow-only: firstmate continues to decide and merge as before, and the ga
 The script header and `--help` own its evidence, privacy, team-QA, deploy configuration, logging, and eval contracts; the [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) skill owns when operators run and record the gate.
 See [`tests/fm-jev-merge-gate.test.sh`](../tests/fm-jev-merge-gate.test.sh) for behavioral regression coverage.
 
-## Jev skill selector (FM_JEV_SKILL_SELECT)
-
-`bin/fm-jev-skill-select.sh` provides a once-per-launch shadow comparison, not a per-prompt router.
-Default `FM_JEV_SKILL_SELECT` is `shadow`: `bin/fm-spawn.sh` runs the comparison for ships and scouts only when an authored safe query exists, writes a fresh per-launch case under `state/jev-skill-shadow/cases/`, and never changes the launch overlay or worker behavior.
-Shadow mode uses the complete code-enumerated eligible public roster with real descriptions, then conditionally makes one detail request over the top three candidates and one Noul per candidate.
-It recommends at most one optional skill only when the relevant Choice and that candidate's Noul each reach 0.8; errors, timeouts, invalid answers, and ambiguity recommend nothing.
-The shadow record contains a local experiment ID, roster and request hashes, the pinned resolved model, decisions, probabilities, latency, token totals, comparison labels, and outcome metadata.
-Both state and criteria use only authored P0/P1 requests and approved public skill content; raw briefs, page bodies, private instructions, career data, mail, traces, unpublished names, and credentials are excluded.
-Before collection, review the installed public skills for that boundary and put their full-file SHA-256 digests in the JSON array `config/jev-skill-public.json`.
-Approval is content-specific: changed files require renewed review; punctuation, Markdown headings, and public documentation links are preserved rather than treated as private content.
-Shadow catalog roots are always restricted to the enumerated public installation locations, including `~/.pi/agent/skills`, under the same digest approval.
-All eligible approved installed skills are offered regardless of ordering; mandatory and supervisor-only skills remain outside this optional suggestion.
-The model is the route's pinned default from `bin/fm-jev-lib.sh`, which remains the transport owner, and the experiment ignores `JEV_MODEL` so its cases stay comparable.
-Before spawning, write the authored safe query to `data/<id>/jev-skill-query.txt` under the active Firstmate home.
-A missing, unreadable, or blank query file skips the shadow call entirely; raw captain text and legacy brief bodies are never fallback queries.
-The shadow supervisor bounds the complete selector to 5.7 seconds with time reserved for recording within the six-second launch envelope; each HTTP call retains its four-second ceiling.
-Timeouts preserve the latest completed decision and usage, and latency measures the whole selector operation including roster preparation.
-Each shadow call requires its originating worker `--launch-id`, including relaunches; reusing that ID supports offline review without credentials or a query.
-Spawn uses its existing `spawn_gen` as the case filename, `experiment_id`, and review `--launch-id`, and appends that ID to `data/<task-id>/jev-skill-launches` before attempting the comparison.
-That task-local history retains the association across relaunches; skipped attempts can have no case file.
-Collection stops automatically at 20 reserved cases, including failures; concurrent reservations share that limit.
-Do not manufacture launches or claim production value before sufficient natural volume exists.
-Review each case against the unassisted agent's actual required skill loading, without changing the worker or persisting its raw trace, using `--launch-id <id> --comparison-label <label>` with the selector's required harness and task arguments.
-Use `correct` when both found the useful skill, `caught` for a genuinely useful skill missed by the agent, `missed` when only the agent found the useful skill, `no-fit` when neither needed one, and add `irrelevant` for an extra high-confidence irrelevant suggestion.
-Pass overlapping outcomes together as comma-separated labels, such as `--comparison-label missed,irrelevant` when the agent found a useful skill and the shadow suggested an irrelevant one.
-Coverage and irrelevant suggestions are counted independently; each reviewed case needs exactly one coverage label (`correct`, `caught`, `missed`, or `no-fit`), so `irrelevant` alone leaves coverage review pending.
-Use `incorrect` for a materially wrong high-confidence recommendation, `p2-exposure` for any P2 in a captured request, `launch-changed` for any altered launch behavior or removed mandatory/supervisor skill, and `roster-omission` for relevant installed skills omitted by ordering or truncation.
-Those four safety labels immediately and permanently stop collection; inspect requests in a controlled development capture without adding request bodies to persisted experiment records.
-`unlabeled` and `unknown` leave review pending; labeling an existing case atomically persists the comparison and recomputes `state/jev-skill-shadow/evaluation.json`.
-After 20 cases, the evaluation stops or requires redesign if useful coverage is no better (`caught <= missed`), fewer than two useful misses were caught with any extra wrong pick, irrelevant suggestions exceed one, timeouts or invalid responses exceed one, or nearest-rank combined p95 is at least 2000 ms.
-Even a passing evaluation cannot start case 21: continuing or redesigning requires a separately authorized experiment, not clearing this checkpoint.
-Live load remains separately opt-in: it requires `FM_JEV_SKILL_SELECT=live`, the gitignored presence file `config/jev-skill-select-live`, and a nonblank safe query in `data/<id>/jev-skill-query.txt`.
-Project skills for live load are discovered from the resolved worker worktree after its freshness step; Codex launches also discover `$CODEX_HOME/skills`, defaulting to `~/.codex/skills` when `CODEX_HOME` is unset or empty.
-Live offers every collected skill id, describing a skill by its front-matter description only when that file's SHA-256 digest is listed in `config/jev-skill-public.json` and offering every other skill by id alone, so no unapproved description reaches Jev.
-With live inputs present, a clear selection is appended to that private launch overlay in the harness's skill-invocation form (`/<skill>`, `$<skill>` on Codex, or the skill id when the runtime has no verified slash form).
-`live_loaded` records verified instructions in the launch overlay, not confirmation that the worker executed them; selected skill files must be readable before injection.
-Choice `none`, an uncertain or error status, a Jev outage, and any write or verify failure leave `live_loaded` false and leave the overlay identical to a spawn that never called Jev.
-A Jev outage or selector failure never refuses or stalls spawn past a short bound.
-The [script header](../bin/fm-jev-skill-select.sh) owns invocation flags, live selection and cache behavior, overlay injection, and live-load refusal.
-Behavioral coverage lives in [selector tests](../tests/fm-jev-skill-select.test.sh) and [spawn integration tests](../tests/fm-spawn-jev-skill-live.test.sh); these do not establish usefulness or latency in a natural launch cohort.
-
 ## Queue readiness (heartbeat)
 
 When `bin/fm-wake-drain.sh` presents a heartbeat row, it prints one advisory `QUEUE READY` line naming the backlog items ready to dispatch, and nothing when none are.
@@ -3577,7 +3536,6 @@ FM_MEMORY_CAPTURE=      # off disables automatic memory capture; else config/mem
 FM_MEMORY_CAPTURE_MODEL=claude-haiku-5-5  # capture model; Claude Haiku or Sonnet only (same section)
 FM_OV_HOME=             # OpenViking home override for migration/retire scripts; default ~/.openviking (docs/memory.md)
 FM_JEV_TOOL_GATE=shadow # remainder Jev tool-gate after arm-command policy; live needs this plus two opt-in files; hard-ship is a do-not (docs/configuration.md "Jev remainder tool-gate")
-FM_JEV_SKILL_SELECT=shadow # skill selection mode; activation and safe-query requirements: "Jev skill selector" above
 FM_JEV_BRIEF_PREFLIGHT=shadow # spawn-path deterministic brief preflight; off skips; never blocks launch (docs/configuration.md "Brief preflight")
 FMX_DISCORD_REPLY_MAX_CHARS=1900   # Discord reply per-message split budget; values below 50 clamp to 50, values above 2000 reset to 1900
 FMX_X_THREAD_MAX=25     # maximum messages in one auto-split reply thread
