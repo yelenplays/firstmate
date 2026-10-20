@@ -3,10 +3,12 @@
 # a real Claude session in a fixture primary checkout that carries only this
 # repo's tracked fm-rules.sh and fm-rule-guard.sh entries must (1) answer from a
 # rule only its SessionStart block delivered, (2) act on the candidate the
-# UserPromptSubmit hook injected, and (3) be blocked by the Stop guard when it
-# hands the captain a "! sudo" line. The hooks read vendor payloads and emit
-# vendor context, so only the real harness can prove them. Opt-in because it
-# submits prompts:
+# UserPromptSubmit hook injected, (3) be blocked by the Stop guard when it
+# hands the captain a "! sudo" line and end either with a clean rewrite or a
+# halt, never with the violating reply as a success, and (4) end the turn when
+# the guard's Stop JSON says continue:false (forced with a zero block cap). The
+# hooks read vendor payloads and emit vendor context, so only the real harness
+# can prove them. Opt-in because it submits prompts:
 #
 #   FM_RULES_LIVE_E2E=1 tests/fm-rules-live-e2e.test.sh
 #
@@ -39,9 +41,16 @@ FM_HOME="$ROOT_LAB" "$ROOT_LAB/bin/fm-rules.sh" add codeword \
   'When the captain asks for the codeword, answer with exactly the word quartz-lantern.' >/dev/null \
   || fail 'seeding the codeword rule failed'
 
-ask() {  # <prompt> -> final reply text
-  (cd "$ROOT_LAB" && env -u CLAUDECODE claude -p --model "$MODEL" --dangerously-skip-permissions \
-    --output-format json "$1" </dev/null 2>"$LAB/claude.err") | jq -r '.result // empty'
+ask() {  # <prompt> [env assignments...] -> final reply text; raw JSON in $LAB/claude.json
+  local prompt=$1
+  shift
+  (cd "$ROOT_LAB" && env -u CLAUDECODE "$@" claude -p --model "$MODEL" --dangerously-skip-permissions \
+    --output-format json "$prompt" </dev/null 2>"$LAB/claude.err") > "$LAB/claude.json"
+  jq -r '.result // empty' "$LAB/claude.json" 2>/dev/null
+}
+
+events() {  # <event> -> count in the captain-rules log
+  jq -r --arg e "$1" 'select(.event == $e) | .event' "$ROOT_LAB/state/captain-rules/log.jsonl" 2>/dev/null | grep -c . || true
 }
 
 out=$(ask 'What is the codeword? Reply with only the codeword.')
@@ -56,14 +65,22 @@ jq -e 'select(.event == "confirm" or .event == "dismiss")' "$ROOT_LAB/state/capt
   || fail "claude $VERSION: the model never acted on the injected candidate (reply: $out; log: $(cat "$ROOT_LAB/state/captain-rules/log.jsonl"))"
 printf 'ok - claude %s: the UserPromptSubmit hook injected a candidate the model confirmed or dismissed\n' "$VERSION"
 
-out=$(ask 'Reply with exactly these two lines and nothing else. Line one: Run this in your session: Line two: ! sudo darwin-rebuild switch')
-jq -e 'select(.event == "guard-block" and .check == "bang-interactive")' "$ROOT_LAB/state/captain-rules/log.jsonl" >/dev/null \
-  || fail "claude $VERSION: the Stop guard never blocked the handed-over sudo line (reply: $out)"
+HANDOVER='Reply with exactly these two lines and nothing else. Line one: Run this in your session: Line two: ! sudo darwin-rebuild switch'
+out=$(ask "$HANDOVER")
+[ "$(events guard-block)" -ge 1 ] || fail "claude $VERSION: the Stop guard never blocked the handed-over sudo line (reply: $out)"
 if printf '%s\n' "$out" | "$ROOT/bin/fm-rule-guard.sh" scan >/dev/null; then
   printf 'ok - claude %s: the Stop guard blocked the "! sudo" reply and the model rewrote it\n' "$VERSION"
 else
-  jq -e 'select(.event == "guard-release")' "$ROOT_LAB/state/captain-rules/log.jsonl" >/dev/null \
-    || fail "claude $VERSION: a violating reply got through without a logged release (reply: $out)"
-  printf 'ok - claude %s: the Stop guard blocked the "! sudo" reply and released the forced repeat\n' "$VERSION"
+  if [ "$(events guard-halt)" -lt 1 ] || ! jq -e '.terminal_reason == "stop_hook_prevented"' "$LAB/claude.json" >/dev/null; then
+    fail "claude $VERSION: a violating reply ended the turn without a halt (reply: $out)"
+  fi
+  printf 'ok - claude %s: the Stop guard blocked the "! sudo" reply and halted the unrevised repeats\n' "$VERSION"
 fi
+
+halts=$(events guard-halt)
+out=$(ask "$HANDOVER" FM_RULE_GUARD_BLOCK_CAP=0)
+[ "$(events guard-halt)" -gt "$halts" ] || fail "claude $VERSION: a zero block cap did not halt the violating reply (reply: $out)"
+jq -e '.terminal_reason == "stop_hook_prevented"' "$LAB/claude.json" >/dev/null \
+  || fail "claude $VERSION: Claude Code did not end the turn on continue:false ($(jq -c '{terminal_reason,stop_reason,subtype}' "$LAB/claude.json" 2>/dev/null))"
+printf 'ok - claude %s: Stop JSON continue:false made Claude Code end the turn on the first violating reply\n' "$VERSION"
 pass "captain rules live: claude $VERSION proved the SessionStart, UserPromptSubmit, and Stop registrations"

@@ -2,7 +2,8 @@
 # Behavior tests for bin/fm-rules.sh.
 #
 # Drives the real script against scratch homes: the rule store and its repeat
-# and check bookkeeping, the rendered always-loaded block, the Claude capture
+# and check bookkeeping, concurrent writers, the write-time budget and complete
+# projections, the rendered always-loaded block, the Claude capture
 # hook (candidate, confirm, dismiss, "nein" revoke) and its scope guards, the
 # registered settings.json entries, the brief section through the real
 # bin/fm-brief.sh, and the weekly report and reminder check.
@@ -89,18 +90,95 @@ test_store_records_repeats_and_checks() {
   pass 'the store records rules, repeats, checks, and reasons, and refuses invalid input'
 }
 
-test_render_is_bounded() {
-  local out i
+# Every accepted rule must reach every projection whole: the store refuses the
+# write that would overflow the budget instead of a projection cutting it.
+test_projections_carry_every_rule_and_overflow_is_refused() {
+  local out rc i n=0 text before ids id file="$HOME_DIR/config/captain-rules.md"
   fresh_home
-  for i in $(seq 1 40); do
-    run_env "$RULES" add "rule-$i" "Rule number $i keeps a long enough line to fill the bounded block quickly." >/dev/null \
-      || fail "seeding rule $i failed"
+  for i in $(seq 1 30); do
+    text="Rule $i: $(printf 'keep this standing correction intact in every projection %.0s' 1 2 3 4)end-$i."
+    out=$(run_env env FM_RULES_MAX_CHARS=2000 "$RULES" add "rule-$i" "$text" 2>&1); rc=$?
+    [ "$rc" -eq 0 ] || break
+    n=$i
   done
-  out=$(run_env "$RULES" render --max-chars 800)
-  [ "${#out}" -le 800 ] || fail "render exceeded --max-chars (${#out})"
-  assert_contains "$out" 'print all with bin/fm-rules.sh list' 'a cut block did not say how to see every rule'
-  assert_equals 40 "$(run_env "$RULES" list | grep -c .)" 'list did not print every rule'
-  pass 'the rendered block honors its character bound and points at the full list'
+  expect_code 4 "$rc" "the add that overflows the budget must be refused with exit 4 ($out)"
+  [ "$n" -ge 3 ] || fail "the budget refused too early, after $n rules"
+  assert_contains "$out" 'not saved' 'the overflow refusal did not say the rule was not saved'
+  assert_contains "$out" 'consolidate rules' 'the overflow refusal did not ask to consolidate'
+  assert_not_contains "$out" 'added:' 'the refused add still reported success'
+  assert_no_grep "rule-$((n + 1))" "$file" 'the refused rule was written'
+  assert_no_grep "\"rule\":\"rule-$((n + 1))\"" "$HOME_DIR/state/captain-rules/log.jsonl" 'the refused rule was logged as saved'
+
+  ids=$(run_env "$RULES" list | cut -f1)
+  assert_equals "$n" "$(printf '%s\n' "$ids" | grep -c .)" 'list lost a rule'
+  local render session brief
+  render=$(run_env env FM_RULES_MAX_CHARS=2000 "$RULES" render)
+  session=$(run_env env FM_RULES_MAX_CHARS=2000 "$RULES" session </dev/null)
+  brief=$(run_env "$RULES" brief-section)
+  for id in $ids; do
+    text=$(run_env "$RULES" list | awk -F'\t' -v id="$id" '$1 == id { print $3 }')
+    assert_contains "$render" "- $text" "render dropped or cut $id"
+    assert_contains "$session" "- $text" "the session hook dropped or cut $id"
+    assert_contains "$brief" "- $text" "the brief section dropped or cut $id"
+  done
+  assert_equals "$render" "$session" 'the session block differs from render'
+
+  # Consolidation always lands, even over budget; growth over budget never does.
+  before=$(cat "$file")
+  run_env env FM_RULES_MAX_CHARS=200 "$RULES" add rule-1 'Rule 1, consolidated.' >/dev/null \
+    || fail 'restating a rule with a shorter text was refused over budget'
+  assert_grep '- [rule-1] Rule 1, consolidated.' "$file" 'the consolidation did not land'
+  out=$(run_env env FM_RULES_MAX_CHARS=200 "$RULES" add rule-2 "$(run_env "$RULES" list | awk -F'\t' '$1 == "rule-2" { print $3 }') More." 2>&1); rc=$?
+  expect_code 4 "$rc" 'growing a rule over budget must be refused'
+  run_env env FM_RULES_MAX_CHARS=200 "$RULES" revoke rule-3 >/dev/null || fail 'revoke was refused over budget'
+  [ "$before" != "$(cat "$file")" ] || fail 'the store did not change'
+
+  # A hand-edited store past the budget still renders whole.
+  for i in $(seq 40 49); do
+    printf -- '- [hand-%s] Hand edited rule %s with enough words to pass a tiny budget. <!-- since=2026-10-20 seen=1 -->\n' "$i" "$i" >> "$file"
+  done
+  out=$(run_env env FM_RULES_MAX_CHARS=200 "$RULES" render)
+  for i in $(seq 40 49); do
+    assert_contains "$out" "- Hand edited rule $i with enough words to pass a tiny budget." "render cut hand-edited rule $i"
+  done
+  assert_not_contains "$out" 'cut at' 'render still announced a cut'
+  out=$(run_env env FM_RULES_MAX_CHARS=abc "$RULES" add x-rule 'X.' 2>&1); rc=$?
+  expect_code 2 "$rc" 'an invalid budget must be a usage error'
+  pass 'render, session, and brief-section carry every rule whole, and an overflowing write is refused before it is saved'
+}
+
+# Parallel writers each read, change, and rename the store; the store lock must
+# make every successful write survive.
+test_concurrent_writes_keep_every_rule() {
+  local i dir="$TMP_ROOT/concurrent" cid seen ok=0
+  fresh_home
+  rm -rf "$dir"; mkdir -p "$dir"
+  run_env "$RULES" add shared 'Shared rule.' >/dev/null || fail 'seeding the shared rule failed'
+  for i in $(seq 1 10); do
+    ( run_env "$RULES" add "rule-$i" "Rule $i." >/dev/null; printf '%s\n' "$?" > "$dir/add-$i" ) &
+  done
+  for i in $(seq 1 5); do
+    ( run_env "$RULES" add shared 'Shared rule.' >/dev/null; printf '%s\n' "$?" > "$dir/repeat-$i" ) &
+  done
+  wait
+  for i in "$dir"/*; do assert_equals 0 "$(cat "$i")" "concurrent write $(basename "$i") failed"; done
+  for i in $(seq 1 10); do
+    run_env "$RULES" list | grep -q "^rule-$i	" || fail "concurrent add rule-$i was lost"
+  done
+  seen=$(run_env "$RULES" list | awk -F'\t' '$1 == "shared" { print $2 }')
+  assert_equals seen=6 "$seen" 'concurrent repeats lost a count'
+  assert_equals 11 "$(run_env "$RULES" list | grep -c .)" 'concurrent writes lost or duplicated a rule'
+
+  prompt 'from now on, never do that again' >/dev/null
+  cid=$(basename "$(candidates)")
+  for i in 1 2 3; do
+    ( run_env "$RULES" confirm "$cid" "from-cand-$i" "Candidate rule $i." >/dev/null 2>&1; printf '%s\n' "$?" > "$dir/confirm-$i" ) &
+  done
+  wait
+  for i in 1 2 3; do [ "$(cat "$dir/confirm-$i")" = 0 ] && ok=$((ok + 1)); done
+  assert_equals 1 "$ok" 'one candidate was confirmed more than once, or never'
+  assert_equals 1 "$(run_env "$RULES" list | grep -c '^from-cand-')" 'a single candidate produced several rules'
+  pass 'concurrent adds, repeats, and confirms all survive with correct counts under the store lock'
 }
 
 test_writes_refuse_in_a_secondmate_home() {
@@ -269,7 +347,8 @@ test_report_and_weekly_check() {
 }
 
 test_store_records_repeats_and_checks
-test_render_is_bounded
+test_projections_carry_every_rule_and_overflow_is_refused
+test_concurrent_writes_keep_every_rule
 test_writes_refuse_in_a_secondmate_home
 test_prompt_hook_captures_and_confirms
 test_hooks_stand_down_outside_their_scope

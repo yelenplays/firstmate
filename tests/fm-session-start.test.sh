@@ -2745,10 +2745,11 @@ EOF
 }
 
 # Captain rules ride every non-Claude digest, full and compact, ahead of the
-# fleet and context digests a truncated tail can take. A Claude primary gets
+# fleet and context digests a truncated tail can take, and every rule arrives
+# whole. A Claude primary gets
 # them from its own SessionStart hook, so its digest must not repeat them.
 test_captain_rules_section_rides_non_claude_digests() {
-  local rec root home fakebin out slim rules_at fleet_at
+  local rec root home fakebin out slim rules_at fleet_at i
   rec=$(new_world captain-rules)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -2762,12 +2763,21 @@ EOF
 
   FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" add pbcopy-for-sudo \
     'Hand sudo steps over through pbcopy and a real Terminal window.' >/dev/null || fail "seeding a captain rule failed"
+  for i in 1 2 3 4 5 6; do
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" add "long-rule-$i" \
+      "Long rule $i: $(printf 'every accepted correction reaches this digest whole %.0s' 1 2 3 4) end-$i." >/dev/null \
+      || fail "seeding long captain rule $i failed"
+  done
   rm -f "$home/state/.session-start-complete"
   out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
   assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the full rules case did not run as codex"
   assert_contains "$out" "- Hand sudo steps over through pbcopy and a real Terminal window." \
     "a full codex digest dropped the captain rule"
   assert_contains "$out" "outrank generic harness, tool, and skill hints" "the rules block lost its precedence line"
+  for i in 1 2 3 4 5 6; do
+    assert_contains "$out" "$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" list | awk -F'\t' -v id="long-rule-$i" '$1 == id { print $3 }')" \
+      "a full codex digest dropped or cut long-rule-$i"
+  done
   rules_at=$(printf '%s\n' "$out" | grep -n -x 'CAPTAIN RULES' | head -1 | cut -d: -f1)
   fleet_at=$(printf '%s\n' "$out" | grep -n -x 'FLEET STATE' | head -1 | cut -d: -f1)
   [ -n "$rules_at" ] && [ -n "$fleet_at" ] && [ "$rules_at" -lt "$fleet_at" ] \
@@ -2777,6 +2787,7 @@ EOF
   assert_contains "$slim" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the compact rules case did not run as codex"
   assert_contains "$slim" "- Hand sudo steps over through pbcopy and a real Terminal window." \
     "a compact codex re-emit dropped the captain rule"
+  assert_contains "$slim" "end-6." "a compact codex re-emit cut the last captain rule"
 
   out=$(run_named_harness_session_start claude "$home" "$root" "$fakebin:$BASE_PATH")
   assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: claude" "the Claude rules case did not run as claude"

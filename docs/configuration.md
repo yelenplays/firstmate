@@ -2222,7 +2222,7 @@ A missing file, a missing heading, or a row without the token renders nothing an
 
 ## Captain rules (config/captain-rules.md)
 
-See [captain rules](captain-rules.md) for the standing-correction contract, context delivery, and secondmate inheritance; the [`fm-rules.sh` header](../bin/fm-rules.sh) owns file format and size controls.
+See [captain rules](captain-rules.md) for the standing-correction contract, context delivery, and secondmate inheritance; the [`fm-rules.sh` header](../bin/fm-rules.sh) owns file format and the write-time size budget, and the [`fm-rule-guard.sh` header](../bin/fm-rule-guard.sh) owns the Stop-guard block cap.
 
 ## Cross-family review
 
