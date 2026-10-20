@@ -793,8 +793,8 @@ EOF
 # outcomes a later drain would present again.
 print_branch_outcomes_section() {
   local config rows through captain routine line seq task task_line target i
-  local text='' used=0 shown=0 held=0 bytes item_bytes=600 captain_bytes=4000 routine_bytes=2000
-  local routine_lines='' routine_count=0 routine_shown=0 done_rows='' done_lines='' routine_rows=''
+  local text='' used=0 shown=0 held=0 bytes item_bytes=600 captain_bytes=4000 routine_bytes=2000 done_bytes=4000
+  local routine_lines='' routine_count=0 routine_shown=0 done_rows='' done_lines='' routine_rows='' done_count=0 done_shown=0
   local -a captain_tasks=() captain_lines=() captain_line_bytes=()
   [ "$ACTOR" = main ] || return 0
   config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
@@ -880,15 +880,18 @@ ROWS
   used=0
   while IFS= read -r line; do
     [ -n "$line" ] || continue
+    done_count=$((done_count + 1))
     cap_outcome_line "$line" $((item_bytes - 1))
     bytes=$(( OUTCOME_LINE_BYTES + 1 ))
-    [ $((used + bytes)) -le "$routine_bytes" ] || break
+    [ $((used + bytes)) -le "$done_bytes" ] || continue
     done_lines="$OUTCOME_LINE
 $done_lines"
     used=$((used + bytes))
+    done_shown=$((done_shown + 1))
   done <<ROWS
 $done_rows
 ROWS
+  used=0
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     routine_count=$((routine_count + 1))
@@ -910,7 +913,10 @@ $routine
 ROWS
   if [ -n "$done_lines" ]; then
     text="${text}BRANCH OUTCOMES, FINISHED (tasks that finished or were torn down since your last drain; this is news for the captain: relay each result in your reply unless you already told the captain in chat, then nothing to acknowledge):
-$done_lines"
+"
+    [ "$done_shown" -eq "$done_count" ] || text="${text}($((done_count - done_shown)) further finished outcome(s) not shown; bin/fm-branch-outcome.sh list keeps them)
+"
+    text="$text$done_lines"
   fi
   if [ "$routine_count" -gt 0 ]; then
     text="${text}BRANCH OUTCOMES, ROUTINE (handled by the supervision session since your last drain; for your awareness, nothing to acknowledge):
