@@ -1,0 +1,22 @@
+$ ['git', 'init', '-q', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.test-tmp/guard-extdiff.ih3z4_61']
+exit=0
+
+$ ['git', '-C', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.test-tmp/guard-extdiff.ih3z4_61', 'config', 'diff.external', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.test-tmp/guard-extdiff.ih3z4_61/bin/fm-watch.sh']
+exit=0
+
+$ ['/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-arm-pretool-check.sh', '--claude', '--command', 'for f in bin/fm-watch.sh; do git diff --no-index --ext-diff before after; done']
+exit=0
+
+$ ['bash', '-c', 'for f in bin/fm-watch.sh; do git diff --no-index --ext-diff before after; done']
+exit=1
+
+$ ['node', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.test-tmp/guard-extdiff.ih3z4_61/base-policy.mjs', '--root', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3', '--home', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.test-tmp/guard-extdiff.ih3z4_61', '--command', 'for f in bin/fm-watch.sh; do git diff --no-index --ext-diff before after; done']
+exit=0
+deny	unclassifiable-protected-command	unsupported or malformed shell syntax contains a protected watcher command
+
+{
+  "current_guard_exit": 0,
+  "external_watcher_executed": true,
+  "base_policy": "deny\tunclassifiable-protected-command\tunsupported or malformed shell syntax contains a protected watcher command",
+  "command": "for f in bin/fm-watch.sh; do git diff --no-index --ext-diff before after; done"
+}

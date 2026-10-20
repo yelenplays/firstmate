@@ -1,0 +1,5 @@
+SELECTORS: test_compact_reemit_is_slim_and_full_flag_restores_the_report, test_compact_reemit_fits_the_inline_hook_limit, test_compact_reemit_multilingual_fits_the_inline_hook_limit, test_compact_instruction_refresh_fits_the_inline_hook_limit
+ok - a compact re-emit prints the slim digest and --full restores the whole report
+ok - a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept
+ok - a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept
+ok - Pi compact instruction recovery stays bounded with supervision first

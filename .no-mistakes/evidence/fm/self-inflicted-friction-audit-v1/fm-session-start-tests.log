@@ -1,0 +1,8 @@
+ok - session start auto-arms the routing check idempotently
+ok - session start alerts once for missing samples and resets after recovery
+ok - context digest distinguishes ABSENT, empty-but-present, and populated files
+ok - a lock refusal prints a loud read-only banner, skips every mutating step, and still completes the digest
+ok - session start stays read-only when lock ownership cannot be published
+ok - locked session start freezes trace context and lock refusal leaves it unchanged
+tests/fm-session-start.test.sh: Zeile 1056: 50527 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 50543 Killed: 9                  sleep 0.01

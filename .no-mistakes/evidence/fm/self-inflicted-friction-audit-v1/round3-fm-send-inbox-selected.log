@@ -1,0 +1,4 @@
+SELECTORS: test_dead_agent_steer_says_recorded_not_delivered, test_text_steer_rides_inbox, test_failed_ring_is_still_sent
+ok - fm-send inbox: a steer to an exited agent exits 0 and prints one recorded-not-delivered line
+ok - fm-send inbox: the payload is recorded durably and only the doorbell is typed
+ok - fm-send inbox: a failed doorbell is still a durably sent steer

@@ -1,0 +1,2 @@
+ok - renderer state-only mode prints the current state and the command for the whole block
+ok - renderer preserves every harness ordinary-continuation and missing-cycle repair path

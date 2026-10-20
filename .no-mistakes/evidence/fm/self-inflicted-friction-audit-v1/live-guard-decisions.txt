@@ -1,0 +1,88 @@
+$ fm-arm-pretool-check.sh --claude --command 'for f in bin/fm-watch.sh bin/fm-send.sh; do git cat-file -s HEAD:$f; done'
+exit=0
+
+Allowed read executed: exit=0
+201383
+64101
+
+$ fm-arm-pretool-check.sh --claude --command 'while read -r f; do wc -l "$f"; done <<< bin/fm-watch.sh'
+exit=0
+
+Allowed read executed: exit=0
+    3889 bin/fm-watch.sh
+
+$ fm-arm-pretool-check.sh --claude --command 'if grep -q x bin/fm-watch-arm.sh; then echo yes; else echo no; fi'
+exit=0
+
+Allowed read executed: exit=0
+yes
+
+$ fm-arm-pretool-check.sh --claude --command 'cat bin/fm-watch.sh | wc -l'
+exit=0
+
+Allowed read executed: exit=0
+    3889
+
+$ fm-arm-pretool-check.sh --claude --command 'for f in bin/fm-watch.sh; do bash "$f"; done'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --claude --command 'for f in bin/fm-watch.sh; do "$f"; done'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --claude --command 'for f in bin/fm-watch.sh; do cat "$f" | sh; done'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --claude --command 'if true; then bin/fm-watch-arm.sh; fi'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-arm-pretool-check.sh --claude --command 'while true; do pkill -f fm-watch; done'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[broad-watcher-kill] a broad process kill targeting the firstmate watcher is forbidden"}
+
+$ fm-arm-pretool-check.sh --claude --command 'bin/fm-watch-arm.sh &'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[watcher-background] a protected watcher command cannot run in an asynchronous shell list or through nohup/disown"}
+
+$ fm-arm-pretool-check.sh --claude --command 'for PAGER in bin/fm-watch.sh; do git log; done'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home'
+exit=0
+allow
+
+Executed allowed cd; resolved cwd=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home/child/.. && pwd'
+exit=0
+allow
+
+Executed allowed cd; resolved cwd=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-alias'
+exit=0
+allow
+
+Executed allowed cd; resolved cwd=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home/child'
+exit=0
+deny	persistent-cd	a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell.
+
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home && cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home/child'
+exit=0
+deny	persistent-cd	a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell. Retry in one step as: (cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home && cd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home/child)
+
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'pushd /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home'
+exit=0
+deny	persistent-cd	a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell.
+
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd "$FM_HOME"'
+exit=0
+deny	persistent-cd	a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell.
+
+$ fm-cd-command-policy.mjs --home <isolated home> --command 'cd -P /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-guard-home'
+exit=0
+deny	persistent-cd	a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell.

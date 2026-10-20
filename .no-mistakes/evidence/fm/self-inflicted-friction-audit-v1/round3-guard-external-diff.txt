@@ -1,0 +1,31 @@
+$ ['git', 'init', '-q', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-diff-qr6f25_f']
+exit=0
+
+$ ['git', '-C', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-diff-qr6f25_f', 'config', 'diff.external', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-diff-qr6f25_f/bin/fm-watch.sh']
+exit=0
+
+$ ['bash', '-c', 'for f in bin/fm-watch.sh; do git diff --no-index --ext-diff before after; done']
+exit=1
+
+Without guard external program wrote: invoked through external diff
+
+$ ['/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-arm-pretool-check.sh', '--claude', '--command', 'for f in bin/fm-watch.sh; do git diff --no-index --ext-diff before after; done']
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+After guarded attempt: external execution marker absent.
+$ ['git', '-C', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-diff-qr6f25_f', 'add', 'bin/fm-watch.sh']
+exit=0
+
+$ ['git', '-C', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-diff-qr6f25_f', 'write-tree']
+exit=0
+94672f23a59f2f4ff3701738c378dfd34e80062a
+
+$ ['/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-arm-pretool-check.sh', '--claude', '--command', 'for f in bin/fm-watch.sh; do git cat-file -s 94672f23a59f2f4ff3701738c378dfd34e80062a:$f; done']
+exit=0
+
+$ ['bash', '-c', 'for f in bin/fm-watch.sh; do git cat-file -s 94672f23a59f2f4ff3701738c378dfd34e80062a:$f; done']
+exit=0
+173
+
+Allowed size probe matched actual file bytes; external execution marker remains absent: True

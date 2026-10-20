@@ -1,0 +1,23 @@
+{
+  "live-compact-ascii.txt": {
+    "bytes": 7979,
+    "below_9000": true,
+    "supervision_heading_byte_offset": 1162,
+    "wake_queue_byte_offset": 2816,
+    "instruction_refresh_byte_offset": -1
+  },
+  "live-compact-unicode.txt": {
+    "bytes": 10819,
+    "below_9000": false,
+    "supervision_heading_byte_offset": 1162,
+    "wake_queue_byte_offset": 2816,
+    "instruction_refresh_byte_offset": -1
+  },
+  "live-compact-missing-baseline.txt": {
+    "bytes": 49527,
+    "below_9000": false,
+    "supervision_heading_byte_offset": 39870,
+    "wake_queue_byte_offset": 41524,
+    "instruction_refresh_byte_offset": 486
+  }
+}

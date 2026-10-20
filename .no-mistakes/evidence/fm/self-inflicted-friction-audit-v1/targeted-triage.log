@@ -1,0 +1,4 @@
+ok - eligible tasks probe crew state and holds concurrently, and a probe cap keeps every verdict in order
+ok - invalid identity and secondmate rows are actionable without guessing
+ok - open decisions, declared pauses, and captain holds prevent auto-ack
+ok - signals terminate triage before acknowledgement and retain pending output

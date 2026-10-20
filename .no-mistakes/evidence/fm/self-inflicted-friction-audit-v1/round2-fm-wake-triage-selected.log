@@ -1,0 +1,3 @@
+ok - eligible tasks probe crew state and holds concurrently, and a probe cap keeps every verdict in order
+ok - ambiguous hold results and unread informational status remain actionable
+ok - --absorb keeps every wake that needs firstmate and validates its arguments

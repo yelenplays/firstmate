@@ -1,0 +1,61 @@
+WAKE TRIAGE: 12 row(s), 12 task(s): 12 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round2-home/state/.wake-triage.last
+RECOVERED DRAIN OUTPUT (an earlier triage was interrupted; act on all of it):
+1792509895	1	stale	missing-lab:probe-1	stale: missing-lab:probe-1
+1792509896	2	stale	missing-lab:probe-2	stale: missing-lab:probe-2
+1792509896	3	stale	missing-lab:probe-3	stale: missing-lab:probe-3
+1792509896	4	stale	missing-lab:probe-4	stale: missing-lab:probe-4
+1792509897	5	stale	missing-lab:probe-5	stale: missing-lab:probe-5
+1792509897	6	stale	missing-lab:probe-6	stale: missing-lab:probe-6
+1792509898	7	stale	missing-lab:probe-7	stale: missing-lab:probe-7
+1792509898	8	stale	missing-lab:probe-8	stale: missing-lab:probe-8
+1792509898	9	stale	missing-lab:probe-9	stale: missing-lab:probe-9
+1792509899	10	stale	missing-lab:probe-10	stale: missing-lab:probe-10
+1792509899	11	stale	missing-lab:probe-11	stale: missing-lab:probe-11
+1792509899	12	stale	missing-lab:probe-12	stale: missing-lab:probe-12
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 12 --recovery-generation 66912.1792509895.xsClsB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792509895	1	stale	missing-lab:probe-1	stale: missing-lab:probe-1
+1792509896	2	stale	missing-lab:probe-2	stale: missing-lab:probe-2
+1792509896	3	stale	missing-lab:probe-3	stale: missing-lab:probe-3
+1792509896	4	stale	missing-lab:probe-4	stale: missing-lab:probe-4
+1792509897	5	stale	missing-lab:probe-5	stale: missing-lab:probe-5
+1792509897	6	stale	missing-lab:probe-6	stale: missing-lab:probe-6
+1792509898	7	stale	missing-lab:probe-7	stale: missing-lab:probe-7
+1792509898	8	stale	missing-lab:probe-8	stale: missing-lab:probe-8
+1792509898	9	stale	missing-lab:probe-9	stale: missing-lab:probe-9
+1792509899	10	stale	missing-lab:probe-10	stale: missing-lab:probe-10
+1792509899	11	stale	missing-lab:probe-11	stale: missing-lab:probe-11
+1792509899	12	stale	missing-lab:probe-12	stale: missing-lab:probe-12
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+probe-1 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-10 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-11 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-12 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-2 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-3 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-4 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-5 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-6 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-7 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-8 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-9 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 12 --recovery-generation 66912.1792509895.xsClsB
+
+STDERR:

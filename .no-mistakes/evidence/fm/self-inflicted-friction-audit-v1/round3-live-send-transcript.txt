@@ -1,0 +1,86 @@
+$ ['bin/fm-lab-home.sh', 'create', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send']
+exit=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send
+
+$ ['bin/fm-herdr-lab.sh', 'name', 'send-proof']
+exit=0
+fm-lab-send-proof-93799-12982
+
+$ ['bin/fm-herdr-lab.sh', 'provision', 'fm-lab-send-proof-93799-12982']
+exit=0
+
+$ ['bin/fm-herdr-lab.sh', 'viewer', 'start', 'fm-lab-send-proof-93799-12982']
+exit=0
+viewer attached to fm-lab-send-proof-93799-12982 (pid 95073)
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'workspace', 'create', '--cwd', '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3', '--label', 'send-proof', '--no-focus']
+exit=0
+{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","focused":false,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","pane_id":"w2:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":39},"tab_id":"w2:t1","terminal_id":"term_65e4789ddebb42","workspace_id":"w2"},"tab":{"agent_status":"unknown","focused":false,"label":"1","number":1,"pane_count":1,"tab_id":"w2:t1","workspace_id":"w2"},"type":"workspace_created","workspace":{"active_tab_id":"w2:t1","agent_status":"unknown","focused":false,"label":"send-proof","number":2,"pane_count":1,"tab_count":1,"workspace_id":"w2"}}}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'pane', 'get', 'w2:p1']
+exit=0
+{"id":"cli:pane:get","result":{"pane":{"agent_status":"unknown","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","focused":false,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","pane_id":"w2:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":39},"tab_id":"w2:t1","terminal_id":"term_65e4789ddebb42","workspace_id":"w2"},"type":"pane_info"}}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'pane', 'run', 'w2:p1', 'env -u NO_MISTAKES_GATE -u FM_GATE_REFUSE_BYPASS -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_PROJECTS_OVERRIDE FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send pi --no-session --no-extensions --no-skills --no-context-files']
+exit=0
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'agent', 'get', 'w2:p1']
+exit=1
+{"error":{"code":"agent_not_found","message":"agent target w2:p1 not found"},"id":"cli:agent:get"}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'agent', 'get', 'w2:p1']
+exit=1
+{"error":{"code":"agent_not_found","message":"agent target w2:p1 not found"},"id":"cli:agent:get"}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'agent', 'get', 'w2:p1']
+exit=1
+{"error":{"code":"agent_not_found","message":"agent target w2:p1 not found"},"id":"cli:agent:get"}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'agent', 'get', 'w2:p1']
+exit=0
+{"id":"cli:agent:get","result":{"agent":{"agent":"pi","agent_status":"unknown","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","focused":false,"foreground_cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","pane_id":"w2:p1","revision":0,"state_change_seq":0,"tab_id":"w2:t1","terminal_id":"term_65e4789ddebb42","workspace_id":"w2"},"type":"agent_info"}}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'pane', 'read', 'w2:p1', '--lines', '200']
+exit=0
+env -u NO_MISTAKES_GATE -u FM_GATE_REFUSE_BYPASS -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u
+FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_PROJECTS_OVERRIDE FM_HOME=/Users/yelen/.no-mista
+kes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send pi --no-session
+ --no-extensions --no-skills --no-context-files
+01M5CSAEF80R6DCD8ED5DJSSM3 on  HEAD [?]
+❯ env -u NO_MISTAKES_GATE -u FM_GATE_REFUSE_BYPASS -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -
+u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_PROJECTS_OVERRIDE FM_HOME=/Users/yelen/.no-mis
+takes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send pi --no-sessi
+on --no-extensions --no-skills --no-context-files
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'pane', 'process-info', '--pane', 'w2:p1']
+exit=0
+{"id":"cli:pane:process_info","result":{"process_info":{"foreground_process_group_id":907,"foreground_processes":[{"argv0":"pi","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","name":"node","pid":907}],"pane_id":"w2:p1","shell_pid":95974},"type":"pane_process_info"}}
+
+SIGTERM exact lab Pi pid 907
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'pane', 'process-info', '--pane', 'w2:p1']
+exit=0
+{"id":"cli:pane:process_info","result":{"process_info":{"foreground_process_group_id":907,"foreground_processes":[{"argv0":"pi","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","name":"node","pid":907}],"pane_id":"w2:p1","shell_pid":95974},"type":"pane_process_info"}}
+
+$ ['bin/fm-herdr-lab.sh', 'run', 'fm-lab-send-proof-93799-12982', 'pane', 'process-info', '--pane', 'w2:p1']
+exit=0
+{"id":"cli:pane:process_info","result":{"process_info":{"foreground_process_group_id":95974,"foreground_processes":[{"argv":["-zsh"],"argv0":"zsh","cmdline":"-zsh","cwd":"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3","name":"zsh","pid":95974}],"pane_id":"w2:p1","shell_pid":95974},"type":"pane_process_info"}}
+
+$ ['bin/fm-send.sh', 'exited', 'Keep this steering message for recovery.']
+exit=0
+recorded-not-delivered: exited agent in fm-lab-send-proof-93799-12982:w2:p1 has exited; record /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send/state/exited.inbox/001.msg waits for recovery (stuck-crewmate-recovery); the watcher raises one stale wake and will not re-ring; do not resend
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-send
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Persisted durable message: state/exited.inbox/001.msg
+schema=fm-task-inbox.v1
+at=2026-10-20T15:46:57Z
+--
+Keep this steering message for recovery.
+$ ['bin/fm-herdr-lab.sh', 'teardown', 'fm-lab-send-proof-93799-12982']
+exit=0

@@ -1,0 +1,5 @@
+ok - terminal and parked tasks are never auto-acknowledged
+ok - classification metadata must contain unique, well-formed fields
+ok - status annotations use exact keys and leading event verbs
+ok - clean routine drains remain manual; extra notices remain visible
+not ok - triage failed

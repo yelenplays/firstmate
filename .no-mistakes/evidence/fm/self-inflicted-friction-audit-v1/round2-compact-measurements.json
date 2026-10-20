@@ -1,0 +1,26 @@
+{
+  "round2-live-compact.txt": {
+    "bytes": 7986,
+    "supervision_before_wake_queue": true,
+    "condensed_rules_before_wake_queue": true,
+    "acknowledgements": 0
+  },
+  "round2-live-compact-unicode.txt": {
+    "bytes": 7858,
+    "supervision_before_wake_queue": true,
+    "condensed_rules_before_wake_queue": true,
+    "acknowledgements": 0
+  },
+  "round2-live-compact-missing-baseline.txt": {
+    "bytes": 8129,
+    "supervision_before_wake_queue": true,
+    "condensed_rules_before_wake_queue": true,
+    "acknowledgements": 0
+  },
+  "round2-live-compact-queued.txt": {
+    "bytes": 7148,
+    "supervision_before_wake_queue": true,
+    "condensed_rules_before_wake_queue": true,
+    "acknowledgements": 1
+  }
+}

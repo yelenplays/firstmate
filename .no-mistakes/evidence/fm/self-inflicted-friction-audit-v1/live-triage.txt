@@ -1,0 +1,45 @@
+WAKE TRIAGE: 12 row(s), 12 task(s): 12 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-live-home/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792507408	1	stale	missing-lab:probe-1	stale: missing-lab:probe-1
+1792507409	2	stale	missing-lab:probe-2	stale: missing-lab:probe-2
+1792507409	3	stale	missing-lab:probe-3	stale: missing-lab:probe-3
+1792507409	4	stale	missing-lab:probe-4	stale: missing-lab:probe-4
+1792507409	5	stale	missing-lab:probe-5	stale: missing-lab:probe-5
+1792507409	6	stale	missing-lab:probe-6	stale: missing-lab:probe-6
+1792507410	7	stale	missing-lab:probe-7	stale: missing-lab:probe-7
+1792507410	8	stale	missing-lab:probe-8	stale: missing-lab:probe-8
+1792507410	9	stale	missing-lab:probe-9	stale: missing-lab:probe-9
+1792507410	10	stale	missing-lab:probe-10	stale: missing-lab:probe-10
+1792507410	11	stale	missing-lab:probe-11	stale: missing-lab:probe-11
+1792507411	12	stale	missing-lab:probe-12	stale: missing-lab:probe-12
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+probe-1 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-10 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-11 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-12 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-2 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-3 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-4 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-5 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-6 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-7 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-8 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+probe-9 - C3 crew not working
+  crew: state: unknown · source: none · backend unreachable (tmux endpoint state: unreadable)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 12 --recovery-generation 44174.1792507409.Jaq9Uo
+
+STDERR:

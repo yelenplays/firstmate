@@ -1,0 +1,3 @@
+Peak simultaneous real crew-state processes: 2
+37171 14473 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-crew-state.sh probe-10
+37663 14473 bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-crew-state.sh probe-11

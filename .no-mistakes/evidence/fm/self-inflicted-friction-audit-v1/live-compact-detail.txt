@@ -1,0 +1,25 @@
+== BOOTSTRAP ==
+MISSING: tmux (install: brew install tmux  # or the platform's package manager)
+
+== WAKE QUEUE ==
+OPEN DECISIONS (11 still open, folded from the durable status logs - not just the latest line):
+probe-1 [key=call-1] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-10 [key=call-10] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇 [truncated]
+probe-11 [key=call-11] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇 [truncated]
+probe-2 [key=call-2] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-3 [key=call-3] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-4 [key=call-4] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-5 [key=call-5] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-6 [key=call-6] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-7 [key=call-7] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-8 [key=call-8] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-9 [key=call-9] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>' (a captain-hold key also needs --captain-answer, and only for the captain's own answer)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  13 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

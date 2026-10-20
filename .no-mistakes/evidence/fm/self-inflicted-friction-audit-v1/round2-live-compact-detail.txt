@@ -1,0 +1,20 @@
+== BOOTSTRAP ==
+MISSING: tmux (install: brew install tmux  # or the platform's package manager)
+
+== WAKE QUEUE ==
+1792509895	1	stale	missing-lab:probe-1	stale: missing-lab:probe-1
+1792509896	2	stale	missing-lab:probe-2	stale: missing-lab:probe-2
+1792509896	3	stale	missing-lab:probe-3	stale: missing-lab:probe-3
+1792509896	4	stale	missing-lab:probe-4	stale: missing-lab:probe-4
+1792509897	5	stale	missing-lab:probe-5	stale: missing-lab:probe-5
+1792509897	6	stale	missing-lab:probe-6	stale: missing-lab:probe-6
+1792509898	7	stale	missing-lab:probe-7	stale: missing-lab:probe-7
+1792509898	8	stale	missing-lab:probe-8	stale: missing-lab:probe-8
+1792509898	9	stale	missing-lab:probe-9	stale: missing-lab:probe-9
+1792509899	10	stale	missing-lab:probe-10	stale: missing-lab:probe-10
+1792509899	11	stale	missing-lab:probe-11	stale: missing-lab:probe-11
+1792509899	12	stale	missing-lab:probe-12	stale: missing-lab:probe-12
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 12 --recovery-generation 66912.1792509895.xsClsB
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+

@@ -1,0 +1,85 @@
+RE-EMIT CUE: if this output ends with "Output too large ... Full output saved to <path>",
+read that whole file now, before acting.
+
+SESSION START (CONTEXT RE-EMIT, COMPACT) - /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-home
+This session holds the helm and lost only its context: the lock is re-verified and
+queued wakes are drained below; startup sweeps are not repeated (see READ-ONCE CONTRACT).
+
+LOCK
+lock acquired: harness pid 34747
+PI_WATCH_EXTENSION: not loaded - approve Pi project trust once per clone, then restart plain pi so /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-turnend-guard.ts and /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-pi-watch.ts auto-load for turn-end guard and background wake coverage; use -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.pi/extensions/fm-primary-pi-watch.ts only if project hooks are not trusted
+
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: pi (current state; the whole block is one command away)
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Ordinary wake: the Pi extension already owns watcher continuity; do not arm another cycle.
+Condensed operating rules (the whole-block command at the end of this section prints the detail):
+- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.
+- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.
+- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.
+- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.
+- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.
+- Whole block (wake handling, arm ownership, turn-end guard): /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-supervision-instructions.sh --harness pi --read-only 0 --afk 0 --afk-mode away --x-mode 0
+
+HOME ROLE
+fm-role: user (default)
+
+BOOTSTRAP
+MISSING: tmux (install: brew install tmux  # or the platform's package manager)
+
+WAKE QUEUE
+OPEN DECISIONS (11 still open, folded from the durable status logs - not just the latest line):
+probe-1 [key=call-1] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請 [truncated]
+probe-10 [key=call-10] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方 [truncated]
+probe-11 [key=call-11] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方 [truncated]
+probe-2 [key=call-2] needs-decision: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請 [truncated]
+(9 more line(s) cut from the compact digest; full: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-home/state/.session-start-reemit.detail)
+Uncut wake queue and bootstrap text: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-home/state/.session-start-reemit.detail
+
+READ-ONCE CONTRACT
+This compact digest is cut to fit inline: nothing it omitted or shortened was lost.
+Full report, once, only if this turn needs it: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-session-start.sh --reemit --source compact --full
+One source: bin/fm-tasks-axi.sh list, state/<id>.meta, state/<id>.status, data/captain.md,
+data/learnings.md, data/projects.md. A STARTUP TRUNCATED banner names any stage that never ran.
+
+FLEET STATE
+
+Work under way (state/*.meta; last status is event history, not current state)
+probe-1: endpoint dead (tmux); last status: needs-decision [key=call-1]: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-10: endpoint dead (tmux); last status: needs-decision [key=call-10]: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇 [truncated]
+probe-11: endpoint dead (tmux); last status: needs-decision [key=call-11]: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇 [truncated]
+probe-12: endpoint dead (tmux); last status: working: 測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀 [truncated]
+probe-13: endpoint dead (tmux); last status: working: 測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀態測試修復狀 [truncated]
+probe-2: endpoint dead (tmux); last status: needs-decision [key=call-2]: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+probe-3: endpoint dead (tmux); last status: needs-decision [key=call-3]: 請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案請選擇方案 [truncated]
+(6 more line(s) cut from the compact digest; full: state/<id>.meta and state/<id>.status)
+
+Orphan status logs (state/*.status without matching .meta)
+(none)
+
+AFK
+absent
+
+NETWORK CHECKS
+completed off the startup path in 3s: GitHub authentication.
+(silent - no problems found)
+
+CONTEXT
+omitted: data/projects.md, data/secondmates.md, data/captain.md, data/captain-shared.md, data/learnings.md (--full prints them).
+
+THEME
+Theme pack: ny-trenches - New York trenches: drill-style voice, five boroughs deep
+Address word (replaces "captain" in chat): OG
+Exact no-op reply (replaces "Captain, shipshape."): OG, we good.
+Register, names, floor and examples: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/bin/fm-theme.sh show
+
+RECENT CAPTAIN WORDS
+(no captain conversations captured yet; journal: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CSAEF80R6DCD8ED5DJSSM3/.validation-round3-home/data/history/days/)
+
+NEXT STEP
+Follow the supervision operating instructions block above for harness 'pi'.
+This script never starts supervision itself.
+
+The digest above is complete for this session start. The READ-ONCE CONTRACT
+section near the top of it governs what may still be read from disk.

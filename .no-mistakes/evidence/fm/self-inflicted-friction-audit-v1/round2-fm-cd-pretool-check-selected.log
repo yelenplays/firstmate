@@ -1,0 +1,3 @@
+ok - cd-guard: reproduces the cwd leak and denies the exact command that causes it
+ok - cd-guard: fm-cd-command-policy.mjs CLI honors the deny/allow output contract
+ok - cd-guard: inert in a crewmate/scout task worktree (linked git worktree)

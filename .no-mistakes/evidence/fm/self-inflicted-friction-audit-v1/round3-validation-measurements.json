@@ -1,0 +1,26 @@
+{
+  "compact": {
+    "bytes": 7987,
+    "under_9000": true,
+    "supervision_before_queue": true
+  },
+  "compact-unicode": {
+    "bytes": 7859,
+    "under_9000": true,
+    "supervision_before_queue": true
+  },
+  "compact-missing-baseline": {
+    "bytes": 8130,
+    "under_9000": true,
+    "supervision_before_queue": true
+  },
+  "compact-queued": {
+    "bytes": 7149,
+    "under_9000": true,
+    "supervision_before_queue": true
+  },
+  "candidate_sha": "7656e675d1305162d5f6e356e195ed9e22e09f1a",
+  "leftover_worktree_lab_paths": [],
+  "cd_baseline_batch": "Initial combined baseline timed out at 600 seconds during cd acceptance matrix; recovered with focused cwd-leak and public-policy tests plus fresh direct guard scenarios.",
+  "herdr_cleanup": "Named non-default session teardown exit 0; helper default-session tripwire verified."
+}

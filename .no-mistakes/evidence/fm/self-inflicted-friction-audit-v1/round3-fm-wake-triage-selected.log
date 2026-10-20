@@ -1,0 +1,5 @@
+SELECTORS: test_live_probes_run_concurrently, test_open_decisions_pauses_holds_and_execution_are_actionable, test_absorb_retires_routine_rows_of_an_actionable_wake, test_absorb_fails_closed
+ok - eligible tasks probe crew state and holds concurrently, and a probe cap keeps every verdict in order
+ok - open decisions, declared pauses, and captain holds prevent auto-ack
+ok - --absorb retires routine rows of an actionable wake and leaves the rest to the printed acknowledgement
+ok - --absorb keeps every wake that needs firstmate and validates its arguments
