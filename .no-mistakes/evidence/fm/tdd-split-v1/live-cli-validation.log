@@ -1,0 +1,51 @@
+
+=== Committed tests remain usable after the implementation handoff ===
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DAWCT0WRXAZY0TJ3N80XYQ/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DAWCT0WRXAZY0TJ3N80XYQ/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: named head 624389458155aff1b66724446ef9fd139f108068 is unreachable outside the worker copy
+exit=1
+PR record absent
+
+=== Changing a locked test blocks PR registration ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A opencode-go/deepseek-v4.1-flash task introduces a test ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A zai/glm-5.3-flash task introduces a test ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== Sonnet review-fixer tests are refused even on an Opus task ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 613f02f61780: tests/fixer.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+=== An explicit test-path exception permits the pipeline test ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: named head 613f02f61780d2ea2e345e26b9a5f6f38cf0ff6d is unreachable outside the worker copy
+exit=1
+PR record absent
+
+After follow-up revert: test exists=no; net test diff: 
+=== Follow the refusal advice: revert the unauthorized pipeline test and retry ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 613f02f61780: tests/fixer.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+Recovery still refused despite the unauthorized test being absent.

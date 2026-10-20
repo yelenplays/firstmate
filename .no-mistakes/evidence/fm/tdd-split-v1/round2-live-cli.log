@@ -1,0 +1,135 @@
+candidate=626d7449e28ce3e17cd677ead12b0b71effa4bb7
+
+=== Locked tests survive implementation and permit local registration ===
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DAWCT0WRXAZY0TJ3N80XYQ/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DAWCT0WRXAZY0TJ3N80XYQ/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== A locked-test edit refuses registration ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A locked-test delete refuses registration ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A locked-test rename refuses registration ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A opencode-go/deepseek-v4.1-flash task may not author tests ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A zai/glm-5.3-flash task may not author tests ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
+exit=1
+PR record absent
+
+=== A Sonnet fixer on an Opus task cannot add or modify tests ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 42bcf505dca3: tests/fixer.test.sh; no-mistakes(review) on claude-sonnet-5-5 in 42bcf505dca3: tests/locked.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+=== A single authorized path does not permit its unauthorized sibling ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 42bcf505dca3: tests/locked.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+=== Explicit path exceptions permit exactly the two named tests ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== A partial revert must not clear remaining unauthorized tests ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 42bcf505dca3: tests/fixer.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+Restored paths relative to pre-fixer tree (must be empty):
+
+=== Restoring every unauthorized test clears the registration refusal ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== An allowlisted pipeline step can author tests ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== A second unauthorized fixer test is refused before reverting ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 40f8318d5ac5: tests/revert.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+After git revert: test exists=no
+
+=== git revert of unauthorized fixer tests clears refusal ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== The pipeline fixer model opencode-go/deepseek-v4.1-flash refuses test authorship ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on opencode-go/deepseek-v4.1-flash: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on opencode-go/deepseek-v4.1-flash in d10ba248e7b1: tests/model.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+=== The pipeline fixer model zai/glm-5.3-flash refuses test authorship ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on zai/glm-5.3-flash: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on zai/glm-5.3-flash in d10ba248e7b1: tests/model.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+PR record absent
+
+=== The pipeline fixer model claude-opus-5-5 permits test authorship ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== The pipeline fixer model claude-fable-5-1 permits test authorship ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+=== The pipeline fixer model openai-codex/gpt-6.1-sol permits test authorship ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/lab.check.sh
+exit=0
+pr=https://github.com/firstmate-validation/nonexistent/pull/1
+PR metadata and poll registration persisted in isolated home
+
+All isolated CLI scenarios completed; no forge was contacted and no agent model was invoked.
