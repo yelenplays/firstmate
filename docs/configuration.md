@@ -1211,6 +1211,8 @@ The router never signs up for, upgrades or buys anything.
 `state/fm-search/ledger.tsv` gets one line per provider call (`ts provider cost_usd lat_s n_results route`) and `state/fm-search/route-cache.tsv` caches the class pick for 24 hours under a hash of the lowercased query.
 Neither file stores query text.
 `fm-search.sh --ledger` prints month-to-date spend and calls per provider.
+A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot get the lock within the hop timeout skips the hop.
+Each hop's timeout is one deadline that also covers reading the response body.
 
 Every query goes to third-party providers, so never search with private data, names or client facts.
 Test overrides: `FM_JEV_BIN`, `FM_SEARCH_KETCH_BIN`, `FM_SEARCH_EXA_URL`, `FM_SEARCH_TINYFISH_URL`, `FM_SEARCH_KEY_DIR`, `FM_SEARCH_STATE` and `FM_SEARCH_CONFIG` point the router at stubs.

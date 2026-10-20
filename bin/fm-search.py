@@ -6,7 +6,8 @@ logic is copied from the phase-1 bench (data/search-router-bench-v1). Keys are
 read from ~/.config/<name>.key at call time and never printed, logged or stored.
 The ledger and the route cache never hold query text.
 """
-import hashlib, json, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+import contextlib, fcntl, hashlib, json, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+from http.client import HTTPException
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -88,16 +89,27 @@ def norm(title, url, date, text):
 
 
 def http(req, timeout):
+    """One request under one deadline that also covers the body, so a trickled response cannot hold the hop."""
+    deadline = time.monotonic() + timeout
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.read().decode()
+            body = []
+            while True:
+                if time.monotonic() > deadline:
+                    raise HopError("timeout")
+                chunk = r.read1(65536)
+                if not chunk:
+                    return b"".join(body).decode()
+                body.append(chunk)
+    except HopError:
+        raise
     except urllib.error.HTTPError as e:
         raise HopError("http %d" % e.code)
     except TimeoutError:
         raise HopError("timeout")
     except urllib.error.URLError as e:
         raise HopError("timeout" if "timed out" in str(e.reason) else "network error")
-    except OSError:
+    except (OSError, HTTPException):
         raise HopError("network error")
 
 
@@ -288,25 +300,63 @@ def tinyfish_blocked(cfg):
     return None
 
 
-def attempt(hop, query, limit, cfg, cls, now):
+@contextlib.contextmanager
+def capped(name, wait):
+    """Hold the provider's lock across cap check, call and ledger line, so parallel workers cannot all pass one cap."""
+    os.makedirs(STATE, exist_ok=True)
+    with open(os.path.join(STATE, name + ".lock"), "a") as f:
+        deadline = time.monotonic() + wait
+        while True:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    raise HopError("skipped: %s busy" % name)
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def logged(hop, route, call):
+    """Run one provider call and write its ledger line; return (results, cost) or raise HopError."""
+    t0 = time.time()
+    try:
+        results, cost = call()
+    except HopError:
+        append_ledger(hop, 0.0, time.time() - t0, 0, route)
+        raise
+    append_ledger(hop, cost, time.time() - t0, len(results), route)
+    return results, cost
+
+
+def attempt(hop, query, limit, cfg, cls, route):
     """Return (results, cost) or raise HopError; a skip raises HopError with a 'skipped' reason."""
     t = cfg["timeouts_s"][hop]
     if hop in ("exa-lite", "exa-deep"):
         if not key("exa"):
             raise HopError("skipped: no exa key")
-        if exa_month_spend(read_ledger(), now) >= cfg["exa"]["monthly_usd_cap"]:
-            raise HopError("skipped: exa monthly cap reached")
         deep = hop == "exa-deep"
-        return run_exa(cfg["exa"]["deep_type" if deep else "type"],
-                       cfg["exa"]["deep_per_query_usd" if deep else "per_query_usd"], query, limit, t)
+        price = cfg["exa"]["deep_per_query_usd" if deep else "per_query_usd"]
+        with capped("exa", t):
+            now = time.time()
+            spend = exa_month_spend(read_ledger(), now)
+            if spend + price > cfg["exa"]["monthly_usd_cap"] + 1e-9:
+                raise HopError("skipped: exa monthly cap reached")
+            out = logged(hop, route, lambda: run_exa(cfg["exa"]["deep_type" if deep else "type"], price, query, limit, t))
+            warn_exa(cfg, exa_month_spend(read_ledger(), now), now)
+            return out
     if hop == "tinyfish":
         if not key("tinyfish"):
             raise HopError("skipped: no tinyfish key")
-        why = tinyfish_blocked(cfg)
-        if why:
-            raise HopError("skipped: tinyfish " + why)
-        return run_tinyfish(query, limit, t, "de" if cls == "de_admin" else None)
-    return run_ketch(["-b", "exa"] if hop == "exa-keyless" else ["--multi"], query, limit, t)
+        with capped("tinyfish", t):
+            why = tinyfish_blocked(cfg)
+            if why:
+                raise HopError("skipped: tinyfish " + why)
+            return logged(hop, route, lambda: run_tinyfish(query, limit, t, "de" if cls == "de_admin" else None))
+    return logged(hop, route, lambda: run_ketch(["-b", "exa"] if hop == "exa-keyless" else ["--multi"], query, limit, t))
 
 
 def parse_args(argv):
@@ -365,20 +415,11 @@ def main():
     hops = hop_order(args, cls)
     notes = []
     for n, hop in enumerate(hops, 1):
-        now = time.time()
-        t0 = time.time()
         try:
-            results, cost = attempt(hop, query, args["limit"], cfg, cls, now)
+            results, cost = attempt(hop, query, args["limit"], cfg, cls, route)
         except HopError as e:
-            reason = str(e)
-            if not reason.startswith("skipped"):
-                append_ledger(hop, 0.0, time.time() - t0, 0, route)
-            notes.append("%s: %s" % (hop, reason))
+            notes.append("%s: %s" % (hop, e))
             continue
-        lat = time.time() - t0
-        append_ledger(hop, cost, lat, len(results), route)
-        if hop in ("exa-lite", "exa-deep"):
-            warn_exa(cfg, exa_month_spend(read_ledger(), now), now)
         if not results:
             notes.append("%s: empty" % hop)
             continue

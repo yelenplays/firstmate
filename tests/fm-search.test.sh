@@ -27,7 +27,7 @@ ALL_OUT="$TMP_ROOT/all-output.log"
 # --- stand-ins ------------------------------------------------------------------
 
 # The HTTP stub: each provider's behavior comes from $STUB/<exa|tinyfish>.mode
-# (ok, empty, 429, slow); each request appends one JSON line to <name>.req.
+# (ok, empty, 429, slow, lag, trickle); each request appends one JSON line to <name>.req.
 cat > "$TMP_ROOT/stub_server.py" <<'PY'
 import http.server, json, os, sys, threading, time, urllib.parse
 stub, fix, exa_key, tf_key = sys.argv[1:5]
@@ -47,6 +47,18 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send_response(429); self.end_headers(); return
         if m == "slow":
             time.sleep(3)
+        if m == "lag":
+            time.sleep(0.3)
+        if m == "trickle":
+            self.send_response(200)
+            self.send_header("Content-Length", "200")
+            self.end_headers()
+            try:
+                for _ in range(60):
+                    self.wfile.write(b" "); self.wfile.flush(); time.sleep(0.05)
+            except OSError:
+                pass
+            return
         body = json.dumps({"results": []}) if m == "empty" else open(os.path.join(fix, name + ".json")).read()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -235,6 +247,15 @@ assert_contains "$(trailer)" 'provider=ketch-multi hops=4' "hops: empty, 429 and
 assert_contains "$(cat "$STUB/ketch.calls")" '--multi' "hops: the last hop is ketch --multi"
 pass "an empty list, an HTTP 429 and a timeout each hop to the next provider"
 
+new_case trickle
+set_mode exa trickle
+started=$(date +%s)
+search --chain K "trickle probe $QMARK"
+expect_code 0 "$code" "trickle: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "trickle: a trickled body times out and hops on"
+[ $(( $(date +%s) - started )) -lt 3 ] || fail "trickle: the 1 s hop deadline did not cover the body read"
+pass "the hop deadline covers a trickled response body"
+
 new_case all-empty
 set_mode ketch-exa empty
 set_mode exa 429
@@ -282,6 +303,14 @@ assert_contains "$out" 'tinyfish     calls=1' "--ledger: TinyFish calls are coun
 assert_contains "$out" 'warning: exa spend crossed 80%' "--ledger: the cap warning shows"
 pass "the Exa monthly cap skips the keyed hop and the ledger reports it"
 
+new_case exa-cap-reserve
+printf '%s\texa-lite\t7.99700\t0.80\t5\tjev\n' "$(date +%s)" > "$STATE/ledger.tsv"
+search --chain K "exa cap reserve probe $QMARK"
+expect_code 0 "$code" "exa cap reserve: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "exa cap reserve: a call that would cross the cap is skipped"
+assert_equals 0 "$(reqs exa)" "exa cap reserve: no Exa request that would cross the cap"
+pass "the Exa cap counts the next request's price before calling"
+
 # --- 5. the TinyFish per-minute cap ----------------------------------------------------
 
 new_case tinyfish-cap
@@ -292,6 +321,18 @@ expect_code 0 "$code" "tinyfish cap: $err"
 assert_contains "$(trailer)" 'provider=exa-keyless hops=2' "tinyfish cap: over the minute cap the hop is skipped"
 assert_equals 0 "$(reqs tinyfish)" "tinyfish cap: no TinyFish request over the cap"
 pass "over the TinyFish per-minute cap the hop is skipped"
+
+new_case tinyfish-parallel
+set_mode tinyfish lag
+pids=()
+for i in 1 2 3 4; do
+  search --urls "parallel probe $i $QMARK" &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do wait "$pid"; done
+assert_equals 2 "$(reqs tinyfish)" "tinyfish parallel: four workers pass a two-per-minute cap only twice"
+assert_equals 2 "$(ledger_rows tinyfish)" "tinyfish parallel: the ledger records only the calls that ran"
+pass "parallel workers cannot all pass one TinyFish cap"
 
 # --- 8. --urls and --deep -----------------------------------------------------------------
 
