@@ -291,7 +291,7 @@ test_run_clear_and_compact_reemit() {
 }
 
 test_run_rebuild_forwards_source_to_drifted_instruction_refresh() {
-  local root="$TMP_ROOT/run-instruction-refresh" baseline compact_out clear_out resume_out
+  local root="$TMP_ROOT/run-instruction-refresh" baseline compact_out clear_out resume_out refresh_command contract
   make_run_primary "$root"
   printf '%s\n' 'RUN_TIER_AGENTS=original' > "$root/AGENTS.md"
   run_hook_pi "$root" --source startup </dev/null >/dev/null
@@ -301,11 +301,17 @@ test_run_rebuild_forwards_source_to_drifted_instruction_refresh() {
 
   printf '%s\n' 'RUN_TIER_AGENTS=updated' > "$root/AGENTS.md"
   compact_out=$(run_hook_pi "$root" --source compact </dev/null)
+  refresh_command=$(printf '%s\n' "$compact_out" | sed -n 's/^INSTRUCTION_REFRESH_REQUIRED: //p')
+  [ -n "$refresh_command" ] \
+    || fail "the compact run wrapper omitted the required instruction-read command"
+  contract=$(bash -c "$refresh_command") \
+    || fail "the compact instruction-read command failed"
+  [ "$contract" = 'RUN_TIER_AGENTS=updated' ] \
+    || fail "the compact instruction-read command did not recover current instructions: $contract"
+  assert_not_contains "$compact_out" "RUN_TIER_AGENTS=updated" \
+    "the compact run wrapper inlined the instruction body instead of the read command"
   clear_out=$(run_hook_pi "$root" --source clear </dev/null)
   resume_out=$(run_hook_pi "$root" --source resume </dev/null)
-
-  assert_contains "$compact_out" "RUN_TIER_AGENTS=updated" \
-    "the compact run wrapper did not forward its source to instruction refresh"
   assert_not_contains "$clear_out" "CURRENT AGENTS.md - INSTRUCTION REFRESH" \
     "the clear run wrapper emitted a replacement contract despite Pi's fresh runtime"
   [ "$baseline" = "$(cat "$root/state/.session-start-agents-baseline")" ] \
