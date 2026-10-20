@@ -3,7 +3,10 @@
 #
 # Usage:
 #   fm-memory.sh remember [--category <cat>] [--expires <YYYY-MM-DD>]
-#                         [--sensitivity normal|private] <topic> [body...]
+#                         [--sensitivity normal|private] [--task <task-id>]
+#                         <topic> [body...]
+#   fm-memory.sh complete-task <task-id> [--report <path>] [--pr <url>]
+#                              [--outcome <text>]
 #   fm-memory.sh recall [--json] [--limit <n>] <query>
 #   fm-memory.sh now [--max-chars <n>] [--exclude-private]
 #   fm-memory.sh merge-from <other-store-dir>
@@ -24,9 +27,10 @@
 #
 # A memory is one markdown file. `remember` writes
 # <category>/<slug>.md with frontmatter (category, created, updated, plus
-# optional expires and sensitivity) and a `# <topic>` title. Re-writing the
-# same category+topic preserves `created:` but replaces the body and optional
-# metadata; omitted expires/sensitivity values are not carried forward.
+# optional expires, sensitivity, and task) and a `# <topic>` title. Re-writing
+# the same category+topic preserves `created:` but replaces the body and optional
+# metadata; omitted expires/sensitivity/task values and any completed stamp
+# are not carried forward.
 # --expires accepts YYYY-MM-DD; --sensitivity accepts normal or private.
 # Every option must precede the topic. `body` comes
 # from the remaining arguments joined by spaces, or from stdin when no body
@@ -34,6 +38,17 @@
 # (preference->preferences, entity->entities, event->events); any other value
 # must match ^[a-z0-9][a-z0-9-]*$ (or `.` for the store root). The topic is
 # slugified to a filename (lowercase, non-alphanumeric runs collapse to `-`).
+#
+# --task <task-id> links a running-work note to the firstmate task it
+# describes (frontmatter `task: <id>`, ^[A-Za-z0-9][A-Za-z0-9._-]*$). The link
+# is optional and only meaningful for now/ notes. docs/memory.md owns the
+# cleanup trigger and its exceptions. `complete-task` is the mechanical close
+# of that link: every now/ note whose `task:` equals <task-id> and
+# that has no `completed:` yet is rewritten in place: the body becomes
+# "Erledigt <date> (<task-id>): <outcome>" plus the report path or PR URL, so
+# no "running" or "pending" wording survives, and `completed: <date>` is added
+# next to `updated:`. Notes without a matching link are never touched, and a
+# note is never deleted or moved. No match is a silent success.
 #
 # `recall` runs BM25 over the store through bin/fm-memory-bm25.mjs and
 # prints ranked `score  relpath  title` lines with a snippet; --json prints one
@@ -58,7 +73,7 @@
 #
 # Exit codes: 0 success (including zero recall hits); 1 merge conflicts;
 # 2 usage error, a node runtime problem, or a missing/unusable store component;
-# 3 an invalid category, topic slug, expires date shape, or sensitivity.
+# 3 an invalid category, topic slug, expires date shape, sensitivity, or task id.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,7 +85,8 @@ ENGINE="$SCRIPT_DIR/fm-memory-bm25.mjs"
 usage() {
   cat >&2 <<'EOF'
 Usage:
-  fm-memory.sh remember [--category <cat>] [--expires <YYYY-MM-DD>] [--sensitivity normal|private] <topic> [body...]
+  fm-memory.sh remember [--category <cat>] [--expires <YYYY-MM-DD>] [--sensitivity normal|private] [--task <task-id>] <topic> [body...]
+  fm-memory.sh complete-task <task-id> [--report <path>] [--pr <url>] [--outcome <text>]
   fm-memory.sh recall [--json] [--limit <n>] <query>
   fm-memory.sh now [--max-chars <n>] [--exclude-private]
   fm-memory.sh merge-from <other-store-dir>
@@ -137,7 +153,7 @@ cmd_dir() {
 }
 
 cmd_remember() {
-  local category=preferences topic='' body='' arg expires='' sensitivity=''
+  local category=preferences topic='' body='' arg expires='' sensitivity='' task=''
   while [ $# -gt 0 ]; do
     case "$1" in
       --category)
@@ -161,6 +177,12 @@ cmd_remember() {
         shift 2
         ;;
       --sensitivity=*) sensitivity=${1#--sensitivity=}; shift ;;
+      --task)
+        [ $# -ge 2 ] || die "--task needs a value"
+        task=$2
+        shift 2
+        ;;
+      --task=*) task=${1#--task=}; shift ;;
       --) shift; break ;;
       -*) die "unknown option: $1" ;;
       *) topic=$1; shift; break ;;
@@ -173,7 +195,7 @@ cmd_remember() {
   [ -n "$topic" ] || { usage; die "remember needs a topic"; }
   for arg in "$@"; do
     case "$arg" in
-      --category|--category=*|--expires|--expires=*|--sensitivity|--sensitivity=*|--from-file|--from-file=*)
+      --category|--category=*|--expires|--expires=*|--sensitivity|--sensitivity=*|--task|--task=*|--from-file|--from-file=*)
         die "unexpected option after the body: $arg; supported form: 'remember [--category <cat>] [--expires <date>] [--sensitivity <level>] <topic> [body...]' with every option before the topic and the body from arguments or stdin (no --from-file)"
         ;;
     esac
@@ -193,6 +215,8 @@ cmd_remember() {
     ''|normal|private) ;;
     *) die "invalid --sensitivity (want normal or private): $sensitivity" 3 ;;
   esac
+
+  valid_task_id "$task" || die "invalid --task id (want ^[A-Za-z0-9][A-Za-z0-9._-]*\$): $task" 3
 
   category=$(normalize_category "$category")
   if [ "$category" != "." ]; then
@@ -233,6 +257,7 @@ cmd_remember() {
     printf 'updated: %s\n' "$today"
     [ -z "$expires" ] || printf 'expires: %s\n' "$expires"
     [ -z "$sensitivity" ] || printf 'sensitivity: %s\n' "$sensitivity"
+    [ -z "$task" ] || printf 'task: %s\n' "$task"
     printf -- '---\n'
     printf '# %s\n\n' "$topic"
     printf '%s\n' "$body"
@@ -242,6 +267,67 @@ cmd_remember() {
 
   require_node
   node "$ENGINE" build --dir "$store" >/dev/null || die "reindex failed"
+}
+
+# An empty id is valid here: it means "no task link".
+valid_task_id() {
+  case "$1" in
+    '') return 0 ;;
+    [A-Za-z0-9]*) ;;
+    *) return 1 ;;
+  esac
+  case "$1" in
+    *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+}
+
+cmd_complete_task() {
+  local task='' report='' pr='' outcome=''
+  [ $# -gt 0 ] || die "complete-task needs a task id"
+  task=$1
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --report) [ $# -ge 2 ] || die "--report needs a value"; report=$2; shift 2 ;;
+      --report=*) report=${1#--report=}; shift ;;
+      --pr) [ $# -ge 2 ] || die "--pr needs a value"; pr=$2; shift 2 ;;
+      --pr=*) pr=${1#--pr=}; shift ;;
+      --outcome) [ $# -ge 2 ] || die "--outcome needs a value"; outcome=$2; shift 2 ;;
+      --outcome=*) outcome=${1#--outcome=}; shift ;;
+      *) die "unknown option: $1" ;;
+    esac
+  done
+  { [ -n "$task" ] && valid_task_id "$task"; } || die "invalid task id: $task" 3
+  local store dir today file rewritten=0 tmp text
+  store=$(resolve_store_dir)
+  dir=$store/now
+  [ -d "$dir" ] || return 0
+  today=$(date +%F)
+  text="Erledigt $today ($task): ${outcome:-Aufgabe abgeschlossen}"
+  [ -z "$report" ] || text="$text. Bericht: $report"
+  [ -z "$pr" ] || text="$text. PR: $pr"
+  for file in "$dir"/*.md; do
+    [ -f "$file" ] && [ ! -L "$file" ] || continue
+    [ "$(frontmatter_value "$file" task)" = "$task" ] || continue
+    [ -z "$(frontmatter_value "$file" completed)" ] || continue
+    tmp=$(mktemp "$dir/.mem.XXXXXX") || die "mktemp failed"
+    awk -v today="$today" -v text="$text" '
+      NR == 1 { print; fm = ($0 == "---"); next }
+      fm == 1 && /^---[[:space:]]*$/ { print "completed: " today; print; fm = 2; next }
+      fm == 1 && /^updated:/ { print "updated: " today; next }
+      fm == 1 { print; next }
+      fm == 2 && /^# / && !titled { print; titled = 1; print ""; print text; next }
+      fm == 2 && titled { next }
+      { print }
+    ' "$file" > "$tmp" || { rm -f "$tmp"; die "rewrite failed for $file"; }
+    mv "$tmp" "$file" || { rm -f "$tmp"; die "rewrite failed for $file"; }
+    printf 'completed: %s\n' "${file#"$store"/}"
+    rewritten=$((rewritten + 1))
+  done
+  if [ "$rewritten" -gt 0 ]; then
+    require_node
+    node "$ENGINE" build --dir "$store" >/dev/null || die "reindex failed"
+  fi
 }
 
 cmd_recall() {
@@ -439,6 +525,7 @@ shift
 case "$cmd" in
   dir) cmd_dir "$@" ;;
   remember) cmd_remember "$@" ;;
+  complete-task) cmd_complete_task "$@" ;;
   recall) cmd_recall "$@" ;;
   now) cmd_now "$@" ;;
   merge-from) cmd_merge_from "$@" ;;

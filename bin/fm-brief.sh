@@ -107,6 +107,8 @@
 # briefs"), ship and scout briefs also carry a "# Wiki context" section built
 # from the project's registry wiki token and a "# Wiki guide" step whose marker
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
+# Business-facts setup and schema live in docs/configuration.md "Business facts
+# in briefs"; bin/fm-business-facts-lib.sh owns the parser and worker instruction.
 # Every ship and scout brief also carries a bounded, skippable "# Prior art" step
 # (past reports, wikis, GitHub); findings go in the ship guide or scout report guide.
 # Both crewmate scaffolds carry one shared rule against administering the
@@ -175,6 +177,8 @@ esac
 . "$SCRIPT_DIR/fm-dod-lib.sh"
 # shellcheck source=bin/fm-wiki-lib.sh
 . "$SCRIPT_DIR/fm-wiki-lib.sh"
+# shellcheck source=bin/fm-business-facts-lib.sh
+. "$SCRIPT_DIR/fm-business-facts-lib.sh"
 # shellcheck source=bin/fm-role-lib.sh
 . "$SCRIPT_DIR/fm-role-lib.sh"
 PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
@@ -648,6 +652,15 @@ TASK_SECTION=${TASK_SECTION%$'\n'}
 # briefs"). Missing or malformed wiki data never fails the scaffold.
 WIKI_CONTEXT_SECTION=
 WIKI_GUIDE_SECTION=
+# Per-business facts (bin/fm-business-facts-lib.sh): absent facts render
+# nothing, a malformed [facts: ...] registry token stops the scaffold.
+BUSINESS_FACTS_SECTION=
+if [ "$KIND" != secondmate ]; then
+  BUSINESS_FACTS_SECTION=$(fm_facts_section "$CONFIG" "$REPO" "$DATA/projects.md") || exit 1
+  [ -z "$BUSINESS_FACTS_SECTION" ] || BUSINESS_FACTS_SECTION=$'
+
+'"$BUSINESS_FACTS_SECTION"
+fi
 if WIKI_ROOT=$(fm_wiki_root "$CONFIG"); then
   WIKI_CONTEXT_SECTION=$(fm_wiki_context_section "$WIKI_ROOT" "$REPO" "$DATA/projects.md" 2>/dev/null) ||
     WIKI_CONTEXT_SECTION="# Wiki context
@@ -722,7 +735,7 @@ fi
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
-$TASK_SECTION
+$TASK_SECTION$BUSINESS_FACTS_SECTION
 
 $HERDR_SECTION$WIKI_CONTEXT_SECTION
 
@@ -800,7 +813,7 @@ DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE_BRANCH" "$UPSTREAM_CO
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
-$TASK_SECTION
+$TASK_SECTION$BUSINESS_FACTS_SECTION
 
 $HERDR_SECTION$WIKI_CONTEXT_SECTION
 

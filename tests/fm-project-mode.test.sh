@@ -7,7 +7,7 @@
 # local-only like every forge, and the plain (no --forge/--raw) output stays
 # exactly two words, because tests/fm-secondmate-safety.test.sh and
 # tests/fm-secondmate-lifecycle-e2e.test.sh assert that shape with strict
-# string equality.
+# string equality. Also covers delivery posture with leading facts/wiki brackets.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -27,6 +27,12 @@ cat > "$DATA/projects.md" <<'EOF'
 - kept [local-only forge=forgejo] - a forge on a mode that publishes nothing (added 2026-01-01)
 - colon [no-mistakes forge:forgejo] - a colon-spelled token is not a forge binding (added 2026-01-01)
 - glabbed [no-mistakes forge=gitlab] - gitlab is not a forge value (added 2026-01-01)
+- moving-site [local-only] [facts: moving] - facts after delivery
+- moving-v2 [facts: moving] [local-only] - facts before delivery
+- annotated [direct-PR +yolo branch=work/ forge=forgejo witness=https://example.test/health] [facts: moving] [wiki: Moving Wiki] - delivery first
+- facts-first [facts: moving] [wiki: Moving Wiki] [direct-PR +yolo branch=work/ forge=forgejo witness=https://example.test/health] - delivery last
+- wiki-first [wiki: Moving Wiki] [facts: moving] [direct-PR +yolo branch=work/ forge=forgejo witness=https://example.test/health] - reversed metadata
+- facts-only [facts: moving] [wiki: Moving Wiki] - no delivery bracket
 EOF
 
 run_mode() {
@@ -82,5 +88,25 @@ pass "fm-project-mode: a value outside none|gerrit|forgejo is refused and the re
 [ "$(FM_DATA_OVERRIDE="$TMP_ROOT/no-such-dir" "$PROJECT_MODE" --forge legacy 2>/dev/null)" = "none" ] \
   || fail "an absent registry file must default --forge to none"
 pass "fm-project-mode: a missing project or absent registry defaults --forge to none"
+
+for project in moving-site moving-v2; do
+  [ "$(run_mode "$project")" = "local-only off" ] || fail "$project lost local-only posture: $(run_mode "$project")"
+done
+pass "fm-project-mode: facts before or after delivery preserve local-only posture"
+
+for project in annotated facts-first wiki-first; do
+  for query in --raw --branch-prefix --forge --witness; do
+    case "$query" in
+      --raw) expected='direct-PR on' ;;
+      --branch-prefix) expected='work/' ;;
+      --forge) expected='forgejo' ;;
+      --witness) expected='https://example.test/health' ;;
+    esac
+    actual=$(FM_DATA_OVERRIDE="$DATA" "$PROJECT_MODE" "$query" "$project")
+    [ "$actual" = "$expected" ] || fail "$project $query: expected '$expected', got '$actual'"
+  done
+done
+[ "$(run_mode facts-only)" = "no-mistakes off" ] || fail "metadata-only row lost default posture"
+pass "fm-project-mode: facts/wiki bracket order preserves delivery annotations and defaults"
 
 echo "# fm-project-mode.test.sh: all assertions passed"

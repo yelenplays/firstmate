@@ -9,11 +9,8 @@
 #
 # fm_wiki_registry_names <registry> <project>
 #   Prints the project's registry wiki token, one wiki name per line, or nothing.
-#   Registry rows may carry a second bracket directly after the mode bracket, or
-#   directly after the name when there is no mode bracket:
-#     - <name> [<mode>] [wiki: A, B] - <desc> (added <date>)
-#     - <name> [wiki: Some Wiki] - <desc> (added <date>)
-#   Wiki names are comma-separated and may contain spaces.
+#   Scans up to four leading registry brackets, ignoring non-wiki brackets;
+#   docs/configuration.md "Wiki context in briefs" owns the registry syntax.
 # fm_wiki_root <config-dir>
 #   Prints the configured wikis root (FM_WIKIS_ROOT wins over the first
 #   non-comment line of <config-dir>/wikis-root; a leading ~/ expands to $HOME)
@@ -69,7 +66,7 @@ fm_wiki_registry_names() {
       rest = $0
       sub(/^[ \t]*-[ \t]+/, "", rest)
       rest = substr(rest, length(n) + 1)
-      for (k = 0; k < 2; k++) {
+      for (k = 0; k < 4; k++) {
         sub(/^[ \t]+/, "", rest)
         if (substr(rest, 1, 1) != "[") break
         close_at = index(rest, "]")

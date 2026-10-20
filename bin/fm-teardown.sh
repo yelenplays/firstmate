@@ -3706,6 +3706,26 @@ if [ "$KIND" = ship ] && teardown_owns_worktree && [ -e "$CONFIG/pipeline-spend"
     || echo "warning: could not record $ID's no-mistakes pipeline spend; cleanup continues" >&2
 fi
 
+# A now/ memory note linked to this task (fm-memory.sh remember --task) stops
+# saying the work is running: fm-memory.sh complete-task rewrites it with the
+# outcome and the report or PR link. Best effort; unlinked notes are untouched.
+# Skipped for a forced teardown and for a scout without a report: that work did
+# not finish, so its note must not claim it did.
+if { [ "$KIND" = scout ] || [ "$KIND" = ship ]; } && [ "$FORCE" != --force ] \
+  && { [ "$KIND" != scout ] || [ -f "$DATA/$ID/report.md" ]; }; then
+  memory_complete_args=()
+  if [ "$KIND" = scout ]; then
+    memory_complete_args=(--outcome "Untersuchung abgeschlossen" --report "$DATA/$ID/report.md")
+  elif [ "$MODE" = local-only ]; then
+    memory_complete_args=(--outcome "auf lokalem main gelandet")
+  else
+    memory_complete_args=(--outcome "abgeschlossen")
+    [ -z "$PR_URL" ] || memory_complete_args+=(--pr "$PR_URL")
+  fi
+  FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-memory.sh" complete-task "$ID" "${memory_complete_args[@]}" >/dev/null \
+    || echo "warning: could not update the now/ memory note linked to $ID; cleanup continues" >&2
+fi
+
 # Fix 3 (see script header): sweep remote job workers abandoned by an already
 # pruned code root. Best effort - a sweep failure never blocks this teardown.
 "$SCRIPT_DIR/fm-remote-job-reap-orphans.sh" >&2 || true

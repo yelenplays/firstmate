@@ -35,13 +35,10 @@
 #   and whichever token is left over is the mode. <prefix> must not contain a space; an empty override
 #   ("branch=") resolves to "" for a bare "<task-id>" ship branch instead of the
 #   legacy "fm/<task-id>".
-# Any row may also carry a wiki token as a second bracket directly after the
-# mode bracket, or directly after the name when there is no mode bracket:
-#   - <name> [<mode>] [wiki: A, B] - <desc> (added <date>)
-#   - <name> [wiki: Some Wiki] - <desc> (added <date>)       -> no-mistakes off
-# The token names the project's backing wikis (comma-separated; names may
-# contain spaces) and never changes the delivery posture; bin/fm-wiki-lib.sh
-# owns its parser and bin/fm-brief.sh consumes it.
+# Optional wiki and facts metadata brackets do not change delivery posture.
+# docs/configuration.md "Wiki context in briefs" and "Business facts in briefs"
+# own their syntax and effect; bin/fm-wiki-lib.sh and bin/fm-business-facts-lib.sh
+# own their parsers, consumed by bin/fm-brief.sh.
 #
 # Registered modes:
 #   no-mistakes            full pipeline -> PR -> configured merge authority (default)
@@ -175,7 +172,9 @@ parsed=$(awk -v n="$NAME" '
     after = substr($0, plen + 1);
     if (after != "" && substr(after, 1, 2) != " [" && substr(after, 1, 3) != " - ") next
     mode="no-mistakes"; yolo="off"; branch="fm/"; forge="none"; witness="";
-    if (substr(after, 1, 2) == " [" && substr(after, 1, 7) != " [wiki:") {   # a leading wiki token is not a mode
+    # Skip leading metadata brackets, not the delivery bracket following them.
+    while (after ~ /^ \[(wiki|facts):[^]]*\]/) sub(/^ \[(wiki|facts):[^]]*\]/, "", after)
+    if (substr(after, 1, 2) == " [") {
       s="";
       nk = split(after, rest, " ");
       for (i=1; i<=nk; i++) { s = s (s==""?"":" ") rest[i]; if (rest[i] ~ /\]$/) break }
