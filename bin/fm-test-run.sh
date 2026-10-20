@@ -814,7 +814,7 @@ tests/fm-dispatch-resolve.test.sh 10051
 tests/fm-dispatch-selftest.test.sh 46000
 tests/fm-free-model-canary.test.sh 41000
 tests/fm-free-research-lane.test.sh 6000
-tests/fm-search.test.sh 10500
+tests/fm-search.test.sh 60000
 tests/fm-documentation-audiences.test.sh 1301
 tests/fm-dod-lib.test.sh 2035
 tests/fm-extension-binding.test.sh 11105

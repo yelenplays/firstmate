@@ -1210,13 +1210,13 @@ Keys are read at call time from `~/.config/exa.key` and `~/.config/tinyfish.key`
 The router never signs up for, upgrades or buys anything.
 
 `state/fm-search/ledger.tsv` gets one line per attempted provider call, including empty results and failures but excluding skipped hops.
-Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; a completed HTTP response with a malformed or undecodable body still records that price against the monthly cap.
+Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; only an HTTP error status counts as an unbilled rejection, so a timeout, a dropped connection or a malformed or undecodable body still records that price against the monthly cap.
 HTTP errors, network errors and timeouts record zero cost.
 `state/fm-search/route-cache.tsv` caches accepted class picks for the configured lifetime under a hash of the lowercased query.
 Neither file stores query text.
 `fm-search.sh --ledger` prints month-to-date spend and calls per provider.
 A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot get the lock within the hop timeout skips the hop.
-Each hop's timeout is one deadline that also covers reading the response body.
+Each hop's timeout is one wall-clock deadline over the whole exchange - connect, status line, headers and body - so a provider that trickles bytes cannot hold the hop.
 
 Every query goes to third-party providers, so never search with private data, names or client facts.
 Test overrides: `FM_JEV_BIN`, `FM_SEARCH_KETCH_BIN`, `FM_SEARCH_EXA_URL`, `FM_SEARCH_TINYFISH_URL`, `FM_SEARCH_KEY_DIR`, `FM_SEARCH_STATE` and `FM_SEARCH_CONFIG` point the router at stubs.

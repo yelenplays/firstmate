@@ -6,7 +6,7 @@ logic is copied from the phase-1 bench (data/search-router-bench-v1). Keys are
 read from ~/.config/<name>.key at call time and never printed, logged or stored.
 The ledger and the route cache never hold query text.
 """
-import contextlib, fcntl, hashlib, json, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+import contextlib, fcntl, hashlib, json, os, re, signal, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 from http.client import HTTPException
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -90,21 +90,32 @@ def norm(title, url, date, text):
             "snippet": re.sub(r"^Published: \S+ ?", "", " ".join((text or "").split()))}
 
 
+class Deadline(Exception):
+    pass
+
+
+def on_deadline(_sig, _frame):
+    raise Deadline()
+
+
 def http(req, timeout):
-    """One request under one deadline that also covers the body, so a trickled response cannot hold the hop."""
-    deadline = time.monotonic() + timeout
+    """One request under one wall-clock deadline that covers connect, status, headers and body.
+
+    The socket timeout only bounds inactivity, so a peer that trickles bytes would
+    hold the hop; a real-time interval timer interrupts the whole exchange instead.
+    """
+    previous = signal.signal(signal.SIGALRM, on_deadline)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            body = []
-            while True:
-                if time.monotonic() > deadline:
-                    raise HopError("timeout")
-                chunk = r.read1(65536)
-                if not chunk:
-                    return b"".join(body)
-                body.append(chunk)
-    except HopError:
-        raise
+        # The timer is disarmed in the inner finally, so a deadline that fires
+        # while it runs still lands in the outer handlers below.
+        try:
+            signal.setitimer(signal.ITIMER_REAL, timeout)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+    except Deadline:
+        raise HopError("timeout")
     except urllib.error.HTTPError as e:
         raise HopError("http %d" % e.code)
     except TimeoutError:
@@ -113,6 +124,8 @@ def http(req, timeout):
         raise HopError("timeout" if "timed out" in str(e.reason) else "network error")
     except (OSError, HTTPException):
         raise HopError("network error")
+    finally:
+        signal.signal(signal.SIGALRM, previous)
 
 
 def parse_json(raw):
@@ -145,7 +158,12 @@ def run_exa(kind, per_query, query, limit, timeout):
     k = key("exa")
     body = json.dumps({"query": query, "type": kind, "numResults": limit,
                        "contents": {"highlights": True}}).encode()
-    raw = http(urllib.request.Request(EXA_URL, body, {"x-api-key": k, "Content-Type": "application/json"}), timeout)
+    try:
+        raw = http(urllib.request.Request(EXA_URL, body, {"x-api-key": k, "Content-Type": "application/json"}), timeout)
+    except HopError as e:
+        # An HTTP error status is a known unbilled rejection; after any other
+        # failure the search may have run and been billed, so it keeps its price.
+        raise e if str(e).startswith("http ") else HopError(str(e), per_query)
     try:
         d = parse_json(raw.decode())
         out = [norm(x.get("title"), x.get("url"), x.get("publishedDate"), "\n".join(x.get("highlights") or []))

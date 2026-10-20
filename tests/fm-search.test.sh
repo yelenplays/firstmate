@@ -27,7 +27,7 @@ ALL_OUT="$TMP_ROOT/all-output.log"
 # --- stand-ins ------------------------------------------------------------------
 
 # The HTTP stub: each provider's behavior comes from $STUB/<exa|tinyfish>.mode
-# (ok, empty, 429, slow, lag, trickle, utf8); each request appends one JSON line to <name>.req.
+# (ok, empty, 429, slow, lag, trickle, headers, utf8); each request appends one JSON line to <name>.req.
 cat > "$TMP_ROOT/stub_server.py" <<'PY'
 import http.server, json, os, sys, threading, time, urllib.parse
 stub, fix, exa_key, tf_key = sys.argv[1:5]
@@ -46,15 +46,25 @@ class H(http.server.BaseHTTPRequestHandler):
         if m == "429":
             self.send_response(429); self.end_headers(); return
         if m == "slow":
-            time.sleep(3)
+            time.sleep(6)
         if m == "lag":
             time.sleep(0.3)
+        if m == "headers":
+            # Status and header bytes arrive one at a time, each gap shorter
+            # than the socket timeout, for longer than the hop deadline.
+            try:
+                for ch in b"HTTP/1.1 200 OK\r\nX-Slow: " + b"x" * 120:
+                    self.connection.sendall(bytes([ch])); time.sleep(0.05)
+            except OSError:
+                pass
+            self.close_connection = True
+            return
         if m == "trickle":
             self.send_response(200)
             self.send_header("Content-Length", "200")
             self.end_headers()
             try:
-                for _ in range(60):
+                for _ in range(120):
                     self.wfile.write(b" "); self.wfile.flush(); time.sleep(0.05)
             except OSError:
                 pass
@@ -121,7 +131,7 @@ chmod +x "$FAKEBIN/ketch" "$FAKEBIN/fm-jev.sh"
 # Short timeouts so the slow modes trip them; a tight TinyFish minute cap.
 cat > "$TMP_ROOT/fm-search.json" <<'JSON'
 {"tinyfish": {"per_minute": 2},
- "timeouts_s": {"exa-keyless": 2, "exa-lite": 1, "exa-deep": 1, "tinyfish": 1, "ketch-multi": 2}}
+ "timeouts_s": {"exa-keyless": 3, "exa-lite": 2, "exa-deep": 2, "tinyfish": 2, "ketch-multi": 3}}
 JSON
 
 STATE=''
@@ -148,6 +158,9 @@ search() {  # [args...]; sets code, out (stdout), err (stderr)
   err=$(cat "$e")
   cat "$o" "$e" >> "$ALL_OUT"
 }
+# hop_lat <provider>: the ledger's latency for that hop, measured inside the
+# router, so host load on process startup cannot blur a deadline check.
+hop_lat() { awk -F'\t' -v p="$1" '$2 == p {print $4; exit}' "$STATE/ledger.tsv"; }
 trailer() { printf '%s\n' "$out" | tail -n 1; }
 reqs() { if [ -f "$STUB/$1.req" ]; then wc -l < "$STUB/$1.req" | tr -d ' '; else echo 0; fi; }
 calls() { if [ -f "$STUB/$1.calls" ]; then wc -l < "$STUB/$1.calls" | tr -d ' '; else echo 0; fi; }
@@ -250,13 +263,31 @@ pass "an empty list, an HTTP 429 and a timeout each hop to the next provider"
 
 new_case trickle
 set_mode exa trickle
-started=$(date +%s)
 search --chain K "trickle probe $QMARK"
 expect_code 0 "$code" "trickle: $err"
 assert_contains "$(trailer)" 'provider=tinyfish hops=2' "trickle: a trickled body times out and hops on"
-[ $(( $(date +%s) - started )) -lt 3 ] || fail "trickle: the 1 s hop deadline did not cover the body read"
-assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3==0' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "trickle: an Exa body timeout has no cost"
+awk -v l="$(hop_lat exa-lite)" 'BEGIN {exit !(l < 4.5)}' || fail "trickle: the 2 s hop deadline did not cover the body read (hop took $(hop_lat exa-lite) s)"
+assert_equals 1 "$(awk -F'\t' '$2=="exa-lite" && $3==0.004' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "trickle: an Exa body timeout after HTTP 200 keeps its price"
 pass "the hop deadline covers a trickled response body"
+
+new_case trickle-cap
+printf '%s\texa-lite\t7.99000\t0.80\t5\tjev\n' "$(date +%s)" > "$STATE/ledger.tsv"
+set_mode exa trickle
+for i in 1 2 3; do
+  search --chain K "trickle cap probe $i $QMARK"
+  expect_code 0 "$code" "trickle cap $i: $err"
+  assert_not_contains "$(trailer)" 'provider=exa-lite' "trickle cap $i: the chain hops past Exa"
+done
+assert_equals 2 "$(reqs exa)" "trickle cap: repeated billed body timeouts exhaust the cap and stop keyed calls"
+pass "Exa calls whose billing is unknown keep their price until the cap stops them"
+
+new_case slow-headers
+set_mode exa headers
+search --chain K "slow headers probe $QMARK"
+expect_code 0 "$code" "slow headers: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "slow headers: trickled status and headers time out and hop on"
+awk -v l="$(hop_lat exa-lite)" 'BEGIN {exit !(l < 4.5)}' || fail "slow headers: the 2 s hop deadline did not cover status and headers (hop took $(hop_lat exa-lite) s)"
+pass "the hop deadline covers a trickled status line and headers"
 
 new_case shape
 set_mode exa shape
