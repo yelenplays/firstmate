@@ -1300,14 +1300,17 @@ if fm_pf_relay_active "$FM_HOME" \
   if [ -n "$PUBLIC_FOLLOWUP" ]; then
     subsection "Public commitments"
     if [ "$SLIM" -eq 1 ]; then
-      printf '%s\n' "$PUBLIC_FOLLOWUP" | slim_capped 600 160 "$FM_ROOT/bin/fm-public-followup.sh pending"
+      # Keep both the rows and the procedure on demand: repeated absolute
+      # command paths consume the inline budget even when the rows are capped.
+      printf 'Open public loops remain. List: %s/fm-public-followup.sh pending\n' "$SCRIPT_DIR"
+      printf 'Load fmx-respond to reconcile, deliver, hand on or close each loop.\n'
     else
       printf '%s\n' "$PUBLIC_FOLLOWUP"
+      printf '\nEach line is a public loop this home still holds: a reply still owed, or an open loop with nothing owed.\n'
+      printf 'Reconcile terminal results with %s/bin/fm-public-followup.sh consume, then deliver a ready one with\n' "$FM_ROOT"
+      printf '%s/bin/fm-public-followup.sh deliver <id>. Hand a delivered loop on with rechain, or close it with\n' "$FM_ROOT"
+      printf '%s/bin/fm-public-followup.sh retire <id> --reason "...". Load fmx-respond for the procedure.\n' "$FM_ROOT"
     fi
-    printf '\nEach line is a public loop this home still holds: a reply still owed, or an open loop with nothing owed.\n'
-    printf 'Reconcile terminal results with %s/bin/fm-public-followup.sh consume, then deliver a ready one with\n' "$FM_ROOT"
-    printf '%s/bin/fm-public-followup.sh deliver <id>. Hand a delivered loop on with rechain, or close it with\n' "$FM_ROOT"
-    printf '%s/bin/fm-public-followup.sh retire <id> --reason "...". Load fmx-respond for the procedure.\n' "$FM_ROOT"
   fi
 fi
 

@@ -2791,10 +2791,11 @@ EOF
 # replaces hook output over its inline limit (Claude: about 10 KB) with a file
 # path and a 2 KB preview. A fleet shaped like a busy live home - a dozen tasks
 # with long status lines, eleven open decisions, oversized signal rows, a theme
-# pack - must still fit under 9 KB, with the supervision state ahead of the
-# bulk, the acknowledgement line whole, and the cut text kept on disk.
+# pack and outstanding public commitments - must still fit under 9 KB, with
+# the supervision state ahead of the bulk, the acknowledgement line whole,
+# and the cut text kept on disk or available through an on-demand command.
 test_compact_reemit_fits_the_inline_hook_limit() {
-  local rec root home fakebin slim bytes i long history_long sup_line wake_line rules_line ack detail harness
+  local rec root home fakebin slim bytes i long history_long sup_line wake_line rules_line ack detail harness followup_command followups
   harness=${2:-claude}
   # Absolute recovery paths and missing-extension diagnostics also consume the
   # delivered byte contract, not just the capped fleet and wake payloads.
@@ -2832,14 +2833,45 @@ EOF
   printf 'Original startup instructions.\n' > "$root/AGENTS.md"
   run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
   printf 'Updated instructions after startup.\n' > "$root/AGENTS.md"
+  # Register real local commitments, without contacting the relay. Their rows,
+  # instructions, and absolute recovery paths all consume the inline budget.
+  ln -s "$(command -v tasks-axi)" "$fakebin/tasks-axi"
+  ln -s "$ROOT/bin" "$root/bin"
+  fm_fake_exit0 "$fakebin" curl
+  fm_test_tasks_toml "$home/.tasks.toml"
+  printf 'FMX_PAIRING_TOKEN=disposable-test-token\n' > "$home/.env"
+  for i in 1 2 3 4 5; do
+    jq -n --arg r "req-budget-$i" \
+      '{request_id:$r,platform:"discord",context_binding:{version:"ctx1",value:("ctx1_"+$r)},public_safe_summary:"Verify compact recovery",received_at:"2026-10-20T10:00:00Z",followup_expires_at:"2099-10-27T10:00:00Z",reservation_expires_at:"2099-10-27T10:00:00Z"}' > "$home/request.json"
+    jq -n '{type:"report-ready",project:"firstmate",required_deliverables:["report_path"],completion_policy:"all-required"}' > "$home/expected.json"
+    jq -n --arg w "budget-task-$i" \
+      '{relation_id:"rel-code",work_ref:{home_id:"main",task_id:$w},role:"fulfills",required:true,generation:1}' > "$home/relation.json"
+    (cd "$home" && tasks-axi public-followup add "pf-budget-$i" \
+      --request-context-file "$home/request.json" --purpose promised-final \
+      --expected-final-file "$home/expected.json" --expires-at 2099-10-27T10:00:00Z >/dev/null \
+      && tasks-axi public-followup bind-work "pf-budget-$i" --relation-file "$home/relation.json" >/dev/null) \
+      || fail "could not create the public commitment"
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$root" PATH="$fakebin:$BASE_PATH" \
+      "$ROOT/bin/fm-public-followup.sh" register "pf-budget-$i" --relation rel-code \
+      --work-home main --work-id "budget-task-$i" --generation 1 >/dev/null \
+      || fail "could not register the public commitment"
+  done
   for i in 1 2 3; do
     append_wake "$home/state" signal "budget-task-$i.status" "signal: OVERSIZED_PAYLOAD_MARKER $long $long $long" \
       || fail "seed oversized wake failed"
   done
 
   slim=$(run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
+  assert_contains "$slim" "Public commitments" "the compact digest lost outstanding public commitments"
   bytes=$(printf '%s\n' "$slim" | wc -c | tr -d ' ')
   [ "$bytes" -lt 9000 ] || fail "the $harness compact re-emit is $bytes bytes, over the 9000-byte inline budget"
+  followup_command=$(printf '%s\n' "$slim" | sed -n 's/^Open public loops remain\. List: //p')
+  [ -n "$followup_command" ] || fail "the compact digest lost the on-demand commitment listing"
+  followups=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" PATH="$fakebin:$BASE_PATH" bash -c "$followup_command") \
+    || fail "the printed commitment listing failed"
+  for i in 1 2 3 4 5; do
+    assert_contains "$followups" "unresolved pf-budget-$i state=pending-work" "the printed command lost a public commitment"
+  done
   case "$harness" in
     pi)
       assert_contains "$slim" "PI_WATCH_EXTENSION: not loaded" "the busy Pi fixture must exercise extension diagnostics"
