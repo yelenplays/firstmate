@@ -1083,7 +1083,8 @@ fm_test_ban_nm_step_models() {  # <step> [<branch>]
 
 # Prints `<sha>\t<step>\t<model>\t<path>` for each test file a pipeline commit
 # since the base adds or modifies while its step's model is banned, skipping
-# the captain-authorized paths in <meta>. 1 when the base cannot be resolved;
+# paths restored to their pre-commit state and captain-authorized paths in
+# <meta>. 1 when the base cannot be resolved;
 # stdout then holds a one-line reason.
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta>
   local wt=$1 meta=$2 base_ref mb sha subject step model banned path
@@ -1108,6 +1109,7 @@ fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta>
     while IFS= read -r path; do
       fm_test_ban_path_is_test "$path" || continue
       fm_test_ban_path_allowed "$path" "$meta" && continue
+      git -C "$wt" diff --quiet "$sha^" HEAD -- "$path" && continue
       printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$banned" "$path"
     done < <(git -C "$wt" diff-tree --no-commit-id --no-renames --name-only --diff-filter=ACMR -r "$sha" 2>/dev/null)
   done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..HEAD" 2>/dev/null)
