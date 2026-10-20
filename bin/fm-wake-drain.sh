@@ -812,7 +812,11 @@ print_branch_outcomes_section() {
           .count[$r.task] += 1
           | .lines += ["\($r.seq)\t\($r.task)\t[seq \($r.seq)\(if .count[$r.task] > 1 then ", newest of \(.count[$r.task]) for this task" else "" end), recorded \($r.recordedAgo) ago] \($r.task): \($r.summary | gsub("[\t\n\r]"; " "))"])
       | .lines[]' 2>/dev/null) \
-    || ! routine=$(printf '%s\n' "$rows" | jq -rs 'map(select(.unread and .verdict == "routine" and .silent != true)) | sort_by(.seq) | reverse | .[]
+    || ! routine=$(printf '%s\n' "$rows" | jq -rs '. as $all
+      | map(select(.unread and .verdict == "routine" and .silent != true)
+          | . as $r | ($r.summary | gsub("[\n\r]"; " ")) as $text
+          | select(any($all[]; .verdict == "captain" and .seq > $r.seq and .task == $r.task and .summary == $text) | not))
+      | sort_by(.seq) | reverse | .[]
       | "\(.task)\t[seq \(.seq)] \(.task): \(.summary | gsub("[\t\n\r]"; " "))"' 2>/dev/null) \
     || case "$through" in ''|*[!0-9]*) true ;; *) false ;; esac; then
     printf 'BRANCH OUTCOMES SKIPPED: the outcome store could not be projected safely; nothing was marked read, so these outcomes are presented again on the next drain.\n' >&2
@@ -858,7 +862,9 @@ ROWS
   fi
 
   # A routine row for a retired task (fm_task_retired) is a completion: news
-  # to relay, so it is listed apart from the awareness rows.
+  # to relay, so it is listed apart from the awareness rows. A routine row
+  # handed back as a captain row (fm-branch-outcome.sh finished-handback) is
+  # already in the captain section, so it was left out above.
   while IFS=$(printf '\t') read -r task line; do
     [ -n "$line" ] || continue
     if fm_task_retired "$task"; then

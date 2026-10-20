@@ -93,9 +93,9 @@
 #     same turn: for each named visible routine row whose task the same check
 #     now finds finished, append one captain row carrying its task, wake, and
 #     summary, unless a captain row for that task already follows it. Prints
-#     the appended seqs, one per line, or nothing. The Pi report tool runs it
-#     when a branch turn settles; the host's turn-end check is
-#     turn_captain_seqs in bin/fm-supervision-host.sh.
+#     the appended seqs, one per line, or nothing. Both turn ends run it: the
+#     Pi report tool when a branch turn settles, and the supervision host's
+#     turn_finished_handback (bin/fm-supervision-host.sh).
 #   fm-branch-outcome.sh unread
 #     Print every unread record (raw JSONL). Exit 0 with no output when none.
 #   fm-branch-outcome.sh mark-read --through <seq>

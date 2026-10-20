@@ -119,8 +119,8 @@ It also passes the close through unchanged, with no added line, when any of thes
 
 A close the engine takes is handled as in [One wake](#one-wake), with the dialog mirror at the head of the wake message.
 Completion routing follows the branch prompt's [verdict criteria](../bin/fm-branch-prompt.sh) and the store's opt-in promotion contract ([`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`).
-The host also checks visible routine rows at turn end: a task satisfying `fm_task_retired` in [`bin/fm-wake-lib.sh`](../bin/fm-wake-lib.sh) then wakes main even if it retired after reporting.
-A handled wake with neither a captain outcome nor that retirement handback stays off main.
+The host also rechecks the turn's visible routine rows at turn end with the store's `finished-handback`, the same command Pi's turn end runs: a task that finished after reporting, torn down (`fm_task_retired` in [`bin/fm-wake-lib.sh`](../bin/fm-wake-lib.sh)) or reading done with its records retained while cleanup waits, gets one captain row carrying the same result, and that row wakes main.
+A handled wake with neither a captain outcome nor such a handback stays off main.
 An attended handback uses one `supervision-host: branch-outcome:` line naming its store rows, without the close it handled; see [Captain outcomes](#captain-outcomes).
 A turn that fails hands its close to main with one `supervision-host:` line, as away.
 Main-only rows that share the queue with the branch's rows stay queued for main, which is woken for each on its own triggering close, as on Pi.
@@ -207,6 +207,7 @@ The drain implements these presentation rules:
 - Repeated captain outcomes for one task collapse to that task's newest, naming how many it carries, and one acknowledgement covers them.
 - The byte cap shows only the oldest contiguous run of captain outcomes, so the printed acknowledgement covers exactly the rows shown, and it counts the newer ones it holds back, which follow once the run is acknowledged.
 - Visible routine rows whose task satisfies `fm_task_retired` appear under `BRANCH OUTCOMES, FINISHED` for relay, not routine awareness.
+  A routine row already handed back as a captain row with the same task and summary is left out, because the captain section carries it.
   This section has its own byte budget, keeps the newest rows, and counts omitted results; omitted rows remain retrievable from the store but do not wait unread for another drain.
 - Other routine outcomes stay turn-free: the next drain lists the newest visible notes once, for awareness and with nothing to acknowledge, and collapses older visible routine notes into a count; silent routine outcomes never appear.
 
@@ -410,7 +411,7 @@ Each arm owner's own suite covers its host mode against a stub host.
 
 | Test | What it covers |
 |---|---|
-| `tests/fm-supervision-host.test.sh` | Drives the real host, auto-arm, grant, drain, report, and lease scripts against a stub engine, in both postures, including residual-check eligibility, the completion wake for a retired task, immediate failure handback, and the drain's `BRANCH OUTCOMES` section. |
+| `tests/fm-supervision-host.test.sh` | Drives the real host, auto-arm, grant, drain, report, and lease scripts against a stub engine, in both postures, including residual-check eligibility, the completion wake for a task torn down or done after reporting, immediate failure handback, and the drain's `BRANCH OUTCOMES` section. |
 | `tests/fm-claude-stop-autoarm.test.sh` | The Claude arm owner's host mode against a stub host. |
 | `tests/fm-cursor-primary.test.sh` | The Cursor arm owner's host mode against a stub host. |
 | `tests/fm-pi-watch-extension.test.sh` | The OpenCode plugin's host mode against a stub host. |
