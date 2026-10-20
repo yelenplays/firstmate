@@ -527,7 +527,7 @@ case "$CMD" in
     TASK_FINISHED=0
     if [ "$PROMOTE_FINISHED" -eq 1 ] && [ "$VERDICT" = routine ] && [ "$SILENT" = false ]; then
       if fm_task_retired "$TASK" \
-          || [ "$(FM_HOME="$FM_HOME" "$FM_CREW_STATE_BIN" "$TASK" 2>/dev/null | sed -n '1s/^state: \([a-z]*\).*/\1/p')" = done ]; then
+          || [ "$(FM_HOME="$FM_HOME" fm_run_timed 10 "$FM_CREW_STATE_BIN" "$TASK" 2>/dev/null | sed -n '1s/^state: \([a-z]*\).*/\1/p')" = done ]; then
         TASK_FINISHED=1
       fi
     fi
