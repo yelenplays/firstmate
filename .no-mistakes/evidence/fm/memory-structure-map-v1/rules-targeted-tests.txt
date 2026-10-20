@@ -1,0 +1,9 @@
+ok - the store records rules, repeats, checks, and reasons, and refuses invalid input
+ok - the rendered block honors its character bound and points at the full list
+ok - rule writes refuse in a secondmate home, whose config is a primary copy
+ok - the capture hook raises candidates only for corrections, never writes rules, and supports confirm, dismiss, and nein
+ok - capture runs only in the primary main session and the session block reaches main and secondmate seats only
+ok - the registered Claude SessionStart and UserPromptSubmit entries reach fm-rules.sh
+ok - ship and scout briefs carry the captain rules; charters and rule-free homes carry none
+ok - the weekly report counts repeats, blocks, unchecked rules, and transcript corrections, and the check reminds once per due week
+# fm-rules.test.sh: all assertions passed

@@ -1,0 +1,8 @@
+Isolated session: fm-lab-captain-rules-28202-17329
+tmux not on PATH; private-tmux primary cannot launch
+prepare exit=0
+
+The prepared, never-provisioned lab was removed with:
+FM_HERDR_LAB_STATE_DIR="$PWD/.fm-test-herdr-state" bin/fm-herdr-lab.sh teardown fm-lab-captain-rules-28202-17329
+Teardown succeeded; local tripwire directory was removed. No Herdr primary was started.
+The direct session/prompt/Stop invocations in rules-cli-transcript.txt returned no context or block in this gate worktree; the hooks intentionally exclude gate and linked task worktrees.

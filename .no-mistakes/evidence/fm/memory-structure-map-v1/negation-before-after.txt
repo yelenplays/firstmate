@@ -1,0 +1,6 @@
+Regression input: No worries you can now run ! sudo darwin-rebuild switch
+Before fix (d62d5352):
+exit=0
+Current HEAD:
+bang-interactive: No worries you can now run ! sudo darwin-rebuild switch
+exit=1

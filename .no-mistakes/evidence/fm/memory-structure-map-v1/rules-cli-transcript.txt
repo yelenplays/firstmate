@@ -1,0 +1,220 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home
+[exit 0]
+
+$ bin/fm-rules.sh render
+[exit 0]
+
+$ bin/fm-rules.sh add terminal-handoff 'Use pbcopy and a real Terminal for sudo steps.'
+added: terminal-handoff
+[exit 0]
+
+$ bin/fm-rules.sh list
+terminal-handoff	seen=1	Use pbcopy and a real Terminal for sudo steps.
+[exit 0]
+
+$ bin/fm-rules.sh add terminal-handoff 'Put sudo commands on the clipboard, use a real Terminal, and verify the result.'
+repeated: terminal-handoff (seen 2)
+[exit 0]
+
+$ bin/fm-rules.sh list
+terminal-handoff	seen=2	Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+[exit 0]
+
+$ bin/fm-rules.sh unchecked
+terminal-handoff	seen=2	Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+[exit 0]
+
+$ bin/fm-rules.sh render
+CAPTAIN RULES (1, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+REPEATED WITHOUT A CHECK - build a check in bin/fm-rule-guard.sh and link it with bin/fm-rules.sh check <rule-id> <check-id>, or record why not with bin/fm-rules.sh nocheck <rule-id> "<reason>":
+- terminal-handoff (seen 2 times)
+[exit 0]
+
+$ bin/fm-rules.sh check terminal-handoff missing-check
+fm-rules: unknown check id: missing-check (see bin/fm-rule-guard.sh list)
+[exit 3]
+
+$ bin/fm-rules.sh check terminal-handoff bang-interactive
+check linked: terminal-handoff -> bang-interactive
+[exit 0]
+
+$ bin/fm-rules.sh unchecked
+[exit 0]
+
+$ bin/fm-rules.sh render
+CAPTAIN RULES (1, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Put sudo commands on the clipboard, use a real Terminal, and verify the result. [check: bang-interactive]
+[exit 0]
+
+$ bin/fm-rules.sh add concise-replies 'Keep replies concise.'
+added: concise-replies
+[exit 0]
+
+$ bin/fm-rules.sh add concise-replies 'Keep replies concise.'
+repeated: concise-replies (seen 2)
+[exit 0]
+
+$ bin/fm-rules.sh nocheck concise-replies 'Length alone cannot judge whether necessary context was omitted.'
+no check recorded: concise-replies
+[exit 0]
+
+$ bin/fm-rules.sh unchecked
+[exit 0]
+
+$ bin/fm-rules.sh list
+terminal-handoff	seen=2 check=bang-interactive	Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+concise-replies	seen=2 nocheck=2026-10-20	Keep replies concise.
+[exit 0]
+
+$ bin/fm-rules.sh add 'Invalid Id' 'Do not record me.'
+fm-rules: invalid rule id: Invalid Id
+[exit 3]
+
+$ bin/fm-rules.sh add bad-comment 'Text <!-- seen=99 -->'
+fm-rules: rule text must be one non-empty line of at most 300 characters without <!-- or -->
+[exit 3]
+
+$ bin/fm-rules.sh list
+terminal-handoff	seen=2 check=bang-interactive	Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+concise-replies	seen=2 nocheck=2026-10-20	Keep replies concise.
+[exit 0]
+
+$ bin/fm-brief.sh rules-ship sample-project --mode no-mistakes
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home/data/rules-ship/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ bin/fm-brief.sh rules-scout sample-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home/data/rules-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ bin/fm-rule-guard.sh scan
+stdin: '! sudo darwin-rebuild switch\n'
+bang-interactive: ! sudo darwin-rebuild switch
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'Run this: `! gh auth login`\n'
+bang-interactive: Run this: `! gh auth login`
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: '! security add-generic-password -s x\n'
+bang-interactive: ! security add-generic-password -s x
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: '> ! op signin\n'
+bang-interactive: > ! op signin
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'no worries, run ! sudo darwin-rebuild switch\n'
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'No worries you can now run ! sudo darwin-rebuild switch\n'
+bang-interactive: No worries you can now run ! sudo darwin-rebuild switch
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'No worries now run ! sudo darwin-rebuild switch\n'
+bang-interactive: No worries now run ! sudo darwin-rebuild switch
+[exit 1]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'Never hand the captain a `! sudo` line.\n'
+[exit 0]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'Use pbcopy, not ! sudo.\n'
+[exit 0]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'Do not ever run ! sudo -v\n'
+[exit 0]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'Nie wieder `! gh auth login` schicken.\n'
+[exit 0]
+
+$ bin/fm-rule-guard.sh scan
+stdin: '! git status\n'
+[exit 0]
+
+$ bin/fm-rule-guard.sh scan
+stdin: 'sudo darwin-rebuild switch (pasted into Terminal)\n'
+[exit 0]
+
+$ bin/fm-rules.sh weekly-check
+captain-rules weekly report due: run /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/bin/fm-rules.sh report and send the captain its short version
+[exit 0]
+
+$ bin/fm-rules.sh weekly-check
+[exit 0]
+
+$ bin/fm-rules.sh report --transcripts /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home/transcripts
+# Captain rules report: last 7 days
+
+Rules: 2 total, 2 added, 2 repeated.
+
+## Corrections that came back
+
+- terminal-handoff: recorded again 1 time(s) this period, seen 2 in total, check bang-interactive
+- concise-replies: recorded again 1 time(s) this period, seen 2 in total, no check by decision
+
+## Guard blocks
+
+- none
+- released after a repeated block: 0
+
+## Repeated without a check
+
+- none
+
+## Capture
+
+- candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now
+- correction-like captain prompts in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home/transcripts: 0
+[exit 0]
+
+$ bin/fm-rules.sh weekly-check
+[exit 0]
+
+$ bin/fm-rules.sh weekly-arm
+armed: state/captain-rules-weekly.check.sh
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/manual-home/state/captain-rules-weekly.check.sh
+[exit 0]
+
+$ bin/fm-rules.sh weekly-disarm
+disarmed: state/captain-rules-weekly.check.sh
+[exit 0]
+
+$ bin/fm-rules.sh add rogue-rule 'Do not record me.'
+fm-rules: this is a secondmate home; captain rules are recorded in the primary home only
+[exit 2]
+
+$ bin/fm-rules.sh list
+terminal-handoff	seen=2 check=bang-interactive	Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+concise-replies	seen=2 nocheck=2026-10-20	Keep replies concise.
+[exit 0]
+
+$ bin/fm-rules.sh revoke concise-replies
+revoked: concise-replies
+[exit 0]
+
+$ bin/fm-rules.sh list
+terminal-handoff	seen=2 check=bang-interactive	Put sudo commands on the clipboard, use a real Terminal, and verify the result.
+[exit 0]
+
+$ bin/fm-rules.sh revoke concise-replies
+fm-rules: no rule: concise-replies
+[exit 1]
+
+All manual CLI assertions satisfied. Disposable home removed in finally.

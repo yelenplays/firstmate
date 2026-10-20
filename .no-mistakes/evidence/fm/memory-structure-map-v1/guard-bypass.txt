@@ -1,0 +1,10 @@
+Command: printf "%s\n" "No worries you can now run ! sudo darwin-rebuild switch" | bin/fm-rule-guard.sh scan
+Observed exit: 0
+Expected exit: 1 (interactive command handed over; No is unrelated reassurance six words earlier)
+
+Required comma case:
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+Observed exit: 1
+
+Required quotation case:
+Observed exit: 0

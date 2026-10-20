@@ -1,0 +1,5 @@
+ok - bang-interactive flags handed-over sudo, rebuild, login, password, and keychain lines and passes quoted rules
+ok - the Claude Stop guard blocks with a rewrite hint, releases a repeated continuation, and fails open
+ok - the guard binds primary seats only, never workers, gates, or the supervision branch
+ok - the registered Claude Stop entry reaches fm-rule-guard.sh
+# fm-rule-guard.test.sh: all assertions passed
