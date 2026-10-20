@@ -1,18 +1,6 @@
-Primary validation preflight
-tmux on PATH: unavailable
-Claude on PATH: /Users/yelen/.local/bin/claude
-Herdr on PATH: /opt/homebrew/bin/herdr
+Live primary preflight in target checkout
+claude: /Users/yelen/.local/bin/claude
+tmux: not on PATH
 
-Named Herdr lab prepare and teardown both completed with exit 0; no lab was provisioned and no primary was launched.
-/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW/.test-tmp/scope-home
-added: scope-proof
-
-Direct rule rendering from the marked lab home:
-CAPTAIN RULES (1, from config/captain-rules.md via bin/fm-rules.sh)
-These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
-- The codeword is quartz-lantern.
-
-Session hook from the required gate worktree (expected silent):
-session exit=0
-
-This lab marker permits lifecycle, not primary-session hook scope. The hooks still stand down in the required gate worktree. Live model interpretation needs an authorized non-gate primary checkout; no scope bypass or production credential changes were attempted.
+No TUI session was started: the required private-tmux launch cannot run without tmux. No host search, installation, login change, bypass, or alternate checkout was used.
+The direct gate-hook probe in cli-transcript.log additionally confirms SessionStart, UserPromptSubmit, and Stop are deliberately silent in this checkout.

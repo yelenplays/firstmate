@@ -1,0 +1,6 @@
+CAPTAIN RULES (4, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Consolidated rule.
+- Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-1
+- Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-2
+- Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-3

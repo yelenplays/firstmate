@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Save and repeat a correction across CLI processes, then link a check or record a reason",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Record simultaneous corrections without losing rules or repeat counts",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Reject an overflowing or invalid rule without partially changing the store",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Scaffold ship and scout briefs with the complete central rule set",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Read the inherited rule copy and refuse a secondmate-local overwrite",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Reject interactive bang commands despite distant or harmless negation, while allowing genuine warnings",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Read a weekly recurrence report and arm a reminder that stays quiet after reporting",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Run hooks from the real gate checkout without capturing corrections or intercepting gate replies",
+    "result": "pass",
+    "live": true
+  }
+]

@@ -1,0 +1,15 @@
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:15Z","event":"add","rule":"terminal-only","check":"bang-interactive","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:15Z","event":"add","rule":"short-replies","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:16Z","event":"repeat","rule":"short-replies","seen":"2","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:16Z","event":"nocheck","rule":"short-replies","reason":"Sentence quality needs judgment; an abbreviation-aware check is not available yet."}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:17Z","event":"add","rule":"parallel-3","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:17Z","event":"add","rule":"parallel-2","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:18Z","event":"add","rule":"parallel-5","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:21Z","event":"repeat","rule":"short-replies","seen":"3","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:24Z","event":"repeat","rule":"short-replies","seen":"4","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:24Z","event":"add","rule":"parallel-4","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:25Z","event":"add","rule":"parallel-6","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:26Z","event":"add","rule":"parallel-1","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:26Z","event":"repeat","rule":"short-replies","seen":"5","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:34Z","event":"revoke","rule":"terminal-only","text":"Never hand the captain a ! sudo line; use pbcopy and a real Terminal window."}
+{"schema":"fm-rules-event.v1","at":"2026-10-20T19:45:35Z","event":"add","rule":"terminal-only","check":"bang-interactive","candidate":""}

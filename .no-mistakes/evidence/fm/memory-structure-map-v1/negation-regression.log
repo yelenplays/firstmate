@@ -1,0 +1,49 @@
+original 95cfa17e: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-negation-regression-njnwoi76/fm-rule-guard.sh scan
+stdin: no worries, run ! sudo darwin-rebuild switch
+exit: 0
+stdout: 
+stderr: 
+
+original 95cfa17e: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-negation-regression-njnwoi76/fm-rule-guard.sh scan
+stdin: No worries now run ! sudo darwin-rebuild switch
+exit: 0
+stdout: 
+stderr: 
+
+original 95cfa17e: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-negation-regression-njnwoi76/fm-rule-guard.sh scan
+stdin: Never hand the captain a `! sudo` line.
+exit: 0
+stdout: 
+stderr: 
+
+original 95cfa17e: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-negation-regression-njnwoi76/fm-rule-guard.sh scan
+stdin: Use pbcopy, not ! sudo.
+exit: 0
+stdout: 
+stderr: 
+
+target b6754516: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rule-guard.sh scan
+stdin: no worries, run ! sudo darwin-rebuild switch
+exit: 1
+stdout: bang-interactive: no worries, run ! sudo darwin-rebuild switch
+stderr: 
+
+target b6754516: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rule-guard.sh scan
+stdin: No worries now run ! sudo darwin-rebuild switch
+exit: 1
+stdout: bang-interactive: No worries now run ! sudo darwin-rebuild switch
+stderr: 
+
+target b6754516: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rule-guard.sh scan
+stdin: Never hand the captain a `! sudo` line.
+exit: 0
+stdout: 
+stderr: 
+
+target b6754516: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rule-guard.sh scan
+stdin: Use pbcopy, not ! sudo.
+exit: 0
+stdout: 
+stderr: 
+
+The original executable missed both handovers; the target rejects both and preserves both genuine rule quotations.

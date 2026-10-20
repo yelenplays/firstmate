@@ -1,0 +1,328 @@
+
+=== Save and repeat a correction across CLI processes, then link a check or record a reason ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh render
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh add --check bang-interactive terminal-only 'Never hand the captain a ! sudo line; use pbcopy and a real Terminal window.'
+added: terminal-only
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh add short-replies 'Keep replies to two sentences.'
+added: short-replies
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh add short-replies 'Keep replies to two short sentences.'
+repeated: short-replies (seen 2)
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh unchecked
+short-replies	seen=2	Keep replies to two short sentences.
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh render
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Never hand the captain a ! sudo line; use pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies to two short sentences.
+REPEATED WITHOUT A CHECK - build a check in bin/fm-rule-guard.sh and link it with bin/fm-rules.sh check <rule-id> <check-id>, or record why not with bin/fm-rules.sh nocheck <rule-id> "<reason>":
+- short-replies (seen 2 times)
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh nocheck short-replies 'Sentence quality needs judgment; an abbreviation-aware check is not available yet.'
+no check recorded: short-replies
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh unchecked
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh list
+terminal-only	seen=1 check=bang-interactive	Never hand the captain a ! sudo line; use pbcopy and a real Terminal window.
+short-replies	seen=2 nocheck=2026-10-20	Keep replies to two short sentences.
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh render
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Never hand the captain a ! sudo line; use pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies to two short sentences.
+exit: 0
+
+=== Record simultaneous corrections without losing rules or repeat counts ===
+$ concurrently: bin/fm-rules.sh add parallel-1 'Parallel correction 1.'
+added: parallel-1
+exit: 0
+$ concurrently: bin/fm-rules.sh add parallel-2 'Parallel correction 2.'
+added: parallel-2
+exit: 0
+$ concurrently: bin/fm-rules.sh add parallel-3 'Parallel correction 3.'
+added: parallel-3
+exit: 0
+$ concurrently: bin/fm-rules.sh add parallel-4 'Parallel correction 4.'
+added: parallel-4
+exit: 0
+$ concurrently: bin/fm-rules.sh add parallel-5 'Parallel correction 5.'
+added: parallel-5
+exit: 0
+$ concurrently: bin/fm-rules.sh add parallel-6 'Parallel correction 6.'
+added: parallel-6
+exit: 0
+$ concurrently: bin/fm-rules.sh add short-replies 'Keep replies to two short sentences.'
+repeated: short-replies (seen 5)
+exit: 0
+$ concurrently: bin/fm-rules.sh add short-replies 'Keep replies to two short sentences.'
+repeated: short-replies (seen 3)
+exit: 0
+$ concurrently: bin/fm-rules.sh add short-replies 'Keep replies to two short sentences.'
+repeated: short-replies (seen 4)
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh list
+terminal-only	seen=1 check=bang-interactive	Never hand the captain a ! sudo line; use pbcopy and a real Terminal window.
+short-replies	seen=5 nocheck=2026-10-20	Keep replies to two short sentences.
+parallel-3	seen=1	Parallel correction 3.
+parallel-2	seen=1	Parallel correction 2.
+parallel-5	seen=1	Parallel correction 5.
+parallel-4	seen=1	Parallel correction 4.
+parallel-6	seen=1	Parallel correction 6.
+parallel-1	seen=1	Parallel correction 1.
+exit: 0
+
+=== Reject an overflowing or invalid rule without partially changing the store ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget
+exit: 0
+$ FM_RULES_MAX_CHARS=1000 bin/fm-rules.sh add rule-0 <full correction>
+added: rule-0
+exit: 0
+$ FM_RULES_MAX_CHARS=1000 bin/fm-rules.sh add rule-1 <full correction>
+added: rule-1
+exit: 0
+$ FM_RULES_MAX_CHARS=1000 bin/fm-rules.sh add rule-2 <full correction>
+added: rule-2
+exit: 0
+$ FM_RULES_MAX_CHARS=1000 bin/fm-rules.sh add rule-3 <full correction>
+added: rule-3
+exit: 0
+$ FM_RULES_MAX_CHARS=1000 bin/fm-rules.sh add rule-4 <full correction>
+fm-rules: not saved: the captain rules block would be 1178 characters, over its 1000-character budget (FM_RULES_MAX_CHARS).
+fm-rules: consolidate rules first: restate an existing rule id with a shorter or merged text (add <rule-id> "<text>"), or revoke one that no longer applies (see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rules.sh list), then retry.
+exit: 4
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh list
+rule-0	seen=1	Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-0
+rule-1	seen=1	Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-1
+rule-2	seen=1	Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-2
+rule-3	seen=1	Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-3
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh add rule-0 'Consolidated rule.'
+stderr: fm-rules: not saved: the captain rules block would be 1050 characters, over its 1000-character budget (FM_RULES_MAX_CHARS).
+fm-rules: consolidate rules first: restate an existing rule id with a shorter or merged text (add <rule-id> "<text>"), or revoke one that no longer applies (see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rules.sh list), then retry.
+exit: 4
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh nocheck rule-0 'This prose-only correction needs judgment.'
+no check recorded: rule-0
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh add rule-0 'Consolidated rule.'
+repeated: rule-0 (seen 2)
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh add 'Bad Id' Bad.
+stderr: fm-rules: invalid rule id: Bad Id
+exit: 3
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh add --check missing-check bad-check Bad.
+stderr: fm-rules: unknown check id: missing-check (see bin/fm-rule-guard.sh list)
+exit: 3
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/budget bin/fm-rules.sh render
+CAPTAIN RULES (4, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Consolidated rule.
+- Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-1
+- Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-2
+- Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. Keep this full correction in every context. end-3
+exit: 0
+
+=== Scaffold ship and scout briefs with the complete central rule set ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-brief.sh rules-ship sample-project --mode no-mistakes
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary/data/rules-ship/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+exit: 0
+Generated public contract, # Captain rules (ship):
+The captain's standing corrections, the same set the primary session follows. Apply them to your work and to anything you write for the captain or for firstmate; they outrank generic harness, tool, and skill hints, while this brief's task scope and safety rules still win.
+- Never hand the captain a ! sudo line; use pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies to two short sentences.
+- Parallel correction 3.
+- Parallel correction 2.
+- Parallel correction 5.
+- Parallel correction 4.
+- Parallel correction 6.
+- Parallel correction 1.
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-brief.sh rules-scout sample-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary/data/rules-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit: 0
+Generated public contract, # Captain rules (scout):
+The captain's standing corrections, the same set the primary session follows. Apply them to your work and to anything you write for the captain or for firstmate; they outrank generic harness, tool, and skill hints, while this brief's task scope and safety rules still win.
+- Never hand the captain a ! sudo line; use pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies to two short sentences.
+- Parallel correction 3.
+- Parallel correction 2.
+- Parallel correction 5.
+- Parallel correction 4.
+- Parallel correction 6.
+- Parallel correction 1.
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-brief.sh rules-charter --secondmate --no-projects
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary/data/rules-charter/brief.md (secondmate charter)
+exit: 0
+
+=== Read the inherited rule copy and refuse a secondmate-local overwrite ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bash -c '. bin/fm-config-inherit-lib.sh; propagate_secondmate_inheritance "$1" "$2"' inherit-rules /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate bin/fm-rules.sh list
+terminal-only	seen=1 check=bang-interactive	Never hand the captain a ! sudo line; use pbcopy and a real Terminal window.
+short-replies	seen=5 nocheck=2026-10-20	Keep replies to two short sentences.
+parallel-3	seen=1	Parallel correction 3.
+parallel-2	seen=1	Parallel correction 2.
+parallel-5	seen=1	Parallel correction 5.
+parallel-4	seen=1	Parallel correction 4.
+parallel-6	seen=1	Parallel correction 6.
+parallel-1	seen=1	Parallel correction 1.
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate bin/fm-rules.sh add rogue-rule 'Local unauthorized override.'
+stderr: fm-rules: this is a secondmate home; captain rules are recorded in the primary home only
+exit: 2
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh revoke terminal-only
+revoked: terminal-only
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bash -c '. bin/fm-config-inherit-lib.sh; propagate_secondmate_inheritance "$1" "$2"' inherit-rules /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate bin/fm-rules.sh list
+short-replies	seen=5 nocheck=2026-10-20	Keep replies to two short sentences.
+parallel-3	seen=1	Parallel correction 3.
+parallel-2	seen=1	Parallel correction 2.
+parallel-5	seen=1	Parallel correction 5.
+parallel-4	seen=1	Parallel correction 4.
+parallel-6	seen=1	Parallel correction 6.
+parallel-1	seen=1	Parallel correction 1.
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh add --check bang-interactive terminal-only 'Use pbcopy and a real Terminal window for sudo steps.'
+added: terminal-only
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bash -c '. bin/fm-config-inherit-lib.sh; propagate_secondmate_inheritance "$1" "$2"' inherit-rules /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/mate
+exit: 0
+
+=== Reject interactive bang commands despite distant or harmless negation, while allowing genuine warnings ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: '! sudo darwin-rebuild switch\n'
+bang-interactive: ! sudo darwin-rebuild switch
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Run this: `! gh auth login`\n'
+bang-interactive: Run this: `! gh auth login`
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Then: ! ~/dotfiles/rebuild.sh\n'
+bang-interactive: Then: ! ~/dotfiles/rebuild.sh
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: '(! security add-generic-password -s x)\n'
+bang-interactive: (! security add-generic-password -s x)
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: '> ! op signin\n'
+bang-interactive: > ! op signin
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'no worries, run ! sudo darwin-rebuild switch\n'
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'No worries now run ! sudo -v\n'
+bang-interactive: No worries now run ! sudo -v
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'No worries you can now run ! sudo -v\n'
+bang-interactive: No worries you can now run ! sudo -v
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Kein Problem: `! sudo -v`\n'
+bang-interactive: Kein Problem: `! sudo -v`
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: "don't forget ! sudo -v\n"
+bang-interactive: don't forget ! sudo -v
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Never use the old command; run `! sudo -v` instead.\n'
+bang-interactive: Never use the old command; run `! sudo -v` instead.
+exit: 1
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Never hand the captain a `! sudo` line.\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Use pbcopy, not ! sudo.\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Never run ! sudo -v\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Do not ever run ! sudo -v\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'Use pbcopy instead of ! gh auth login.\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: '! git status\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh scan
+stdin: 'sudo darwin-rebuild switch (pasted into Terminal)\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh list
+bang-interactive	blocks a "! <command>" line for sudo, rebuild, login, password, or keychain steps
+exit: 0
+
+=== Read a weekly recurrence report and arm a reminder that stays quiet after reporting ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh weekly-check
+captain-rules weekly report due: run /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/bin/fm-rules.sh report and send the captain its short version
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh weekly-check
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh report --transcripts /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/nonexistent-transcripts
+# Captain rules report: last 7 days
+
+Rules: 8 total, 9 added, 4 repeated.
+
+## Corrections that came back
+
+- short-replies: recorded again 4 time(s) this period, seen 5 in total, no check by decision
+
+## Guard blocks
+
+- none
+- halted after the block cap: 0
+
+## Repeated without a check
+
+- none
+
+## Capture
+
+- candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now
+- transcripts: none found
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh weekly-check
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh weekly-arm
+armed: state/captain-rules-weekly.check.sh
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary/state/captain-rules-weekly.check.sh
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh weekly-disarm
+disarmed: state/captain-rules-weekly.check.sh
+exit: 0
+
+=== Run hooks from the real gate checkout without capturing corrections or intercepting gate replies ===
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh session
+stdin: '{"source":"startup"}\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rules.sh prompt-hook
+stdin: '{"prompt":"ab jetzt nie wieder lange Antworten"}\n'
+exit: 0
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH/.fm-rules-live-gh1wiv4j/primary bin/fm-rule-guard.sh --claude
+stdin: '{"last_assistant_message":"! sudo -v","session_id":"gate-test"}\n'
+exit: 0
+Real gate hooks stood down without changing rule events or capturing a correction.
+
+Disposable CLI homes removed; no source changes were made.

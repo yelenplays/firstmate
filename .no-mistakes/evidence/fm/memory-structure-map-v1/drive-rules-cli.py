@@ -1,74 +1,223 @@
-import os, pathlib, subprocess, shlex, shutil
-ROOT = pathlib.Path('/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D2RPHXYRTJA4Q4SZ8PDKEW')
-EVIDENCE = pathlib.Path('/Users/yelen/.no-mistakes/evidence/01M5D2RPHXYRTJA4Q4SZ8PDKEW')
-LAB = ROOT / '.test-tmp/manual-home'
-env = {k:v for k,v in os.environ.items() if not (k.startswith('FM_') or k.startswith('TASKS_AXI_'))}
-env.update(FM_HOME=str(LAB), TMPDIR=str(ROOT / '.test-tmp'))
-log = open(EVIDENCE / 'rules-cli-transcript.txt', 'w')
-def run(args, expected=0, stdin=None):
-    p = subprocess.run(args, cwd=ROOT, env=env, input=stdin, text=True, capture_output=True, timeout=45)
-    log.write('$ ' + shlex.join([str(a) for a in args]) + '\n')
-    if stdin is not None: log.write('stdin: ' + repr(stdin) + '\n')
-    log.write(p.stdout + p.stderr + f'[exit {p.returncode}]\n\n'); log.flush()
-    assert p.returncode == expected, (args, p.returncode, p.stderr)
-    return p.stdout
-R = 'bin/fm-rules.sh'
-G = 'bin/fm-rule-guard.sh'
-try:
-    run(['bin/fm-lab-home.sh', 'create', str(LAB)])
-    assert not run([R, 'render'])
-    run([R, 'add', 'terminal-handoff', 'Use pbcopy and a real Terminal for sudo steps.'])
-    assert 'seen=1' in run([R, 'list'])
-    run([R, 'add', 'terminal-handoff', 'Put sudo commands on the clipboard, use a real Terminal, and verify the result.'])
-    assert 'seen=2' in run([R, 'list'])
-    assert 'terminal-handoff' in run([R, 'unchecked'])
-    assert 'REPEATED WITHOUT A CHECK' in run([R, 'render'])
-    run([R, 'check', 'terminal-handoff', 'missing-check'], expected=3)
-    run([R, 'check', 'terminal-handoff', 'bang-interactive'])
-    assert not run([R, 'unchecked'])
-    assert '[check: bang-interactive]' in run([R, 'render'])
-    run([R, 'add', 'concise-replies', 'Keep replies concise.'])
-    run([R, 'add', 'concise-replies', 'Keep replies concise.'])
-    run([R, 'nocheck', 'concise-replies', 'Length alone cannot judge whether necessary context was omitted.'])
-    assert not run([R, 'unchecked'])
-    before = run([R, 'list'])
-    run([R, 'add', 'Invalid Id', 'Do not record me.'], expected=3)
-    run([R, 'add', 'bad-comment', 'Text <!-- seen=99 -->'], expected=3)
-    assert before == run([R, 'list'])
-    for task, options in [('rules-ship', ['--mode','no-mistakes']), ('rules-scout', ['--scout'])]:
-        run(['bin/fm-brief.sh', task, 'sample-project'] + options)
-        brief = LAB / 'data' / task / 'brief.md'
-        text = brief.read_text()
-        assert '# Captain rules' in text and 'Put sudo commands on the clipboard' in text
-        assert "this brief's task scope and safety rules still win" in text
-        shutil.copyfile(brief, EVIDENCE / (task + '-brief.md'))
-    for text in ['! sudo darwin-rebuild switch', 'Run this: `! gh auth login`', '! security add-generic-password -s x', '> ! op signin', 'no worries, run ! sudo darwin-rebuild switch', 'No worries you can now run ! sudo darwin-rebuild switch', 'No worries now run ! sudo darwin-rebuild switch']:
-        assert 'bang-interactive:' in run([G, 'scan'], expected=1, stdin=text+'\n')
-    for text in ['Never hand the captain a `! sudo` line.', 'Use pbcopy, not ! sudo.', 'Do not ever run ! sudo -v', 'Nie wieder `! gh auth login` schicken.', '! git status', 'sudo darwin-rebuild switch (pasted into Terminal)']:
-        assert not run([G, 'scan'], stdin=text+'\n')
-    assert 'weekly report due' in run([R, 'weekly-check'])
-    assert not run([R, 'weekly-check'])
-    # No fabricated transcripts: this report reads the history produced above.
-    (LAB / 'transcripts').mkdir()
-    report = run([R, 'report', '--transcripts', str(LAB / 'transcripts')])
-    assert '2 total, 2 added, 2 repeated' in report
-    assert 'terminal-handoff: recorded again 1 time(s)' in report
-    assert 'concise-replies: recorded again 1 time(s)' in report
-    (EVIDENCE / 'weekly-report.md').write_text(report)
-    assert not run([R, 'weekly-check'])
-    run([R, 'weekly-arm'])
-    assert not run([str(LAB / 'state/captain-rules-weekly.check.sh')])
-    run([R, 'weekly-disarm'])
-    assert not (LAB / 'state/captain-rules-weekly.check.sh').exists()
-    # A secondmate may read its inherited source but may not fork it.
-    (LAB / '.fm-secondmate-home').write_text('rules-mate\n')
-    run([R, 'add', 'rogue-rule', 'Do not record me.'], expected=2)
-    assert before == run([R, 'list'])
-    (LAB / '.fm-secondmate-home').unlink()
-    run([R, 'revoke', 'concise-replies'])
-    assert 'concise-replies' not in run([R, 'list'])
-    run([R, 'revoke', 'concise-replies'], expected=1)
-    log.write('All manual CLI assertions satisfied. Disposable home removed in finally.\n')
-finally:
-    shutil.rmtree(LAB, ignore_errors=True)
-    log.close()
+#!/usr/bin/env python3
+"""Drive the production rules CLI, without a test seam, mock, or scope override."""
+import concurrent.futures
+import json
+import os
+from pathlib import Path
+import shlex
+import shutil
+import subprocess
+import tempfile
+
+ROOT = Path('/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DCW6HK6A3DMX54XM7BNFSH')
+EVIDENCE = Path('/Users/yelen/.no-mistakes/evidence/01M5DCW6HK6A3DMX54XM7BNFSH')
+transcript = []
+results = []
+
+def record(text):
+    transcript.append(text)
+    print(text, flush=True)
+
+def scenario(name, body):
+    record('\n=== ' + name + ' ===')
+    try:
+        body()
+        results.append({'name': name, 'result': 'pass', 'live': True})
+    except Exception as exc:
+        results.append({'name': name, 'result': 'fail', 'live': True, 'reason': str(exc)})
+        raise
+
+with tempfile.TemporaryDirectory(prefix='.fm-rules-live-', dir=ROOT) as tmp:
+    lab = Path(tmp)
+    (lab / 'tmp').mkdir()
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('FM_', 'TASKS_AXI_'))}
+    env['TMPDIR'] = str(lab / 'tmp')
+    primary, mate = lab / 'primary', lab / 'mate'
+    
+    def run(args, *, home=primary, data=None, expect=0, extra=None):
+        e = dict(env, FM_HOME=str(home))
+        if extra:
+            e.update(extra)
+        argv = [str(x) for x in args]
+        proc = subprocess.run(argv, cwd=ROOT, env=e, input=data, text=True, capture_output=True, timeout=40)
+        record('$ FM_HOME=' + str(home) + ' ' + shlex.join(argv))
+        if data is not None:
+            record('stdin: ' + repr(data))
+        if proc.stdout:
+            record(proc.stdout.rstrip())
+        if proc.stderr:
+            record('stderr: ' + proc.stderr.rstrip())
+        record('exit: ' + str(proc.returncode))
+        assert proc.returncode == expect, (argv, expect, proc.returncode, proc.stderr)
+        return proc.stdout
+
+    def rules(*args, **kwargs):
+        return run(['bin/fm-rules.sh', *args], **kwargs)
+
+    def persist():
+        run(['bin/fm-lab-home.sh', 'create', primary])
+        assert rules('render') == ''
+        rules('add', '--check', 'bang-interactive', 'terminal-only', 'Never hand the captain a ! sudo line; use pbcopy and a real Terminal window.')
+        rules('add', 'short-replies', 'Keep replies to two sentences.')
+        rules('add', 'short-replies', 'Keep replies to two short sentences.')
+        assert 'short-replies\tseen=2' in rules('unchecked')
+        assert 'REPEATED WITHOUT A CHECK' in rules('render')
+        rules('nocheck', 'short-replies', 'Sentence quality needs judgment; an abbreviation-aware check is not available yet.')
+        assert rules('unchecked') == ''
+        text = rules('list')  # new process, persistent store rather than conversation memory
+        assert 'seen=2 nocheck=' in text and text.count('short-replies') == 1
+        rendered = rules('render')
+        assert 'two short sentences.' in rendered and '[check: bang-interactive]' in rendered
+        (EVIDENCE / 'rules-rendered.txt').write_text(rendered)
+        (EVIDENCE / 'rules-store.md').write_bytes((primary / 'config/captain-rules.md').read_bytes())
+    
+    def concurrent_writes():
+        commands = [['bin/fm-rules.sh', 'add', 'parallel-' + str(i), 'Parallel correction ' + str(i) + '.'] for i in range(1, 7)]
+        commands += [['bin/fm-rules.sh', 'add', 'short-replies', 'Keep replies to two short sentences.'] for _ in range(3)]
+        def invoke(args):
+            p = subprocess.run(args, cwd=ROOT, env=dict(env, FM_HOME=str(primary)), text=True, capture_output=True, timeout=40)
+            return args, p
+        with concurrent.futures.ThreadPoolExecutor(max_workers=9) as pool:
+            completed = list(pool.map(invoke, commands))
+        for args, p in completed:
+            record('$ concurrently: ' + shlex.join(args))
+            record(p.stdout.rstrip() + ('\nstderr: ' + p.stderr if p.stderr else '') + '\nexit: ' + str(p.returncode))
+            assert p.returncode == 0
+        listing = rules('list')
+        assert len(listing.splitlines()) == 8 and 'short-replies\tseen=5' in listing
+        for i in range(1, 7):
+            assert 'parallel-' + str(i) + '\tseen=1' in listing
+
+    def budget():
+        home = lab / 'budget'
+        run(['bin/fm-lab-home.sh', 'create', home])
+        for i in range(20):
+            path = home / 'config/captain-rules.md'
+            before = path.read_bytes() if path.exists() else None
+            before_log = (home / 'state/captain-rules/log.jsonl').read_bytes() if (home / 'state/captain-rules/log.jsonl').exists() else b''
+            p = subprocess.run(['bin/fm-rules.sh', 'add', 'rule-' + str(i), ('Keep this full correction in every context. ' * 4) + 'end-' + str(i)], cwd=ROOT, env=dict(env, FM_HOME=str(home), FM_RULES_MAX_CHARS='1000'), text=True, capture_output=True, timeout=40)
+            record('$ FM_RULES_MAX_CHARS=1000 bin/fm-rules.sh add rule-' + str(i) + ' <full correction>\n' + p.stdout + p.stderr + 'exit: ' + str(p.returncode))
+            if p.returncode == 4:
+                assert i >= 2 and path.read_bytes() == before
+                assert (home / 'state/captain-rules/log.jsonl').read_bytes() == before_log
+                assert 'not saved' in p.stderr and 'consolidate' in p.stderr
+                assert 'rule-' + str(i) + '\t' not in rules('list', home=home)
+                # The first repeat also adds the unchecked-repeat instruction block;
+                # a shorter text alone can still grow the complete projection.
+                rules('add', 'rule-0', 'Consolidated rule.', home=home, extra={'FM_RULES_MAX_CHARS': '1000'}, expect=4)
+                assert path.read_bytes() == before
+                rules('nocheck', 'rule-0', 'This prose-only correction needs judgment.', home=home)
+                rules('add', 'rule-0', 'Consolidated rule.', home=home, extra={'FM_RULES_MAX_CHARS': '1000'})
+                break
+            assert p.returncode == 0
+        else:
+            raise AssertionError('The write budget was never enforced')
+        before = path.read_bytes()
+        rules('add', 'Bad Id', 'Bad.', home=home, expect=3)
+        rules('add', '--check', 'missing-check', 'bad-check', 'Bad.', home=home, expect=3)
+        assert path.read_bytes() == before
+        whole = rules('render', home=home, extra={'FM_RULES_MAX_CHARS': '200'})
+        assert 'end-1' in whole
+        (EVIDENCE / 'budget-rendered.txt').write_text(whole)
+
+    def briefs():
+        for kind in ('ship', 'scout'):
+            flags = ['--mode', 'no-mistakes'] if kind == 'ship' else ['--scout']
+            run(['bin/fm-brief.sh', 'rules-' + kind, 'sample-project', *flags])
+            path = primary / 'data' / ('rules-' + kind) / 'brief.md'
+            text = path.read_text()
+            section = text.split('# Captain rules\n', 1)[1].split('\n# ', 1)[0]
+            assert section.count('Parallel correction ') == 6
+            assert 'two short sentences.' in section and 'Never hand the captain' in section
+            assert "this brief's task scope and safety rules still win" in section
+            (EVIDENCE / (kind + '-brief.md')).write_bytes(path.read_bytes())
+            record('Generated public contract, # Captain rules (' + kind + '):\n' + section)
+        run(['bin/fm-brief.sh', 'rules-charter', '--secondmate', '--no-projects'], extra={'FM_SECONDMATE_CHARTER': 'Supervise assigned work only.'})
+        assert '# Captain rules' not in (primary / 'data/rules-charter/brief.md').read_text()
+
+    def inheritance():
+        run(['bin/fm-lab-home.sh', 'create', mate])
+        (mate / '.fm-secondmate-home').write_text('rules-mate\n')
+        command = '. bin/fm-config-inherit-lib.sh; propagate_secondmate_inheritance "$1" "$2"'
+        run(['bash', '-c', command, 'inherit-rules', primary, mate])
+        assert (primary / 'config/captain-rules.md').read_bytes() == (mate / 'config/captain-rules.md').read_bytes()
+        assert 'seen=5' in rules('list', home=mate)
+        rules('add', 'rogue-rule', 'Local unauthorized override.', home=mate, expect=2)
+        rules('revoke', 'terminal-only')
+        run(['bash', '-c', command, 'inherit-rules', primary, mate])
+        assert 'terminal-only' not in rules('list', home=mate)
+        rules('add', '--check', 'bang-interactive', 'terminal-only', 'Use pbcopy and a real Terminal window for sudo steps.')
+        run(['bash', '-c', command, 'inherit-rules', primary, mate])
+        assert (primary / 'config/captain-rules.md').read_bytes() == (mate / 'config/captain-rules.md').read_bytes()
+        (EVIDENCE / 'secondmate-store.md').write_bytes((mate / 'config/captain-rules.md').read_bytes())
+
+    def scan():
+        cases = [
+            ('! sudo darwin-rebuild switch', 1),
+            ('Run this: `! gh auth login`', 1),
+            ('Then: ! ~/dotfiles/rebuild.sh', 1),
+            ('(! security add-generic-password -s x)', 1),
+            ('> ! op signin', 1),
+            ('no worries, run ! sudo darwin-rebuild switch', 1),
+            ('No worries now run ! sudo -v', 1),
+            ('No worries you can now run ! sudo -v', 1),
+            ('Kein Problem: `! sudo -v`', 1),
+            ("don't forget ! sudo -v", 1),
+            ('Never use the old command; run `! sudo -v` instead.', 1),
+            ('Never hand the captain a `! sudo` line.', 0),
+            ('Use pbcopy, not ! sudo.', 0),
+            ('Never run ! sudo -v', 0),
+            ('Do not ever run ! sudo -v', 0),
+            ('Use pbcopy instead of ! gh auth login.', 0),
+            ('! git status', 0),
+            ('sudo darwin-rebuild switch (pasted into Terminal)', 0),
+        ]
+        for text, rc in cases:
+            run(['bin/fm-rule-guard.sh', 'scan'], data=text + '\n', expect=rc)
+        run(['bin/fm-rule-guard.sh', 'list'])
+
+    def weekly():
+        first = rules('weekly-check')
+        assert 'weekly report due' in first
+        assert rules('weekly-check') == ''
+        # Report real events from these CLI operations, not synthetic logs/transcripts.
+        report = rules('report', '--transcripts', lab / 'nonexistent-transcripts')
+        assert 'short-replies: recorded again 4 time(s)' in report
+        assert 'seen 5 in total, no check by decision' in report
+        assert 'Rules: 8 total, 9 added, 4 repeated.' in report
+        (EVIDENCE / 'weekly-report.md').write_text(report)
+        assert rules('weekly-check') == ''
+        rules('weekly-arm')
+        shim = primary / 'state/captain-rules-weekly.check.sh'
+        assert shim.is_file() and (shim.stat().st_mode & 0o777) == 0o700
+        run([shim])
+        rules('weekly-disarm')
+        assert not shim.exists() and not (primary / 'state/captain-rules-weekly.check-trust').exists()
+        events = primary / 'state/captain-rules/log.jsonl'
+        (EVIDENCE / 'cli-events.jsonl').write_bytes(events.read_bytes())
+
+    def gate_boundary():
+        # Preserve the real gate context. Never set FM_ROOT_OVERRIDE or a bypass.
+        before = (primary / 'state/captain-rules/log.jsonl').read_bytes()
+        assert rules('session', data='{"source":"startup"}\n') == ''
+        assert rules('prompt-hook', data='{"prompt":"ab jetzt nie wieder lange Antworten"}\n') == ''
+        assert run(['bin/fm-rule-guard.sh', '--claude'], data='{"last_assistant_message":"! sudo -v","session_id":"gate-test"}\n') == ''
+        assert (primary / 'state/captain-rules/log.jsonl').read_bytes() == before
+        assert not (primary / 'state/captain-rules/candidates').exists()
+        record('Real gate hooks stood down without changing rule events or capturing a correction.')
+
+    try:
+        scenario('Save and repeat a correction across CLI processes, then link a check or record a reason', persist)
+        scenario('Record simultaneous corrections without losing rules or repeat counts', concurrent_writes)
+        scenario('Reject an overflowing or invalid rule without partially changing the store', budget)
+        scenario('Scaffold ship and scout briefs with the complete central rule set', briefs)
+        scenario('Read the inherited rule copy and refuse a secondmate-local overwrite', inheritance)
+        scenario('Reject interactive bang commands despite distant or harmless negation, while allowing genuine warnings', scan)
+        scenario('Read a weekly recurrence report and arm a reminder that stays quiet after reporting', weekly)
+        scenario('Run hooks from the real gate checkout without capturing corrections or intercepting gate replies', gate_boundary)
+    finally:
+        (EVIDENCE / 'cli-scenarios.json').write_text(json.dumps(results, indent=2) + '\n')
+        (EVIDENCE / 'cli-transcript.log').write_text('\n'.join(transcript) + '\n')
+
+record('\nDisposable CLI homes removed; no source changes were made.')
+(EVIDENCE / 'cli-transcript.log').write_text('\n'.join(transcript) + '\n')
