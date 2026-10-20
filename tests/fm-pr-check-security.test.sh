@@ -797,6 +797,31 @@ test_test_ban_runs_when_forge_head_is_available() {
   pass "fm-pr-check enforces the test ban when a forge head is available"
 }
 
+# A pipeline fixer runs after the worker's checked handoff, so the pre-PR
+# check must still see a test file its commit adds on a banned task.
+test_test_ban_covers_pipeline_fixer_commits() {
+  local dir head
+  dir=$(make_case test-ban-pipeline-fixer)
+  write_task_meta "$dir"
+  fm_write_meta "$dir/home/state/task-a.meta" \
+    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+    "project=$dir/project" "kind=ship" "mode=no-mistakes" \
+    'test_ban_model=opencode-go/deepseek-v4.1-flash'
+  printf 'impl\n' > "$dir/wt/impl.sh"
+  git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'implement without tests'
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(review): Cover the finding with a unit test'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+    > "$dir/stdout" 2> "$dir/stderr" && fail "a pipeline fixer's test file passed the pre-PR test ban"
+  grep -Fq 'no test authoring on opencode-go/deepseek-v4.1-flash' "$dir/stderr" \
+    || fail "pipeline fixer refusal did not name the banned model: $(cat "$dir/stderr")"
+  grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "pipeline fixer refusal did not name the test: $(cat "$dir/stderr")"
+  ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a pipeline fixer's test file still recorded the PR"
+  pass "fm-pr-check refuses a test file a pipeline fixer commit adds on a banned task"
+}
+
 test_valid_recording_and_merge_derivation() {
   local dir expected sidecar count rc
   dir=$(make_case valid-recording)
@@ -3677,6 +3702,7 @@ test_draft_pull_request_is_not_armed
 test_secondmate_record_refuses_a_pr_watch
 test_unpushed_named_head_refuses_registration
 test_test_ban_runs_when_forge_head_is_available
+test_test_ban_covers_pipeline_fixer_commits
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
