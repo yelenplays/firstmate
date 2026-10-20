@@ -458,8 +458,9 @@ The generated [Pi supervision protocol](supervision-protocols/pi.md) owns event 
 Deterministic entry delivery owns captain visibility.
 
 The branch prompt's "Verdict: routine or captain" section owns the classification criteria, including task-level silence eligibility and the rule to escalate doubt.
+The report tool also opts into the store's completion promotion contract in [`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`.
 
-Its "PR identity: copy or abstain" section owns where a PR URL in a summary or tool argument may come from:
+The prompt's "PR identity: copy or abstain" section owns where a PR URL in a summary or tool argument may come from:
 
 - The task's ready status or `pr=` metadata, verbatim.
 - Otherwise, only the identifier the branch actually has.

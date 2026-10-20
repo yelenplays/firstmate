@@ -77,8 +77,15 @@
 #
 # Usage:
 #   fm-branch-outcome.sh append --task <id> --verdict routine|captain \
-#       --summary <text> [--wake <text>] [--silent true|false]
+#       --summary <text> [--wake <text>] [--silent true|false] [--promote-finished]
 #     Append one outcome record; prints the assigned seq.
+#     --promote-finished upgrades a visible routine report to captain when
+#     fm_task_retired (bin/fm-wake-lib.sh) succeeds or the current-state reader
+#     reports done. The host report command and Pi report tool opt in; other
+#     appends preserve the supplied verdict. Silent rows are never promoted.
+#     The current-state probe has a 10-second bound; an unreadable or timed-out
+#     probe leaves the supplied verdict unchanged. The check precedes the store
+#     lock, so it observes completion at report time, not later in the turn.
 #   fm-branch-outcome.sh unread
 #     Print every unread record (raw JSONL). Exit 0 with no output when none.
 #   fm-branch-outcome.sh mark-read --through <seq>
@@ -542,9 +549,8 @@ case "$CMD" in
       echo "error: refusing append because the outcome cursor is invalid or ahead of the store" >&2
       exit 1
     fi
-    # A visible routine report for a finished task (crew state done, or torn
-    # down) is stored as captain, so the host and the Pi branch both wake MAIN
-    # to relay the finished result. Only the branch report surfaces opt in.
+    # Apply the opt-in completion promotion documented in this header before
+    # storing, so both report surfaces deliver the authoritative verdict.
     [ "$TASK_FINISHED" -eq 0 ] || VERDICT=captain
     SEQ=$(( LAST_SEQ + 1 ))
     capture_status_position "$TASK"

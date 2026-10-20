@@ -26,7 +26,7 @@ Today it runs beside a Claude, Cursor, OpenCode, omp, Grok, or Codex primary: aw
 
 ### Behavior by posture and harness
 
-- Attended (no away record: no `state/.afk-contract`, or quiet mode's) on Claude and Cursor, the engine takes the wakes the Pi branch would take and never wakes main for a routine outcome; see [Postures](#postures).
+- Attended (no away record: no `state/.afk-contract`, or quiet mode's) on Claude and Cursor, the engine takes the wakes the Pi branch would take and keeps routine progress off main; see [Postures](#postures).
   Every other close reaches main exactly as the plain watcher arm delivers it.
 - Attended on OpenCode, omp, Grok, and Codex, the host is a pass-through: every close reaches main as without the host.
 - Away (an away record exists), the host hands each close to the engine.
@@ -118,9 +118,10 @@ It also passes the close through unchanged, with no added line, when any of thes
 - The session is cooling down after engine errors; see [The broken-session latch](#the-broken-session-latch).
 
 A close the engine takes is handled as in [One wake](#one-wake), with the dialog mirror at the head of the wake message.
-A handled wake with only routine outcomes never reaches main.
-A report for a finished and torn-down task is stored as captain whatever verdict the engine chose ([`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh) owns the promotion), and a routine row whose task was torn down later in the same turn wakes main too, so a completion always reaches main.
-A handled wake that recorded a captain outcome while the captain is still attended exits with one `supervision-host: branch-outcome:` line naming its store rows, without the close it handled; see [Captain outcomes](#captain-outcomes).
+Completion routing follows the branch prompt's [verdict criteria](../bin/fm-branch-prompt.sh) and the store's opt-in promotion contract ([`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`).
+The host also checks visible routine rows at turn end: a task satisfying `fm_task_retired` in [`bin/fm-wake-lib.sh`](../bin/fm-wake-lib.sh) then wakes main even if it retired after reporting.
+A handled wake with neither a captain outcome nor that retirement handback stays off main.
+An attended handback uses one `supervision-host: branch-outcome:` line naming its store rows, without the close it handled; see [Captain outcomes](#captain-outcomes).
 A turn that fails hands its close to main with one `supervision-host:` line, as away.
 Main-only rows that share the queue with the branch's rows stay queued for main, which is woken for each on its own triggering close, as on Pi.
 The engine turn runs beside a captain who is present, so its guarded actions take the task leases that keep it and main off the same task.
@@ -205,7 +206,9 @@ The drain's header owns the section's bounds; these rules keep it bounded and in
 - Captain outcomes come first and never wait behind routine ones.
 - Repeated captain outcomes for one task collapse to that task's newest, naming how many it carries, and one acknowledgement covers them.
 - The byte cap shows only the oldest contiguous run of captain outcomes, so the printed acknowledgement covers exactly the rows shown, and it counts the newer ones it holds back, which follow once the run is acknowledged.
-- Routine outcomes never open a main turn: the next drain lists the newest visible one once, for awareness and with nothing to acknowledge, and collapses older visible routine notes into a count; silent routine outcomes never appear.
+- Visible routine rows whose task satisfies `fm_task_retired` appear under `BRANCH OUTCOMES, FINISHED` for relay, not routine awareness.
+  This section has its own byte budget, keeps the newest rows, and counts omitted results; omitted rows remain retrievable from the store but do not wait unread for another drain.
+- Other routine outcomes stay turn-free: the next drain lists the newest visible notes once, for awareness and with nothing to acknowledge, and collapses older visible routine notes into a count; silent routine outcomes never appear.
 
 The section runs only for main on a home that runs the host and whose primary is not Pi, and never while the away record exists.
 The drain is the only presenter of these outcomes and the only owner of their read cursor, the away window's included: the return brief counts the window's outcomes and points at the section instead of listing them.
@@ -215,9 +218,9 @@ A drain that cannot read or project the store (jq missing included), print the s
 The section's budgets count bytes in any locale, so a multibyte summary is cut on a whole UTF-8 character boundary to fit them.
 An unprocessed captain outcome is never adopted as processed, including across an index repair or a switch to Pi; the absent-marker rule is owned by `bin/fm-branch-outcome.sh`.
 A home already switched to the host can re-present its unacknowledged outcomes after an upgrade or interrupted switch, so each captain line shows its recorded age and the section asks main to check current task state before acting.
-Main's reply to the captain covers only the outcomes still open, as if an already-settled one had never been listed.
+Main's reply to the captain covers outcomes still open and finished results not yet relayed in chat; task completion alone does not settle an unreported result.
 Main runs the printed acknowledgement for every presented outcome, settled and handled open ones alike.
-Anything main must act on while attended to move the work forward, such as a local-only branch to land or a pull request to merge, is a captain outcome on the host even when the captain asked not to hear about that work, reported once per unchanged situation (`bin/fm-branch-prompt.sh` "Verdict: routine or captain"), because a routine outcome opens no main turn.
+The branch prompt's [verdict criteria](../bin/fm-branch-prompt.sh) own attended outcomes requiring main to act, including when the captain asked not to hear about the work.
 
 One limit: if the captain goes away and returns while an attended engine turn runs, and the host is terminated before that turn's `branch-outcome` wake is delivered, no immediate wake reaches main.
 The captain row is still durable, and the next drain presents it until it is acknowledged.

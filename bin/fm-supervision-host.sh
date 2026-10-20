@@ -82,8 +82,9 @@
 # releases the branch's leases and grant, and counts the wake handled only
 # when that turn exited cleanly, recorded a durable report
 # (bin/fm-branch-report.sh), and left none of its granted rows in the wake
-# queue. A handled wake with only routine outcomes never wakes
-# main, and neither does any handled wake while away: captain outcomes wait in
+# queue. Routine progress stays off main; completion handback follows
+# docs/supervision-host.md "Attended". No handled wake wakes main while away:
+# captain outcomes wait in
 # the outcome store for the return drain's BRANCH OUTCOMES section. A handled
 # attended wake that recorded a captain outcome exits with one "supervision-host: branch-outcome:"
 # line naming its store rows, without the close it handled; main drains, where
@@ -1030,11 +1031,10 @@ handle_wake() {  # <reason-lines>
 }
 
 # Verify every recorded outcome before deciding whether main must wake. The
-# store, not a receipt's copied verdict, owns the outcome: it already holds a
-# report for a task with crew state done or torn down as captain
-# (fm-branch-outcome.sh --promote-finished), and a visible routine row whose
-# task retired later in the same turn joins too. No read or processed cursor
-# moves here.
+# store, not a receipt's copied verdict, owns the outcome; promotion follows
+# fm-branch-outcome.sh's header. The retirement check also covers cleanup after
+# reporting in this turn (docs/supervision-host.md "Attended"). No read or
+# processed cursor moves here.
 turn_captain_seqs() {  # <turn>
   local seqs rows candidates seq verdict task out=
   seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1

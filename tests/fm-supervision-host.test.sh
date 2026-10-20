@@ -731,6 +731,38 @@ test_branch_outcomes_budgets_count_bytes() {
   pass "drain: the BRANCH OUTCOMES budgets count bytes, cutting multibyte summaries by whole characters in any locale"
 }
 
+# Finished legacy routine outcomes have a separate byte budget: captain rows
+# cannot starve them, and overflow must tell MAIN where the remaining results
+# are kept rather than silently consuming the read cursor.
+test_finished_outcome_overflow_has_its_own_budget_and_count() {
+  local home drained wide n finished_block
+  home="$TMP_ROOT/drain-finished-overflow"
+  mkdir -p "$home/state" "$home/config" "$home/data"
+  : > "$home/config/supervision-host"
+  wide=$(awk 'BEGIN { for (i = 0; i < 300; i++) printf "\342\234\223" }')
+  for n in $(seq 1 10); do
+    mkdir -p "$home/data/finished-$n"
+    FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --task "finished-$n" --verdict routine --summary "$wide" >/dev/null \
+      || fail "fixture: could not record finished outcome $n"
+    FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" append --task "captain-$n" --verdict captain --summary "$wide" >/dev/null \
+      || fail "fixture: could not record captain outcome $n"
+  done
+  drained=$(FM_HOME="$home" "$FAKE_CLAUDE" -c '"$0" 2>&1' "$ROOT/bin/fm-wake-drain.sh")
+  assert_contains "$drained" 'BRANCH OUTCOMES, FINISHED' 'captain rows must not starve finished results'
+  assert_contains "$drained" '(4 further finished outcome(s) not shown; bin/fm-branch-outcome.sh list keeps them)' \
+    'finished overflow must count the hidden results and name their retrieval interface'
+  assert_not_contains "$drained" 'BRANCH OUTCOMES, ROUTINE' 'finished results must not read as routine awareness'
+  finished_block=$(printf '%s\n' "$drained" | grep '^\[seq [0-9]*\] finished-')
+  [ "$(printf '%s\n' "$finished_block" | grep -c '^\[seq')" -eq 6 ] || fail "wrong finished result count: $drained"
+  [ "$(printf '%s\n' "$finished_block" | LC_ALL=C wc -c | tr -d ' ')" -le 4000 ] \
+    || fail 'finished results exceeded their independent 4000-byte budget'
+  printf '%s\n' "$finished_block" | perl -ne 'utf8::decode($_) or exit 1' || fail 'finished summary was cut inside a UTF-8 character'
+  FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" list | jq -es \
+    '[.[] | select(.task | startswith("finished-"))] | length == 10' >/dev/null \
+    || fail 'the documented retrieval interface lost overflow results'
+  pass 'drain: finished overflow has an independent byte budget, a hidden-result count, and durable retrieval'
+}
+
 # A drain whose projection of the store fails has rendered nothing it can
 # vouch for, so it marks nothing read and exits nonzero for the return's gate.
 test_branch_outcomes_stay_unread_when_a_projection_fails() {
@@ -3404,6 +3436,7 @@ queue_case test_branch_outcomes_put_captain_first_and_collapse_routine_overflow
 queue_case test_branch_outcomes_collapse_repeated_captain_outcomes_per_task
 queue_case test_branch_outcomes_present_a_long_away_window_once
 queue_case test_branch_outcomes_budgets_count_bytes
+queue_case test_finished_outcome_overflow_has_its_own_budget_and_count
 queue_case test_branch_outcomes_stay_unread_when_a_projection_fails
 queue_case test_branch_outcomes_stay_unread_without_jq
 queue_case test_branch_outcomes_stay_unread_when_the_drain_cannot_print

@@ -28,8 +28,10 @@
 #   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|backlog|none> · <detail>
 #
 # Logic, in order:
-#   1. Resolve worktree + backend target + kind from state/<id>.meta. A meta
-#      recording remote_host= is a remote secondmate: its worktree and endpoint
+#   1. Resolve worktree + backend target + kind from state/<id>.meta. Without
+#      metadata, a backlog item whose state is done reports done with source
+#      backlog; an open, absent, or unreadable item reports unknown instead.
+#      A meta recording remote_host= is a remote secondmate: its worktree and endpoint
 #      live on that host, so the local worktree and pane reads are skipped and
 #      the remote host is asked for the endpoint's recovery-grade state
 #      (fm-on.sh + fm-remote-secondmate-control.sh state). alive falls through
@@ -214,8 +216,7 @@ emit() {  # <state> <source> [detail]
 
 # --- meta resolution --------------------------------------------------------
 
-# A torn-down task has no meta, but its closed backlog item still knows the
-# truth; report that instead of hiding it behind unknown.
+# Preserve completion evidence after teardown removes the live metadata.
 if [ ! -f "$META" ]; then
   BACKLOG_SHOW=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-tasks-axi.sh" show "$ID" 2>/dev/null) || BACKLOG_SHOW=
   if [ "$(printf '%s\n' "$BACKLOG_SHOW" | sed -n 's/^  state: //p' | head -n 1)" = "done" ]; then

@@ -773,18 +773,13 @@ EOF
 #     long ago its row was recorded (the store's "recordedAgo"), because a row
 #     main never acknowledged can come back long after its situation settled
 #     (after a harness or posture switch, or an upgrade whose earlier
-#     presenter never advanced the read cursor), and the section asks main to
-#     check the task's current state first and reply to the captain only
-#     about outcomes still open, as if settled ones had never been listed,
-#     then acknowledge every presented outcome, settled and open alike.
-#   - Visible routine outcomes are listed once, for awareness, the way the Pi
-#     branch's routine notes reach main's transcript without a turn; silent
-#     routine outcomes never appear. The newest visible rows that fit a byte
-#     cap are listed, and older visible rows collapse into a count, since
-#     bin/fm-branch-outcome.sh list keeps them all.
+#     presenter never advanced the read cursor).
+#   - docs/supervision-host.md "Captain outcomes" owns relay duties and the
+#     FINISHED versus ROUTINE presentation, including their independent budgets
+#     and overflow retrieval. Silent routine rows never appear.
 # Once the section is printed, the store's read cursor advances through every
-# presented row, which is what lets mark-processed accept main's
-# acknowledgement and keeps a routine row from repeating; a drain stopped
+# unread row, including omitted routine rows; captain rows still wait for
+# mark-processed. This keeps a routine row from repeating; a drain stopped
 # before it prints leaves every row unread. The budgets count bytes. When jq is
 # missing, the store cannot be read or projected, the section cannot be printed, or its read
 # cursor cannot advance, the section says so on stderr and fails, and the drain exits

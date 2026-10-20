@@ -41,10 +41,9 @@
 # host's own handback. Silent outcomes remain in the store but are not queued
 # or relayed as notes. An attended turn queues nothing: its captain rows reach
 # MAIN through the host's branch-outcome exit and the drain's BRANCH OUTCOMES
-# section (bin/fm-wake-drain.sh), and its routine rows stay in the store. A
-# visible routine report for a task whose crew state is done (bin/fm-crew-state.sh)
-# or that is already torn down is stored as captain by
-# bin/fm-branch-outcome.sh --promote-finished, so that completion wakes MAIN.
+# section (bin/fm-wake-drain.sh). This report surface opts into the completion
+# promotion contract in bin/fm-branch-outcome.sh (append --promote-finished);
+# docs/supervision-host.md "Attended" owns the host's turn-end handback.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -126,7 +125,7 @@ if ! SEQ=$("$SCRIPT_DIR/fm-branch-outcome.sh" "$@"); then
   echo "outcome store append failed (nothing recorded)" >&2
   exit 1
 fi
-# The store may have promoted a retired task's routine report to captain.
+# Receipts must reflect the stored verdict, including completion promotion.
 STORED_VERDICT=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$SEQ" 2>/dev/null | jq -r '.verdict // empty' 2>/dev/null)
 case "$STORED_VERDICT" in routine|captain) VERDICT=$STORED_VERDICT ;; esac
 printf '%s\t%s\t%s\t%s\n' "$TURN" "$SEQ" "$VERDICT" "$TASK" >> "$RECEIPTS" || {

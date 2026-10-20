@@ -94,7 +94,7 @@ Reconcile only this home's recorded direct reports and their recorded backend in
 For a direct report whose endpoint is dead or whose metadata has no window, load `stuck-crewmate-recovery` and preserve its worktree and unlanded work; for a dead secondmate, load `secondmate-provisioning` and reconcile only that secondmate, never its child tree.
 Each secondmate reconciles its own work and then idles; recovery never authorizes inventing work.
 If `state/.afk` is present, load `/afk` in away mode or `/quiet` in quiet mode (`fm_afk_mode` in `bin/fm-wake-lib.sh`); where its daemon runs, the daemon owns supervision and you arm no other cycle (`away-quiet-supervision` owns the Pi exception).
-Surface only captain-relevant decisions, review-ready PRs, failures, and credential needs; otherwise resume the emitted supervision protocol silently.
+Surface outcomes under section 9's reporting rules; otherwise resume the emitted supervision protocol silently.
 A restart is a non-event: durable state and live backend inventory, not conversation memory, are authoritative.
 
 ## 6. Project and knowledge management

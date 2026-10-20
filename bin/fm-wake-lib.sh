@@ -3226,9 +3226,8 @@ EOF
 # A task is retired when bin/fm-teardown.sh has removed its live footprint
 # (neither meta nor status log is left) while the data directory teardown
 # retains still proves it once ran; the fleet pseudo-task and names that never
-# launched never count. A retired task's finished result is news for the
-# captain: bin/fm-branch-outcome.sh --promote-finished stores a visible routine
-# report for a retired task, or one whose crew state is done, as captain.
+# launched never count. Completion promotion is owned by the
+# bin/fm-branch-outcome.sh header (append --promote-finished).
 fm_task_retired() {  # <task>
   [ -n "$1" ] && [ "$1" != fleet ] || return 1
   [ ! -e "$STATE/$1.meta" ] && [ ! -e "$STATE/$1.status" ] || return 1
