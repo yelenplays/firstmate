@@ -383,7 +383,7 @@ An authorization addressed to main (for example "you may merge when green") does
 ## Two-stage noise filter
 
 Stage one is unchanged: the bash watcher absorbs everything provably fine at zero token cost.
-Stage two is the branch's verdict on each handled event, reported through its `fm_branch_report` tool:
+Stage two delivers each handled event using its stored verdict after the report tool's [completion checks](#ownership-and-verdict-rules):
 
 | Verdict | Delivery |
 | --- | --- |
@@ -459,7 +459,7 @@ Deterministic entry delivery owns captain visibility.
 
 The branch prompt's "Verdict: routine or captain" section owns the classification criteria, including task-level silence eligibility and the rule to escalate doubt.
 The report tool also opts into the store's completion promotion contract in [`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`.
-When a wake turn settles, the extension runs that script's `finished-handback` over the visible routine rows the turn stored, so a report written before the same turn's teardown still reaches main as a captain outcome.
+When a wake turn settles, the extension rechecks its visible routine rows through that script's `finished-handback` under the same completion contract.
 
 The prompt's "PR identity: copy or abstain" section owns where a PR URL in a summary or tool argument may come from:
 

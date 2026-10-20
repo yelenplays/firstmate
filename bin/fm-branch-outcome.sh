@@ -15,8 +15,8 @@
 #     Existing lines are never rewritten, reordered, or deleted by any
 #     subcommand; the read state lives
 #     entirely in the cursor sidecar so marking outcomes read cannot disturb
-#     the log. Retention: the log is small (one line per handled fleet event)
-#     and truncation, if ever needed, is a captain-approved manual act.
+#     the log. Retention: truncation, if ever needed, is a captain-approved
+#     manual act.
 #   - Cursor: $STATE/.branch-outcomes-cursor holds the highest seq consumed
 #     by delivery. Pi advances it after a routine merge note, a persisted
 #     sequence-keyed visible captain entry, locked session-start replay, or
@@ -93,8 +93,8 @@
 #     same turn: for each named visible routine row whose task the same check
 #     now finds finished, append one captain row carrying its task, wake, and
 #     summary, unless a captain row for that task already follows it. Prints
-#     the appended seqs, one per line, or nothing. Both turn ends run it: the
-#     Pi report tool when a branch turn settles, and the supervision host's
+#     the appended seqs, one per line, or nothing. Both wake-turn ends run it:
+#     the Pi extension when a branch wake turn settles, and the supervision host's
 #     turn_finished_handback (bin/fm-supervision-host.sh).
 #   fm-branch-outcome.sh unread
 #     Print every unread record (raw JSONL). Exit 0 with no output when none.

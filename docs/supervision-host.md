@@ -119,7 +119,7 @@ It also passes the close through unchanged, with no added line, when any of thes
 
 A close the engine takes is handled as in [One wake](#one-wake), with the dialog mirror at the head of the wake message.
 Completion routing follows the branch prompt's [verdict criteria](../bin/fm-branch-prompt.sh) and the store's opt-in promotion contract ([`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`).
-The host also rechecks the turn's visible routine rows at turn end with the store's `finished-handback`, the same command Pi's turn end runs: a task that finished after reporting, torn down (`fm_task_retired` in [`bin/fm-wake-lib.sh`](../bin/fm-wake-lib.sh)) or reading done with its records retained while cleanup waits, gets one captain row carrying the same result, and that row wakes main.
+At turn end the host rechecks its visible routine rows with the store's `finished-handback` under that same contract, as Pi's extension does; any resulting captain row wakes main.
 A handled wake with neither a captain outcome nor such a handback stays off main.
 An attended handback uses one `supervision-host: branch-outcome:` line naming its store rows, without the close it handled; see [Captain outcomes](#captain-outcomes).
 A turn that fails hands its close to main with one `supervision-host:` line, as away.

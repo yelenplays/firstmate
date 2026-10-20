@@ -1191,7 +1191,7 @@ export default function (pi: ExtensionAPI) {
   // A routine report written before its task finished in the same turn is
   // handed back as a new captain row, which is then delivered and opens main's
   // processing turn like any captain outcome (the host's counterpart is
-  // turn_captain_seqs in bin/fm-supervision-host.sh).
+  // turn_finished_handback in bin/fm-supervision-host.sh).
   function handBackFinishedRoutineRows(seqs: number[], expectedGeneration: number): Promise<boolean> {
     return enqueueDelivery(async () => {
       if (!(await actingAsOwner(expectedGeneration))) return false;
