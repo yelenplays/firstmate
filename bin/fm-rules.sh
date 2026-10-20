@@ -58,16 +58,17 @@
 # rules added and repeated, guard blocks, rules repeated without a check,
 # candidates, and correction-like captain prompts found in the Claude
 # transcripts under --transcripts (default: this home's Claude project dir).
-# It records the run so `weekly-check` stays quiet for a week. `weekly-check`
-# is the watcher check body: one line when a report is due, once per due week.
+# It records the run for `weekly-check`, the watcher check body;
+# docs/captain-rules.md owns reminder timing and report delivery.
 # `weekly-arm` writes and binds state/captain-rules-weekly.check.sh;
 # `weekly-disarm` unbinds and removes it.
 #
 # State: $STATE/captain-rules/ holds log.jsonl (fm-rules-event.v1 lines),
 # candidates/<candidate-id>, last-confirmed, last-report, and weekly-announced.
 #
-# Every writing subcommand refuses in a secondmate home: config/ there is a
-# copy the primary re-pushes on every convergence.
+# Rule-store mutations and candidate confirm/dismiss refuse in a secondmate
+# home: config/ there is a copy the primary re-pushes on every convergence.
+# Home-local report and reminder state can still be written there.
 #
 # Exit codes: 0 success; 1 not found (unknown rule or candidate); 2 usage
 # error, a secondmate home, or an unusable store; 3 invalid rule id, text, or

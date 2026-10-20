@@ -2222,9 +2222,7 @@ A missing file, a missing heading, or a row without the token renders nothing an
 
 ## Captain rules (config/captain-rules.md)
 
-Gitignored `config/captain-rules.md` holds the captain's standing corrections, written only through [`bin/fm-rules.sh`](../bin/fm-rules.sh); [`docs/captain-rules.md`](captain-rules.md) owns the contract.
-`bin/fm-brief.sh` copies the rules into every ship and scout brief as a `# Captain rules` section after the task and any business facts, and the file is inherited into secondmate homes like `config/business-facts.md`.
-`FM_RULES_MAX_CHARS` bounds the always-loaded block (default 6000 characters).
+See [captain rules](captain-rules.md) for the standing-correction contract, context delivery, and secondmate inheritance; the [`fm-rules.sh` header](../bin/fm-rules.sh) owns file format and size controls.
 
 ## Cross-family review
 
