@@ -281,9 +281,10 @@
 #             creates or replaces it. Pi and pi-signed compaction are the only
 #             supported stale-cache rebuild pair: a missing baseline, a baseline
 #             for another harness pid, or a changed hash causes the complete
-#             current AGENTS.md to print before the bulky digest. The baseline
-#             remains immutable so every later drifted compaction refreshes
-#             again, while an equal baseline emits no instruction refresh.
+#             current AGENTS.md to be refreshed. A slim digest prints a required
+#             read command after supervision; --full inlines the whole file.
+#             The baseline remains immutable so every later drifted compaction
+#             refreshes again, while an equal baseline emits no refresh.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -478,17 +479,18 @@ if [ "$SLIM" -eq 1 ]; then
   subsection() { printf '\n%s\n' "$1"; }
 fi
 
-# slim_capped <budget-chars> <line-cap> <where-the-rest-is>: copy stdin, each
-# line cut by fm_cap_line_var, until the next line would pass the budget; then
+# slim_capped <budget-bytes> <line-cap> <where-the-rest-is>: copy stdin, each
+# line cut by fm_cap_line_var, until the next line would pass the byte budget; then
 # name how many lines were left out and where they are.
 slim_capped() {
-  local budget=$1 cap=$2 rest=$3 used=0 more=0 line
+  local budget=$1 cap=$2 rest=$3 used=0 more=0 line bytes
   while IFS= read -r line || [ -n "$line" ]; do
     if [ "$more" -eq 0 ]; then
       fm_cap_line_var "$line" "$cap"
-      if [ $((used + ${#FM_LINE_CAP_LINE} + 1)) -le "$budget" ]; then
+      bytes=$(printf '%s\n' "$FM_LINE_CAP_LINE" | wc -c)
+      if [ $((used + bytes)) -le "$budget" ]; then
         printf '%s\n' "$FM_LINE_CAP_LINE"
-        used=$((used + ${#FM_LINE_CAP_LINE} + 1))
+        used=$((used + bytes))
         continue
       fi
     fi
@@ -780,6 +782,11 @@ print_agents_refresh_if_required() {  # <rebuilding-session-pid>
   agents_refresh_required "$lock_pid" || return 0
   section "CURRENT AGENTS.md - INSTRUCTION REFRESH"
   if [ -f "$FM_ROOT/AGENTS.md" ]; then
+    if [ "$SLIM" -eq 1 ]; then
+      printf 'The cached instruction contract is stale or unverified. Before acting, read the complete current contract:\n'
+      printf 'INSTRUCTION_REFRESH_REQUIRED: cat -- %q\n' "$FM_ROOT/AGENTS.md"
+      return 0
+    fi
     cat <<'EOF'
 The complete on-disk AGENTS.md below supersedes the instruction copy this session
 started with. Apply it as the current Firstmate instruction contract.
@@ -904,11 +911,11 @@ if [ "$LOCK_RC" -ne 0 ]; then
   }
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
-print_agents_refresh_if_required "$REBUILDING_SESSION_PID"
 if [ "$SLIM" -eq 1 ]; then
   rm -f "$REEMIT_DETAIL" 2>/dev/null || true
   print_supervision_stage
 fi
+print_agents_refresh_if_required "$REBUILDING_SESSION_PID"
 
 # --- 1b. home role -------------------------------------------------------
 # This home's firstmate-repository role: user/operator unless an explicit

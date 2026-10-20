@@ -2794,8 +2794,8 @@ EOF
 # pack - must still fit under 9 KB, with the supervision state ahead of the
 # bulk, the acknowledgement line whole, and the cut text kept on disk.
 test_compact_reemit_fits_the_inline_hook_limit() {
-  local rec root home fakebin slim bytes i long sup_line wake_line rules_line ack detail
-  rec=$(new_world compact-budget)
+  local rec root home fakebin slim bytes i long history_long sup_line wake_line rules_line ack detail
+  rec=$(new_world "compact-budget-${1:-ascii}")
   IFS='|' read -r root home fakebin <<EOF
 $rec
 EOF
@@ -2803,7 +2803,11 @@ EOF
   make_fake_ps_claude "$fakebin"
   make_fake_tmux "$fakebin" "fm-sess:live"
   printf 'ny-trenches\n' > "$home/config/theme"
-  long=$(printf 'measured %s, ' $(seq 1 60))
+  history_long=$(printf 'measured %s, ' $(seq 1 60))
+  long=$history_long
+  if [ "${1:-}" = multilingual ]; then
+    long=$(printf '請選擇方案 %s，測試修復狀態。' $(seq 1 60))
+  fi
   for i in $(seq 1 13); do
     printf 'window=fm-sess:live\nkind=ship\n' > "$home/state/budget-task-$i.meta"
     printf 'working [at=1792494216]: step %s %s\n' "$i" "$long" > "$home/state/budget-task-$i.status"
@@ -2812,9 +2816,9 @@ EOF
     printf 'needs-decision [key=budget-key-%s]: decision %s %s\n' "$i" "$i" "$long" >> "$home/state/budget-task-$((i % 3 + 1)).status"
   done
   for i in 1 2 3 4 5; do
-    jq -nc --arg t "captain turn $i $long" --arg u "budget-captain-$i" \
+    jq -nc --arg t "captain turn $i $history_long" --arg u "budget-captain-$i" \
       '{type:"user",origin:"human",uuid:$u,timestamp:"2026-09-22T22:30:0\($u[-1:])Z",message:{content:$t}}'
-    jq -nc --arg t "reply $i $long" --arg u "budget-firstmate-$i" \
+    jq -nc --arg t "reply $i $history_long" --arg u "budget-firstmate-$i" \
       '{type:"assistant",uuid:$u,timestamp:"2026-09-22T22:31:0\($u[-1:])Z",message:{content:$t,stop_reason:"end_turn"}}'
   done > "$TMP_ROOT/compact-budget-history.jsonl"
   TZ=Europe/Berlin FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_DATA_OVERRIDE="$home/data" FM_STATE_OVERRIDE="$home/state" \
@@ -2833,6 +2837,10 @@ EOF
     "$SESSION_START" --reemit --source compact)
   bytes=$(printf '%s\n' "$slim" | wc -c | tr -d ' ')
   [ "$bytes" -lt 9000 ] || fail "the compact re-emit is $bytes bytes, over the 9000-byte inline budget"
+  if [ "${1:-}" = multilingual ]; then
+    printf '%s\n' "$slim" | python3 -c 'import sys; sys.stdin.buffer.read().decode("utf-8", errors="strict")' \
+      || fail "the multilingual compact digest is not valid UTF-8"
+  fi
   sup_line=$(printf '%s\n' "$slim" | grep -n '^SUPERVISION OPERATING INSTRUCTIONS' | head -n 1 | cut -d: -f1)
   wake_line=$(printf '%s\n' "$slim" | grep -n '^WAKE QUEUE$' | head -n 1 | cut -d: -f1)
   [ -n "$sup_line" ] && [ -n "$wake_line" ] && [ "$sup_line" -lt "$wake_line" ] \
@@ -2860,8 +2868,53 @@ EOF
   pass "a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept"
 }
 
+test_compact_reemit_multilingual_fits_the_inline_hook_limit() {
+  local LC_ALL=C.UTF-8
+  export LC_ALL
+  test_compact_reemit_fits_the_inline_hook_limit multilingual
+}
+
+# The final emitted prompt is the public byte/order contract, including Pi's
+# recovery of a lost or stale instruction baseline, not just ordinary wakes.
+test_compact_instruction_refresh_fits_the_inline_hook_limit() {
+  local rec root home fakebin out bytes sup_line refresh_line harness baseline_case refresh_command contract
+  rec=$(new_world 'compact instruction budget')
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_harness "$fakebin" pi
+  printf 'ORIGINAL_CONTRACT\n' > "$root/AGENTS.md"
+  FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --source startup >/dev/null
+  for baseline_case in drifted missing wrong-session; do
+    for harness in pi pi-signed; do
+      case "$baseline_case" in
+        drifted) printf 'CURRENT_CONTRACT 請遵守最新操作規則。\n%.0s' {1..1000} > "$root/AGENTS.md" ;;
+        missing) rm -f "$home/state/.session-start-agents-baseline" ;;
+        wrong-session) printf 'wrong-session\n%s\n' "$(hash_file_for_test "$root/AGENTS.md")" > "$home/state/.session-start-agents-baseline" ;;
+      esac
+      out=$(run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
+      bytes=$(printf '%s\n' "$out" | wc -c | tr -d ' ')
+      [ "$bytes" -lt 9000 ] || fail "$harness $baseline_case instruction recovery emitted $bytes bytes, over the 9000-byte budget"
+      sup_line=$(printf '%s\n' "$out" | grep -n '^SUPERVISION OPERATING INSTRUCTIONS' | head -1 | cut -d: -f1)
+      refresh_line=$(printf '%s\n' "$out" | grep -n '^CURRENT AGENTS.md - INSTRUCTION REFRESH$' | head -1 | cut -d: -f1)
+      [ -n "$sup_line" ] && [ -n "$refresh_line" ] && [ "$sup_line" -lt "$refresh_line" ] \
+        || fail "$harness $baseline_case instruction recovery printed before supervision"
+      assert_not_contains "$out" "CURRENT_CONTRACT" "compact recovery dumped the instruction body"
+      refresh_command=$(printf '%s\n' "$out" | sed -n 's/^INSTRUCTION_REFRESH_REQUIRED: //p')
+      [ -n "$refresh_command" ] || fail "compact recovery omitted the required instruction-read command"
+      contract=$(bash -c "$refresh_command") || fail "the printed instruction-read command failed"
+      assert_equals "$(cat "$root/AGENTS.md")" "$contract" "the printed command did not recover the complete current instructions"
+      if [ "$baseline_case" = missing ]; then
+        assert_absent "$home/state/.session-start-agents-baseline" "compact recovery fabricated a startup baseline"
+      fi
+    done
+  done
+  pass "Pi compact instruction recovery stays bounded with supervision first"
+}
+
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact() {
-  local rec root home fakebin startup compact_equal compact_first compact_second clear_out resume_out reset_out baseline baseline_after expected_hash refresh_line bootstrap_line
+  local rec root home fakebin startup compact_equal compact_first compact_second clear_out resume_out reset_out baseline baseline_after expected_hash refresh_line bootstrap_line full
   rec=$(new_world agents-refresh)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -2900,8 +2953,11 @@ EOF
   compact_first=$(FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
   assert_contains "$compact_first" "CURRENT AGENTS.md - INSTRUCTION REFRESH" \
     "a drifted Pi compact did not emit the replacement instructions"
-  assert_contains "$compact_first" "FIRSTMATE_TEST_INSTRUCTION=updated" \
-    "a drifted Pi compact did not emit the complete current AGENTS content"
+  assert_contains "$compact_first" "INSTRUCTION_REFRESH_REQUIRED: cat -- $root/AGENTS.md" \
+    "a drifted Pi compact did not require reading the complete current AGENTS content"
+  full=$(FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact --full)
+  assert_contains "$full" "FIRSTMATE_TEST_INSTRUCTION=updated" \
+    "the full Pi report did not emit the complete current AGENTS content"
   refresh_line=$(printf '%s\n' "$compact_first" | grep -n '^CURRENT AGENTS.md - INSTRUCTION REFRESH$' | head -1 | cut -d: -f1)
   bootstrap_line=$(printf '%s\n' "$compact_first" | grep -n '^BOOTSTRAP$' | head -1 | cut -d: -f1)
   [ -n "$refresh_line" ] && [ -n "$bootstrap_line" ] && [ "$refresh_line" -lt "$bootstrap_line" ] \
@@ -2910,8 +2966,8 @@ EOF
     || fail "a drifted compact rebased the original-session baseline"
 
   compact_second=$(FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
-  assert_contains "$compact_second" "FIRSTMATE_TEST_INSTRUCTION=updated" \
-    "a second drifted compact suppressed the required replacement instructions"
+  assert_contains "$compact_second" "INSTRUCTION_REFRESH_REQUIRED: cat -- $root/AGENTS.md" \
+    "a second drifted compact suppressed the required instruction-read command"
   [ "$(cat "$home/state/.session-start-agents-baseline")" = "$baseline" ] \
     || fail "a repeated compact rebased the original-session baseline"
 
@@ -2929,15 +2985,15 @@ EOF
 
   rm -f "$home/state/.session-start-agents-baseline"
   compact_first=$(FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
-  assert_contains "$compact_first" "FIRSTMATE_TEST_INSTRUCTION=updated" \
-    "a missing baseline did not trigger first-post-fix replacement instructions"
+  assert_contains "$compact_first" "INSTRUCTION_REFRESH_REQUIRED: cat -- $root/AGENTS.md" \
+    "a missing baseline did not trigger the required instruction-read command"
   assert_absent "$home/state/.session-start-agents-baseline" \
     "a rebuild fabricated a baseline instead of preserving true-start-only ownership"
 
   printf 'wrong-session\n%s\n' "$(hash_file_for_test "$root/AGENTS.md")" > "$home/state/.session-start-agents-baseline"
   compact_first=$(FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
-  assert_contains "$compact_first" "FIRSTMATE_TEST_INSTRUCTION=updated" \
-    "a wrong-session baseline did not trigger replacement instructions"
+  assert_contains "$compact_first" "INSTRUCTION_REFRESH_REQUIRED: cat -- $root/AGENTS.md" \
+    "a wrong-session baseline did not trigger the required instruction-read command"
   baseline_after=$(cat "$home/state/.session-start-agents-baseline")
   [ "$baseline_after" = "wrong-session
 $(hash_file_for_test "$root/AGENTS.md")" ] \
@@ -2971,7 +3027,7 @@ EOF
   wait "$holder_pid" 2>/dev/null || true
 
   assert_contains "$out" "READ-ONLY SESSION" "competing live lock owner did not force read-only mode"
-  assert_contains "$out" "READ_ONLY_AGENTS=current" \
+  assert_contains "$out" "INSTRUCTION_REFRESH_REQUIRED: cat -- $root/AGENTS.md" \
     "read-only compact trusted another session's equal baseline"
   [ "$(cat "$home/state/.session-start-agents-baseline")" = "$baseline_before" ] \
     || fail "read-only compact mutated the competing session's baseline"
@@ -3026,8 +3082,8 @@ EOF
     "startup recorded a non-SHA-256 instruction baseline when both SHA-256 tools failed"
   printf '%s\n' 'AGENTS_SHA_TEST=updated' > "$root/AGENTS.md"
   compact_out=$(FM_FAKE_HARNESS=pi run_pi_session_start "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
-  assert_contains "$compact_out" "AGENTS_SHA_TEST=updated" \
-    "a missing SHA-256 baseline did not conservatively refresh a supported rebuild"
+  assert_contains "$compact_out" "INSTRUCTION_REFRESH_REQUIRED: cat -- $root/AGENTS.md" \
+    "a missing SHA-256 baseline did not conservatively request an instruction refresh"
 
   rm -f "$fakebin/shasum" "$fakebin/sha256sum" "$home/state/.session-start-complete"
   cat > "$fakebin/mv" <<SH
@@ -3456,6 +3512,16 @@ case "${1:-}" in
   --hanging-git-only) test_runtime_bound_truncates_loudly_and_exits_zero; exit $? ;;
   --inherited-hanging-git-only) test_runtime_bound_with_inherited_startup_marker; exit $? ;;
   --reemit-only) test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain; exit $? ;;
+  --compact-budget-only) test_compact_reemit_fits_the_inline_hook_limit; test_compact_reemit_multilingual_fits_the_inline_hook_limit; exit $? ;;
+  --compact-refresh-only) test_compact_instruction_refresh_fits_the_inline_hook_limit; exit $? ;;
+  --compact-multilingual-only) test_compact_reemit_multilingual_fits_the_inline_hook_limit; exit $? ;;
+  --compact-baseline-only)
+    test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact
+    test_read_only_pi_compact_refreshes_against_its_own_session_identity
+    test_codex_unreachable_reset_sources_do_not_claim_instruction_refresh
+    test_agents_baseline_requires_sha256_and_successful_completion
+    exit $?
+    ;;
 esac
 
 test_dispatch_selftest_auto_arm_is_idempotent
@@ -3522,6 +3588,8 @@ test_runtime_bound_leaves_harness_ancestry_headroom
 test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain
 test_compact_reemit_is_slim_and_full_flag_restores_the_report
 test_compact_reemit_fits_the_inline_hook_limit
+test_compact_reemit_multilingual_fits_the_inline_hook_limit
+test_compact_instruction_refresh_fits_the_inline_hook_limit
 test_theme_section_follows_config_theme
 test_reemit_cue_survives_the_hook_output_preview
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact

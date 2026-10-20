@@ -7,8 +7,8 @@ fm_test_sanitize_environment
 #
 # The portable session-start tests own baseline and output logic. This guard
 # proves the vendor-dependent fact they cannot: Pi's actual session_compact
-# event delivers the current complete instruction file into the rebuilt model
-# context after the native cached session-start copy would otherwise persist.
+# event delivers a required instruction read and Pi loads the complete current
+# file after the native cached session-start copy would otherwise persist.
 #
 # Run after Pi upgrades and before recording refreshed verification evidence:
 #
@@ -141,7 +141,7 @@ printf '%s\n' '{"compaction":{"keepRecentTokens":200}}' > "$PROJECT/.pi/settings
 
 tmux -L "$TMUX_SOCKET" new-session -d -s "$TMUX_SESSION" -c "$PROJECT" -x 220 -y 55 \
   -e "FM_HOME=$HOME_DIR" -e "FM_ROOT_OVERRIDE=$PROJECT" -e "FM_GATE_REFUSE_BYPASS=1" \
-  pi --no-tools -e "$PROJECT/.pi/extensions/fm-primary-turnend-guard.ts" \
+  pi --tools read -e "$PROJECT/.pi/extensions/fm-primary-turnend-guard.ts" \
   || fail "could not start isolated Pi session"
 
 # Pi may ask for project trust before project-local context files and extensions
