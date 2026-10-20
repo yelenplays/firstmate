@@ -1,0 +1,31 @@
+{
+  "target_commit": "230e3817acee00ce52b0dd0254920b8a9a469694",
+  "runtime": "Actual bin/fm-search.sh, real ketch, Jev/TypeSafe, Exa and TinyFish endpoints; no live provider substitutes",
+  "isolation": "FM_HOME under the run worktree; no operator home state modified; existing ~/.config keys read at call time",
+  "live_config": {
+    "exa": {
+      "monthly_usd_cap": 0.04
+    },
+    "tinyfish": {
+      "per_minute": 8,
+      "per_day": 20
+    }
+  },
+  "guard_setups": {
+    "Missing keys fall back without spending": "FM_SEARCH_KEY_DIR points to empty worktree directory",
+    "Unwritable state skips capped providers": "FM_SEARCH_STATE points to regular file",
+    "Exa cap skips keyed hop": "Isolated ledger seeded with Exa $0.04 and 8 TinyFish calls this minute",
+    "TinyFish cap skips first hop": "Same cap ledger; --urls selects TinyFish first",
+    "TinyFish rolling day cap skips provider": "Isolated ledger seeded with Exa $0.04 and 20 TinyFish calls 120 seconds ago",
+    "Exhaustion reports every hop and exit 3": "Missing keys plus 0.01 s deadlines for real ketch subprocesses",
+    "Expired cache triggers fresh Jev pick": "Real hash cache timestamps aged to 86401 seconds; exactly one additional Jev metadata log entry"
+  },
+  "final_ledger": "fm-search ledger 2026-10 (UTC)\nexa-keyless  calls=6 cost=$0.0000\nexa-lite     calls=8 cost=$0.0320\nexa-deep     calls=1 cost=$0.0070\ntinyfish     calls=3 cost=$0.0000\nketch-multi  calls=2 cost=$0.0000\nexa-total    $0.0390 of $0.04 cap (97%)\nwarning: exa spend crossed 80% of the monthly cap\n",
+  "dates": {
+    "pre_fix": "Aug 27, 20",
+    "target_json": "2022-08-27",
+    "target_text": "2022-08-27"
+  },
+  "privacy": "Checked all live query literals absent from ledger/cache and actual key values absent from outputs and state; secret values not captured",
+  "notes": "No UI renderer changed: reviewer-visible evidence is actual CLI output. HTTP 429, wrong-shaped and undecodable replies, slow headers/body and concurrency exercised only by focused offline tests, never claimed live."
+}

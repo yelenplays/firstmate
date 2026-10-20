@@ -1,0 +1,10 @@
+{
+  "command": "python3 -I .tmp-search-validation/pre-fix-search.py --urls --json --limit 2 \"Python contextlib ExitStack official documentation\"",
+  "source_commit": "01f66722",
+  "exit": 0,
+  "stdout": "{\"results\": [{\"title\": \"contextlib \u2014 Utilities for with-statement contexts \u2014 Python ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"This module provides utilities for common tasks involving the with statement. ExitStack is the one given in the class documentation: supporting a variable ...\"}, {\"title\": \"ExitStack in Python\", \"url\": \"https://rednafi.com/python/exitstack/\", \"date\": \"Aug 27, 20\", \"snippet\": \"The official ExitStack documentation advertises it as a way to manage multiple context managers and has a couple of examples of how to leverage ...\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 1, \"lat\": 0.58, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+  "stderr": "",
+  "malformed_dates": [
+    "Aug 27, 20"
+  ]
+}

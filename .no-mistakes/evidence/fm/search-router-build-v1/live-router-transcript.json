@@ -1,0 +1,381 @@
+[
+  {
+    "name": "Jev docs routing",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "2",
+      "Python contextlib ExitStack official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.72,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # All opened files will automatically be closed at the end of # the with statement, even if attempts to open files later # in the list raise an exception ``` The `__enter__()` method returns the `ExitStack` instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a `with` statement). Note that callbacks are not invoked implicitly when the context stack instance is garbage collected. This stack model is used so that context managers that acquire their resources in their `__init__` method (such as file objects) can be handled correctly. Since registered callbacks are invoked in the reverse order of registration, this ends up behaving as if multiple nested `with` statements had been used with the registered set of callbacks. This even extends to exception handling - if an inner callback suppresses or replaces an exception, then outer callbacks will be passed arguments based on that updated state. This is a relatively low level API that takes care of the details of correctly unwinding the stack of exit callbacks. It provides a suitable foundation for higher level context managers that manipulate the exit stack in application specific ways. Added in version 3.3. enter_context(cm)¶ : Enters a new context manager and adds its `__exit__()` method to the callback stack. The return value is the result of the context manager’s own `__enter__()` method. These context managers may suppress exceptions just as they normally would if used directly as part of a `with` statement. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not a context manager. Changed in version 3.15: Added support for arbitrary descriptors `__enter__()` and `__exit__()`. push(exit)¶ : Adds a context manager’s `__exit__()` method to the callback stack. As `__enter__` is not invoked, this method can be used to cover part of an `__enter__()` implementation with a context manager’s own `__exit__()` method. If passed an object that is not a context manager, this method assumes it is a callback with the same signature as a context manager’s `__exit__()` method and adds it directly to the callback stack. By returning true values, these callbacks can suppress exceptions the same way context manager `__exit__()` methods can. The passed in object is returned from the function, allowing this method to be used as a function decorator. Changed in version 3.15: Added support for arbitrary descriptors `__exit__()`. callback(callback, /, * args, ** kwds)¶ : Accepts an arbitrary callback function and arguments and adds it to the callback stack. Unlike the other methods, callbacks added this way cannot suppress exceptions (as they are never passed the exception details). The passed in callback is returned from the function, allowing this method to be used as a function decorator. pop_all()¶ : Transfers the callback stack to a fresh `ExitStack` instance and returns it. No callbacks are invoked by this operation - instead, they will now be invoked when the new stack is closed (either explicitly or implicitly at the end of a `with` statement). For example, a group of files can be opened as an “all or nothing” operation as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # Hold onto the close method, but don't call it yet. close_files = stack.pop_all().close # If opening any file fails, all previously opened files will be # closed automatically. If all files are opened successfully, # they will remain open even after the with statement ends. # close_files() can then be invoked explicitly to close them all. ``` close()¶ : Immediately unwinds the callback stack, invoking callbacks in the reverse order of registration. For any context managers and exit callbacks registered, the arguments passed in will indicate that no exception occurred. class contextlib. AsyncExitStack¶ : An asynchronous context manager, similar to `ExitStack`, that supports combining both synchronous and asynchronous context managers, as well as having coroutines for cleanup logic. The `close()` method is not implemented; `aclose()` must be used instead. async enter_async_context(cm)¶ : Similar to `ExitStack.enter_context()` but expects an asynchronous context manager. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not an asynchronous context manager. Changed in version 3.15: Added support for arbitrary descriptors `__aenter__()` and `__aexit__()`. push_async_exit(exit)¶ : Similar to `ExitStack.push()` but expects either an asynchronous context manager or a coroutine function. Changed in version 3.15: Added support for arbitrary descriptors `__aexit__()`. push_async_callback(callback, /, * args, ** kwds)¶ : Similar to `ExitStack.callback()` but expects a coroutine function. async aclose()¶ : Similar to `ExitStack.close()` but properly handles awaitables. Continuing the example for `@asynccontextmanager`: ``` async with AsyncExitStack() as stack: connections = [await stack.enter_async_context(get_connection()) for i in range(5)] # All opened connections will automatically be released at the end of # the async with statement, even if attempts to open a connection # later in the list raise an exception. ``` Added in version 3.7. ... ### Supporting a variable number of context managers¶ The primary use\"}, {\"title\": \"Lib/contextlib.py\", \"url\": \"https://github.com/python/cpython/blob/main/Lib/contextlib.py\", \"date\": \"\", \"snippet\": \"Inspired by discussions on http://bugs.python.org/issue13585 class ExitStack(_BaseExitStack, AbstractContextManager): \\\"\\\"\\\"Context manager for dynamic management of a stack of exit callbacks ... be closed at the end of # the with statement, even if\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 1, \"lat\": 1.58, \"cost\": 0.004, \"route\": \"jev\", \"class\": \"docs\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 1,
+      "lat": 1.58,
+      "cost": 0.004,
+      "route": "jev",
+      "class": "docs"
+    }
+  },
+  {
+    "name": "Case-insensitive route cache",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "2",
+      "PYTHON CONTEXTLIB EXITSTACK OFFICIAL DOCUMENTATION"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.05,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"Changed in version 3.15: Decorating an asynchronous generator function now keeps the context manager open across iteration. Previously the context manager exited as soon as the generator object was created. Synchronous functions and synchronous generator functions are also now accepted, with an asynchronous wrapper returned. class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # All opened files will automatically be closed at the end of # the with statement, even if attempts to open files later # in the list raise an exception ``` The `__enter__()` method returns the `ExitStack` instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a `with` statement). Note that callbacks are not invoked implicitly when the context stack instance is garbage collected. This stack model is used so that context managers that acquire their resources in their `__init__` method (such as file objects) can be handled correctly. Since registered callbacks are invoked in the reverse order of registration, this ends up behaving as if multiple nested `with` statements had been used with the registered set of callbacks. This even extends to exception handling - if an inner callback suppresses or replaces an exception, then outer callbacks will be passed arguments based on that updated state. This is a relatively low level API that takes care of the details of correctly unwinding the stack of exit callbacks. It provides a suitable foundation for higher level context managers that manipulate the exit stack in application specific ways. Added in version 3.3. enter_context(cm)¶ : Enters a new context manager and adds its `__exit__()` method to the callback stack. The return value is the result of the context manager’s own `__enter__()` method. These context managers may suppress exceptions just as they normally would if used directly as part of a `with` statement. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not a context manager. Changed in version 3.15: Added support for arbitrary descriptors `__enter__()` and `__exit__()`. push(exit)¶ : Adds a context manager’s `__exit__()` method to the callback stack. As `__enter__` is not invoked, this method can be used to cover part of an `__enter__()` implementation with a context manager’s own `__exit__()` method. If passed an object that is not a context manager, this method assumes it is a callback with the same signature as a context manager’s `__exit__()` method and adds it directly to the callback stack. By returning true values, these callbacks can suppress exceptions the same way context manager `__exit__()` methods can. The passed in object is returned from the function, allowing this method to be used as a function decorator. Changed in version 3.15: Added support for arbitrary descriptors `__exit__()`. callback(callback, /, * args, ** kwds)¶ : Accepts an arbitrary callback function and arguments and adds it to the callback stack. Unlike the other methods, callbacks added this way cannot suppress exceptions (as they are never passed the exception details). The passed in callback is returned from the function, allowing this method to be used as a function decorator. pop_all()¶ : Transfers the callback stack to a fresh `ExitStack` instance and returns it. No callbacks are invoked by this operation - instead, they will now be invoked when the new stack is closed (either explicitly or implicitly at the end of a `with` statement). For example, a group of files can be opened as an “all or nothing” operation as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # Hold onto the close method, but don't call it yet. close_files = stack.pop_all().close # If opening any file fails, all previously opened files will be # closed automatically. If all files are opened successfully, # they will remain open even after the with statement ends. # close_files() can then be invoked explicitly to close them all. ``` close()¶ : Immediately unwinds the callback stack, invoking callbacks in the reverse order of registration. For any context managers and exit callbacks registered, the arguments passed in will indicate that no exception occurred. class contextlib. AsyncExitStack¶ : An asynchronous context manager, similar to `ExitStack`, that supports combining both synchronous and asynchronous context managers, as well as having coroutines for cleanup logic. The `close()` method is not implemented; `aclose()` must be used instead. async enter_async_context(cm)¶ : Similar to `ExitStack.enter_context()` but expects an asynchronous context manager. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not an asynchronous context manager. Changed in version 3.15: Added support for arbitrary descriptors `__aenter__()` and `__aexit__()`. push_async_exit(exit)¶ : Similar to `ExitStack.push()` but expects either an asynchronous context manager or a coroutine function. Changed in version 3.15: Added support for arbitrary descriptors `__aexit__()`. push_async_callback(callback, /, * args, ** kwds)¶ : Similar to `ExitStack.callback()` but expects a coroutine function. async aclose()¶ : Similar to `ExitStack.close()` but properly handles awaitables. Continuing the example for `@asynccontextmanager`: ``` async with AsyncExitStack() as stack: connections = [await\"}, {\"title\": \"cpython/Lib/contextlib.py at 3.14 · python/cpython · GitHub\", \"url\": \"https://github.com/python/cpython/tree/3.14/Lib/contextlib.py\", \"date\": \"\", \"snippet\": \"class ExitStack(_BaseExitStack, AbstractContextManager): \\\"\\\"\\\"Context manager for dynamic management of a stack of exit callbacks. For example: with ExitStack() as stack: ... ] # All opened files will automatically be closed at the end of # the\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 1, \"lat\": 0.87, \"cost\": 0.004, \"route\": \"jev\", \"class\": \"docs\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 1,
+      "lat": 0.87,
+      "cost": 0.004,
+      "route": "jev",
+      "class": "docs"
+    },
+    "cache_unchanged": true,
+    "jev_log_unchanged": true
+  },
+  {
+    "name": "Jev local SEO routing",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "2",
+      "Google Business Profile local business review guidelines"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.67,
+    "stdout": "{\"results\": [{\"title\": \"Prohibited & restricted content - Maps User Generated Content Policy Help\", \"url\": \"https://support.google.com/contributionpolicy/answer/7400114?hl=en\", \"date\": \"\", \"snippet\": \"## Fake & Misleading Content & Reviews Google takes Fake & Misleading Content seriously. Contributions to Google Maps should reflect a genuine experience at a place or business, and a review or rating should reflect an actual experience with a business, and be genuine and unbiased. Identifying and removing Fake or Biased Content and instances of Rating Manipulation are part of how we keep maps trustworthy, reliable, and useful. Fake Engagement Contributions to Google Maps should reflect a genuine experience at a place or business. Fake engagement is not allowed and will be removed. This includes: - Content that is not based on a real experience or does not accurately represent the location or product in question. - Reviews or ratings that have been paid for, directly or in kind. - Content that has been posted from multiple accounts by or at the request of one person. - Content that has been posted using an emulator or other device tampering service, modified operating system, or other method to mimic genuine engagement, manipulate sensor data or results, or otherwise thwart or confuse normal operations. We do not allow merchants or users to: - Solicit or encourage the posting of content that does not represent a genuine experience. - Offer incentives – such as payment, discounts, free goods and/or services - in exchange for posting any review or revision or removal of a negative review. - Post content on a competitor’s place or business to undermine that business’ or product’s reputation. ... ## Rating Manipulation Contributions to Google Maps should reflect a genuine experience at a place or business. Rating Manipulation includes Incentivized or Biased Reviews, which are not allowed and will be removed from Maps. This includes: - Content that has been posted due to an incentive offered by a business - such as payment, discounts, free goods and/or services. - This includes content posted following requests for revision or removal of a review or rating in exchange for an incentive. - Content exhibiting\"}, {\"title\": \"Tips to get more reviews - Google Business Profile Help\", \"url\": \"https://support.google.com/business/answer/3474122?hl=en\", \"date\": \"\", \"snippet\": \"# Tips to get more reviews Reviews can help your business stand out and give potential customers helpful info. They show next to your Business Profile in Maps and Search. Important: Reviews and other user contributions to Google Maps must reflect a genuine experience. Offering incentives, like free or discounted goods or services, in exchange for customers to post reviews, change reviews, or remove negative reviews is considered fake & misleading content and is strictly prohibited. Learn more about Business Profile restrictions for policy violations. ## Learn about best practices to get more reviews - Remind customers to leave reviews: To leave reviews, you can ask customers to visit a Google link or scan a QR code. Learn how to create a Google link or QR code to request reviews. - Reply to reviews: Show customers that their feedback matters. Learn how to read & reply to reviews on Google. - Value all reviews: Honest and balanced reviews can help potential customers decide. A mix of positive and negative feedback often feels more trustworthy. As best practice, reply to reviews and share your perspective. Tip: Customers must be signed into a Google Account to leave a review. They can set one up with a non-Gmail email address. Learn how to create a Google Account. ... ## Tips to write better review replies Your replies are public and help you build good relationships with customers. When you reply to customers, keep these guidelines in mind. ### Make your replies positive & relevant - Be professional and polite: Keep your replies clear and helpful. Like reviews, replies must follow our policies. Learn more about Google's content policies. - Keep it short and simple: Customers value direct and honest responses. If a reply is too long, people might stop reading before they get to the main point. - Make your replies count: Instead of sending the same \\\"thank you\\\" to everyone, focus on reviews where you can share a helpful update or answer a question. This shows people that you are listening and genuinely care about their experience. - Be conversational, not promotional: Your reviewers are already customers, so avoid using your response to offer deals or promotions. Instead, share a detail that reinforces their experience and encourages a return visit. ... ### Give helpful responses to negative reviews Important: If you believe that a review violates Google’s content policies, you can flag it. Learn how to report inappropriate reviews. Negative reviews aren't necessarily a sign of poor business practices. Instead, they provide a valuable opportunity to understand customer expectations and improve future experiences. Providing constructive replies and following up on concerns can show that you care and may even encourage the customer to update their review. When you reply to negative reviews, consider these tips: - Protect privacy and avoid personal attacks: Never share a reviewer's private information or engage in personal attacks. If a situation is complex, politely request that the reviewer contact you via phone or email to resolve the issue privately. - Be honest and explain limitations: Acknowledge if any mistakes were made, but don't take responsibility for things outside your control. Explain what you can and cannot do in that situation. For example, if bad weather causes you to cancel an event, explain that you monitor the weather and send advance cancellation notices when possible. - Apologize when appropriate: Show empathy and demonstrate that you understand how the customer feels. A genuine apology can go a long way in rebuilding trust. - Personalize your reply: Address the reviewer by name and acknowledge their specific feedback. A personal sign-off with your name or initials shows that their experience matters to you. - Respond in a timely manner: A prompt response shows that you value your customers' feedback and are committed to high-quality service.\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 2, \"lat\": 2.36, \"cost\": 0.004, \"route\": \"jev\", \"class\": \"seo_local\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 2,
+      "lat": 2.36,
+      "cost": 0.004,
+      "route": "jev",
+      "class": "seo_local"
+    }
+  },
+  {
+    "name": "Default keyless text search",
+    "command": [
+      "bin/fm-search.sh",
+      "--no-jev",
+      "--limit",
+      "2",
+      "Python contextlib ExitStack documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.18,
+    "stdout": "1. contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation\n   https://docs.python.org/3/library/contextlib.html\n   class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in\n2. Doc/library/contextlib.rst\n   https://github.com/python/cpython/blob/3.9/Doc/library/contextlib.rst\n   .. class:: ExitStack() A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input\nprovider=exa-lite hops=2 lat=1.0 cost=$0.0040 route=default\n",
+    "stderr": ""
+  },
+  {
+    "name": "TinyFish date regression JSON",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "2",
+      "Python contextlib ExitStack official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.14,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"This module provides utilities for common tasks involving the with statement. ExitStack is the one given in the class documentation: supporting a variable ...\"}, {\"title\": \"ExitStack in Python\", \"url\": \"https://rednafi.com/python/exitstack/\", \"date\": \"2022-08-27\", \"snippet\": \"The official ExitStack documentation advertises it as a way to manage multiple context managers and has a couple of examples of how to leverage ...\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 1, \"lat\": 1.0, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "tinyfish",
+      "hops": 1,
+      "lat": 1.0,
+      "cost": 0.0,
+      "route": "forced"
+    }
+  },
+  {
+    "name": "TinyFish date regression text",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--limit",
+      "2",
+      "Python contextlib ExitStack official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 0.96,
+    "stdout": "1. contextlib — Utilities for with-statement contexts — Python ...\n   https://docs.python.org/3/library/contextlib.html\n2. ExitStack in Python\n   https://rednafi.com/python/exitstack/ (2022-08-27)\nprovider=tinyfish hops=1 lat=0.8 cost=$0.0000 route=forced\n",
+    "stderr": ""
+  },
+  {
+    "name": "Deep Exa search",
+    "command": [
+      "bin/fm-search.sh",
+      "--deep",
+      "--json",
+      "--limit",
+      "2",
+      "Python ExitStack dynamic context manager exception handling"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.57,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.14.8 documentation\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # All opened files will automatically be closed at the end of # the with statement, even if attempts to open files later # in the list raise an exception ``` The `__enter__()` method returns the `ExitStack` instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a `with` statement). Note that callbacks are not invoked implicitly when the context stack instance is garbage collected. This stack model is used so that context managers that acquire their resources in their `__init__` method (such as file objects) can be handled correctly. Since registered callbacks are invoked in the reverse order of registration, this ends up behaving as if multiple nested `with` statements had been used with the registered set of callbacks. This even extends to exception handling - if an inner callback suppresses or replaces an exception, then outer callbacks will be passed arguments based on that updated state. This is a relatively low level API that takes care of the details of correctly unwinding the stack of exit callbacks. It provides a suitable foundation for higher level context managers that manipulate the exit stack in application specific ways. Added in version 3.3. enter_context(cm)¶ : Enters a new context manager and adds its `__exit__()` method to the callback stack. The return value is the result of the context manager’s own `__enter__()` method. These context managers may suppress exceptions just as they normally would if used directly as part of a `with` statement. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not a context manager. Changed in version 3.15: Added support for arbitrary descriptors `__enter__()` and `__exit__()`. push(exit)¶ : Adds a context manager’s `__exit__()` method to the callback stack. As `__enter__` is not invoked, this method can be used to cover part of an `__enter__()` implementation with a context manager’s own `__exit__()` method. If passed an object that is not a context manager, this method assumes it is a callback with the same signature as a context manager’s `__exit__()` method and adds it directly to the callback stack. By returning true values, these callbacks can suppress exceptions the same way context manager `__exit__()` methods can. The passed in object is returned from the function, allowing this method to be used as a function decorator. Changed in version 3.15: Added support for arbitrary descriptors `__exit__()`. callback(callback, /, * args, ** kwds)¶ : Accepts an arbitrary callback function and arguments and adds it to the callback stack. Unlike the other methods, callbacks added this way cannot suppress exceptions (as they are never passed the exception details). The passed in callback is returned from the function, allowing this method to be used as a function decorator. pop_all()¶ : Transfers the callback stack to a fresh `ExitStack` instance and returns it. No callbacks are invoked by this operation - instead, they will now be invoked when the new stack is closed (either explicitly or implicitly at the end of a `with` statement). For example, a group of files can be opened as an “all or nothing” operation as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # Hold onto the close method, but don't call it yet. close_files = stack.pop_all().close # If opening any file fails, all previously opened files will be # closed automatically. If all files are opened successfully, # they will remain open even after the with statement ends. # close_files() can then be invoked explicitly to close them all. ``` close()¶ : Immediately unwinds the callback stack, invoking callbacks in the reverse order of registration. For any context managers and exit callbacks registered, the arguments passed in will indicate that no exception occurred. ... ### Catching exceptions from `__enter__` methods¶ It is occasionally desirable to catch exceptions from an `__enter__()` method implementation, without inadvertently catching exceptions from the `with` statement body or the context manager’s `__exit__()` method. By using `ExitStack` the steps in the context management protocol can be separated slightly in order to allow this: ``` stack = ExitStack() try: x = stack.enter_context(cm) except Exception: # handle __enter__ exception else: with stack: # Handle normal case ``` Actually needing to do this is likely to indicate that the underlying API should be providing a direct resource management interface for use with `try`/`except`/`finally` statements, but not all APIs are well designed in that regard. When a context manager is the only resource management API provided, then `ExitStack` can make it easier to handle various situations that can’t be handled directly in a `with` statement.\"}, {\"title\": \"Lib/contextlib.py\", \"url\": \"https://github.com/python/cpython/blob/main/Lib/contextlib.py\", \"date\": \"\", \"snippet\": \"class _BaseExitStack: \\\"\\\"\\\"A base class for ExitStack and AsyncExitStack.\\\"\\\"\\\" @staticmethod def _create_cb_wrapper(callback, /, *args, **kwds): def _exit_wrapper(exc_type, exc, tb): callback(*args, **kwds) return _exit_wrapper def __init__(self): self._exit_callbacks = deque() def pop_all(self): \\\"\\\"\\\"Preserve the context stack by transferring it to a new instance.\\\"\\\"\\\" new_stack = type(self)() new_stack._exit_callbacks = self._exit_callbacks self._exit_callbacks = deque() return new_stack def push(self, exit): \\\"\\\"\\\"Registers a callback\"}], \"meta\": {\"provider\": \"exa-deep\", \"hops\": 1, \"lat\": 1.41, \"cost\": 0.007, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "exa-deep",
+      "hops": 1,
+      "lat": 1.41,
+      "cost": 0.007,
+      "route": "forced"
+    }
+  },
+  {
+    "name": "Explicit chain K",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 0.39,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation # `contextlib` — Utilities for `with`-statement contexts¶ This module provides utilities for common tasks involving the `with` statement. For more information see also Context Manager Types and With Statement Context Managers. ## Utilities¶ Functions and classes provided: class contextlib. AbstractContextManager¶ : An abstract base class for classes that implement `__enter__()` and `__exit__()`. A default implementation for `__enter__()` is provided which returns `self` while `__exit__()` is an abstract method which by default returns `None`. See also the definition of Context Manager Types. Added in version 3.6. class contextlib. AbstractAsyncContextManager¶ : An abstract base class for classes that implement `__aenter__()` and `__aexit__()`. A default implementation for `__aenter__()` is provided which returns `self` while `__aexit__()` is an abstract method which by default returns `None`. See also the definition of Asynchronous Context Managers. Added in version 3.7. @ contextlib. contextmanager¶ : This function is a decorator that can be used to define a factory function for `with` statement context managers, without needing to create a class or separate `__enter__()` and `__exit__()` methods. While many objects natively support use in with statements, sometimes a resource needs to be managed that isn’t a context manager in its own right, and doesn’t implement a `close()` method for use with `contextlib.closing`. An abstract example would be the following to ensure correct resource management: ``` from contextlib import contextmanager @contextmanager def managed_resource(*args, **kwds): # Code to acquire resource, e.g.: resource = acquire_resource(*args, **kwds) try: yield resource finally: # Code to release resource, e.g.: release_resource(resource) ``` The function can then be used like this: ``` >>> with managed_resource(timeout=3600) as resource: ... # Resource is released at the end of this block, ... # even if code in the block raises an exception ``` The function being decorated must return a generator-iterator when called. This iterator must yield exactly one value, which will be bound to the targets in the `with` statement’s `as` clause, if any. At the point where the generator yields, the block nested in the `with` statement is executed. The generator is then resumed after the block is exited. If an unhandled exception occurs in the block, it is reraised inside the generator at the point where the yield occurred. Thus, you can use a `try`…`except`…`finally` statement to trap the error (if any), or ensure that some cleanup takes place. If an exception is trapped merely in order to log it or to perform some action (rather than to suppress it entirely), the generator must reraise that exception. Otherwise the generator context manager will indicate to the `with` statement that the\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 1, \"lat\": 0.23, \"cost\": 0.004, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 1,
+      "lat": 0.23,
+      "cost": 0.004,
+      "route": "forced"
+    }
+  },
+  {
+    "name": "Missing keys fall back without spending",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python context managers"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.26,
+    "stdout": "{\"results\": [{\"title\": \"27. Context Managers — Python Tips 0.1 documentation\", \"url\": \"https://book.pythontips.com/en/latest/context_managers.html\", \"date\": \"\", \"snippet\": \"Context managers allow you to allocate and release resources precisely when you want to. The most widely used example of context managers is the with statement.\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.08, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "ketch-multi",
+      "hops": 4,
+      "lat": 2.08,
+      "cost": 0.0,
+      "route": "forced"
+    }
+  },
+  {
+    "name": "Unwritable state skips capped providers",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.18,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"ExitStack ¶ A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. > For example, a set of files may easily be handled in a single with statement as follows: > with ExitStack () as stack : > files = [ stack . The __enter__() method returns the ExitStack instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a with statement). Unlike the other methods, callbacks added this way cannot suppress exceptions (as they are never passed the exception details). The passed in callback is returned from the function, allowing this method to be used as a function decorator. pop_all ( ) ¶ Transfers the callback stack to a fresh ExitStack instance and returns it. async enter_async_context ( cm ) ¶ Similar to ExitStack.enter_context() but expects an asynchronous context manager. Changed in version 3.11: Raises TypeError instead of AttributeError if cm is not an asynchronous context manager. Changed in version 3.15: Added support for arbitrary descriptors __aenter__() and __aexit__() . push_async_exit ( exit ) ¶ Similar to ExitStack.push() but expects either an asynchronous context manager or a coroutine function. Changed in version 3.15: Added support for arbitrary descriptors __aexit__() . push_async_callback ( callback , / , * args , ** kwds ) ¶ Similar to ExitStack.callback() but expects a coroutine function. The primary use case for ExitStack is the one given in the class documentation: supporting a variable number of context managers and other cleanup operations in a single with statement. The variability may come from the number of context managers needed being driven by user input (such as opening a user specified collection of files), or from some of the context managers being optional: with ExitStack () as stack : for resource in resources : stack . enter_context ( resource ) if need_special_resource (): Here’s an example of doing this for a context manager that accepts resource acquisition and release functions, along with an optional validation function, and maps them to the context management protocol: from contextlib import contextmanager , AbstractContextManager , ExitStack ExitStack makes it possible to instead register a callback for execution at the end of a with statement, and then later decide to skip executing that callback: from contextlib import ExitStack If a particular application uses this pattern a lot, it can be simplified even further by means of a small helper class: from contextlib import ExitStack\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 1.99, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "ketch-multi",
+      "hops": 4,
+      "lat": 1.99,
+      "cost": 0.0,
+      "route": "forced"
+    }
+  },
+  {
+    "name": "Exa cap skips keyed hop",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack official docs"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.09,
+    "stdout": "{\"results\": [{\"title\": \"ExitStack in Python | Redowan's Reflections\", \"url\": \"https://rednafi.com/python/exitstack/\", \"date\": \"\", \"snippet\": \"ExitStack in Python Aug 27, 2022 — The official ExitStack documentation advertises it as a way to manage multiple context managers and has a couple of examples of how to leverage\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 1.92, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "ketch-multi",
+      "hops": 4,
+      "lat": 1.92,
+      "cost": 0.0,
+      "route": "forced"
+    },
+    "capped_ledger_unchanged": true
+  },
+  {
+    "name": "TinyFish cap skips first hop",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack official docs"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.13,
+    "stdout": "{\"results\": [{\"title\": \"ExitStack in Python | Redowan's Reflections\", \"url\": \"https://rednafi.com/python/exitstack/\", \"date\": \"\", \"snippet\": \"ExitStack in Python Aug 27, 2022 — The official ExitStack documentation advertises it as a way to manage multiple context managers and has a couple of examples of how to leverage\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 1.93, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "ketch-multi",
+      "hops": 4,
+      "lat": 1.93,
+      "cost": 0.0,
+      "route": "forced"
+    },
+    "capped_ledger_unchanged": true
+  },
+  {
+    "name": "Private-looking query refuses Jev and uses F",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Python docs email@example.invalid"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.83,
+    "stdout": "{\"results\": [{\"title\": \"email — An email and MIME handling package — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/email.html\", \"date\": \"\", \"snippet\": \"email — An email and MIME handling package — Python 3.15.0 documentation # `email` — An email and MIME handling package¶ The `email` package is a library for managing email messages. It is specifically not designed to do any sending of email messages to SMTP (RFC 2821), NNTP, or other servers; those are functions of modules such as `smtplib`. The `email` package attempts to be as RFC-compliant as possible, supporting RFC 5322 and RFC 6532, as well as such MIME-related RFCs as RFC 2045, RFC 2046, RFC 2047, RFC 2183, and RFC 2231. ... The overall structure of the email package can be divided into three major components, plus a fourth component that controls the behavior of the other components. The central component of the package is an “object model” that represents email messages. An application interacts with the package primarily through the object model interface defined in the `message` sub-module. The application can use this API to ask questions about an existing email, to construct a new email, or to add or remove email subcomponents that themselves use the same object model interface. That is, following the nature of email messages and their MIME subcomponents, the email object model is a tree structure of objects that all provide the `EmailMessage` API. The other two major components of the package are the `parser` and the `generator`. The parser takes the serialized version of an email message (a stream of bytes) and converts it into a tree of `EmailMessage` objects. The generator takes an `EmailMessage` and turns it back into a serialized byte stream. (The parser and generator also handle streams of text characters, but this usage is discouraged as it is too easy to end up with messages that are not valid in one way or another.) ... The control component is the `policy` module. Every `EmailMessage`, every `generator`, and every `parser` has an associated `policy` object that controls its behavior. Usually an application only needs to specify the policy when an `EmailMessage` is created, either by directly instantiating an `EmailMessage` to create a new email, or by parsing an input stream using a `parser`. But the policy can be changed when the message is serialized using a `generator`. This allows, for example, a generic email message to be parsed from disk, but to serialize it using standard SMTP settings when sending it to an email server. ... The foregoing represent the modern ... Changed in version 3.6: Docs reorganized and rewritten to promote the new `EmailMessage`/`EmailPolicy` API. Contents of the `email` package documentation: - `email.message`: Representing an email message - `email.parser`: Parsing email messages - FeedParser API - Parser API - Additional notes - `email.generator`: Generating MIME documents - `email.policy`: Policy Objects - `email.errors`: Exception and Defect classes - `email.headerregistry`: Custom Header Objects - `email.contentmanager`: Managing MIME Content - Content Manager\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 2, \"lat\": 1.58, \"cost\": 0.004, \"route\": \"default\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 2,
+      "lat": 1.58,
+      "cost": 0.004,
+      "route": "default"
+    }
+  },
+  {
+    "name": "Long public query bypasses Jev",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack official documentation context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference context manager reference "
+    ],
+    "exit": 0,
+    "elapsed_s": 1.17,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # All opened files will automatically be closed at the end of # the with statement, even if attempts to open files later # in the list raise an exception ``` The `__enter__()` method returns the `ExitStack` instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a `with` statement). Note that callbacks are not invoked implicitly when the context stack instance is garbage collected. This stack model is used so that context managers that acquire their resources in their `__init__` method (such as file objects) can be handled correctly. Since registered callbacks are invoked in the reverse order of registration, this ends up behaving as if multiple nested `with` statements had been used with the registered set of callbacks. This even extends to exception handling - if an inner callback suppresses or replaces an exception, then outer callbacks will be passed arguments based on that updated state. This is a relatively low level API that takes care of the details of correctly unwinding the stack of exit callbacks. It provides a suitable foundation for higher level context managers that manipulate the exit stack in application specific ways. Added in version 3.3. enter_context(cm)¶ : Enters a new context manager and adds its `__exit__()` method to the callback stack. The return value is the result of the context manager’s own `__enter__()` method. These context managers may suppress exceptions just as they normally would if used directly as part of a `with` statement. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not a context manager. Changed in version 3.15: Added support for arbitrary descriptors `__enter__()` and `__exit__()`. push(exit)¶ : Adds a context manager’s `__exit__()` method to the callback stack. As `__enter__` is not invoked, this method can be used to cover part of an `__enter__()` implementation with a context manager’s own `__exit__()` method. If passed an object that is not a context manager, this method assumes it is a callback with the same signature as a context manager’s `__exit__()` method and adds it directly to the callback stack. By returning true values, these callbacks can suppress exceptions the same way context manager `__exit__()` methods can. The passed in object is returned from the function, allowing this method to be used as a function decorator. Changed in version 3.15: Added support for\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 2, \"lat\": 1.02, \"cost\": 0.004, \"route\": \"default\"}}\n",
+    "stderr": "warning: exa spend $0.04 is 87% of the $0.04 monthly cap\n",
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 2,
+      "lat": 1.02,
+      "cost": 0.004,
+      "route": "default"
+    }
+  },
+  {
+    "name": "Exhaustion reports every hop and exit 3",
+    "command": [
+      "bin/fm-search.sh",
+      "--no-jev",
+      "--json",
+      "Python docs"
+    ],
+    "exit": 3,
+    "elapsed_s": 0.2,
+    "stdout": "",
+    "stderr": "fm-search: exa-keyless: timeout\nfm-search: exa-lite: skipped: no exa key\nfm-search: tinyfish: skipped: no tinyfish key\nfm-search: ketch-multi: timeout\n"
+  },
+  {
+    "name": "Mutually exclusive flags are usage error",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--deep",
+      "Python docs"
+    ],
+    "exit": 1,
+    "elapsed_s": 0.15,
+    "stdout": "",
+    "stderr": "usage: fm-search.sh [--limit N] [--json] [--urls | --deep] [--chain F|K] [--no-jev] \"<query>\"\n       fm-search.sh --ledger\nWeb search router: Jev picks a query class, a provider chain (Exa, TinyFish, ketch) answers.\n  --limit N    results wanted (default 5)\n  --json       print {\"results\": [...], \"meta\": {...}} instead of text\n  --urls       cheap URL list: TinyFish first\n  --deep       hard question: Exa type auto first\n  --chain F|K  force the chain (F keyless first, K keyed first)\n  --no-jev     skip the Jev class pick and use chain F\n  --ledger     month-to-date spend and calls per provider\nExit: 0 results, 3 every hop empty (one line per hop on stderr), 1 usage error.\nSend only non-private queries: the query goes to third-party providers.\n"
+  },
+  {
+    "name": "Month-to-date ledger",
+    "command": [
+      "bin/fm-search.sh",
+      "--ledger"
+    ],
+    "exit": 0,
+    "elapsed_s": 0.15,
+    "stdout": "fm-search ledger 2026-10 (UTC)\nexa-keyless  calls=6 cost=$0.0000\nexa-lite     calls=7 cost=$0.0280\nexa-deep     calls=1 cost=$0.0070\ntinyfish     calls=2 cost=$0.0000\nketch-multi  calls=2 cost=$0.0000\nexa-total    $0.0350 of $0.04 cap (87%)\nwarning: exa spend crossed 80% of the monthly cap\n",
+    "stderr": ""
+  },
+  {
+    "name": "Expired cache triggers fresh Jev pick",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack official documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # All opened files will automatically be closed at the end of # the with statement, even if attempts to open files later # in the list raise an exception ``` The `__enter__()` method returns the `ExitStack` instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a `with` statement). Note that callbacks are not invoked implicitly when the context stack instance is garbage collected. This stack model is used so that context managers that acquire their resources in their `__init__` method (such as file objects) can be handled correctly. Since registered callbacks are invoked in the reverse order of registration, this ends up behaving as if multiple nested `with` statements had been used with the registered set of callbacks. This even extends to exception handling - if an inner callback suppresses or replaces an exception, then outer callbacks will be passed arguments based on that updated state. This is a relatively low level API that takes care of the details of correctly unwinding the stack of exit callbacks. It provides a suitable foundation for higher level context managers that manipulate the exit stack in application specific ways. Added in version 3.3. enter_context(cm)¶ : Enters a new context manager and adds its `__exit__()` method to the callback stack. The return value is the result of the context manager’s own `__enter__()` method. These context managers may suppress exceptions just as they normally would if used directly as part of a `with` statement. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not a context manager. Changed in version 3.15: Added support for arbitrary descriptors `__enter__()` and `__exit__()`. push(exit)¶ : Adds a context manager’s `__exit__()` method to the callback stack. As `__enter__` is not invoked, this method can be used to cover part of an `__enter__()` implementation with a context manager’s own `__exit__()` method. If passed an object that is not a context manager, this method assumes it is a callback with the same signature as a context manager’s `__exit__()` method and adds it directly to the callback stack. By returning true values, these callbacks can suppress exceptions the same way context manager `__exit__()` methods can. The passed in object is returned from the function, allowing this method to be used as a function decorator. Changed in version 3.15: Added support for\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 1, \"lat\": 2.08, \"cost\": 0.004, \"route\": \"jev\", \"class\": \"docs\"}}\n",
+    "stderr": "",
+    "prior_cache_age_s": 86401,
+    "additional_jev_calls": 1,
+    "meta": {
+      "provider": "exa-lite",
+      "hops": 1,
+      "lat": 2.08,
+      "cost": 0.004,
+      "route": "jev",
+      "class": "docs"
+    }
+  },
+  {
+    "name": "TinyFish rolling day cap skips provider",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python 3.10.21 documentation\", \"url\": \"https://docs.python.org/3.10/library/contextlib.html\", \"date\": \"\", \"snippet\": \"Navigation * index * modules | * next | * previous | * Python logo * Python » * 3.10.21 Documentation » * The Python Standard Library » * Python Runtime Services » * contextlib — Utilities for with -statement contexts * | * Theme Auto Light Dark | contextlib — Utilities for with -statement contexts ¶ See also the definition of Context Manager Types . New in version 3.6. class contextlib. AbstractAsyncContextManager ¶ An abstract base class for classes that implement object.__aenter__() and object.__aexit__() . A default implementation for object.__aenter__() is provided which returns self while object.__aexit__() is an abstract method which by default returns None . See also the definition of Asynchronous Context Managers . New in version 3.7. @ contextlib. Changed in version 3.10: Async context managers created with asynccontextmanager() can be used as decorators. contextlib. closing ( thing ) ¶ Return a context manager that closes thing upon completion of the block. This is basically equivalent to: from contextlib import contextmanager with closing ( urlopen ( 'https://www.python.org' )) as page : for line in page : print ( line ) without needing to explicitly close page . Even if an error occurs, page.close() will be called when the with block is exited. contextlib. aclosing ( thing ) ¶ Return an async context manager that calls the aclose() method of thing upon completion of the block. This is basically equivalent to: from contextlib import asynccontextmanager # Use suppress to ignore all exceptions. cm = contextlib . suppress ( Exception ) else : # Do not ignore any exceptions, cm has no effect. cm = contextlib . nullcontext () with cm : # Do something An example using enter_result : def process_file ( file_or_path ): if isinstance ( file_or_path , str ): # If string, open file New in version 3.7. Changed in version 3.10: asynchronous context manager support was added. contextlib. suppress ( * exceptions ) ¶ Return a context manager that suppresses any of the specified exceptions if they occur in the body of a with statement and then resumes execution with the first statement following the end of the with statement. try : os . remove ( 'someotherfile.tmp' ) except FileNotFoundError : pass This context manager is reentrant . New in version 3.4. contextlib. redirect_stdout ( new_target ) ¶ Context manager for temporarily redirecting sys.stdout to another file or file-like object. However, it is still a useful approach for many utility scripts. This context manager is reentrant . New in version 3.4. contextlib. redirect_stderr ( new_target ) ¶ Similar to redirect_stdout() but redirecting sys.stderr to another file or file-like object. This context manager is reentrant . New in version 3.5. class contextlib. ContextDecorator is used by contextmanager() , so you get this functionality automatically. Example of ContextDecorator : from contextlib import ContextDecorator from contextlib import ContextDecorator Reentrant context managers ¶\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.11, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": "",
+    "meta": {
+      "provider": "ketch-multi",
+      "hops": 4,
+      "lat": 2.11,
+      "cost": 0.0,
+      "route": "forced"
+    }
+  }
+]

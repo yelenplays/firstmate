@@ -1,0 +1,6 @@
+{
+  "command": "ketch search \"Python functools cache official documentation\" --limit 1 --json -b exa",
+  "exit": 4,
+  "stdout": "",
+  "stderr": "Error: search failed: exa: rate limited (without an API key)\n"
+}

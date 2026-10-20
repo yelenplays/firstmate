@@ -1,0 +1,9 @@
+$ FM_HOME=<isolated live home> bin/fm-search.sh --ledger
+fm-search ledger 2026-10 (UTC)
+exa-keyless  calls=6 cost=$0.0000
+exa-lite     calls=8 cost=$0.0320
+exa-deep     calls=1 cost=$0.0070
+tinyfish     calls=3 cost=$0.0000
+ketch-multi  calls=2 cost=$0.0000
+exa-total    $0.0390 of $0.04 cap (97%)
+warning: exa spend crossed 80% of the monthly cap

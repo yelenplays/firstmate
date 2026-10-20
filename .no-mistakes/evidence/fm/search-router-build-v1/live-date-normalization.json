@@ -1,0 +1,24 @@
+{
+  "records": [
+    {
+      "command": "bin/fm-search.sh '--urls' '--json' '--limit' '2' 'Python contextlib ExitStack official documentation'",
+      "exit": 0,
+      "stdout": "{\"results\": [{\"title\": \"contextlib — Utilities for with-statement contexts — Python ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"This module provides utilities for common tasks involving the with statement. ExitStack is the one given in the class documentation: supporting a variable ...\"}, {\"title\": \"ExitStack in Python\", \"url\": \"https://rednafi.com/python/exitstack/\", \"date\": \"Aug 27, 20\", \"snippet\": \"The official ExitStack documentation advertises it as a way to manage multiple context managers and has a couple of examples of how to leverage ...\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 1, \"lat\": 0.34, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+      "stderr": ""
+    },
+    {
+      "command": "bin/fm-search.sh '--urls' '--limit' '2' 'Python contextlib ExitStack official documentation'",
+      "exit": 0,
+      "stdout": "1. contextlib — Utilities for with-statement contexts — Python ...\n   https://docs.python.org/3/library/contextlib.html\n2. ExitStack in Python\n   https://rednafi.com/python/exitstack/ (Aug 27, 20)\nprovider=tinyfish hops=1 lat=0.7 cost=$0.0000 route=forced\n",
+      "stderr": ""
+    }
+  ],
+  "contract_violations": [
+    {
+      "url": "https://rednafi.com/python/exitstack/",
+      "date": "Aug 27, 20",
+      "expected": "YYYY-MM-DD or empty"
+    }
+  ],
+  "result": "fail"
+}

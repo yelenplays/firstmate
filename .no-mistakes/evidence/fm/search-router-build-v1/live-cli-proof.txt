@@ -1,0 +1,48 @@
+=== TinyFish date regression JSON ===
+$ bin/fm-search.sh --urls --json --limit 2 Python contextlib ExitStack official documentation
+exit=0
+{"results": [{"title": "contextlib — Utilities for with-statement contexts — Python ...", "url": "https://docs.python.org/3/library/contextlib.html", "date": "", "snippet": "This module provides utilities for common tasks involving the with statement. ExitStack is the one given in the class documentation: supporting a variable ..."}, {"title": "ExitStack in Python", "url": "https://rednafi.com/python/exitstack/", "date": "2022-08-27", "snippet": "The official ExitStack documentation advertises it as a way to manage multiple context managers and has a couple of examples of how to leverage ..."}], "meta": {"provider": "tinyfish", "hops": 1, "lat": 1.0, "cost": 0.0, "route": "forced"}}
+
+
+=== TinyFish date regression text ===
+$ bin/fm-search.sh --urls --limit 2 Python contextlib ExitStack official documentation
+exit=0
+1. contextlib — Utilities for with-statement contexts — Python ...
+   https://docs.python.org/3/library/contextlib.html
+2. ExitStack in Python
+   https://rednafi.com/python/exitstack/ (2022-08-27)
+provider=tinyfish hops=1 lat=0.8 cost=$0.0000 route=forced
+
+
+=== Exhaustion reports every hop and exit 3 ===
+$ bin/fm-search.sh --no-jev --json Python docs
+exit=3
+
+fm-search: exa-keyless: timeout
+fm-search: exa-lite: skipped: no exa key
+fm-search: tinyfish: skipped: no tinyfish key
+fm-search: ketch-multi: timeout
+
+=== Mutually exclusive flags are usage error ===
+$ bin/fm-search.sh --urls --deep Python docs
+exit=1
+
+usage: fm-search.sh [--limit N] [--json] [--urls | --deep] [--chain F|K] [--no-jev] "<query>"
+       fm-search.sh --ledger
+Web search router: Jev picks a query class, a provider chain (Exa, TinyFish, ketch) answers.
+  --limit N    results wanted (default 5)
+  --json       print {"results": [...], "meta": {...}} instead of text
+  --urls       cheap URL list: TinyFish first
+  --deep       hard question: Exa type auto first
+  --chain F|K  force the chain (F keyless first, K keyed first)
+  --no-jev     skip the Jev class pick and use chain F
+  --ledger     month-to-date spend and calls per provider
+Exit: 0 results, 3 every hop empty (one line per hop on stderr), 1 usage error.
+Send only non-private queries: the query goes to third-party providers.
+
+=== Expired cache triggers fresh Jev pick ===
+$ bin/fm-search.sh --json --limit 1 Python contextlib ExitStack official documentation
+exit=0
+{"results": [{"title": "contextlib — Utilities for with-statement contexts — Python 3.15.0 documentation", "url": "https://docs.python.org/3/library/contextlib.html", "date": "", "snippet": "class contextlib. ExitStack¶ : A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. For example, a set of files may easily be handled in a single with statement as follows: ``` with ExitStack() as stack: files = [stack.enter_context(open(fname)) for fname in filenames] # All opened files will automatically be closed at the end of # the with statement, even if attempts to open files later # in the list raise an exception ``` The `__enter__()` method returns the `ExitStack` instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a `with` statement). Note that callbacks are not invoked implicitly when the context stack instance is garbage collected. This stack model is used so that context managers that acquire their resources in their `__init__` method (such as file objects) can be handled correctly. Since registered callbacks are invoked in the reverse order of registration, this ends up behaving as if multiple nested `with` statements had been used with the registered set of callbacks. This even extends to exception handling - if an inner callback suppresses or replaces an exception, then outer callbacks will be passed arguments based on that updated state. This is a relatively low level API that takes care of the details of correctly unwinding the stack of exit callbacks. It provides a suitable foundation for higher level context managers that manipulate the exit stack in application specific ways. Added in version 3.3. enter_context(cm)¶ : Enters a new context manager and adds its `__exit__()` method to the callback stack. The return value is the result of the context manager’s own `__enter__()` method. These context managers may suppress exceptions just as they normally would if used directly as part of a `with` statement. Changed in version 3.11: Raises `TypeError` instead of `AttributeError` if cm is not a context manager. Changed in version 3.15: Added support for arbitrary descriptors `__enter__()` and `__exit__()`. push(exit)¶ : Adds a context manager’s `__exit__()` method to the callback stack. As `__enter__` is not invoked, this method can be used to cover part of an `__enter__()` implementation with a context manager’s own `__exit__()` method. If passed an object that is not a context manager, this method assumes it is a callback with the same signature as a context manager’s `__exit__()` method and adds it directly to the callback stack. By returning true values, these callbacks can suppress exceptions the same way context manager `__exit__()` methods can. The passed in object is returned from the function, allowing this method to be used as a function decorator. Changed in version 3.15: Added support for"}], "meta": {"provider": "exa-lite", "hops": 1, "lat": 2.08, "cost": 0.004, "route": "jev", "class": "docs"}}
+
+
