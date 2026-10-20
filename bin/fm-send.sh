@@ -54,8 +54,8 @@
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
 # delivery proof on this plane, and a failed ring never fails the send.
-# The one exception to a quiet stdout is a target whose agent has exited: the
-# send still exits 0 (recorded) and prints one line starting
+# On the local inbox plane, the one exception to a quiet stdout is a target
+# whose agent has exited: the send still exits 0 (recorded) and prints one line starting
 # "recorded-not-delivered:" so the caller knows nobody will read it until
 # recovery, while the watcher raises its single stale wake for that task.
 #

@@ -140,7 +140,7 @@
 # honest when a stage below it never ran.
 # A full digest keeps the LOCK/BOOTSTRAP/WAKE-QUEUE safety preamble in order.
 # A slim compact re-emit moves condensed supervision immediately after LOCK,
-# ahead of the byte-capped bootstrap and wake queue sections.
+# ahead of the bootstrap diagnostics pointer and byte-capped wake queue.
 #
 # On a Pi primary, the supervision-block step also checks whether Pi's two
 # tracked primary extensions are loaded and prints a PI_WATCH_EXTENSION

@@ -51,7 +51,7 @@ Deeper decode-required obfuscation beyond the coupled marker set stays the class
 
 Malformed or empty stdin, invalid JSON, missing `jq` for stdin transport, missing Node, a missing classifier, or an invalid classifier response fail open with exit 0 and no output.
 This transport behavior prevents a broken hook from denying every shell tool call.
-Malformed or unsupported shell syntax that contains a protected command is a semantic classification result and fails closed.
+Malformed or unsupported shell syntax that references a protected script fails closed unless it meets the narrow compound read-only allowance under [Broad watcher kills](#broad-watcher-kills).
 
 ## Command-position classification
 
