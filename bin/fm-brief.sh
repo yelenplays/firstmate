@@ -109,8 +109,8 @@
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
 # Business-facts setup and schema live in docs/configuration.md "Business facts
 # in briefs"; bin/fm-business-facts-lib.sh owns the parser and worker instruction.
-# Every ship and scout brief also carries a bounded, skippable "# Prior art" step
-# (past reports, wikis, GitHub); findings go in the ship guide or scout report guide.
+# Every ship and scout brief also carries a bounded, skippable "# Prior art" step;
+# docs/configuration.md "Wiki context in briefs" owns its sources and findings destinations.
 # Both crewmate scaffolds carry one shared rule against administering the
 # infrastructure every lane shares - the no-mistakes daemon and the worktree pool
 # their own slot came from - so ship and scout cannot drift apart. A secondmate
