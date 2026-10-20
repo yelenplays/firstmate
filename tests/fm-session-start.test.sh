@@ -2787,6 +2787,73 @@ EOF
   pass "a compact re-emit prints the slim digest and --full restores the whole report"
 }
 
+# A compact re-emit is delivered through a session-open hook, and a harness
+# replaces hook output over its inline limit (Claude: about 10 KB) with a file
+# path and a 2 KB preview. A fleet shaped like a busy live home - a dozen tasks
+# with long status lines, eleven open decisions, oversized signal rows, a theme
+# pack - must still fit under 9 KB, with the supervision state ahead of the
+# bulk, the acknowledgement line whole, and the cut text kept on disk.
+test_compact_reemit_fits_the_inline_hook_limit() {
+  local rec root home fakebin slim bytes i long sup_line wake_line ack detail
+  rec=$(new_world compact-budget)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  make_fake_tmux "$fakebin" "fm-sess:live"
+  printf 'ny-trenches\n' > "$home/config/theme"
+  long=$(printf 'measured %s, ' $(seq 1 60))
+  for i in $(seq 1 13); do
+    printf 'window=fm-sess:live\nkind=ship\n' > "$home/state/budget-task-$i.meta"
+    printf 'working [at=1792494216]: step %s %s\n' "$i" "$long" > "$home/state/budget-task-$i.status"
+  done
+  for i in $(seq 1 11); do
+    printf 'needs-decision [key=budget-key-%s]: decision %s %s\n' "$i" "$i" "$long" >> "$home/state/budget-task-$((i % 3 + 1)).status"
+  done
+  for i in 1 2 3 4 5; do
+    jq -nc --arg t "captain turn $i $long" --arg u "budget-captain-$i" \
+      '{type:"user",origin:"human",uuid:$u,timestamp:"2026-09-22T22:30:0\($u[-1:])Z",message:{content:$t}}'
+    jq -nc --arg t "reply $i $long" --arg u "budget-firstmate-$i" \
+      '{type:"assistant",uuid:$u,timestamp:"2026-09-22T22:31:0\($u[-1:])Z",message:{content:$t,stop_reason:"end_turn"}}'
+  done > "$TMP_ROOT/compact-budget-history.jsonl"
+  TZ=Europe/Berlin FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_DATA_OVERRIDE="$home/data" FM_STATE_OVERRIDE="$home/state" \
+    "$ROOT/bin/fm-history.sh" capture --transcript "$TMP_ROOT/compact-budget-history.jsonl" >/dev/null \
+    || fail "history capture failed for the budget fixture"
+  rm -f "$fakebin/node"
+  ln -s "$(command -v node)" "$fakebin/node"
+  FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+  for i in 1 2 3; do
+    append_wake "$home/state" signal "budget-task-$i.status" "signal: OVERSIZED_PAYLOAD_MARKER $long $long $long" \
+      || fail "seed oversized wake failed"
+  done
+
+  slim=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
+    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
+    "$SESSION_START" --reemit --source compact)
+  bytes=$(printf '%s\n' "$slim" | wc -c | tr -d ' ')
+  [ "$bytes" -lt 9000 ] || fail "the compact re-emit is $bytes bytes, over the 9000-byte inline budget"
+  sup_line=$(printf '%s\n' "$slim" | grep -n '^SUPERVISION OPERATING INSTRUCTIONS' | head -n 1 | cut -d: -f1)
+  wake_line=$(printf '%s\n' "$slim" | grep -n '^WAKE QUEUE$' | head -n 1 | cut -d: -f1)
+  [ -n "$sup_line" ] && [ -n "$wake_line" ] && [ "$sup_line" -lt "$wake_line" ] \
+    || fail "the supervision state must print ahead of the wake queue (supervision line ${sup_line:-none}, wake line ${wake_line:-none})"
+  assert_contains "$slim" "fm-supervision-instructions.sh --harness claude" "the slim digest did not name the whole supervision block"
+  ack=$(printf '%s\n' "$slim" | grep -c '^WAKE_ACK_REQUIRED: .*--ack-through [0-9][0-9]* --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$')
+  [ "$ack" = 1 ] || fail "the slim digest must carry exactly one whole acknowledgement line"
+  assert_contains "$slim" "cut from the compact digest" "the slim digest did not disclose what its budget cut"
+  assert_contains "$slim" "budget-task-13: endpoint alive" "the slim digest dropped a live task line"
+  assert_contains "$slim" "Theme pack: ny-trenches" "the slim digest dropped the chat voice"
+  assert_contains "$slim" "captain turn 5" "the slim digest dropped the most recent captain words"
+  assert_contains "$slim" "OPEN DECISIONS (" "the slim digest let wake annotations crowd out the open decisions"
+  detail="$home/state/.session-start-reemit.detail"
+  [ -s "$detail" ] || fail "the slim digest did not keep the uncut drain text"
+  assert_contains "$slim" "$detail" "the slim digest did not point at the uncut drain text"
+  assert_contains "$(cat "$detail")" "OVERSIZED_PAYLOAD_MARKER $long" "the uncut drain text lost a wake row"
+  assert_contains "$(cat "$detail")" "budget-key-11" "the uncut drain text lost an open decision"
+
+  pass "a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept"
+}
+
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact() {
   local rec root home fakebin startup compact_equal compact_first compact_second clear_out resume_out reset_out baseline baseline_after expected_hash refresh_line bootstrap_line
   rec=$(new_world agents-refresh)
@@ -3448,6 +3515,7 @@ test_runtime_bound_leaves_a_healthy_digest_untouched
 test_runtime_bound_leaves_harness_ancestry_headroom
 test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain
 test_compact_reemit_is_slim_and_full_flag_restores_the_report
+test_compact_reemit_fits_the_inline_hook_limit
 test_theme_section_follows_config_theme
 test_reemit_cue_survives_the_hook_output_preview
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact

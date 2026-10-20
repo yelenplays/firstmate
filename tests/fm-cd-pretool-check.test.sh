@@ -104,6 +104,12 @@ matrix_case B24 deny 'command builtin cd projects/foo'
 matrix_case B25 deny 'builtin command cd projects/foo'
 matrix_case B26 deny 'command -p cd projects/foo'
 matrix_case B27 deny 'command -- cd projects/foo'
+# Only the plain literal spelling of the home itself is exempt (A37-A40).
+matrix_case B28 deny "cd $PRIMARY/bin"
+matrix_case B29 deny "cd $PRIMARY && cd projects/foo"
+matrix_case B30 deny "pushd $PRIMARY"
+matrix_case B31 deny "cd -P $PRIMARY"
+matrix_case B32 deny 'cd "$FM_HOME"'
 
 # ALLOW: not a persistent top-level cwd change (scoped, data, or non-cd).
 matrix_case A01 allow 'git -C projects/foo status'
@@ -142,6 +148,11 @@ matrix_case A33 allow 'command -v cd'
 matrix_case A34 allow 'command -V cd'
 matrix_case A35 allow 'command -pv cd'
 matrix_case A36 allow 'command -vp cd'
+# A cd back into the guarded home cannot strand the shell in a clone.
+matrix_case A37 allow "cd $PRIMARY && ls"
+matrix_case A38 allow "cd $PRIMARY/"
+matrix_case A39 allow "cd '$PRIMARY' >/dev/null; git status"
+matrix_case A40 allow "cd $PRIMARY/bin/.."
 
 MATRIX_TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-cd-policy-matrix.XXXXXX")
 FM_TEST_CLEANUP_DIRS+=("$MATRIX_TMP")

@@ -504,6 +504,54 @@ test_stamped_working_status_is_routine() {
   pass 'stamped and correlated working status events are routine; stamped terminal events are not'
 }
 
+# The crew and hold reads of eligible tasks run concurrently: each probe stub
+# waits at a barrier until every probe of its kind has started, so a serial
+# triage would time the first one out into a non-working, held verdict.
+# A probe cap of 2 still folds every verdict, in row order.
+test_live_probes_run_concurrently() {
+  local dir out id
+  dir=$(make_case probe-barrier); install_crew_stub "$dir"
+  mv "$dir/fakebin/fm-crew-state.sh" "$dir/fakebin/crew-inner.sh"
+  cat > "$dir/fakebin/fm-crew-state.sh" <<'SH'
+#!/usr/bin/env bash
+touch "$FM_PROBE_DIR/crew.$1"
+i=0
+while [ "$(find "$FM_PROBE_DIR" -name 'crew.*' | wc -l | tr -d ' ')" -lt 3 ] && [ "$i" -lt 200 ]; do sleep 0.05; i=$((i+1)); done
+[ "$i" -lt 200 ] || { echo 'state: unknown · source: none · barrier timed out'; exit 0; }
+exec "$(dirname "$0")/crew-inner.sh" "$@"
+SH
+  cat > "$dir/fakebin/fm-captain-hold.sh" <<'SH'
+#!/usr/bin/env bash
+touch "$FM_PROBE_DIR/hold.$2"
+i=0
+while [ "$(find "$FM_PROBE_DIR" -name 'hold.*' | wc -l | tr -d ' ')" -lt 3 ] && [ "$i" -lt 200 ]; do sleep 0.05; i=$((i+1)); done
+[ "$i" -lt 200 ] || exit 0
+exit 3
+SH
+  chmod +x "$dir/fakebin/fm-crew-state.sh" "$dir/fakebin/fm-captain-hold.sh"
+  mkdir -p "$dir/probes"
+  for id in pa pb pc; do
+    setup_task "$id" "$dir"
+    append_wake "$dir/state" stale "test:$id" "stale: test:$id"
+  done
+  out=$(FM_PROBE_DIR="$dir/probes" run_triage "$dir") || fail 'concurrent probe triage failed'
+  assert_contains "$out" '3 routine' "concurrent probes did not all prove working and unheld:"$'\n'"$out"
+  assert_not_contains "$out" 'barrier timed out' 'the crew reads ran serially'
+
+  dir=$(make_case probe-cap); install_crew_stub "$dir"; install_hold_stub "$dir"
+  for id in qa qb qc; do
+    setup_task "$id" "$dir"
+    append_wake "$dir/state" stale "test:$id" "stale: test:$id"
+  done
+  out=$(FM_WAKE_TRIAGE_PROBE_JOBS=2 FM_FAKE_CREW_STATE_qb='state: parked · source: run-step · done' run_triage "$dir") \
+    || fail 'capped probe triage failed'
+  assert_contains "$out" '1 act now, 2 routine' "a capped probe batch lost a verdict:"$'\n'"$out"
+  assert_contains "$out" 'qb - C3 crew not working' 'the capped batch misattributed the non-working crew'
+  [ "$(printf '%s\n' "$out" | sed -n 's/^\(q[ac]\) - crew: .*/\1/p' | tr '\n' ' ')" = 'qa qc ' ] \
+    || fail "routine rows lost their order:"$'\n'"$out"
+  pass 'eligible tasks probe crew state and holds concurrently, and a probe cap keeps every verdict in order'
+}
+
 # absorb_case <name>: a case with one routine working task, a fresh watcher, and
 # one stale wake row for it. Prints the case directory; the watcher pid is in
 # <dir>/watcher.pid.
@@ -791,6 +839,7 @@ test_hidden_duplicate_row_stays_actionable
 test_signal_terminates_before_acknowledgement
 test_interruption_retains_pending_output
 test_stamped_working_status_is_routine
+test_live_probes_run_concurrently
 test_absorb_acknowledges_an_all_routine_wake
 test_absorb_retires_routine_rows_of_an_actionable_wake
 test_absorb_fails_closed

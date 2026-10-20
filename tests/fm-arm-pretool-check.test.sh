@@ -65,6 +65,11 @@ matrix_case R18 allow "sh -c 'tmux send-keys -t lab \"bin/fm-watch-arm.sh &\" En
 matrix_case R19 allow "eval 'printf \"%s\\n\" \"bin/fm-watch-arm.sh &\"'"
 matrix_case R20 allow "bash -s sentinel <<< 'echo fm-watch.sh'"
 matrix_case R21 allow "bash -- -s sentinel <<< 'bin/fm-watch.sh'"
+# Compound commands that only read watcher scripts as data (readOnlyProgram).
+matrix_case R22 allow 'for f in bin/fm-watch.sh bin/fm-send.sh; do git cat-file -s HEAD:$f; done'
+matrix_case R23 allow 'while read -r f; do wc -l "$f"; done < bin/fm-watch.sh'
+matrix_case R24 allow 'if grep -q x bin/fm-watch-arm.sh; then echo yes; else echo no; fi'
+matrix_case R25 allow 'U=refs/x; for f in bin/fm-watch.sh; do echo "$f $(git cat-file -s "${U}:$f" 2>/dev/null || echo absent)"; done'
 
 matrix_case D01 deny 'bin/fm-watch-arm.sh &'
 matrix_case D02 deny 'nohup bin/fm-watch-arm.sh'
@@ -131,6 +136,17 @@ matrix_case D62 deny "bash -xs sentinel <<< 'bin/fm-watch.sh'"
 matrix_case D63 deny "sh -s sentinel <<< 'bin/fm-watch.sh'"
 matrix_case D64 deny 'bash -s bin/fm-watch.sh'
 matrix_case D65 deny "bash -s -- -c harmless <<< 'bin/fm-watch.sh'"
+matrix_case D66 deny 'for f in bin/fm-watch.sh; do bash "$f"; done'
+matrix_case D67 deny 'for f in bin/fm-watch.sh; do "$f"; done'
+matrix_case D68 deny 'if true; then bin/fm-watch-arm.sh; fi'
+matrix_case D69 deny 'for f in bin/fm-watch.sh; do GIT_EXTERNAL_DIFF=$f git diff; done'
+matrix_case D70 deny 'for PAGER in bin/fm-watch.sh; do git log; done'
+matrix_case D71 deny 'while read PAGER; do git log; done < bin/fm-watch.sh'
+matrix_case D72 deny 'for f in bin/fm-watch.sh; do cat "$f" | sh; done'
+matrix_case D73 deny $'for f in a; do cat <<X\n$(bin/fm-watch.sh)\nX\ndone'
+matrix_case D74 deny 'for f in bin/fm-watch.sh; do cat "$f"; done &'
+matrix_case D75 deny 'for f in bin/fm-watch.sh; do git grep -O"$f" x; done'
+matrix_case D76 deny 'for f in bin/fm-watch.sh; do echo "$(bash "$f")"; done'
 
 matrix_case E01 allow "bin/fm-watch-checkpoint.sh --seconds '180;still-one-arg'"
 matrix_case E02 allow "bin/fm-watch-checkpoint.sh --label 'fm-watch-arm.sh; literal argument'"

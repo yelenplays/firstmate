@@ -320,8 +320,9 @@ test_over_long_finding_set_is_capped_with_the_shared_marker() {
   while [ "${#seg}" -lt 100 ]; do
     seg="${seg}memory"
   done
+  # Stay under the 1024-byte PATH_MAX on Darwin; 900 still overflows the wake line cap.
   deep="$home/data"
-  while [ "${#deep}" -lt 1200 ]; do
+  while [ "${#deep}" -lt 900 ]; do
     deep="$deep/$seg"
   done
   mkdir -p "$deep"
