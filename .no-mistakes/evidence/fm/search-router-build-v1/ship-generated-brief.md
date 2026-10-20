@@ -13,22 +13,22 @@ If the task will start, stop, delete, restart, profile, or otherwise drive Herdr
 Do not add Herdr lifecycle commands to this unguarded brief by hand.
 
 # Setup
-You are in a disposable git worktree of search-router-validation, at a detached HEAD on a clean default branch.
+You are in a disposable git worktree of demo, at a detached HEAD on a clean default branch.
 
 **Verify isolation before anything else.** Run `pwd -P` and `git rev-parse --show-toplevel`; both must resolve to the disposable task worktree you were launched in, such as a treehouse pool path or an Orca-managed worktree, not the primary checkout firstmate operates from.
 The path check is authoritative: `git rev-parse --git-dir` and `git rev-parse --git-common-dir` can help inspect the repo, but they do not prove you are outside the primary checkout.
 If the top-level path is the primary checkout or not the worktree you were launched in, STOP - do not branch or commit here - append `blocked [at=<epoch>]: launched in primary checkout, not an isolated worktree` to the status file and stop.
 
-1. First action: create your branch: `git checkout -b fm/search-validation-ship --`
+1. First action: create your branch: `git checkout -b fm/search-router-ship --`
 
 # Rules
-1. Never push to any remote and never open a PR. Work only on your `fm/search-validation-ship` branch; firstmate handles the merge into local `main`.
-2. Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/data/search-validation-ship/` or a temporary directory.
+1. Never push to any remote and never open a PR. Work only on your `fm/search-router-ship` branch; firstmate handles the merge into local `main`.
+2. Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/data/search-router-ship/` or a temporary directory.
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
-   `echo "{state} [at=<epoch>]: {one short line}" >> '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/state/search-validation-ship.status' && { [ ! -e '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/config/fleet-ledger' ] || '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-fleet-ledger.sh' appended '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/config' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/state/search-validation-ship.status' >/dev/null 2>&1 || true; }`
+   `echo "{state} [at=<epoch>]: {one short line}" >> '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/state/search-router-ship.status' && { [ ! -e '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/config/fleet-ledger' ] || '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-fleet-ledger.sh' appended '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/config' '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/state/search-router-ship.status' >/dev/null 2>&1 || true; }`
    States: working, needs-decision, blocked, paused, done, failed.
    Substitute `<epoch>` with the current Unix time in seconds - run `date +%s` and write the number it printed; a stamp that is not plain digits records no time at all.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
@@ -78,33 +78,33 @@ If the top-level path is the primary checkout or not the worktree you were launc
      that it is free, and returning your own worktree is firstmate's job at cleanup, not yours.
    If you genuinely need a second checkout, another slot, or the daemon touched, append
    `blocked [at=<epoch>]: {what you need}` and stop; firstmate arranges it.
-8. For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call through '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-jev.sh' (its --help is the whole interface); when it exits non-zero - an escalation, a missing key, or an endpoint that does not answer - use your own judgment and never block on it. The state you pass carries only the minimal facts the judgment needs - never secrets, credentials, API keys, or tokens, never wiki page bodies, excerpts, or private-vault content, and when in doubt leave the fact out and use your own judgment. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.
+8. For a closed-set judgment - picking one of options you can list, a yes/no check, or a score against levels you can write down - prefer one batched typed Jev call through '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-jev.sh' (its --help is the whole interface); when it exits non-zero - an escalation, a missing key, or an endpoint that does not answer - use your own judgment and never block on it. The state you pass carries only the minimal facts the judgment needs - never secrets, credentials, API keys, or tokens, never wiki page bodies, excerpts, or private-vault content, and when in doubt leave the fact out and use your own judgment. Deterministic operations such as grep, builds, tests, file moves, and doctor runs stay in code, because Jev has no filesystem or tools.
 
 # Firstmate instruction inbox
-Firstmate steers you through durable message files in '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/state/search-validation-ship.inbox'.
-When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - run `'/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-inbox.sh' take '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/state/search-validation-ship.inbox'`, then act on every returned instruction in order.
+Firstmate steers you through durable message files in '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/state/search-router-ship.inbox'.
+When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - run `'/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-inbox.sh' take '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/state/search-router-ship.inbox'`, then act on every returned instruction in order.
 That one command prints and acknowledges the pending messages; an empty or absent inbox needs no action.
 
 # Project memory
 A project's `AGENTS.md` or `CLAUDE.md` is loaded into every agent session in that project, so edit it only to correct information that is factually wrong - including information your own change made wrong - and never to add knowledge because it is missing.
-A correction edits only the wrong text: do not run `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-ensure-agents-md.sh`, create either file, or add sections, headings, or pointers alongside it.
+A correction edits only the wrong text: do not run `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-ensure-agents-md.sh`, create either file, or add sections, headings, or pointers alongside it.
 
 # Prior art
 Before you build, spend a short timebox (about ten minutes) checking what already exists, then continue; never let this block the task.
-1. Same work: run `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-jev-intake-match.sh "<neutral project label> <two-to-five neutral topic words>"` for earlier reports and task records, then read any `data/<id>/report.md` it names. Send only that short neutral reference to Jev; never include personal data, a person's name, email address, or secrets.
-2. Analogous past work: search this home's reports and guides with `rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md' -e '<topic-word-1>' -e '<topic-word-2>' "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/data" | head -5`; add one `-e '<topic-word>'` for each remaining topic word (two to five total), so terms match independently. Then skim up to five hits. No matches is fine; continue.
-3. Wikis: pick the matching vault from the routing cards, or run `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-wiki-ask.sh "<question>"` where an engine is configured; respect each vault's cloud flag and never open a private one.
+1. Same work: run `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-jev-intake-match.sh "<neutral project label> <two-to-five neutral topic words>"` for earlier reports and task records, then read any `data/<id>/report.md` it names. Send only that short neutral reference to Jev; never include personal data, a person's name, email address, or secrets.
+2. Analogous past work: search this home's reports and guides with `rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md' -e '<topic-word-1>' -e '<topic-word-2>' "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/data" | head -5`; add one `-e '<topic-word>'` for each remaining topic word (two to five total), so terms match independently. Then skim up to five hits. No matches is fine; continue.
+3. Wikis: pick the matching vault from the routing cards, or run `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-wiki-ask.sh "<question>"` where an engine is configured; respect each vault's cloud flag and never open a private one.
 4. GitHub: `ketch code "<symbol or idea>"` and `gh-axi` search for existing implementations, issues, and PRs.
-5. Web: `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/bin/fm-search.sh "<query>"` (never plain `ketch search`, whose default returns nothing); send only non-private queries.
-Record findings in the task's guide at `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5CZS0W61XMJMT1EW98XF3BY/.tmp-search-validation/live/data/search-validation-ship/guide.md`.
+5. Web: `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/bin/fm-search.sh "<query>"` (never plain `ketch search`, whose default returns nothing); send only non-private queries.
+Record findings in the task's guide at `/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D8G43PC969W03FED5TV76A/.fm-search-final-em3r0xsa/data/search-router-ship/guide.md`.
 A trivial fix may skip this step with a one-line stated reason in that guide; a source that is missing, unconfigured, or not answering is noted there and skipped, never waited on.
 
 # Definition of done
 Delivery contract: mode=local-only
-Ship branch: fm/search-validation-ship
+Ship branch: fm/search-router-ship
 This task ships **local-only**: no remote, no PR, no pipeline.
-The task is complete only when committed on your branch `fm/search-validation-ship`. Do NOT push, do NOT open a PR, do NOT merge.
+The task is complete only when committed on your branch `fm/search-router-ship`. Do NOT push, do NOT open a PR, do NOT merge.
 A `done:` is accepted when the named head is on this project's shared local branch, not only on a detached copy; the check tests that head, not merely that a branch moved.
 Keep your branch a clean fast-forward onto the current default branch - if `main` has advanced, rebase onto it so the eventual merge stays a fast-forward.
-When it is implemented and committed, append `done [at=<epoch>]: ready in branch fm/search-validation-ship` to the status file and stop.
+When it is implemented and committed, append `done [at=<epoch>]: ready in branch fm/search-router-ship` to the status file and stop.
 The configured merge authority approves the ready branch, then firstmate merges it into local `main` through the guarded fast-forward path.

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "ketch",
+    "search",
+    "-bash: foo: command not found",
+    "--limit",
+    "1",
+    "--json",
+    "-b",
+    "exa"
+  ],
+  "exit": 2,
+  "stdout": "",
+  "stderr": "Error: requires at least 1 arg(s), only received 0\n"
+}
