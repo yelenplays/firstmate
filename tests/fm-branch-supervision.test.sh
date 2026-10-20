@@ -220,6 +220,37 @@ EOF
   pass "outcome append stores a torn-down task's visible routine report as captain only when the report surface opts in"
 }
 
+# A routine report written before its task finished in the same turn is
+# handed back as one captain row at turn end; a still-working task, a silent
+# row, and a task already followed by a captain row are left alone, and a
+# second handback appends nothing.
+test_finished_handback_appends_captain_rows_for_tasks_finished_after_report() {
+  local home store out
+  home="$TMP_ROOT/handback-home"
+  mkdir -p "$home/state" "$home/data/bench" "$home/data/busy" "$home/data/told" "$home/fakebin"
+  for task in bench busy told; do printf 'project=demo\n' > "$home/state/$task.meta"; done
+  # shellcheck disable=SC2016 # the stub expands its own arguments.
+  printf '#!/usr/bin/env bash\nif [ -e "$FM_HOME/state/$1.meta" ]; then echo "state: working · source: pane"; else echo "state: done · source: backlog"; fi\n' \
+    > "$home/fakebin/crew-state"
+  chmod +x "$home/fakebin/crew-state"
+  store="$home/state/branch-outcomes.jsonl"
+  outcome() { FM_CREW_STATE_BIN="$home/fakebin/crew-state" FM_HOME="$home" "$ROOT/bin/fm-branch-outcome.sh" "$@"; }
+  outcome append --promote-finished --task bench --verdict routine --summary 'bench finished; cleaning up' --wake 'signal: bench.status' >/dev/null \
+    || fail "bench append failed"
+  outcome append --promote-finished --task busy --verdict routine --summary 'still working' >/dev/null || fail "busy append failed"
+  outcome append --promote-finished --task bench --verdict routine --summary 'quiet' --silent true >/dev/null || fail "silent append failed"
+  outcome append --promote-finished --task told --verdict routine --summary 'told finished' >/dev/null || fail "told append failed"
+  outcome append --task told --verdict captain --summary 'told: result relayed' >/dev/null || fail "told captain append failed"
+  rm -f "$home/state/bench.meta" "$home/state/told.meta"
+  out=$(outcome finished-handback --seqs 1,2,3,4) || fail "finished-handback failed"
+  [ "$out" = 6 ] || fail "finished-handback appended the wrong rows: $out $(cat "$store")"
+  [ "$(jq -c 'select(.seq == 6) | [.task, .verdict, .summary, .wake]' "$store")" = '["bench","captain","bench finished; cleaning up","signal: bench.status"]' ] \
+    || fail "the handed-back row lost its task, verdict, summary, or wake: $(cat "$store")"
+  out=$(outcome finished-handback --seqs 1,2,3,4) || fail "repeated finished-handback failed"
+  [ -z "$out" ] && [ "$(wc -l < "$store")" -eq 6 ] || fail "a repeated handback appended again: $out"
+  pass "finished-handback hands back a routine report as captain once when its task finished later in the turn"
+}
+
 test_outcome_append_keeps_a_bounded_display_tail() {
   local home store tail cursor
   home="$TMP_ROOT/tail-home"
@@ -1625,6 +1656,7 @@ test_branch_prompt_is_byte_stable_and_above_cache_floor
 test_branch_prompt_routes_completed_scouts_through_guarded_cleanup
 test_outcome_store_is_append_only_with_cursor_reads
 test_outcome_append_promotes_a_torn_down_tasks_routine_report
+test_finished_handback_appends_captain_rows_for_tasks_finished_after_report
 test_outcome_append_keeps_a_bounded_display_tail
 test_outcome_tail_keeps_whole_newest_rows_within_its_byte_budget
 test_outcome_seed_tail_creates_only_an_absent_display_tail

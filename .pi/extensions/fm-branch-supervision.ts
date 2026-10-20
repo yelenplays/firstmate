@@ -192,8 +192,9 @@ const PROCESSING_INSTRUCTION =
   "The outcomes below are stored durably, and each was recorded earlier, possibly before a restart or a switch of primary, so the captain may already have seen it and it may already have been handled; each fleet event is already handled, so do not re-drain, re-run, or acknowledge the wake. " +
   "Each outcome says what was true when it was recorded and how long ago, so check the task's current state first. " +
   "An abbreviated line is incomplete: read the full outcome before acting on, relaying, or acknowledging it, using that line's lookup --seqs command. " +
-  "First sort the outcomes by that current state into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished. " +
-  "Your reply to the captain covers only the still-open outcomes: give the captain a visible response where one is due, answer or escalate a decision, or act on a blocker or failure. " +
+  "First sort the outcomes by that current state into still open and already settled, such as a decision since answered or a PR since merged. " +
+  "A finished task's result is news to relay, never settled: unless you already told the captain in this conversation, it stays open and your reply states what finished and what it found. " +
+  "Your reply to the captain covers only the still-open outcomes: give the captain a visible response where one is due, relay a finished result, answer or escalate a decision, or act on a blocker or failure. " +
   "Write that reply as if the settled outcomes had never been listed: leave them out entirely, without naming them, summarizing them, or saying they are settled, because checking them is all the processing they need. " +
   "When every outcome below is processed, call fm_branch_processed with through={N} exactly once. " +
   "Until that call the outcomes stay open and are presented again; an answer that does not make that call never counts as processing.";
@@ -601,6 +602,11 @@ export default function (pi: ExtensionAPI) {
   // never named is never stored or delivered. Null outside a wake prompt and
   // during a heartbeat review, which is not scoped by task.
   let wakeTaskScope: { rows: string[]; tasks: Set<string> } | null = null;
+  // Visible routine rows fm_branch_report stored during the wake prompt being
+  // handled; when it settles, bin/fm-branch-outcome.sh finished-handback hands
+  // back as captain any whose task finished later in the same turn. Null
+  // outside a wake prompt.
+  let wakeRoutineSeqs: number[] | null = null;
   let mainStreaming = false;
   let shuttingDown = false;
   // Bumps at every session replacement so a stale chain continuation from the
@@ -1182,6 +1188,21 @@ export default function (pi: ExtensionAPI) {
     return presentUnprocessedOutcomes(expectedGeneration);
   }
 
+  // A routine report written before its task finished in the same turn is
+  // handed back as a new captain row, which is then delivered and opens main's
+  // processing turn like any captain outcome (the host's counterpart is
+  // turn_captain_seqs in bin/fm-supervision-host.sh).
+  function handBackFinishedRoutineRows(seqs: number[], expectedGeneration: number): Promise<boolean> {
+    return enqueueDelivery(async () => {
+      if (!(await actingAsOwner(expectedGeneration))) return false;
+      const handback = await runOutcomeScript(["finished-handback", "--seqs", seqs.join(",")]);
+      if (!handback.ok) return false;
+      if (!handback.stdout.trim()) return true;
+      durableReportRevision += 1;
+      return reconcileUnreadOutcomes(expectedGeneration);
+    });
+  }
+
   function wakeScopeRefusal(task: string): string {
     if (!wakeTaskScope || wakeTaskScope.tasks.has(task)) return "";
     const named = [...wakeTaskScope.tasks].sort().join(", ");
@@ -1259,6 +1280,7 @@ export default function (pi: ExtensionAPI) {
           }
           durableReportRevision += 1;
           const seq = Number(appended.stdout);
+          if (wakeRoutineSeqs && verdict === "routine" && !silent && Number.isSafeInteger(seq)) wakeRoutineSeqs.push(seq);
           if (!Number.isSafeInteger(seq) || seq < 1 || !(await reconcileUnreadOutcomes(toolGeneration))) {
             return {
               content: [{ type: "text", text: `recorded seq ${appended.stdout}, but visible delivery or cursor advancement failed` }],
@@ -1553,10 +1575,13 @@ ${context.command}
         // lets this prompt proceed; the guarded scripts revalidate, and the
         // durable queue keeps every row (bin/fm-lease-lib.sh role-partition).
         const postureTail = afk ? await awayPostureTail() : "";
+        const routineSeqs: number[] = [];
+        wakeRoutineSeqs = routineSeqs;
         try {
           await session.prompt(branchWakePrompt(message, "fm_branch_report", postureTail));
         } finally {
           wakeTaskScope = null;
+          wakeRoutineSeqs = null;
         }
         const providerError = settledPromptProviderError(sessionManager, entryOffset);
         if (providerError) {
@@ -1573,6 +1598,9 @@ ${context.command}
           throw new Error("supervision branch prompt settled but produced no durable outcome for its claimed wake rows");
         }
         recordDurableBranchReport(branchForWake.generation, branchForWake.selectionRevision);
+        if (routineSeqs.length > 0 && !(await handBackFinishedRoutineRows(routineSeqs, acceptedGeneration))) {
+          throw new Error("could not hand back a routine outcome whose task finished during the branch turn");
+        }
         if (!(await releaseEligibleRowsSnapshot(state, wakeGrantScript, String(acceptedGeneration)))) {
           throw new Error("could not release the branch's settled wake-row grant");
         }

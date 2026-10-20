@@ -86,6 +86,14 @@
 #     The current-state probe has a 10-second bound; an unreadable or timed-out
 #     probe leaves the supplied verdict unchanged. The check precedes the store
 #     lock, so it observes completion at report time, not later in the turn.
+#   fm-branch-outcome.sh finished-handback --seqs <n,...>
+#     Turn-end recheck for a report written before its task finished in the
+#     same turn: for each named visible routine row whose task the same check
+#     now finds finished, append one captain row carrying its task, wake, and
+#     summary, unless a captain row for that task already follows it. Prints
+#     the appended seqs, one per line, or nothing. The Pi report tool runs it
+#     when a branch turn settles; the host's turn-end check is
+#     turn_captain_seqs in bin/fm-supervision-host.sh.
 #   fm-branch-outcome.sh unread
 #     Print every unread record (raw JSONL). Exit 0 with no output when none.
 #   fm-branch-outcome.sh mark-read --through <seq>
@@ -169,8 +177,15 @@ RECORDED_AGO_JQ='def recorded_ago: ([$now - .epoch, 0] | max) as $s
     elif $s < 172800 then "\($s / 3600 | floor)h"
     else "\($s / 86400 | floor)d" end;'
 
+# The completion check --promote-finished and finished-handback share: the task
+# is torn down, or its current-state reader reports done within 10 seconds.
+task_finished() {  # <task>
+  fm_task_retired "$1" \
+    || [ "$(FM_HOME="$FM_HOME" fm_run_timed 10 "$FM_CREW_STATE_BIN" "$1" 2>/dev/null | sed -n '1s/^state: \([a-z]*\).*/\1/p')" = "done" ]
+}
+
 usage() {
-  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] [--promote-finished] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | startup-replay | seed-tail" >&2
+  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] [--promote-finished] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | finished-handback --seqs <n,...> | startup-replay | seed-tail" >&2
   exit 2
 }
 
@@ -533,10 +548,7 @@ case "$CMD" in
     fi
     TASK_FINISHED=0
     if [ "$PROMOTE_FINISHED" -eq 1 ] && [ "$VERDICT" = routine ] && [ "$SILENT" = false ]; then
-      if fm_task_retired "$TASK" \
-          || [ "$(FM_HOME="$FM_HOME" fm_run_timed 10 "$FM_CREW_STATE_BIN" "$TASK" 2>/dev/null | sed -n '1s/^state: \([a-z]*\).*/\1/p')" = "done" ]; then
-        TASK_FINISHED=1
-      fi
+      ! task_finished "$TASK" || TASK_FINISHED=1
     fi
     fm_lock_acquire_wait "$LOCK"
     if ! LAST_SEQ=$(last_seq); then
@@ -767,6 +779,24 @@ case "$CMD" in
       exit 1
     fi
     fm_lock_release "$LOCK"
+    ;;
+  finished-handback)
+    [ "$#" -eq 2 ] && [ "$1" = --seqs ] || usage
+    ROWS=$("$0" lookup --seqs "$2") || exit 1
+    FIRST=$(printf '%s\n' "$ROWS" | jq -s 'map(.seq) | min') || exit 1
+    # Captain rows after the named ones already reach main for their task.
+    LATER_CAPTAIN=$(jq -r --argjson first "$FIRST" \
+      'select(.seq > $first and .verdict == "captain") | "\(.seq) \(.task)"' "$STORE") || exit 1
+    # Unit-separated fields: an empty wake must not shift the summary.
+    printf '%s\n' "$ROWS" | jq -r 'select(.verdict == "routine" and .silent != true)
+      | [(.seq | tostring), .task, .wake, (.summary | gsub("[\n\r]"; " "))] | join("\u001f")' \
+    | while IFS=$'\037' read -r SEQ TASK WAKE SUMMARY; do
+        [ -n "$SEQ" ] || continue
+        printf '%s\n' "$LATER_CAPTAIN" | awk -v seq="$SEQ" -v task="$TASK" '$1 + 0 > seq + 0 && $2 == task { found = 1 } END { exit !found }' \
+          && continue
+        task_finished "$TASK" || continue
+        "$0" append --task "$TASK" --verdict captain --summary "$SUMMARY" --wake "$WAKE" || exit 1
+      done || exit 1
     ;;
   startup-replay)
     [ "$#" -eq 0 ] || usage
