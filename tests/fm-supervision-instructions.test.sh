@@ -185,16 +185,20 @@ test_repair_lines() {
 }
 
 test_cross_harness_ordinary_continuation_and_repair_matrix() {
-  local ordinary out
+  local ordinary out harness
 
-  out=$("$RENDER" --harness pi)
-  assert_contains "$out" "task-level routine outcome that says the worker is still busy" "Pi instructions omitted task-level silent no-change behavior"
-  assert_contains "$out" "captain outcomes are never silent" "Pi instructions allowed silent captain outcomes"
-  ordinary=$(printf '%s\n' "$out" | grep -F -- '- Ordinary wake:')
-  assert_contains "$ordinary" "Pi extension already owns watcher continuity" "pi ordinary-wake line does not leave continuity to the extension"
-  assert_not_contains "$ordinary" "fm_watch_arm_pi" "pi ordinary-wake line incorrectly calls the recovery tool"
-  out=$("$RENDER" --harness pi --repair-line)
-  assert_contains "$out" "fm_watch_arm_pi" "pi recovery line lost the extension-owned repair tool"
+  for harness in pi pi-signed; do
+    out=$("$RENDER" --harness "$harness")
+    # Contract: the emitted operating prompt links classification to its owner;
+    # this checks renderer output, not model interpretation or runtime delivery.
+    assert_contains "$out" "[Ownership and verdict rules](../pi-supervision-branch.md#ownership-and-verdict-rules)" "$harness instructions omitted the classification, silence, and completion owner"
+    assert_contains "$out" "captain outcomes are never silent" "$harness instructions allowed silent captain outcomes"
+    ordinary=$(printf '%s\n' "$out" | grep -F -- '- Ordinary wake:')
+    assert_contains "$ordinary" "Pi extension already owns watcher continuity" "$harness ordinary-wake line does not leave continuity to the extension"
+    assert_not_contains "$ordinary" "fm_watch_arm_pi" "$harness ordinary-wake line incorrectly calls the recovery tool"
+    out=$("$RENDER" --harness "$harness" --repair-line)
+    assert_contains "$out" "fm_watch_arm_pi" "$harness recovery line lost the extension-owned repair tool"
+  done
 
   out=$("$RENDER" --harness omp)
   assert_contains "$out" "primary harness: omp" "omp heading missing"
