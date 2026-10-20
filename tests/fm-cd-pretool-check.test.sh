@@ -104,7 +104,7 @@ matrix_case B24 deny 'command builtin cd projects/foo'
 matrix_case B25 deny 'builtin command cd projects/foo'
 matrix_case B26 deny 'command -p cd projects/foo'
 matrix_case B27 deny 'command -- cd projects/foo'
-# Only the plain literal spelling of the home itself is exempt (A37-A40).
+# Only a literal absolute target resolving to the home itself is exempt.
 matrix_case B28 deny "cd $PRIMARY/bin"
 matrix_case B29 deny "cd $PRIMARY && cd projects/foo"
 matrix_case B30 deny "pushd $PRIMARY"
@@ -153,6 +153,22 @@ matrix_case A37 allow "cd $PRIMARY && ls"
 matrix_case A38 allow "cd $PRIMARY/"
 matrix_case A39 allow "cd '$PRIMARY' >/dev/null; git status"
 matrix_case A40 allow "cd $PRIMARY/bin/.."
+
+# The literal option terminator does not change the return-home destination.
+HOME_RETURN_START=${#MATRIX_IDS[@]}
+matrix_case A41 allow "cd -- $PRIMARY"
+matrix_case A42 allow "cd -- '$PRIMARY/' && ls"
+matrix_case A43 allow "command cd -- '$PRIMARY/bin/..'"
+matrix_case A44 allow "builtin cd '--' '$PRIMARY' >/dev/null"
+matrix_case B33 deny "cd -- $PRIMARY/bin"
+matrix_case B34 deny "cd -- $PRIMARY/.."
+matrix_case B35 deny 'cd -- projects/foo'
+matrix_case B36 deny 'cd --'
+matrix_case B37 deny "cd -- -- $PRIMARY"
+matrix_case B38 deny "cd -- $PRIMARY extra"
+matrix_case B39 deny 'cd -- "$FM_HOME"'
+matrix_case B40 deny "cd -- $PRIMARY && cd projects/foo"
+matrix_case B41 deny "cd -P -- $PRIMARY"
 
 MATRIX_TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-cd-policy-matrix.XXXXXX")
 FM_TEST_CLEANUP_DIRS+=("$MATRIX_TMP")
@@ -464,6 +480,17 @@ test_scripts_are_shellcheck_clean() {
     || fail "bin/fm-cd-pretool-check.sh is not lint-clean under the pinned definition: $out"
   pass "bin/fm-cd-pretool-check.sh is clean under bin/fm-lint.sh"
 }
+
+# Focused regression entry point; avoids unrelated checks, including lint.
+if [ "${1:-}" = --home-return-only ]; then
+  for ((i = HOME_RETURN_START; i < ${#MATRIX_IDS[@]}; i++)); do
+    for entry in codex claude grok opencode pi; do
+      run_matrix_entry "${MATRIX_IDS[$i]}" "${MATRIX_EXPECTED[$i]}" "$entry" "${MATRIX_COMMANDS[$i]}"
+    done
+  done
+  pass "cd-guard: literal option terminator allows only a resolved home target across five harnesses"
+  exit 0
+fi
 
 test_full_acceptance_matrix
 test_fires_in_secondmate_home

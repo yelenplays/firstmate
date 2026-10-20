@@ -83,11 +83,15 @@ function hasCommandQueryPrefix(position) {
 
 // A `cd` back into the guarded home itself cannot strand the shell in a
 // project clone; it is the move that undoes one. Only the plainest spelling
-// counts: plain `cd` with exactly one literal absolute operand that resolves
-// to the home. Anything expanded, relative, option-bearing, or naming another
-// directory (a subdirectory of the home included) stays denied.
+// counts: plain `cd`, optionally followed by a literal `--`, with exactly one
+// literal absolute operand that resolves to the home. Anything expanded,
+// relative, option-bearing, or naming another directory stays denied.
 function targetsHome(command, operands, home) {
-  if (!home || command.value !== "cd" || operands.length !== 1) return false;
+  if (!home || command.value !== "cd") return false;
+  if (operands[0]?.literal && operands[0].subs.length === 0 && operands[0].value === "--") {
+    operands = operands.slice(1);
+  }
+  if (operands.length !== 1) return false;
   const [target] = operands;
   if (!target.literal || target.subs.length > 0 || !target.value.startsWith("/")) return false;
   try {

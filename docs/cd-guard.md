@@ -47,7 +47,7 @@ The guard **allows** everything else, including these safe scoped forms that mus
 - A `cd` behind a forking or exec'ing wrapper (`env`, `sudo`, `nohup`, `timeout`, `gtimeout`, `exec`), which runs in a child and never persists (and generally just fails, since `cd` is a builtin with no external program).
 - A path-qualified external command named `cd`, `command`, or `builtin`, such as `./cd`, `/usr/bin/cd`, `./command`, `/usr/bin/command`, or `./builtin`, because it runs as a child process and cannot change the parent shell's cwd.
 - A `command` query such as `command -v cd`, `command -V cd`, or a clustered form such as `command -pv cd`, because it reports command resolution without executing the named builtin.
-- A return to the home itself: plain `cd` with exactly one literal absolute operand that resolves to the guarded checkout, such as `cd /path/to/firstmate && ls`.
+- A return to the home itself: plain `cd`, optionally followed by the literal option terminator `--`, with exactly one literal absolute operand that resolves to the guarded checkout, such as `cd /path/to/firstmate && ls` or `cd -- /path/to/firstmate`.
   The transport passes the checkout as `--home`, and the policy compares resolved paths, so a trailing slash or a `..` that lands back on the home also counts.
   An expanded operand (`cd "$FM_HOME"`), an option (`cd -P <home>`), `pushd <home>`, or any other directory, a subdirectory of the home included, stays blocked.
 - The token `cd` appearing as data: quoted text (`echo "cd projects/foo"`), a comment, a substring of another word (`cdk`, `abcd`, `record`), a `printf` payload, or any later argument word.
