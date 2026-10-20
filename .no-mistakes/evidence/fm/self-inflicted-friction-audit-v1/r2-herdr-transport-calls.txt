@@ -1,0 +1,20 @@
+pane get w1:p1 
+agent get w1:p1 
+status --json 
+status --json 
+status --json 
+pane read w1:p1 --source recent --lines 200 pane read w1:p1 --source recent --lines 200 
+
+pane read w1:p1 --source recent --lines 200 
+status --json 
+status --json 
+status --json 
+pane read w1:p1 --source recent --lines 200 
+pane read w1:p1 --source recent --lines 200 
+pane read w1:p1 --source recent --lines 200 
+status --json 
+status --json 
+status --json 
+agent get w1:p1 
+agent get w1:p1 
+agent get w1:p1 

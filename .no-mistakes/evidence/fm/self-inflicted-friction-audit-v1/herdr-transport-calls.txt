@@ -1,0 +1,36 @@
+pane get w1:p1 
+agent get w1:p1 
+terminal title clear 
+session list --json 
+session list --json 
+session stop fm-lab-friction-13168-8351 --json 
+session list --json 
+session delete fm-lab-friction-13168-8351 --json 
+session list --json 
+pane get w1:p1 
+agent get w1:p1 
+status --json status --json 
+
+status --json 
+pane read w1:p1 --source recent --lines 200 
+pane read w1:p1 --source recent --lines 200 
+pane read w1:p1 --source recent --lines 200 
+status --json 
+status --json 
+status --json 
+pane read w1:p1 --source recent --lines 200 
+pane read w1:p1 --source recent --lines 200 
+pane read w1:p1 --source recent --lines 200 
+status --json 
+status --json 
+status --json 
+agent get w1:p1 agent get w1:p1 
+
+agent get w1:p1 
+terminal title clear 
+session list --json 
+session list --json 
+session stop fm-lab-friction-46608-28487 --json 
+session list --json 
+session delete fm-lab-friction-46608-28487 --json 
+session list --json 

@@ -1,0 +1,1 @@
+recorded-not-delivered: probe-a agent in fm-lab-friction-65931-26995:w1:p1 has exited; record /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.herdr.gGIdwd/state/probe-a.inbox/001.msg waits for recovery (stuck-crewmate-recovery); the watcher raises one stale wake and will not re-ring; do not resend

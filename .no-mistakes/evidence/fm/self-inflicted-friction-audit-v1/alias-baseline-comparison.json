@@ -1,0 +1,14 @@
+[
+  {
+    "version": "base",
+    "stdout": "allow\n",
+    "stderr": "",
+    "exit": 0
+  },
+  {
+    "version": "candidate",
+    "stdout": "allow\n",
+    "stderr": "",
+    "exit": 0
+  }
+]

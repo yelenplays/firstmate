@@ -1,0 +1,9 @@
+ok - fm-send inbox: the payload is recorded durably and only the doorbell is typed
+ok - fm-send inbox: a deep home rings the same short doorbell naming the inbox once
+ok - fm-send inbox: newlines are legal and the terminal can no longer truncate a steer
+ok - fm-send inbox: a re-send is a new durable record, never a retyped payload
+ok - fm-send inbox: a visibly pending composer skips the ring, and the steer stays durably sent
+ok - fm-send inbox: a failed doorbell is still a durably sent steer
+ok - fm-send inbox: a steer to an exited agent exits 0 and prints one recorded-not-delivered line
+ok - fm-send inbox: a fire-and-forget ring that did not land owes one retry ring
+ok - fm-send inbox: without config/wait-no-turns a fire-and-forget ring is not retried

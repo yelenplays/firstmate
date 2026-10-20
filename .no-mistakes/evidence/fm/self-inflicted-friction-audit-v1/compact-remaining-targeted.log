@@ -1,0 +1,4 @@
+# fm-session-start.test.sh: all assertions passed
+ok - a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept
+ok - Pi compact instruction recovery stays bounded with supervision first
+ok - each compact re-emit keeps its uncut text in its own file and only the newest 8 are kept

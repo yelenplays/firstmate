@@ -1,0 +1,5 @@
+Real crew-state overlap (forwarding wrappers, no mocked probe results):
+probe-a: start=267859.972408; end=267862.522617; duration=2.550s
+probe-b: start=267859.981045; end=267862.523658; duration=2.543s
+probe-c: start=267859.980370; end=267862.511248; duration=2.531s
+Last start 267859.981045 precedes first end 267862.511248: True

@@ -1,0 +1,19 @@
+WAKE TRIAGE: 3 row(s), 3 task(s): 3 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-herdr/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792525347	1	signal	probe-1.status	signal: probe-1.status
+1792525348	2	signal	probe-2.status	signal: probe-2.status
+1792525348	3	signal	probe-3.status	signal: probe-3.status
+wake annotation: latest wake-EVENT observed at drain, not current state: probe-1.status: working: actual probe validation
+wake annotation: latest wake-EVENT observed at drain, not current state: probe-2.status: working: actual probe validation
+wake annotation: latest wake-EVENT observed at drain, not current state: probe-3.status: working: actual probe validation
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ACT NOW:
+probe-1 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+probe-2 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+probe-3 - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 31528.1792525347.f9p7Od

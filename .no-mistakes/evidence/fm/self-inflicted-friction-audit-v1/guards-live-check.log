@@ -1,0 +1,6 @@
+22 real pretool invocations, primary repository scope and adversarial execution/cwd boundaries; mismatches: [('cd -- "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-guards"', 2, 0), ('cd -- "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-guards" && git status --short', 2, 0)]
+Traceback (most recent call last):
+  File "/Users/yelen/.no-mistakes/evidence/01M5D7YE13PRVV1C15C2Y5MH6V/drive-guards.py", line 23, in <module>
+    assert not failures,failures
+           ^^^^^^^^^^^^
+AssertionError: [('cd -- "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-guards"', 2, 0), ('cd -- "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-guards" && git status --short', 2, 0)]

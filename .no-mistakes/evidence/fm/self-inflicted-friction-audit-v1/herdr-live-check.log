@@ -1,0 +1,5 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-herdr
+fm-send exit=0
+recorded-not-delivered: dead-task agent in fm-lab-friction-check-31729-15811:w1:p1 has exited; record /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-herdr/state/dead-task.inbox/001.msg waits for recovery (stuck-crewmate-recovery); the watcher raises one stale wake and will not re-ring; do not resend
+PASS: six real production probes completed; concurrent crew probes peaked at 3; exited agents stayed ACT NOW, no acknowledgement
+PASS: durable wake queue remains nonempty

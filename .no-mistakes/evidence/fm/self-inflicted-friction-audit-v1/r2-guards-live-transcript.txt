@@ -1,0 +1,80 @@
+ARM GUARD: public PreToolUse interface and actual read-only shell execution
+
+COMMAND: git cat-file -s HEAD:bin/fm-watch.sh
+201383
+allow + executed read-only command: PASS
+
+COMMAND: wc -l bin/fm-watch.sh
+    3889 bin/fm-watch.sh
+allow + executed read-only command: PASS
+
+COMMAND: grep -c "^#" bin/fm-watch.sh
+1107
+allow + executed read-only command: PASS
+
+COMMAND: cat bin/fm-watch.sh >/dev/null
+allow + executed read-only command: PASS
+
+COMMAND: for f in bin/fm-watch.sh; do git cat-file -s HEAD:$f; wc -l "$f"; done
+201383
+    3889 bin/fm-watch.sh
+allow + executed read-only command: PASS
+
+ATTEMPT: bin/fm-watch.sh
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[watcher-direct] bin/fm-watch.sh must not be run directly; arm the watcher with bin/fm-watch-arm.sh or run bin/fm-watch-checkpoint.sh instead"}
+
+denied before execution: PASS
+
+ATTEMPT: for f in bin/fm-watch.sh; do "$f"; done
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+denied before execution: PASS
+
+ATTEMPT: pkill -f bin/fm-watch.sh
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[broad-watcher-kill] a broad process kill targeting the firstmate watcher is forbidden"}
+
+denied before execution: PASS
+
+ATTEMPT: for f in bin/fm-watch.sh; do wc -l "$f"; bash "$f"; done
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[unclassifiable-protected-command] unsupported or malformed shell syntax contains a protected watcher command"}
+
+denied before execution: PASS
+
+CD GUARD: real standalone Git primary with copied production executables
+
+COMMAND: cd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary'
+cwd after allowed cd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary
+
+COMMAND: cd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary/bin/..'
+cwd after allowed cd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary
+
+COMMAND: cd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/home-alias'
+cwd after allowed cd: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary
+
+ATTEMPT: cd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary/project'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+denied before cwd mutation: PASS
+
+ATTEMPT: cd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary'; cd project
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell. Retry in one step as: (cd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary'; cd project)"}
+
+denied before cwd mutation: PASS
+
+ATTEMPT: pushd '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.guards.r5P0Iw/primary'
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+denied before cwd mutation: PASS
+
+ATTEMPT: cd "$FM_HOME"
+exit=2
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or keep the cd inside a subshell."}
+
+denied before cwd mutation: PASS

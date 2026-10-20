@@ -1,0 +1,4 @@
+ok - the claude compact re-emit stays under the inline hook limit (8384 bytes), supervision first, cut text kept
+ok - the claude compact re-emit stays under the inline hook limit (8598 bytes), supervision first, cut text kept
+ok - the pi compact re-emit stays under the inline hook limit (8624 bytes), supervision first, cut text kept
+ok - the omp compact re-emit stays under the inline hook limit (8242 bytes), supervision first, cut text kept

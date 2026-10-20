@@ -1,0 +1,24 @@
+env -u NO_MISTAKES_GATE -u FM_GATE_REFUSE_BYPASS -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u
+FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_PROJECTS_OVERRIDE FM_HOME=/Users/yelen/.no-mista
+kes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.herdr.zVJr2O pi
+--no-extensions --no-skills --no-prompt-templates --no-context-files --no-session
+.phaenvtest-tmp/fm-lab.herdr.zVJr2O/project on  HEAD [?]
+ -u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_PROJECTS_OVERRIDE FM_HOME=/Users/yelen/.no-m
+istakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.herdr.zVJr2O
+ pi --no-extensions --no-skills --no-prompt-templates --no-context-files --no-session
+
+─────────────────────────────────────────────────────────────────────────────────────────────
+ Package Updates Available
+ Package updates are available. Run pi update --extensions
+ Packages:
+ - pi-codex-image-gen
+─────────────────────────────────────────────────────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────────────────────────────────────────
+
+─────────────────────────────────────────────────────────────────────────────────────────────
+~/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.he...
+$0.000 (sub) 0.0%/272k (auto)                              (openai-codex) gpt-6-astra • xhigh
+
+.phase-test-tmp/fm-lab.herdr.zVJr2O/project on  HEAD [?] 4s
+❯

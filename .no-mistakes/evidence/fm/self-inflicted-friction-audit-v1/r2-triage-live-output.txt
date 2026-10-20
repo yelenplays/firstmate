@@ -1,0 +1,25 @@
+WAKE TRIAGE: 6 row(s), 3 task(s): 3 act now, 0 routine
+FULL DRAIN OUTPUT: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.herdr.zVJr2O/state/.wake-triage.last
+DRAIN OUTPUT (verbatim, except acknowledgement instruction moved to the end):
+1792522922	3	stale	fm-lab-friction-95781-3484:w1:p1	stale: fm-lab-friction-95781-3484:w1:p1
+1792522922	4	signal	probe-a.status	signal: changed
+1792522922	5	signal	probe-b.status	signal: changed
+1792522923	6	signal	probe-c.status	signal: changed
+wake annotation: latest wake-EVENT observed at drain, not current state: probe-a.status: working: verifying task
+wake annotation: latest wake-EVENT observed at drain, not current state: probe-b.status: working: verifying task
+wake annotation: latest wake-EVENT observed at drain, not current state: probe-c.status: working: verifying task
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+HIDDEN QUEUE ROWS (preserved despite drain deduplication):
+1792522921	1	stale	fm-lab-friction-95781-3484:w1:p1	stale: fm-lab-friction-95781-3484:w1:p1
+1792522921	2	stale	fm-lab-friction-95781-3484:w1:p1	stale: fm-lab-friction-95781-3484:w1:p1
+ACT NOW:
+- - C2 stale identity is not exact
+  crew: 
+probe-a - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+probe-b - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+probe-c - C3 crew not working
+  crew: state: unknown · source: pane · harness state unavailable (unknown missing)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 9252.1792522921.6du9hJ

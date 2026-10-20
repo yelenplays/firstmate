@@ -1,0 +1,1 @@
+not ok - the compact re-emit is 9045 bytes, over the 9000-byte inline budget

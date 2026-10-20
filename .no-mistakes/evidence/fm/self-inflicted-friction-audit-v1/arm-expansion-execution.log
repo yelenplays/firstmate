@@ -1,0 +1,2 @@
+ok - assigning expansions cannot execute a watcher through the compound read-only exception
+ok - plain parameter references stay inside the compound read-only exception

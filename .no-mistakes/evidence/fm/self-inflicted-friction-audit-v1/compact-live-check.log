@@ -1,0 +1,101 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.live-validation/home
+captured 5 captain message(s) and 5 final reply/replies
+ok: public-followup add pf-budget-1 -> intent (revision 1)
+public_followup:
+  id: pf-budget-1
+  state: queued
+  delivery_state: intent
+  revision: 1
+  relations: 0
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+ok: public-followup bind-work pf-budget-1 -> pending-work (revision 2)
+public_followup:
+  id: pf-budget-1
+  state: queued
+  delivery_state: pending-work
+  revision: 2
+  relations: 1
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+registered pf-budget-1 main/budget-task-1 generation=1 platform=discord
+ok: public-followup add pf-budget-2 -> intent (revision 1)
+public_followup:
+  id: pf-budget-2
+  state: queued
+  delivery_state: intent
+  revision: 1
+  relations: 0
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+ok: public-followup bind-work pf-budget-2 -> pending-work (revision 2)
+public_followup:
+  id: pf-budget-2
+  state: queued
+  delivery_state: pending-work
+  revision: 2
+  relations: 1
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+registered pf-budget-2 main/budget-task-2 generation=1 platform=discord
+ok: public-followup add pf-budget-3 -> intent (revision 1)
+public_followup:
+  id: pf-budget-3
+  state: queued
+  delivery_state: intent
+  revision: 1
+  relations: 0
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+ok: public-followup bind-work pf-budget-3 -> pending-work (revision 2)
+public_followup:
+  id: pf-budget-3
+  state: queued
+  delivery_state: pending-work
+  revision: 2
+  relations: 1
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+registered pf-budget-3 main/budget-task-3 generation=1 platform=discord
+ok: public-followup add pf-budget-4 -> intent (revision 1)
+public_followup:
+  id: pf-budget-4
+  state: queued
+  delivery_state: intent
+  revision: 1
+  relations: 0
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+ok: public-followup bind-work pf-budget-4 -> pending-work (revision 2)
+public_followup:
+  id: pf-budget-4
+  state: queued
+  delivery_state: pending-work
+  revision: 2
+  relations: 1
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+registered pf-budget-4 main/budget-task-4 generation=1 platform=discord
+ok: public-followup add pf-budget-5 -> intent (revision 1)
+public_followup:
+  id: pf-budget-5
+  state: queued
+  delivery_state: intent
+  revision: 1
+  relations: 0
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+ok: public-followup bind-work pf-budget-5 -> pending-work (revision 2)
+public_followup:
+  id: pf-budget-5
+  state: queued
+  delivery_state: pending-work
+  revision: 2
+  relations: 1
+help[1]:
+  - Run `tasks-axi public-followup list --work-ref <home/task>` to reconcile related work
+registered pf-budget-5 main/budget-task-5 generation=1 platform=discord
+real compact output bytes: 8668
+PASS: condensed rules first, whole ack, retained wake/decision detail, five commitments reachable
+PASS: printed acknowledgement executed
+multilingual bytes: 8668

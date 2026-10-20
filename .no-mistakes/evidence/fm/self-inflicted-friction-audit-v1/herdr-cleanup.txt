@@ -1,0 +1,3 @@
+PASS: fm-lab-friction-check-36132-5811 removed; default fleet tripwire unchanged
+PASS: fm-lab-friction-check-95295-31571 removed; default fleet tripwire unchanged
+PASS: fm-lab-friction-check-31729-15811 removed; default fleet tripwire unchanged

@@ -1,0 +1,24 @@
+{
+  "candidate_sha": "c62a576c129d186237a2b28aa633d499d77bec51",
+  "live_drivers": {
+    "guards": "passed",
+    "compact_recovery": "passed: 8670 bytes; deferred content recovered; ack emptied queue",
+    "herdr_dead_send_and_parallel_triage": "passed; lab torn down; default tripwire unchanged"
+  },
+  "completed_targeted_checks": [
+    "bash tests/fm-session-start.test.sh --compact-budget-only",
+    "bash tests/fm-arm-expansion-execution.test.sh",
+    "bash tests/fm-arm-git-execution.test.sh",
+    "bash tests/fm-cd-pretool-check.test.sh",
+    "bash tests/fm-wake-triage.test.sh",
+    "bash tests/fm-supervision-instructions.test.sh"
+  ],
+  "incomplete_additional_checks": [
+    "Initial compact driver reached its optional --full report call and hit the 180s driver timeout; revised driver verified the required printed detail, commitment and supervision commands and completed.",
+    "Initial --compact-budget-only invocation hit its 240s command timeout; re-run completed successfully with an 800s limit.",
+    "fm-arm-pretool-check.test.sh exceeded the 240s driver limit after passing emitted matrix entries; not counted as a completed suite.",
+    "The batch containing fm-send-inbox.test.sh exceeded its 800s driver limit; earlier files in that batch completed; inbox suite not counted as complete."
+  ],
+  "visual_evidence": "No UI/copy-placement change: CLI and generated instruction interfaces were validated with actual output, not screenshots.",
+  "product_source_changes": false
+}

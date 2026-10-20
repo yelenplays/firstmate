@@ -1,0 +1,14 @@
+command: FM_HOME=<marked-disposable-home> bin/fm-session-start.sh --reemit --source compact
+real producer + real renderer, no substituted tool binaries
+bytes: 8440 required: <9000
+9: lock acquired: harness pid 75947
+12: SUPERVISION OPERATING INSTRUCTIONS - primary harness: pi (current state; the whole block is one command away)
+17: Condensed operating rules (the whole-block command at the end of this section prints the detail):
+35: WAKE QUEUE
+44: WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 40936.1792522563.6eGHJo
+27: INSTRUCTION_REFRESH_REQUIRED: cat -- /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/AGENTS.md
+47: Uncut wake queue and bootstrap text: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.phase-test-tmp/fm-lab.compact.jBK2xT/state/reemit-detail/20261020T185606Z-41881.txt
+size result: PASS
+
+On-demand detail: 3
+Queue retained until acknowledgement:        3

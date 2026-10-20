@@ -1,0 +1,5 @@
+unresolved pf-budget-1 state=pending-work platform=discord request=req-budget-1 summary=Verify compact recovery
+unresolved pf-budget-2 state=pending-work platform=discord request=req-budget-2 summary=Verify compact recovery
+unresolved pf-budget-3 state=pending-work platform=discord request=req-budget-3 summary=Verify compact recovery
+unresolved pf-budget-4 state=pending-work platform=discord request=req-budget-4 summary=Verify compact recovery
+unresolved pf-budget-5 state=pending-work platform=discord request=req-budget-5 summary=Verify compact recovery

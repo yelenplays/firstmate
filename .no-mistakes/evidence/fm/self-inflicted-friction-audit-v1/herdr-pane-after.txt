@@ -1,0 +1,80 @@
+pr-lens, prefer-container-queries, pricing, pricing-page, principle-attack-the-premise, principle-boundary-discipline,
+principle-build-the-lever, principle-encode-lessons-in-structure, principle-exhaust-the-design-space,
+principle-experience-first, principle-explain-the-number, principle-fix-root-causes, principle-foundational-thinking,
+principle-guard-the-context-window, principle-laziness-protocol, principle-make-operations-idempotent,
+principle-migrate-callers-then-delete-legacy-apis, principle-minimize-reader-load, principle-model-the-domain,
+principle-outcome-oriented-execution, principle-prove-it-works, principle-redesign-from-first-principles,
+principle-separate-before-serializing-shared-state, principle-sequence-verifiable-units,
+principle-subtract-before-you-add, principle-test-behavior-not-implementation, principle-type-system-discipline,
+process-event-sources, product-marketing, professional-communication, programmatic-seo, progressive-blur,
+project-management, prospecting, prototype, pseudo-elements, quiet, quieter, quota-array-dispatch, rad-spacing, rams,
+react-doctor, react-native-best-practices, react-router-data-mode, react-router-declarative-mode,
+react-router-framework-mode, recall, reconcile-paper-sync, redesign-existing-projects, refactoring-ui, refine-live,
+reflect, remotion-best-practices, requirements-clarity, resolving-merge-conflicts, review-animations, review-brief,
+review-lenses, sales-enablement, scandinavian-design, schema, scout-completion, scroll-world, secondmate-provisioning,
+seo, seo-audit, seo-coach, seo-project-setup, seo-report, session-handoff, session-start-recovery,
+setup-matt-pocock-skills, shadcn, shape, ship-landing, show-me, show-me-your-work, signal-geometry, simple-english,
+simple-issue-description, site-architecture, skill-creator, skill-judge, slack-gif-creator, slide-wright, slides,
+slidev, slopbeth, slopgent, smooth-shadow-ring, social, sounds-on-the-web, stitch-design-taste, stop-slop, stow,
+stuck-crewmate-recovery, svelte-code-writer, svelte-core-bestpractices, svg-animation, swarm, swiftui-ui-patterns,
+swiss-design, sync-figma-token, tailwind-token-consolidation, tailwindcss, task-intake, tdd, teach, technical-writing,
+term-radar, text-to-lottie, theme-factory, thermo-nuclear-code-quality-review, threejs, threejs-animation,
+threejs-fundamentals, threejs-geometry, threejs-interaction, threejs-lighting, threejs-loaders, threejs-materials,
+threejs-postprocessing, threejs-shaders, threejs-textures, to-spec, to-spring-or-not-to-spring, to-tickets,
+touying-author, transitions-dev, transitions-polish, triage, tsdown, turborepo, typesafe-ai, typescript-best-practices,
+typeset, typst-author, ui-skills-root, ui-styling, ui-ux-pro-max, unlazy, unocss, unslop, updatefirstmate,
+validation-supervision, variant, vercel-react-best-practices, verification-guide, video-interaction-mapper, vite,
+vitepress, vitest, vue, vue-best-practices, vue-debug-guides, vue-jsx-best-practices, vue-options-api-best-practices,
+vue-pinia-best-practices, vue-router-best-practices, vue-testing-best-practices, vueuse-functions, wcag-audit-patterns,
+web-artifacts-builder, web-clone, web-design-guidelines, web-perf, web-quality-audit, web-to-markdown, webapp-testing,
+webgl-components, webgl-landing-steering, why, wiki-anlegen, wiki-einstieg, workers-best-practices, workers-profiling,
+wrangler, write-swift, writing-clearly-and-concisely, xlsx
+
+[Extensions]
+  fm-branch-supervision.ts, fm-calm.ts, fm-hermes-agent.ts, fm-primary-pi-watch.ts, fm-primary-turnend-guard.ts,
+trust.ts
+
+[Skill conflicts]
+  "apple-design" collision:
+    ✓ auto (user) ~/.agents/skills/apple-design/SKILL.md
+    ✗ ~/.agents/skills/apple-design-dickwu/SKILL.md (skipped)
+  "i-have-adhd" collision:
+    ✓ auto (project)
+~/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.agents/skills/i-have-adhd/SKILL.md
+    ✗ ~/.agents/skills/i-have-adhd/SKILL.md (skipped)
+  "accessibility-inspect" collision:
+    ✓ auto (user) ~/.agents/skills/contrast-checker/SKILL.md
+    ✗ ~/.agents/skills/link-purpose/SKILL.md (skipped)
+    ✗ ~/.agents/skills/use-of-color/SKILL.md (skipped)
+  "pr-lens" collision:
+    ✓ auto (user) ~/.agents/skills/agent-skill/SKILL.md
+    ✗ ~/.agents/skills/pr-lens/SKILL.md (skipped)
+  "prototype" collision:
+    ✓ auto (user) ~/.agents/skills/prototype/SKILL.md
+    ✗ ~/.agents/skills/prototype-emilkowalski/SKILL.md (skipped)
+  "vue-best-practices" collision:
+    ✓ auto (user) ~/.agents/skills/vue-best-practices/SKILL.md
+    ✗ ~/.agents/skills/vue-best-practices-antfu/SKILL.md (skipped)
+  "vue-router-best-practices" collision:
+    ✓ auto (user) ~/.agents/skills/vue-router-best-practices/SKILL.md
+    ✗ ~/.agents/skills/vue-router-best-practices-antfu/SKILL.md (skipped)
+  "vue-testing-best-practices" collision:
+    ✓ auto (user) ~/.agents/skills/vue-testing-best-practices/SKILL.md
+    ✗ ~/.agents/skills/vue-testing-best-practices-antfu/SKILL.md (skipped)
+  auto (user) ~/.agents/skills/claude-api/SKILL.md
+    description exceeds 1024 characters (1068)
+  auto (user) ~/.agents/skills/make-bot-ui/SKILL.md
+    name contains invalid characters (must be lowercase a-z, 0-9, hyphens only)
+
+
+ Warning: No models available. Use /login to log into a provider via OAuth or API key. See:
+   /Users/yelen/.pi/agent/install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent/docs/providers.md
+   /Users/yelen/.pi/agent/install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent/docs/models.md
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V (detached)
+0.0%/0 (auto)                                                                                                   unknown
+01M5D7YE13PRVV1C15C2Y5MH6V on  HEAD [?] 8s
+❯

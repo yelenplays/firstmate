@@ -1,0 +1,12 @@
+{"kind": "hold", "args": ["open", "probe-1", "--distinguish-absent"], "event": "start", "time": 272880709345833, "pid": 83031}
+{"kind": "crew", "args": ["probe-1"], "event": "start", "time": 272880743443041, "pid": 83021}
+{"kind": "crew", "args": ["probe-2"], "event": "start", "time": 272880759442916, "pid": 83339}
+{"kind": "hold", "args": ["open", "probe-2", "--distinguish-absent"], "event": "start", "time": 272880768074458, "pid": 83357}
+{"kind": "hold", "args": ["open", "probe-3", "--distinguish-absent"], "event": "start", "time": 272881213047000, "pid": 83962}
+{"kind": "crew", "args": ["probe-3"], "event": "start", "time": 272881219565958, "pid": 83938}
+{"kind": "hold", "args": ["open", "probe-1", "--distinguish-absent"], "event": "end", "time": 272881557840541, "pid": 83031}
+{"kind": "hold", "args": ["open", "probe-2", "--distinguish-absent"], "event": "end", "time": 272881561942958, "pid": 83357}
+{"kind": "hold", "args": ["open", "probe-3", "--distinguish-absent"], "event": "end", "time": 272881862077958, "pid": 83962}
+{"kind": "crew", "args": ["probe-1"], "event": "end", "time": 272883464202250, "pid": 83021}
+{"kind": "crew", "args": ["probe-2"], "event": "end", "time": 272883470320541, "pid": 83339}
+{"kind": "crew", "args": ["probe-3"], "event": "end", "time": 272883790258458, "pid": 83938}

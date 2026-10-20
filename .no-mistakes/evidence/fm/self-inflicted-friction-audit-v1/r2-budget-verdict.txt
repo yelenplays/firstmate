@@ -1,0 +1,15 @@
+Command: FM_HOME=<marked disposable lab> bin/fm-session-start.sh --reemit --source compact
+Baseline busy home: 8440 bytes (PASS: <9000)
+Busy home plus five real locally registered public commitments: 9535 bytes (FAIL: required <9000)
+No substituted renderer, wake drain, tasks-axi, or public-followup executable.
+Public commitments section (including following blank line):
+Public commitments
+unresolved pf-budget-1 state=pending-work platform=discord request=req-budget-1 summary=Verify compact recovery with outstanding public commitments
+unresolved pf-budget-2 state=pending-work platform=discord request=req-budget-2 summary=Verify compact recovery with outstanding public commitments
+(3 more line(s) cut from the compact digest; full: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/bin/fm-public-followup.sh pending)
+
+Each line is a public loop this home still holds: a reply still owed, or an open loop with nothing owed.
+Reconcile terminal results with /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/bin/fm-public-followup.sh consume, then deliver a ready one with
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/bin/fm-public-followup.sh deliver <id>. Hand a delivered loop on with rechain, or close it with
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/bin/fm-public-followup.sh retire <id> --reason "...". Load fmx-respond for the procedure.
+

@@ -1,0 +1,4 @@
+ok - cd-guard acceptance matrix: 72 cases x 5 harness entry forms, block/allow all correct
+ok - cd-guard: reproduces the cwd leak and denies the exact command that causes it
+ok - cd-guard: fires in a secondmate home (its own primary session is a primary)
+ok - cd-guard: inert in a crewmate/scout task worktree (linked git worktree)

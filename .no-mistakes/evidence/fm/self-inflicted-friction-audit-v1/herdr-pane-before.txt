@@ -1,0 +1,40 @@
+    ✓ auto (user) ~/.agents/skills/apple-design/SKILL.md
+    ✗ ~/.agents/skills/apple-design-dickwu/SKILL.md (skipped)
+  "i-have-adhd" collision:
+    ✓ auto (project)
+~/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V/.agents/skills/i-have-adhd/SKILL.md
+    ✗ ~/.agents/skills/i-have-adhd/SKILL.md (skipped)
+  "accessibility-inspect" collision:
+    ✓ auto (user) ~/.agents/skills/contrast-checker/SKILL.md
+    ✗ ~/.agents/skills/link-purpose/SKILL.md (skipped)
+    ✗ ~/.agents/skills/use-of-color/SKILL.md (skipped)
+  "pr-lens" collision:
+    ✓ auto (user) ~/.agents/skills/agent-skill/SKILL.md
+    ✗ ~/.agents/skills/pr-lens/SKILL.md (skipped)
+  "prototype" collision:
+    ✓ auto (user) ~/.agents/skills/prototype/SKILL.md
+    ✗ ~/.agents/skills/prototype-emilkowalski/SKILL.md (skipped)
+  "vue-best-practices" collision:
+    ✓ auto (user) ~/.agents/skills/vue-best-practices/SKILL.md
+    ✗ ~/.agents/skills/vue-best-practices-antfu/SKILL.md (skipped)
+  "vue-router-best-practices" collision:
+    ✓ auto (user) ~/.agents/skills/vue-router-best-practices/SKILL.md
+    ✗ ~/.agents/skills/vue-router-best-practices-antfu/SKILL.md (skipped)
+  "vue-testing-best-practices" collision:
+    ✓ auto (user) ~/.agents/skills/vue-testing-best-practices/SKILL.md
+    ✗ ~/.agents/skills/vue-testing-best-practices-antfu/SKILL.md (skipped)
+  auto (user) ~/.agents/skills/claude-api/SKILL.md
+    description exceeds 1024 characters (1068)
+  auto (user) ~/.agents/skills/make-bot-ui/SKILL.md
+    name contains invalid characters (must be lowercase a-z, 0-9, hyphens only)
+
+
+ Warning: No models available. Use /login to log into a provider via OAuth or API key. See:
+   /Users/yelen/.pi/agent/install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent/docs/providers.md
+   /Users/yelen/.pi/agent/install/releases/1.3.0/node_modules/@earendil-works/pi-coding-agent/docs/models.md
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/.no-mistakes/worktrees/548b8aa73bec/01M5D7YE13PRVV1C15C2Y5MH6V (detached)
+0.0%/0 (auto)                                                                                                   unknown

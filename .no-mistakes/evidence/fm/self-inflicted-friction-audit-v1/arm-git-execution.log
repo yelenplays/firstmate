@@ -1,0 +1,3 @@
+ok - compound external diff cannot execute through the arm guard
+ok - execution-capable Git modes stay outside the compound exception
+ok - compound cat-file size probe reads watcher data without executing it

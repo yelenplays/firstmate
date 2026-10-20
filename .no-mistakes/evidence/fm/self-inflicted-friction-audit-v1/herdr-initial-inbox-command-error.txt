@@ -1,0 +1,2 @@
+fm-send exit=0
+fm-inbox: unknown subcommand: peek (try --help)

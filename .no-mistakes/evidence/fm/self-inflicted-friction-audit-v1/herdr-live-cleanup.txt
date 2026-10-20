@@ -1,0 +1,2 @@
+fm-herdr-lab: session delete failed for 'fm-lab-friction-13168-8351' and the lab session remains
+fm-herdr-lab: session delete failed for 'fm-lab-friction-46608-28487' and the lab session remains

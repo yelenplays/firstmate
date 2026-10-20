@@ -1,0 +1,12 @@
+{"event": "start", "kind": "crew", "task": "probe-a", "time": 267859.972407708}
+{"event": "start", "kind": "crew", "task": "probe-c", "time": 267859.98037}
+{"event": "start", "kind": "crew", "task": "probe-b", "time": 267859.981044625}
+{"event": "start", "kind": "hold", "task": "probe-c", "time": 267860.179913458}
+{"event": "start", "kind": "hold", "task": "probe-a", "time": 267860.180028708}
+{"event": "start", "kind": "hold", "task": "probe-b", "time": 267860.180287875}
+{"event": "end", "kind": "hold", "task": "probe-c", "time": 267861.140405708}
+{"event": "end", "kind": "hold", "task": "probe-a", "time": 267861.172257291}
+{"event": "end", "kind": "hold", "task": "probe-b", "time": 267861.182279958}
+{"event": "end", "kind": "crew", "task": "probe-c", "time": 267862.511247666}
+{"event": "end", "kind": "crew", "task": "probe-a", "time": 267862.522616833}
+{"event": "end", "kind": "crew", "task": "probe-b", "time": 267862.523657958}

@@ -1,2 +1,1 @@
-ok - a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept
-ok - a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept
+ok - the claude compact re-emit stays under the inline hook limit (8597 bytes), supervision first, cut text kept
