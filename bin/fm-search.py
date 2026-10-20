@@ -495,6 +495,12 @@ def parse_args(argv):
             if i >= len(argv) or argv[i] not in ("F", "K"):
                 return None
             a["chain"] = argv[i]
+        elif x == "--":
+            rest = argv[i + 1:]
+            if a["query"] is not None or len(rest) != 1:
+                return None
+            a["query"] = rest[0]
+            break
         elif x.startswith("-") and x != "-":
             return None
         elif a["query"] is None:

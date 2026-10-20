@@ -235,6 +235,13 @@ assert_contains "$(trailer)" 'route=forced' "--chain K: the route is forced"
 assert_equals 0 "$(calls jev)" "--chain K: Jev is never called"
 pass "--no-jev and --chain never call Jev"
 
+search --no-jev -- "-bash: foo: command not found $QMARK"
+expect_code 0 "$code" "-- query: $err"
+assert_contains "$(trailer)" 'provider=' "-- lets a query start with a dash"
+search --no-jev "-bash: foo: command not found"
+expect_code 1 "$code" "a dash-leading query without -- is a usage error"
+pass "-- ends options so a query can start with a dash"
+
 # --- route cache --------------------------------------------------------------------
 
 new_case cache
