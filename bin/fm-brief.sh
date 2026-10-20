@@ -109,8 +109,8 @@
 # bin/fm-teardown.sh enforces; bin/fm-wiki-lib.sh owns both.
 # Business-facts setup and schema live in docs/configuration.md "Business facts
 # in briefs"; bin/fm-business-facts-lib.sh owns the parser and worker instruction.
-# Every ship and scout brief also carries a bounded, skippable "# Prior art" step
-# (past reports, wikis, GitHub); findings go in the ship guide or scout report guide.
+# Every ship and scout brief also carries a bounded, skippable "# Prior art" step;
+# docs/configuration.md "Wiki context in briefs" owns its sources and findings destinations.
 # Both crewmate scaffolds carry one shared rule against administering the
 # infrastructure every lane shares - the no-mistakes daemon and the worktree pool
 # their own slot came from - so ship and scout cannot drift apart. A secondmate
@@ -715,6 +715,7 @@ Before you build, spend a short timebox (about ten minutes) checking what alread
 2. Analogous past work: search this home's reports and guides with \`rg -ilF --no-ignore --glob 'report.md' --glob 'guide.md' -e '<topic-word-1>' -e '<topic-word-2>' "$FM_HOME/data" | head -5\`; add one \`-e '<topic-word>'\` for each remaining topic word (two to five total), so terms match independently. Then skim up to five hits. No matches is fine; continue.
 3. Wikis: pick the matching vault from the routing cards, or run \`$FM_ROOT/bin/fm-wiki-ask.sh "<question>"\` where an engine is configured; respect each vault's cloud flag and never open a private one.
 4. GitHub: \`ketch code "<symbol or idea>"\` and \`gh-axi\` search for existing implementations, issues, and PRs.
+5. Web: \`$FM_ROOT/bin/fm-search.sh "<query>"\` (never plain \`ketch search\`, whose default returns nothing); send only non-private queries.
 $PRIOR_ART_DESTINATION
 $PRIOR_ART_SKIP_DESTINATION
 EOF
@@ -752,6 +753,7 @@ Do not treat an unlisted file in the disposable worktree as a deliverable.
 1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; the only files you may write outside it are \`report.md\` and the task's explicitly named result files under \`$DATA/$ID/\`, plus the status file below.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+For web research, search with \`$FM_ROOT/bin/fm-search.sh "<query>"\` and fetch a page with \`ketch scrape <url>\`; never search with private data.
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.

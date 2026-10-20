@@ -16,6 +16,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | Who reviews finished work | [Cross-family review](#cross-family-review) |
 | Context size of no-mistakes pipeline agents | [Pipeline agent skill listing](#pipeline-agent-skill-listing-no-mistakesconfigyaml) |
 | Slack updates and replies | [Slack bridge](#slack-bridge-configslack-bridge) |
+| Web search for firstmate and workers | [Web search router](#web-search-router-configfm-searchjson) |
 | Per-run overrides and tuning | [Environment variables](#environment-variables) |
 
 ## FM_HOME
@@ -1187,6 +1188,44 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 
 [`bin/fm-exclude-tools-lib.sh`](../bin/fm-exclude-tools-lib.sh) implements parsing and pre-launch validation for this contract; [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header owns the launch-flag mechanics.
 
+## Web search router (config/fm-search.json)
+
+`bin/fm-search.sh "<query>"` is the one web search command for firstmate and its workers; plain `ketch search` is not used because its SearXNG default returns nothing when the upstream engines are suspended.
+The [script header](../bin/fm-search.sh) owns invocation details, output and ledger formats; `--help` summarizes flags and exit codes.
+
+Routing sends the query text and nothing else to Jev for one class pick (docs, cli, error, seo_local, music, de_admin, stt, fresh).
+Docs, error and music walk chain K; every other class walks chain F.
+Chain F is also the deterministic default when Jev exits non-zero, answers below the confidence floor, `--no-jev` is set, the query exceeds `max_query_bytes`, or Jev refuses the query as sensitive.
+
+- Chain F: `exa-keyless` -> `exa-lite` -> `tinyfish` -> `ketch --multi`.
+- Chain K: `exa-lite` -> `tinyfish` -> `exa-keyless` -> `ketch --multi`.
+- A hop falls through to the next on an empty list, a non-2xx response, a malformed reply, a timeout, a missing key, or a cap refusal.
+- `exa-keyless` and `ketch --multi` go through `ketch`, whose own configuration stays untouched.
+
+`config/fm-search.json` is an optional per-home override (the file is untracked like all of `config/`); [`bin/fm-search.py`](../bin/fm-search.py)'s `DEFAULTS` mapping owns the accepted keys and default values.
+Only include the nested keys you want to override; omitted keys retain their defaults.
+These settings cover the Exa monthly cap (with headroom inside the $10 free credit), warning threshold, per-query prices and search types; TinyFish rolling per-minute and per-day limits; Jev confidence, query-size and route-cache limits; and per-hop timeouts.
+Keep budget and rate overrides within the providers' free allowances; after a successfully parsed keyed response, the configured Exa warning threshold prints a search warning, at most once per month when its marker can be persisted.
+Keys are read at call time from `~/.config/exa.key` and `~/.config/tinyfish.key` and never printed, logged or stored; a missing key just removes that hop.
+The router never signs up for, upgrades or buys anything.
+
+`state/fm-search/ledger.tsv` gets one line per attempted provider call, including empty results and failures but excluding skipped hops.
+Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; only an HTTP error status counts as an unbilled rejection, so a timeout, a dropped connection or a malformed or undecodable body still records that price against the monthly cap.
+`state/fm-search/route-cache.tsv` caches accepted class picks for the configured lifetime under a hash of the lowercased query.
+Neither file stores query text.
+For the capped Exa and TinyFish hops, accounting is a precondition: under the provider lock the router persists a reservation before contacting the provider, so a call that is killed or whose result cannot be written back still counts toward the cap.
+The script header owns reservation fields and settlement mechanics.
+An unreadable ledger, a corrupt row or a reservation that cannot be written skips the capped hop and leaves the free hops; a missing ledger is an empty history.
+Only free-hop lines and route-cache writes are best-effort.
+`fm-search.sh --ledger` prints month-to-date spend and calls per provider.
+A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot create the lock or acquire it within the hop timeout skips the hop.
+Each hop's timeout is one wall-clock deadline over the whole exchange - connect, status line, headers and body - so a provider that trickles bytes cannot hold the hop.
+
+Every query goes to third-party providers, so never search with private data, names or client facts.
+Test overrides: `FM_JEV_BIN`, `FM_SEARCH_KETCH_BIN`, `FM_SEARCH_EXA_URL`, `FM_SEARCH_TINYFISH_URL`, `FM_SEARCH_KEY_DIR`, `FM_SEARCH_STATE` and `FM_SEARCH_CONFIG` point the router at stubs.
+[`tests/fm-search.test.sh`](../tests/fm-search.test.sh) uses them to run offline against a stub Jev, a stub `ketch` and a local HTTP stub for Exa and TinyFish, with provider payloads under `tests/fixtures/fm-search/`; no test reaches a paid API.
+[`tests/fm-search-dates.test.sh`](../tests/fm-search-dates.test.sh) checks date normalization across adapters in JSON and text output using local stubs.
+
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
@@ -2180,7 +2219,9 @@ The vault's `cloud` flag bounds what the worker may open: `ja` gets that full la
 When `<wikis-root>/ProjektWiki/wiki/<project>/<project>.md` exists it is named first.
 A missing token or unreadable estate gets a fallback line pointing at the routing cards; unresolved names are listed with the same guidance while other resolved wikis still render, and none of these conditions fails the scaffold.
 
-Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks same-work records with `bin/fm-jev-intake-match.sh`, analogous past reports and guides with a local `rg --no-ignore` search using one pattern per topic word (capped at five hits), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), and GitHub (`ketch code`, `gh-axi`). For the matcher, workers send Jev only a short neutral project/topic reference, never personal data, names, email addresses, or secrets. Ship findings go in the task guide at `data/<task-id>/guide.md`; scout findings go in a `Prior art` section of `data/<task-id>/report.md`, which serves as the scout's guide.
+Independent of wiki configuration, every ship and scout brief carries a `# Prior art` step: a short timebox before building that checks same-work records with `bin/fm-jev-intake-match.sh`, analogous past reports and guides with a local `rg --no-ignore` search using one pattern per topic word (capped at five hits), the matching wiki (routing cards or `bin/fm-wiki-ask.sh`, bounded by the cloud flag), GitHub (`ketch code`, `gh-axi`), and the [web search router](#web-search-router-configfm-searchjson).
+For the matcher, workers send Jev only a short neutral project/topic reference, never personal data, names, email addresses, or secrets.
+Ship findings go in the task guide at `data/<task-id>/guide.md`; scout findings go in a `Prior art` section of `data/<task-id>/report.md`, which serves as the scout's guide.
 The step is skippable for a trivial fix with a stated reason in the same destination, and an unavailable source is noted there and skipped rather than waited on; a secondmate charter does not carry it.
 
 The same configuration adds a `# Wiki guide` step: before reporting done, the worker writes a topic-named guide draft with reusable task knowledge and useful sources to `data/<task-id>/guide.md` in the firstmate home, or `no guide: <reason>`, and never writes into a vault; a separate lander files the draft.
