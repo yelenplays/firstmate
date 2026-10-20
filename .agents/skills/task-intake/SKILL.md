@@ -49,6 +49,7 @@ For a ship task whose project is this firstmate repository, pass the project dir
 On a `no-mistakes-prod-only` project, classify the task's surface: internal-only tooling, automation, contributor or operator process, and release or submission work ships `direct-PR`, while product-facing, mixed, and uncertain work ships `no-mistakes`; never infer internal-only from file location or project name.
 An unregistered project or absent registry resolves to `no-mistakes` with yolo off, and the registration gap goes to the captain.
 Record the resulting mode, `yolo` merge posture, and the one-line reason for any deviation in the backlog item note.
+For a ship whose resolved implementer is outside the test-author allowlist, `--tdd-split` lets an Opus test seat write the failing tests first: add one ``Fail-to-pass command: `<command>` `` line to the brief and pass the implementer's `--harness`, `--model`, and `--effort` with the flag (`bin/fm-tdd-split-lib.sh` owns the profile).
 
 ## Concurrency
 

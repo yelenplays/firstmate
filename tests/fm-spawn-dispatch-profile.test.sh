@@ -745,6 +745,72 @@ test_claude_threads_model_and_effort() {
   pass "claude receives --model and --effort profile flags"
 }
 
+# A --tdd-split ship launches the test seat and records the requested profile
+# as the implementer bin/fm-tdd-split.sh hands over to.
+test_tdd_split_launches_the_test_seat_and_records_the_implementer() {
+  local rec id out status meta brief line
+  id=profile-tdd-split-z1
+  rec=$(make_spawn_case tdd-split claude "$id")
+  read_case_record "$rec"
+  # shellcheck disable=SC2016 # the backticks are the brief's literal code span.
+  printf '\nFail-to-pass command: `bash tests/feature.test.sh`\n' >> "$HOME_DIR/data/$id/brief.md"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --tdd-split --harness opencode --model opencode-go/deepseek-v4.1-flash --effort low)
+  status=$?
+  expect_code 0 "$status" "a tdd-split spawn should succeed: $out"
+  meta="$HOME_DIR/state/$id.meta"
+  for line in harness=claude model=claude-opus-5-5 effort=medium tdd_split=tests \
+    tdd_split_impl_harness=opencode tdd_split_impl_model=opencode-go/deepseek-v4.1-flash \
+    tdd_split_impl_effort=low; do
+    grep -qx -- "$line" "$meta" || fail "tdd-split meta missing $line"$'\n'"$(cat "$meta")"
+  done
+  ! grep -q '^test_ban_model=' "$meta" || fail "the test seat was recorded as test-banned"
+  assert_contains "$(cat "$LAUNCH_LOG")" "--model 'claude-opus-5-5' --effort 'medium'" "the test seat did not launch on Opus medium"
+  brief=$(cat "$HOME_DIR/data/$id/launch-brief.md")
+  assert_contains "$brief" "# Tests-first seat (tdd-split)" "the launch brief lacks the seat section"
+  # shellcheck disable=SC2016 # the backticks are the brief's literal code span.
+  assert_contains "$brief" 'firstmate runs `bash tests/feature.test.sh`' "the seat section does not name the fail-to-pass command"
+  assert_contains "$brief" "continues on opencode-go/deepseek-v4.1-flash" "the seat section does not name the implementer"
+  pass "--tdd-split launches the Opus test seat and records the implementer"
+}
+
+test_tdd_split_refusals() {
+  local rec id out
+  id=profile-tdd-split-z2
+  rec=$(make_spawn_case tdd-split-refused claude "$id")
+  read_case_record "$rec"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --tdd-split --harness opencode --model opencode-go/deepseek-v4.1-flash --effort low 2>&1) \
+    && fail "a tdd-split spawn without a fail-to-pass command succeeded"
+  assert_contains "$out" "Fail-to-pass command:" "missing-command refusal did not name the brief line"
+
+  # shellcheck disable=SC2016 # the backticks are the brief's literal code span.
+  printf '\nFail-to-pass command: `bash tests/feature.test.sh`\n' >> "$HOME_DIR/data/$id/brief.md"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --tdd-split --harness claude --model claude-opus-5-5 --effort medium 2>&1) \
+    && fail "a tdd-split spawn with an allowlisted implementer succeeded"
+  assert_contains "$out" "may author tests itself" "allowlisted-implementer refusal did not say so"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --tdd-split --harness opencode --model opencode-go/deepseek-v4.1-flash 2>&1) \
+    && fail "a tdd-split spawn without the implementer's effort succeeded"
+  assert_contains "$out" "--harness, --model, and --effort" "incomplete-implementer refusal did not say so"
+
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout \
+    --tdd-split --harness opencode --model opencode-go/deepseek-v4.1-flash --effort low 2>&1) \
+    && fail "a tdd-split scout spawn succeeded"
+  assert_contains "$out" "only to a fresh ship spawn" "scout refusal did not say so"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id=$PROJ_DIR" \
+    --tdd-split --harness opencode --model opencode-go/deepseek-v4.1-flash --effort low 2>&1) \
+    && fail "a tdd-split batch spawn succeeded"
+  assert_contains "$out" "spawn that task on its own" "batch refusal did not say so"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a refused tdd-split spawn left a task record"
+  pass "--tdd-split refuses a spawn it cannot hand over"
+}
+
 test_opus_effort_cap_and_named_override() {
   local rec id out level why expected rc
   for level in high xhigh max; do
@@ -3234,6 +3300,12 @@ if [ "${1:-}" = --opus-effort ]; then
   exit 0
 fi
 
+if [ "${1:-}" = --tdd-split ]; then
+  test_tdd_split_launches_the_test_seat_and_records_the_implementer
+  test_tdd_split_refusals
+  exit 0
+fi
+
 test_launch_preserves_inherited_git_config
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
@@ -3336,5 +3408,7 @@ test_effort_cap_skips_harnesses_without_an_effort_knob
 test_effort_cap_unreadable_config_refuses
 test_effort_cap_matches_claude_model_name_variants
 test_effort_cap_gates_a_modelless_claude_launch_by_its_opus_default
+test_tdd_split_launches_the_test_seat_and_records_the_implementer
+test_tdd_split_refusals
 
 echo "# all fm-spawn-dispatch-profile tests passed"
