@@ -17,13 +17,15 @@
 #     entirely in the cursor sidecar so marking outcomes read cannot disturb
 #     the log. Retention: the log is small (one line per handled fleet event)
 #     and truncation, if ever needed, is a captain-approved manual act.
-#   - Cursor: $STATE/.branch-outcomes-cursor holds the highest seq presented
-#     by Pi as a routine merge note or sequence-keyed visible captain entry,
-#     emitted by Pi's locked session-start replay, silently consumed there
-#     because `silent` is true, or presented by the supervision-host drain.
-#     Records above the cursor are unread. A captain row advances only after
-#     Pi persists its matching visible entry or the host prints its drain
-#     section, so interrupted presentation can be retried.
+#   - Cursor: $STATE/.branch-outcomes-cursor holds the highest seq consumed
+#     by delivery. Pi advances it after a routine merge note, a persisted
+#     sequence-keyed visible captain entry, locked session-start replay, or
+#     silent consumption because `silent` is true. The supervision-host drain
+#     owns its bounded presentation and read advancement, including omitted
+#     rows (bin/fm-wake-drain.sh "BRANCH OUTCOMES"). Records above the cursor
+#     are unread. The host advances only after printing its section, so an
+#     interrupted presentation can be retried; reading never acknowledges a
+#     captain row, including one omitted by the host's presentation bounds.
 #     A cursor beyond the validated store tail fails closed.
 #   - Processed marker: $STATE/.branch-outcomes-processed holds the highest
 #     seq whose captain rows main has ACKNOWLEDGED as processed, separately

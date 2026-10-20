@@ -199,9 +199,9 @@ One example is a Cursor park superseded by the return turn's own end, which stop
 
 A captain outcome the attended engine records while the captain remains attended wakes main once, through the owner's ordinary wake path, with one `supervision-host: branch-outcome:` line naming its store rows.
 Main drains, and `bin/fm-wake-drain.sh` presents it in its `BRANCH OUTCOMES` section with the exact `bin/fm-branch-outcome.sh mark-processed --through <seq>` acknowledgement.
-That presentation is what the Pi branch's visible entry is, so it advances the store's read cursor through the rows it presents.
+The drain's [presentation contract](../bin/fm-wake-drain.sh) owns read-cursor advancement, including omitted rows; reading never acknowledges a captain outcome.
 Every later drain, including the session-start digest, presents unprocessed captain outcomes again until main acknowledges them, so an ignored outcome costs no extra turn and is never lost.
-The drain's header owns the section's bounds; these rules keep it bounded and in order:
+The drain implements these presentation rules:
 
 - Captain outcomes come first and never wait behind routine ones.
 - Repeated captain outcomes for one task collapse to that task's newest, naming how many it carries, and one acknowledgement covers them.
@@ -214,12 +214,12 @@ The section runs only for main on a home that runs the host and whose primary is
 The drain is the only presenter of these outcomes and the only owner of their read cursor, the away window's included: the return brief counts the window's outcomes and points at the section instead of listing them.
 On a Claude Code primary the Calm mod separately shows bounded, display-only supervision notes to the captain ([`calm.md`](calm.md#supervision-notes-on-claude-code)); it moves no outcome marker and adds nothing to main's context.
 A long away window no longer requires a drain per outcome: each task's captain outcomes collapse to one line, subject to the captain byte cap, and visible routine notes past the section's limit collapse into a count; after main acknowledges all captain outcomes no later drain shows anything from the window again.
-A drain that cannot read or project the store (jq missing included), print the section, or advance its read cursor says so and marks nothing it has not shown as read, and it exits nonzero, so the return keeps its catch-up gated until a check drains again and records the presentation, rather than clearing over outcomes a later drain would present again.
+A drain that cannot read or project the store (jq missing included), print the section, or advance its read cursor says so and exits nonzero, so the return keeps its catch-up gated until a check drains again and records the presentation.
 The section's budgets count bytes in any locale, so a multibyte summary is cut on a whole UTF-8 character boundary to fit them.
 An unprocessed captain outcome is never adopted as processed, including across an index repair or a switch to Pi; the absent-marker rule is owned by `bin/fm-branch-outcome.sh`.
 A home already switched to the host can re-present its unacknowledged outcomes after an upgrade or interrupted switch, so each captain line shows its recorded age and the section asks main to check current task state before acting.
 Main's reply to the captain covers outcomes still open and finished results not yet relayed in chat; task completion alone does not settle an unreported result.
-Main runs the printed acknowledgement for every presented outcome, settled and handled open ones alike.
+Main runs the printed acknowledgement for every presented captain outcome, settled and handled open ones alike.
 The branch prompt's [verdict criteria](../bin/fm-branch-prompt.sh) own attended outcomes requiring main to act, including when the captain asked not to hear about the work.
 
 One limit: if the captain goes away and returns while an attended engine turn runs, and the host is terminated before that turn's `branch-outcome` wake is delivered, no immediate wake reaches main.
