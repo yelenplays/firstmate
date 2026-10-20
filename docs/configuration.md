@@ -1191,7 +1191,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Web search router (config/fm-search.json)
 
 `bin/fm-search.sh "<query>"` is the one web search command for firstmate and its workers; plain `ketch search` is not used because its SearXNG default returns nothing when the upstream engines are suspended.
-The [script header](../bin/fm-search.sh) owns output and ledger formats; its `--help` output owns flags and exit codes.
+The [script header](../bin/fm-search.sh) owns invocation details, output and ledger formats; `--help` summarizes flags and exit codes.
 
 Routing sends the query text and nothing else to Jev for one class pick (docs, cli, error, seo_local, music, de_admin, stt, fresh).
 Docs, error and music walk chain K; every other class walks chain F.
@@ -1213,7 +1213,8 @@ The router never signs up for, upgrades or buys anything.
 Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; only an HTTP error status counts as an unbilled rejection, so a timeout, a dropped connection or a malformed or undecodable body still records that price against the monthly cap.
 `state/fm-search/route-cache.tsv` caches accepted class picks for the configured lifetime under a hash of the lowercased query.
 Neither file stores query text.
-For the capped Exa and TinyFish hops, accounting is a precondition: under the provider lock the router writes a reservation line (`n_results` of -1, the Exa price as cost) before contacting the provider and rewrites it in place with the result afterwards, so a call that is killed or whose result cannot be written back still counts toward the cap.
+For the capped Exa and TinyFish hops, accounting is a precondition: under the provider lock the router persists a reservation before contacting the provider, so a call that is killed or whose result cannot be written back still counts toward the cap.
+The script header owns reservation fields and settlement mechanics.
 An unreadable ledger, a corrupt row or a reservation that cannot be written skips the capped hop and leaves the free hops; a missing ledger is an empty history.
 Only free-hop lines and route-cache writes are best-effort.
 `fm-search.sh --ledger` prints month-to-date spend and calls per provider.
@@ -1223,6 +1224,7 @@ Each hop's timeout is one wall-clock deadline over the whole exchange - connect,
 Every query goes to third-party providers, so never search with private data, names or client facts.
 Test overrides: `FM_JEV_BIN`, `FM_SEARCH_KETCH_BIN`, `FM_SEARCH_EXA_URL`, `FM_SEARCH_TINYFISH_URL`, `FM_SEARCH_KEY_DIR`, `FM_SEARCH_STATE` and `FM_SEARCH_CONFIG` point the router at stubs.
 [`tests/fm-search.test.sh`](../tests/fm-search.test.sh) uses them to run offline against a stub Jev, a stub `ketch` and a local HTTP stub for Exa and TinyFish, with provider payloads under `tests/fixtures/fm-search/`; no test reaches a paid API.
+[`tests/fm-search-dates.test.sh`](../tests/fm-search-dates.test.sh) checks date normalization across adapters in JSON and text output using local stubs.
 
 ## Worker account pin (config/claude-account, config/pi-account)
 

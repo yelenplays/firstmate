@@ -11,6 +11,8 @@
 # --urls suppresses snippets only in text output; --deep uses the configured
 # deep Exa search type. --limit defaults and other options are in --help;
 # values above 20 are clamped to 20, and --urls and --deep are mutually exclusive.
+# End options with -- before a single quoted query that starts with a dash:
+#   fm-search.sh --no-jev -- "-bash: foo: command not found"
 #
 # Output: normalized results have title, url, date (YYYY-MM-DD or empty), snippet.
 # Text output truncates snippets to 400 characters and ends with:
@@ -25,7 +27,8 @@
 #   ts provider cost_usd lat_s n_results route
 # ts is Unix seconds; lat_s covers the provider call, not routing or lock waits.
 # lat_s and n_results are space-padded to a fixed width: a capped call is first
-# written as a reservation (n_results -1) and rewritten in place when it ends.
+# written as a reservation (n_results -1, cost_usd at the configured Exa price
+# or zero for TinyFish) and rewritten in place when it ends.
 # --ledger reports the current UTC calendar month, not a rolling month.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
