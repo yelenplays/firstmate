@@ -1,0 +1,352 @@
+[
+  {
+    "scenario": "Missing caller refused: yes",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Missing caller refused: pick",
+    "command": [
+      "bin/fm-jev.sh",
+      "pick",
+      "The room is bright.",
+      "Which condition applies?",
+      "bright",
+      "dark"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Missing caller refused: score",
+    "command": [
+      "bin/fm-jev.sh",
+      "score",
+      "The room is bright.",
+      "How bright is the room?",
+      "dark",
+      "bright"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Missing caller refused: batch",
+    "command": [
+      "bin/fm-jev.sh",
+      "batch"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: 'Worker'",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "Worker",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: 'task:demo'",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "task:demo",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: 'two words'",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "two words",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: 'worker\\nforged'",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "worker\nforged",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: '-worker'",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "-worker",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag must be lowercase kebab-case (letters, digits, dashes; at most 40 characters); nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Invalid caller refused: ''",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: caller tag required: pass --caller <tag> naming the call site, such as --caller worker; nothing sent\n",
+    "records_appended": [],
+    "pass": true
+  },
+  {
+    "scenario": "Tagged home yes",
+    "command": [
+      "bin/fm-jev.sh",
+      "yes",
+      "--caller",
+      "test-live",
+      "The room is bright.",
+      "Is the room bright?"
+    ],
+    "exit": 0,
+    "stdout": "yes: yes p=0.98 conf=0.96\n",
+    "stderr": "",
+    "records_appended": [
+      {
+        "ts": "2026-10-20T16:30:13Z",
+        "caller": "test-live",
+        "origin": "home:jev-live-home",
+        "purpose": "worker-cli",
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 334,
+        "usage": {
+          "in": 276,
+          "out": 20
+        },
+        "questions": 1,
+        "escalated": 0,
+        "exit": 0,
+        "items": [
+          {
+            "type": "yes",
+            "options": 0,
+            "conf": 0.96
+          }
+        ]
+      }
+    ],
+    "pass": true
+  },
+  {
+    "scenario": "Tagged task pick",
+    "command": [
+      "bin/fm-jev.sh",
+      "pick",
+      "--caller=test-live",
+      "The room is bright.",
+      "Which condition applies?",
+      "bright",
+      "dark"
+    ],
+    "exit": 0,
+    "stdout": "pick: bright p=1 conf=1\n",
+    "stderr": "",
+    "records_appended": [
+      {
+        "ts": "2026-10-20T16:30:14Z",
+        "caller": "test-live",
+        "origin": "task:caller-proof",
+        "purpose": "worker-cli",
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 360,
+        "usage": {
+          "in": 309,
+          "out": 31
+        },
+        "questions": 1,
+        "escalated": 0,
+        "exit": 0,
+        "items": [
+          {
+            "type": "pick",
+            "options": 2,
+            "conf": 1
+          }
+        ]
+      }
+    ],
+    "pass": true
+  },
+  {
+    "scenario": "Tagged score",
+    "command": [
+      "bin/fm-jev.sh",
+      "score",
+      "--caller",
+      "test-live",
+      "The room is very bright.",
+      "How bright is the room?",
+      "dark",
+      "dim",
+      "bright"
+    ],
+    "exit": 0,
+    "stdout": "score: bright s=2 p=1 conf=1\n",
+    "stderr": "",
+    "records_appended": [
+      {
+        "ts": "2026-10-20T16:30:15Z",
+        "caller": "test-live",
+        "origin": "home:jev-live-home",
+        "purpose": "worker-cli",
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 274,
+        "usage": {
+          "in": 302,
+          "out": 17
+        },
+        "questions": 1,
+        "escalated": 0,
+        "exit": 0,
+        "items": [
+          {
+            "type": "score",
+            "options": 3,
+            "conf": 1
+          }
+        ]
+      }
+    ],
+    "pass": true
+  },
+  {
+    "scenario": "Tagged task batch",
+    "command": [
+      "bin/fm-jev.sh",
+      "batch",
+      "--caller",
+      "test-live"
+    ],
+    "exit": 0,
+    "stdout": "lit: yes p=0.98 conf=0.96\ncondition: bright p=1 conf=1\nbrightness: bright s=2 p=1 conf=1\n",
+    "stderr": "",
+    "records_appended": [
+      {
+        "ts": "2026-10-20T16:30:17Z",
+        "caller": "test-live",
+        "origin": "task:caller-batch-proof",
+        "purpose": "worker-cli",
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 360,
+        "usage": {
+          "in": 358,
+          "out": 61
+        },
+        "questions": 3,
+        "escalated": 0,
+        "exit": 0,
+        "items": [
+          {
+            "type": "yes",
+            "options": 0,
+            "conf": 0.96
+          },
+          {
+            "type": "pick",
+            "options": 2,
+            "conf": 1
+          },
+          {
+            "type": "score",
+            "options": 3,
+            "conf": 1
+          }
+        ]
+      }
+    ],
+    "pass": true
+  }
+]

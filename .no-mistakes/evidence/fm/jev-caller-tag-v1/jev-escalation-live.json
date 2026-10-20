@@ -1,0 +1,39 @@
+{
+  "command": [
+    "bin/fm-jev.sh",
+    "yes",
+    "--caller",
+    "test-escalation",
+    "No observations or other information about the room are available.",
+    "Is the room bright?"
+  ],
+  "exit": 2,
+  "stdout": "yes: ESCALATE conf=0.08 prior=no -> decide yourself\n",
+  "stderr": "",
+  "log_record": {
+    "ts": "2026-10-20T16:37:54Z",
+    "caller": "test-escalation",
+    "origin": "task:escalation-proof",
+    "purpose": "worker-cli",
+    "route": "typesafe",
+    "model": "jev-1.13.0",
+    "response_model": "jev-1.13.0",
+    "http": "200",
+    "latency_ms": 314,
+    "usage": {
+      "in": 282,
+      "out": 20
+    },
+    "questions": 1,
+    "escalated": 1,
+    "exit": 2,
+    "items": [
+      {
+        "type": "yes",
+        "options": 0,
+        "conf": 0.08
+      }
+    ]
+  },
+  "pass": true
+}
