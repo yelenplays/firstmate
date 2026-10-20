@@ -839,7 +839,10 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
     printf 'impl\n' > "$dir/wt/impl.sh"
     git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'Opus implements without tests'
     mkdir -p "$dir/wt/tests"
+    printf 'Opus test\n' > "$dir/wt/tests/inherited.test.sh"
+    git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'Opus writes a test'
     printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+    printf 'changed test\n' > "$dir/wt/tests/inherited.test.sh"
     git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "no-mistakes($step): add a unit test"
     head=$(git -C "$dir/wt" rev-parse HEAD)
     if [ "$step" = review ]; then
@@ -848,7 +851,16 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
       grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
         || fail "fixer refusal did not name the fixer's model: $(cat "$dir/stderr")"
       grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "fixer refusal did not name the test: $(cat "$dir/stderr")"
+      grep -Fq 'tests/inherited.test.sh' "$dir/stderr" || fail "fixer refusal did not name the modified test: $(cat "$dir/stderr")"
       ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a banned fixer's test still recorded the PR"
+
+      git -C "$dir/wt" revert --no-edit HEAD >/dev/null || fail "could not revert the unauthorized test"
+      [ ! -e "$dir/wt/tests/fixer.test.sh" ] || fail "the revert left the unauthorized test present"
+      head=$(git -C "$dir/wt" rev-parse HEAD)
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "reverting the unauthorized test did not clear registration: $(cat "$dir/stderr")"
+      grep -q '^pr=https://github.com/o/r/pull/82$' "$dir/home/state/task-a.meta" \
+        || fail "reverting the unauthorized test did not record the PR"
     else
       FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
         > "$dir/stdout" 2> "$dir/stderr" || fail "an allowlisted pipeline step's test was refused: $(cat "$dir/stderr")"
