@@ -1,0 +1,44 @@
+[
+  {
+    "kind": "ship",
+    "scaffold_command": [
+      "bin/fm-brief.sh",
+      "search-ship",
+      "search-example",
+      "--mode",
+      "local-only"
+    ],
+    "scaffold_exit": 0,
+    "delivered_search_commands": [
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D6ZXGWHYRE408SPFKK9406/bin/fm-search.sh \"<query>\""
+    ],
+    "executed_command": [
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D6ZXGWHYRE408SPFKK9406/bin/fm-search.sh",
+      "Python pathlib official documentation"
+    ],
+    "exit": 0,
+    "stdout": "1. pathlib \u2014 Object-oriented filesystem paths\n   http://docs.python.org/dev/library/pathlib.html\n   Navigation * index * modules | * next | * previous | * Python logo * Python \u00bb * 3.16.0a0 Documentation \u00bb * The Python standard library \u00bb * File and Directory Access \u00bb * pathlib \u2014 Object-oriented filesystem paths * | * Theme Auto Light Dark | pathlib \u2014 Object-oriented filesystem paths \u00b6 Added in version 3.4. Source code: Lib/pathlib/ This module offers classes representing filesystem paths with sem\n2. pathlib - PyPI\n   https://pypi.org/project/pathlib/\n   This version brings pathlib up to date with the official Python 3.4 release, and also fixes a couple of 2.7-specific issues. Python issue #20765: Add missing ...\n3. os.path \u2014 Common pathname manipulations\n   https://docs.python.org/3/library/os.path.html\n   os.path \u2014 Common pathname manipulations The pathlib module offers high-level path objects. ... Examples, recipes, and other code in the documentation are additionally licensed under the Zero Clause BSD\n4. pathlib \u2014 Object-oriented filesystem paths \u2014 Python 3.15.0 ...\n   https://docs.python.org/3/library/pathlib.html\n   Source code: Lib/pathlib/ This module offers classes representing filesystem paths with semantics appropriate for different operating systems.\n5. pathlib \u2014 Object-oriented filesystem paths \u2014 Python 3.12.15 documentation\n   https://docs.python.org/3.12/library/pathlib.html\n   Navigation * index * modules | * next | * previous | * Python logo * Python \u00bb * 3.12.15 Documentation \u00bb * The Python Standard Library \u00bb * File and Directory Access \u00bb * pathlib \u2014 Object-oriented filesystem paths * | * Theme Auto Light Dark | pathlib \u2014 Object-oriented filesystem paths \u00b6 Added in version 3.4. Source code: Lib/pathlib.py This module offers classes representing filesystem paths with se\nprovider=ketch-multi hops=4 lat=3.7 cost=$0.0000 route=jev\n",
+    "stderr": ""
+  },
+  {
+    "kind": "scout",
+    "scaffold_command": [
+      "bin/fm-brief.sh",
+      "search-scout",
+      "search-example",
+      "--scout"
+    ],
+    "scaffold_exit": 0,
+    "delivered_search_commands": [
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D6ZXGWHYRE408SPFKK9406/bin/fm-search.sh \"<query>\"",
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D6ZXGWHYRE408SPFKK9406/bin/fm-search.sh \"<query>\""
+    ],
+    "executed_command": [
+      "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5D6ZXGWHYRE408SPFKK9406/bin/fm-search.sh",
+      "Python pathlib official documentation"
+    ],
+    "exit": 0,
+    "stdout": "1. pathlib \u2014 Object-oriented filesystem paths\n   http://docs.python.org/dev/library/pathlib.html\n   Navigation * index * modules | * next | * previous | * Python logo * Python \u00bb * 3.16.0a0 Documentation \u00bb * The Python standard library \u00bb * File and Directory Access \u00bb * pathlib \u2014 Object-oriented filesystem paths * | * Theme Auto Light Dark | pathlib \u2014 Object-oriented filesystem paths \u00b6 Added in version 3.4. Source code: Lib/pathlib/ This module offers classes representing filesystem paths with sem\n2. pathlib - PyPI\n   https://pypi.org/project/pathlib/\n   This version brings pathlib up to date with the official Python 3.4 release, and also fixes a couple of 2.7-specific issues. Python issue #20765: Add missing ...\n3. os.path \u2014 Common pathname manipulations\n   https://docs.python.org/3/library/os.path.html\n   os.path \u2014 Common pathname manipulations The pathlib module offers high-level path objects. ... Examples, recipes, and other code in the documentation are additionally licensed under the Zero Clause BSD\n4. pathlib \u2014 Object-oriented filesystem paths \u2014 Python 3.15.0 ...\n   https://docs.python.org/3/library/pathlib.html\n   Source code: Lib/pathlib/ This module offers classes representing filesystem paths with semantics appropriate for different operating systems.\n5. pathlib \u2014 Object-oriented filesystem paths \u2014 Python 3.12.15 documentation\n   https://docs.python.org/3.12/library/pathlib.html\n   Navigation * index * modules | * next | * previous | * Python logo * Python \u00bb * 3.12.15 Documentation \u00bb * The Python Standard Library \u00bb * File and Directory Access \u00bb * pathlib \u2014 Object-oriented filesystem paths * | * Theme Auto Light Dark | pathlib \u2014 Object-oriented filesystem paths \u00b6 Added in version 3.4. Source code: Lib/pathlib.py This module offers classes representing filesystem paths with se\nprovider=ketch-multi hops=4 lat=2.0 cost=$0.0000 route=jev\n",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,65 @@
+[
+  {
+    "name": "automatic-local-seo",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Google Business Profile local reviews ranking tips"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"Tips to improve your local ranking on Google\", \"url\": \"https://support.google.com/business/answer/7091?hl=en\", \"date\": \"\", \"snippet\": \"Google Business Profile Help Sign in Send feedback on... This help content & information General Help Center experience Close Next * Help Center * Community * Get-Started Guide Google Business Profile Finalizing details... Tips to improve your local ranking on Google Manage your business When a customer searches for a business or place near their location, they\u2019ll find local results on Google Maps and Search. For example, a customer might find local places near them if they search for \u201cItalian restaurant\u201d on their phone. Google tries to show customers the kind of nearby business they\u2019d like to visit. You can use your Business Profile to improve your business\u2019s local ranking. Learn more about how Google sources business information for search results . How to improve your local ranking on Google Businesses with complete and accurate info are more likely to show up in local search results. If your business info isn\u2019t accurate, your Business Profile might not show up for relevant searches in your area. Learn how to edit your Business Profile . Make sure your business info is as complete as possible in your Business Profile. Respond to reviews When you reply to customer reviews, it shows that you value their feedback. Positive reviews and helpful replies can help your business stand out. * Learn how to manage customer reviews . * Learn more tips to get more Google reviews . Add photos & videos Understand factors that determine local ranking Important: There's no way to request or pay for a better local ranking on Google. We do our best to keep the search algorithm details confidential to make the ranking system as fair as possible for everyone. Local results are mainly based on relevance, distance, and popularity. Relevance Relevance is how well a Business Profile matches what someone is searching for. To help Google better understand your business and match it to relevant searches, provide complete and detailed business info. Distance Prominence means how well-known a business is. Prominent places are more likely to show up in search results. This factor\u2019s also based on info like how many websites link to your business and how many reviews you have. More reviews and positive ratings can help your business\u2019s local ranking. Related resources Tips to get more reviews * 8 of 10 Tips to improve your local ranking on Google * 9 of 10 Tips for business-specific photos on your Business Profile * 10 of 10 Tips for working with third parties to manage your Business Profile Shape the future of Google support\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 4.58, \"cost\": 0.0, \"route\": \"jev\", \"class\": \"seo_local\"}}\n",
+    "stderr": "",
+    "elapsed_s": 4.87
+  },
+  {
+    "name": "expired-route-reclassified",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Google Business Profile local reviews ranking tips"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"How to Get More 5-Star Google Business Profile Reviews for Better Local SEO\", \"url\": \"https://mapranks.com/2026/08/10/how-to-get-more-5-star-google-business-profile-reviews\", \"date\": \"\", \"snippet\": \"They\u2019re a ranking input. They feed the local map pack. They feed Google\u2019s AI overviews. And they feed the trust signals that AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and AIO (AI Overview Optimization) all depend on. Google calls this trust framework E-E-A-T, short for Experience, Expertise, Authoritativeness, and Trustworthiness, and reviews sit right at the center of it. 3-pack, and they now shape what AI tools say about you too. Google\u2019s local ranking algorithm w\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 5.21, \"cost\": 0.0, \"route\": \"jev\", \"class\": \"seo_local\"}}\n",
+    "stderr": "",
+    "elapsed_s": 5.62
+  },
+  {
+    "name": "expiry-observation",
+    "age_hours": 25,
+    "jev_calls_before": 1,
+    "jev_calls_after": 2,
+    "cache_after": "7e4137bd8abb483d780fc70d\t1792428973\tseo_local\n7e4137bd8abb483d780fc70d\t1792518974\tseo_local\n"
+  },
+  {
+    "name": "over-300-bytes-skips-jev",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "Python asyncio documentation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation task cancellation "
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"Coroutines and tasks \u2014 Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"To cancel a running Task use the `cancel()` method. Calling it will cause the Task to throw a [`CancelledError`](https://docs.python.org/3/library/asyncio-exceptions.html.CancelledError \\\"asyncio.CancelledError\\\") exception into the wrapped coroutine. If a coroutine is awaiting on a Future ... Therefore, unlike [`Future.cancel()`](https://docs.python.org/3/library/asyncio-future.html.Future.cancel \\\"asyncio.Future.cancel\\\") , `Task.cancel()` does not guarantee that the Task will be cancelled, although suppressing cancellation completely is not common and is actively discouraged.\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.28, \"cost\": 0.0, \"route\": \"default\"}}\n",
+    "stderr": "",
+    "elapsed_s": 2.63
+  },
+  {
+    "name": "jev-privacy-refusal-falls-back",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "1",
+      "RFC example address nobody@example.invalid documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"Example addresses | Internet-Draft Author Resources\", \"url\": \"https://authors.ietf.org/en/example-addresses\", \"date\": \"\", \"snippet\": \"Internet-Draft Author Resources Search... * / example-addresses Example addresses Edit Edit on GitHub \u00b6 Domain names Addresses used in examples should use fully qualified domain names instead of literal IP addresses, and should use example FQDNs such as \\\" foo.example.com \\\" instead of real-world FQDNs. See RFC 2606 for example domain names that can be used. * Verify that example domain names as used in examples \u00b6 IP addresses Literal IP addresses used in examples should be from the example ranges set aside for this purpose. For IPv4, these are defined in RFC 6890 ; for IPv6, see RFC 3849 . IPv6 examples should be used to conform with the IAB Statement on IPv6 .\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.88, \"cost\": 0.0, \"route\": \"default\"}}\n",
+    "stderr": "",
+    "elapsed_s": 3.08
+  }
+]

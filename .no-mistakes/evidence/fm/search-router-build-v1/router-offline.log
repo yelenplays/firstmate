@@ -4,9 +4,12 @@ ok - a de_admin pick asks TinyFish in German
 ok - Jev exit 2, exit 1, confidence 0.69 and an unknown class fall back to chain F
 ok - a query over 300 bytes skips Jev
 ok - --no-jev and --chain never call Jev
+ok - -- ends options so a query can start with a dash
 ok - the route cache answers a repeated query without Jev
 ok - an empty list, an HTTP 429 and a timeout each hop to the next provider
 ok - the hop deadline covers a trickled response body
+ok - Exa calls whose billing is unknown keep their price until the cap stops them
+ok - the hop deadline covers a trickled status line and headers
 ok - a wrong-shaped JSON reply hops on instead of killing the chain
 ok - an undecodable HTTP 200 Exa reply still counts toward the spending cap
 ok - every hop empty exits 3 with one line per hop
@@ -17,6 +20,10 @@ ok - over the TinyFish per-minute cap the hop is skipped
 ok - parallel workers cannot all pass one TinyFish cap
 ok - --urls starts with TinyFish and --deep with Exa auto
 ok - every adapter normalizes to the same results
+ok - an unwritable state dir degrades to best-effort bookkeeping
+ok - a read-only, unreadable or corrupt ledger stops paid calls
+ok - an interrupted paid call keeps its reservation against the cap
+ok - a finished paid call settles its reservation in place
 ok - usage errors exit 1 and call nothing
 ok - no key in any output and no query text in the ledger or route cache
 # all fm-search tests passed

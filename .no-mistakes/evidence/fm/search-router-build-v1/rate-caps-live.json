@@ -1,0 +1,108 @@
+[
+  {
+    "name": "daily-cap-1",
+    "config": {
+      "exa": {
+        "monthly_usd_cap": 0
+      },
+      "tinyfish": {
+        "per_minute": 25,
+        "per_day": 1
+      }
+    },
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"contextlib \u2014 Utilities for with-statement contexts \u2014 Python ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"As shown, ExitStack also makes it quite easy to use with statements to manage arbitrary resources that don't natively support the context management protocol.\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 1, \"lat\": 0.64, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "daily-cap-2",
+    "config": {
+      "exa": {
+        "monthly_usd_cap": 0
+      },
+      "tinyfish": {
+        "per_minute": 25,
+        "per_day": 1
+      }
+    },
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"contextlib \u2014 Utilities for with-statement contexts \u2014 Python 3.15.0 ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"from contextlib import ContextDecorator from contextlib import AsyncContextDecorator ExitStack \u00b6 A context manager that is designed to make it easy to programmatically combine other context managers and cleanup functions, especially those that are optional or otherwise driven by input data. > For example, a set of files may easily be handled in a single with statement as follows: > with ExitStack () as stack : > files = [ stack . The __enter__() method returns the ExitStack instance, and performs no additional operations. Each instance maintains a stack of registered callbacks that are called in reverse order when the instance is closed (either explicitly or implicitly at the end of a with statement). Unlike the other methods, callbacks added this way cannot suppress exceptions (as they are never passed the exception details). The passed in callback is returned from the function, allowing this method to be used as a function decorator. pop_all ( ) \u00b6 Transfers the callback stack to a fresh ExitStack instance and returns it. No callbacks are invoked by this operation - instead, they will now be invoked when the new stack is closed (either explicitly or implicitly at the end of a with statement). For example, a group of files can be opened as an \u201call or nothing\u201d operation as follows: with ExitStack () as stack : files = [ stack . AsyncExitStack \u00b6 An asynchronous context manager , similar to ExitStack , that supports combining both synchronous and asynchronous context managers, as well as having coroutines for cleanup logic. The close() method is not implemented; aclose() must be used instead. async enter_async_context ( cm ) \u00b6 Similar to ExitStack.enter_context() but expects an asynchronous context manager. Changed in version 3.11: Raises TypeError instead of AttributeError if cm is not an asynchronous context manager. Changed in version 3.15: Added support for arbitrary descriptors __aenter__() and __aexit__() . push_async_exit ( exit ) \u00b6 Similar to ExitStack.push() but expects either an asynchronous context manager or a coroutine function. Changed in version 3.15: Added support for arbitrary descriptors __aexit__() . push_async_callback ( callback , / , * args , ** kwds ) \u00b6 Similar to ExitStack.callback() but expects a coroutine function. The primary use case for ExitStack is the one given in the class documentation: supporting a variable number of context managers and other cleanup operations in a single with statement. As noted in the documentation of ExitStack.push() , this method can be useful in cleaning up an already allocated resource if later steps in the __enter__() implementation fail. ExitStack makes it possible to instead register a callback for execution at the end of a with statement, and then later decide to skip executing that callback: from contextlib import ExitStack If a particular application uses this pattern a lot, it can be simplified even further by means of a small helper class: from contextlib import ExitStack\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.15, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "daily-ledger",
+    "ledger": "1792519026\ttinyfish\t0.00000\t   0.64\t  1\tforced\n1792519027\texa-keyless\t0.00000\t   0.31\t  0\tforced\n1792519029\tketch-multi\t0.00000\t   1.83\t  1\tforced\n"
+  },
+  {
+    "name": "minute-cap-1",
+    "config": {
+      "exa": {
+        "monthly_usd_cap": 0
+      },
+      "tinyfish": {
+        "per_minute": 1,
+        "per_day": 10000
+      }
+    },
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"contextlib \u2014 Utilities for with-statement contexts \u2014 Python ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"As shown, ExitStack also makes it quite easy to use with statements to manage arbitrary resources that don't natively support the context management protocol.\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 1, \"lat\": 0.58, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "minute-cap-2",
+    "config": {
+      "exa": {
+        "monthly_usd_cap": 0
+      },
+      "tinyfish": {
+        "per_minute": 1,
+        "per_day": 10000
+      }
+    },
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--json",
+      "--limit",
+      "1",
+      "Python contextlib ExitStack documentation"
+    ],
+    "exit": 0,
+    "stdout": "{\"results\": [{\"title\": \"contextlib \u2014 Utilities for with-statement contexts \u2014 Python 3.15.0 ...\", \"url\": \"https://docs.python.org/3/library/contextlib.html\", \"date\": \"\", \"snippet\": \"contextlib \u2014 Utilities for with-statement contexts \u2014 Python ... Transfers the callback stack to a fresh ExitStack instance and returns it. No callbacks are invoked by this operation - instead, they will now be invoked when\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.18, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "minute-ledger",
+    "ledger": "1792519029\ttinyfish\t0.00000\t   0.58\t  1\tforced\n1792519030\texa-keyless\t0.00000\t   0.31\t  0\tforced\n1792519032\tketch-multi\t0.00000\t   1.87\t  1\tforced\n"
+  },
+  {
+    "name": "classifier-privacy-refusal",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev: input contains a secret, credential, or personal data; refused, nothing sent\n"
+  }
+]

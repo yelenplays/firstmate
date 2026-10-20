@@ -1,0 +1,179 @@
+[
+  {
+    "name": "automatic-docs",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "2",
+      "Python asyncio TaskGroup official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 3.66,
+    "stdout": "{\"results\": [{\"title\": \"Coroutines and tasks \u2014 Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"- The `asyncio.TaskGroup` class provides a more modern alternative to `create_task()`. Using this API, the last example becomes: ``` async def main(): async with asyncio.TaskGroup() as tg: task1 = tg.create_task( say_after(1, 'hello')) task2 = tg.create_task( say_after(2, 'world')) print(f\\\"started at {time.strftime('%X')}\\\") # The await is implicit when the context manager exits. print(f\\\"finished at {time.strftime('%X')}\\\") ``` The timing and output should be the same as for the previous version. Added in version 3.11: `asyncio.TaskGroup`. ... ## Task groups\u00b6 Task groups combine a task creation API with a convenient and reliable way to wait for all tasks in the group to finish. class asyncio. TaskGroup\u00b6 : An asynchronous context manager holding a group of tasks. Tasks can be added to the group using `create_task()`. All tasks are awaited when the context manager exits. Added in version 3.11. create_task(coro, *, name= None, context= None, eager_start= None, ** kwargs)\u00b6 : Create a task in this task group. The signature matches that of `asyncio.create_task()`. If the task group is inactive (e.g. not yet entered, already finished, or in the process of shutting down), we will close the given `coro` and raise `RuntimeError`. Changed in version 3.13: Close the given coroutine if the task group is not active. Changed in version 3.14: Passes on all kwargs to `loop.create_task()` cancel()\u00b6 : Cancel the task group. This is a non-exceptional, early exit of the task group\u2019s lifetime \u2013 useful once the group\u2019s goal has been met or its services no longer needed. `cancel()` will be called on any tasks in the group that aren\u2019t yet done, as well as the parent (body) of the group. The task group context manager will exit without `asyncio.CancelledError` being raised. If `cancel()` is called before entering the task group, the group will be cancelled upon entry. This is useful for patterns where one piece of code passes an unused `asyncio.TaskGroup` instance to another in order to have the ability to cancel anything run within the group. `cancel()` is idempotent and may be called after the task group has already exited. Some ways to use `cancel()`: - call it from the task group body based on some condition or event - pass the task group instance to child tasks via `create_task()`, allowing a child task to conditionally cancel the entire group - pass the task group instance or bound `cancel()` method to some other task before opening the task group, allowing remote cancellation Added in version 3.15. Example: ``` async def main(): async with asyncio.TaskGroup() as tg: task1 = tg.create_task(some_coro(...)) task2 = tg.create_task(another_coro(...)) print(f\\\"Both tasks have completed now: {task1.result()}, {task2.result()}\\\") ``` The `async with` statement will wait for all tasks in the group to finish. While waiting, new tasks may still be added to the group (for example, by passing `tg` into one of the coroutines and calling `tg.create_task()` in that coroutine). There is also opportunity to request termination of the entire task group with `tg.cancel()`, based on some condition. Once the last task has finished and the `async with` block is exited, no new tasks may be added to the group. The first time any of the tasks belonging to the group fails with an exception other than `asyncio.CancelledError`, the remaining tasks in the group are cancelled. No further tasks can then be added to the group. At this point, if the body of the `async with` statement is still active (i.e., `__aexit__()` hasn\u2019t been called yet), the task directly containing the `async with` statement is also cancelled. The resulting `asyncio.CancelledError` will interrupt an `await`, but it will not bubble out of the containing `async with` statement. Once all tasks have finished, if any tasks have failed with an exception other than `asyncio.CancelledError`, those exceptions are combined in an `ExceptionGroup` or `BaseExceptionGroup` (as appropriate; see their documentation) which is then raised. Two base exceptions are treated specially: If any task fails with `KeyboardInterrupt` or `SystemExit`, the task group still cancels the remaining tasks and waits for them, but then the initial `KeyboardInterrupt` or `SystemExit` is re-raised instead of `ExceptionGroup` or `BaseExceptionGroup`. If the body of the `async with` statement exits with an exception (so `__aexit__()` is called with an exception set), this is treated the same as if one of the tasks failed: the remaining tasks are cancelled and then waited for, and non-cancellation exceptions are grouped into an exception group and raised. The exception passed into `__aexit__()`, unless it is `asyncio.CancelledError`, is also included in the exception group. The same special case is made for `KeyboardInterrupt` and `SystemExit` as in the previous paragraph. There is an additional special case made only for the body of the `async with`: if it raises `GeneratorExit` and none of the other tasks raise exceptions that would be reported, then the `GeneratorExit` is reraised. Task groups are careful not to mix up the internal cancellation used to \u201cwake up\u201d their `__aexit__()` with cancellation requests for the task in which they are running made by other parties. In particular, when one task group is syntactically nested in another, and both experience an exception in one of their child tasks simultaneously, the inner task group will process its exceptions, and then the outer task group will receive another cancellation and process its own exceptions. In the case where a task group is cancelled externally and also must raise an `ExceptionGroup`, it will call the parent task\u2019s `cancel()` method. This ensures that a `asyncio.CancelledError` will be raised at the next `await`, so the cancellation is not lost. Task groups preserve the cancellation count reported by\"}, {\"title\": \"Coroutines and Tasks \u2014 Python 3.11.0 documentation\", \"url\": \"https://docs.python.org/release/3.11.0/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"context manager holding a group of tasks. Tasks can be added to the group using `create_task()`. All tasks are awaited when the context manager exits. New in version 3.11. create_task(coro, *, name= None, context= None\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 1, \"lat\": 3.38, \"cost\": 0.004, \"route\": \"jev\", \"class\": \"docs\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "case-insensitive-cached-route",
+    "command": [
+      "bin/fm-search.sh",
+      "--json",
+      "--limit",
+      "2",
+      "python asyncio taskgroup official documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 0.96,
+    "stdout": "{\"results\": [{\"title\": \"Coroutines and tasks \u2014 Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"``` - The `asyncio.TaskGroup` class provides a more modern alternative to `create_task()`. Using this API, the last example becomes: ``` async def main(): async with asyncio.TaskGroup() as tg: task1 = tg.create_task( say_after(1, 'hello')) task2 = tg.create_task( say_after(2, 'world')) print(f\\\"started at {time.strftime('%X')}\\\") # The await is implicit when the context manager exits. print(f\\\"finished at {time.strftime('%X')}\\\") ``` The timing and output should be the same as for the previous version. Added in version 3.11: `asyncio.TaskGroup`. ... ## Task groups\u00b6 Task groups combine a task creation API with a convenient and reliable way to wait for all tasks in the group to finish. class asyncio. TaskGroup\u00b6 : An asynchronous context manager holding a group of tasks. Tasks can be added to the group using `create_task()`. All tasks are awaited when the context manager exits. Added in version 3.11. create_task(coro, *, name= None, context= None, eager_start= None, ** kwargs)\u00b6 : Create a task in this task group. The signature matches that of `asyncio.create_task()`. If the task group is inactive (e.g. not yet entered, already finished, or in the process of shutting down), we will close the given `coro` and raise `RuntimeError`. Changed in version 3.13: Close the given coroutine if the task group is not active. Changed in version 3.14: Passes on all kwargs to `loop.create_task()` cancel()\u00b6 : Cancel the task group. This is a non-exceptional, early exit of the task group\u2019s lifetime \u2013 useful once the group\u2019s goal has been met or its services no longer needed. `cancel()` will be called on any tasks in the group that aren\u2019t yet done, as well as the parent (body) of the group. The task group context manager will exit without `asyncio.CancelledError` being raised. If `cancel()` is called before entering the task group, the group will be cancelled upon entry. This is useful for patterns where one piece of code passes an unused `asyncio.TaskGroup` instance to another in order to have the ability to cancel anything run within the group. `cancel()` is idempotent and may be called after the task group has already exited. Some ways to use `cancel()`: - call it from the task group body based on some condition or event - pass the task group instance to child tasks via `create_task()`, allowing a child task to conditionally cancel the entire group - pass the task group instance or bound `cancel()` method to some other task before opening the task group, allowing remote cancellation Added in version 3.15. Example: ``` async def main(): async with asyncio.TaskGroup() as tg: task1 = tg.create_task(some_coro(...)) task2 = tg.create_task(another_coro(...)) print(f\\\"Both tasks have completed now: {task1.result()}, {task2.result()}\\\") ``` The `async with` statement will wait for all tasks in the group to finish. While waiting, new tasks may still be added to the group (for example, by passing `tg` into one of the coroutines and calling `tg.create_task()` in that coroutine). There is also opportunity to request termination of the entire task group with `tg.cancel()`, based on some condition. Once the last task has finished and the `async with` block is exited, no new tasks may be added to the group. The first time any of the tasks belonging to the group fails with an exception other than `asyncio.CancelledError`, the remaining tasks in the group are cancelled. No further tasks can then be added to the group. At this point, if the body of the `async with` statement is still active (i.e., `__aexit__()` hasn\u2019t been called yet), the task directly containing the `async with` statement is also cancelled. The resulting `asyncio.CancelledError` will interrupt an `await`, but it will not bubble out of the containing `async with` statement. Once all tasks have finished, if any tasks have failed with an exception other than `asyncio.CancelledError`, those exceptions are combined in an `ExceptionGroup` or `BaseExceptionGroup` (as appropriate; see their documentation) which is then raised. Two base exceptions are treated specially: If any task fails with `KeyboardInterrupt` or `SystemExit`, the task group still cancels the remaining tasks and waits for them, but then the initial `KeyboardInterrupt` or `SystemExit` is re-raised instead of `ExceptionGroup` or `BaseExceptionGroup`. If the body of the `async with` statement exits with an exception (so `__aexit__()` is called with an exception set), this is treated the same as if one of the tasks failed: the remaining tasks are cancelled and then waited for, and non-cancellation exceptions are grouped into an exception group and raised. The exception passed into `__aexit__()`, unless it is `asyncio.CancelledError`, is also included in the exception group. The same special case is made for `KeyboardInterrupt` and `SystemExit` as in the previous paragraph. There is an additional special case made only for the body of the `async with`: if it raises `GeneratorExit` and none of the other tasks raise exceptions that would be reported, then the `GeneratorExit` is reraised. Task groups are careful not to mix up the internal cancellation used to \u201cwake up\u201d their `__aexit__()` with cancellation requests for the task in which they are running made by other parties. In particular, when one task group is syntactically nested in another, and both experience an exception in one of their child tasks simultaneously, the inner task group will process its exceptions, and then the outer task group will receive another cancellation and process its own exceptions. In the case where a task group is cancelled externally and also must raise an `ExceptionGroup`, it will call the parent task\u2019s `cancel()` method. This ensures that a `asyncio.CancelledError` will be raised at the next `await`, so the cancellation is not lost. Task groups preserve the cancellation count reported by\"}, {\"title\": \"Coroutines and Tasks \u2014 Python 3.11.0 documentation\", \"url\": \"https://docs.python.org/release/3.11.0/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"context manager holding a group of tasks. Tasks can be added to the group using `create_task()`. All tasks are awaited when the context manager exits. New in version 3.11. create_task(coro, *, name= None, context= None\"}], \"meta\": {\"provider\": \"exa-lite\", \"hops\": 1, \"lat\": 0.67, \"cost\": 0.004, \"route\": \"jev\", \"class\": \"docs\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "cache-observation",
+    "jev_calls_before_repeat": 1,
+    "jev_calls_after_repeat": 1,
+    "cache": "d08af0e7c18943277b5f1bdf\t1792518860\tdocs\n"
+  },
+  {
+    "name": "no-jev-text",
+    "command": [
+      "bin/fm-search.sh",
+      "--no-jev",
+      "--limit",
+      "2",
+      "Google Business Profile local business official help"
+    ],
+    "exit": 0,
+    "elapsed_s": 1.4,
+    "stdout": "1. Get started with Google Business Profile - Google Business Profile Help\n   https://support.google.com/business/answer/7039811?hl=en\n   Get started with Google Business Profile - Google Business Profile Help # Get started with Google Business Profile With a Business Profile on Google, you can manage how your business shows up on Maps and Search at no charge. Whether you own a storefront business or provide services where your customers are, a verified Business Profile can help customers find you and build greater trust in your bus\n2. Google Business Profile Help\n   https://support.google.com/business/?hl=en\n   Google Business Profile Help ## Browse help topics ## Need more help? ### Try these next steps: Post to the help community Get answers from community members Contact us Tell us more and we\u2019ll help you get there 3727280219860464224 true Search Help Center false true true true true true 99729 false false false false Main menu ... apps\nprovider=exa-lite hops=2 lat=1.1 cost=$0.0040 route=default\n",
+    "stderr": ""
+  },
+  {
+    "name": "tinyfish-url-list",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--limit",
+      "2",
+      "Python contextlib ExitStack documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.33,
+    "stdout": "1. contextlib \u2014 Utilities for with-statement contexts \u2014 Python ...\n   https://docs.python.org/3/library/contextlib.html\n2. contextlib | Python Standard Library\n   https://realpython.com/ref/stdlib/contextlib/\nprovider=tinyfish hops=1 lat=2.0 cost=$0.0000 route=forced\n",
+    "stderr": ""
+  },
+  {
+    "name": "exa-deep-json",
+    "command": [
+      "bin/fm-search.sh",
+      "--deep",
+      "--json",
+      "--limit",
+      "2",
+      "Python asyncio TaskGroup cancellation documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.1,
+    "stdout": "{\"results\": [{\"title\": \"Coroutines and tasks \u2014 Python 3.14.8 documentation\", \"url\": \"https://docs.python.org/3/library/asyncio-task.html\", \"date\": \"\", \"snippet\": \"## Task cancellation\u00b6 Tasks can easily and safely be cancelled. When a task is cancelled, `asyncio.CancelledError` will be raised in the task at the next opportunity. It is recommended that coroutines use `try/finally` blocks to robustly perform clean-up logic. In case `asyncio.CancelledError` is explicitly caught, it should generally be propagated when clean-up is complete. `asyncio.CancelledError` directly subclasses `BaseException` so most code will not need to be aware of it. The asyncio components that enable structured concurrency, like `asyncio.TaskGroup` and `asyncio.timeout()`, are implemented using cancellation internally and might misbehave if a coroutine swallows `asyncio.CancelledError`. Similarly, user code should not generally call `uncancel`. However, in cases when suppressing `asyncio.CancelledError` is truly desired, it is necessary to also call `uncancel()` to completely remove the cancellation state. ## Task groups\u00b6 Task groups combine a task creation API with a convenient and reliable way to wait for all tasks in the group to finish. class asyncio. TaskGroup\u00b6 : An asynchronous context manager holding a group of tasks. Tasks can be added to the group using `create_task()`. All tasks are awaited when the context manager exits. Added in version 3.11. create_task(coro, *, name= None, context= None, eager_start= None, ** kwargs)\u00b6 : Create a task in this task group. The signature matches that of `asyncio.create_task()`. If the task group is inactive (e.g. not yet entered, already finished, or in the process of shutting down), we will close the given `coro` and raise `RuntimeError`. Changed in version 3.13: Close the given coroutine if the task group is not active. Changed in version 3.14: Passes on all kwargs to `loop.create_task()` cancel()\u00b6 : Cancel the task group. This is a non-exceptional, early exit of the task group\u2019s lifetime \u2013 useful once the group\u2019s goal has been met or its services no longer needed. `cancel()` will be called on any tasks in the group that aren\u2019t yet done, as well as the parent (body) of the group. The task group context manager will exit without `asyncio.CancelledError` being raised. If `cancel()` is called before entering the task group, the group will be cancelled upon entry. This is useful for patterns where one piece of code passes an unused `asyncio.TaskGroup` instance to another in order to have the ability to cancel anything run within the group. `cancel()` is idempotent and may be called after the task group has already exited. Some ways to use `cancel()`: - call it from the task group body based on some condition or event - pass the task group instance to child tasks via `create_task()`, allowing a child task to conditionally cancel the entire group - pass the task group instance or bound `cancel()` method to some other task before opening the task group, allowing remote cancellation Added in version 3.15. Example: ``` async def main(): async with asyncio.TaskGroup() as tg: task1 = tg.create_task(some_coro(...)) task2 = tg.create_task(another_coro(...)) print(f\\\"Both tasks have completed now: {task1.result()}, {task2.result()}\\\") ``` The `async with` statement will wait for all tasks in the group to finish. While waiting, new tasks may still be added to the group (for example, by passing `tg` into one of the coroutines and calling `tg.create_task()` in that coroutine). There is also opportunity to request termination of the entire task group with `tg.cancel()`, based on some condition. Once the last task has finished and the `async with` block is exited, no new tasks may be added to the group. The first time any of the tasks belonging to the group fails with an exception other than `asyncio.CancelledError`, the remaining tasks in the group are cancelled. No further tasks can then be added to the group. At this point, if the body of the `async with` statement is still active (i.e., `__aexit__()` hasn\u2019t been called yet), the task directly containing the `async with` statement is also cancelled. The resulting `asyncio.CancelledError` will interrupt an `await`, but it will not bubble out of the containing `async with` statement. Once all tasks have finished, if any tasks have failed with an exception other than `asyncio.CancelledError`, those exceptions are combined in an `ExceptionGroup` or `BaseExceptionGroup` (as appropriate; see their documentation) which is then raised. Two base exceptions are treated specially: If any task fails with `KeyboardInterrupt` or `SystemExit`, the task group still cancels the remaining tasks and waits for them, but then the initial `KeyboardInterrupt` or `SystemExit` is re-raised instead of `ExceptionGroup` or `BaseExceptionGroup`. If the body of the `async with` statement exits with an exception (so `__aexit__()` is called with an exception set), this is treated the same as if one of the tasks failed: the remaining tasks are cancelled and then waited for, and non-cancellation exceptions are grouped into an exception group and raised. The exception passed into `__aexit__()`, unless it is `asyncio.CancelledError`, is also included in the exception group. The same special case is made for `KeyboardInterrupt` and `SystemExit` as in the previous paragraph. There is an additional special case made only for the body of the `async with`: if it raises `GeneratorExit` and none of the other tasks raise exceptions that would be reported, then the `GeneratorExit` is reraised. Task groups are careful not to mix up the internal cancellation used to \u201cwake up\u201d their `__aexit__()` with cancellation requests for the task in which they are running made by other parties. In particular, when one task group is syntactically nested in another, and both experience an exception in one of their child tasks simultaneously, the inner task group will process its exceptions, and then the outer task group will receive another cancellation and process its own exceptions. In the case where a\"}, {\"title\": \"Lib/asyncio/taskgroups.py\", \"url\": \"https://github.com/python/cpython/blob/main/Lib/asyncio/taskgroups.py\", \"date\": \"\", \"snippet\": \"raised. If `cancel()` is called before entering the task group, the group will be cancelled upon entry ... This is useful for patterns where one piece of code passes an unused TaskGroup instance to another in order to have\"}], \"meta\": {\"provider\": \"exa-deep\", \"hops\": 1, \"lat\": 1.86, \"cost\": 0.007, \"route\": \"forced\"}}\n",
+    "stderr": "warning: exa spend $0.02 is 95% of the $0.02 monthly cap\n"
+  },
+  {
+    "name": "dash-leading-query",
+    "command": [
+      "bin/fm-search.sh",
+      "--no-jev",
+      "--json",
+      "--limit",
+      "1",
+      "--",
+      "-bash: foo: command not found"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.54,
+    "stdout": "{\"results\": [{\"title\": \"`sh: foo: command not found` \u00b7 Issue #6904 \u00b7 npm/cli\", \"url\": \"https://github.com/npm/cli/issues/6904\", \"date\": \"2023-10-15\", \"snippet\": \"The TLDR here is that your node_modules is invalid and npm cannot recover from that. If you absolutely must alter node_modules (which is not ...\"}], \"meta\": {\"provider\": \"tinyfish\", \"hops\": 3, \"lat\": 2.22, \"cost\": 0.0, \"route\": \"default\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "ledger",
+    "command": [
+      "bin/fm-search.sh",
+      "--ledger"
+    ],
+    "exit": 0,
+    "elapsed_s": 0.21,
+    "stdout": "fm-search ledger 2026-10 (UTC)\nexa-keyless  calls=2 cost=$0.0000\nexa-lite     calls=3 cost=$0.0120\nexa-deep     calls=1 cost=$0.0070\ntinyfish     calls=2 cost=$0.0000\nketch-multi  calls=0 cost=$0.0000\nexa-total    $0.0190 of $0.02 cap (95%)\nwarning: exa spend crossed 80% of the monthly cap\n",
+    "stderr": ""
+  },
+  {
+    "name": "caps-prevent-keyed-calls",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python dataclasses documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.41,
+    "stdout": "{\"results\": [{\"title\": \"Dataclasses | Pydantic Docs\", \"url\": \"https://pydantic.dev/docs/validation/latest/concepts/dataclasses/\", \"date\": \"\", \"snippet\": \"Dataclasses | Pydantic Docs On this page Overview Overview Dataclass config Rebuilding dataclass schema Stdlib dataclasses and Pydantic dataclasses Inherit from stdlib dataclasses Usage of stdlib dataclasses with BaseModel Using custom types Checking if a dataclass is a Pydantic dataclass Validators and initialization hooks\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.18, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "missing-keys-fallthrough",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python pathlib documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.56,
+    "stdout": "{\"results\": [{\"title\": \"pathlib \u2014 Object-oriented filesystem paths\", \"url\": \"http://docs.python.org/dev/library/pathlib.html\", \"date\": \"\", \"snippet\": \"Navigation * index * modules | * next | * previous | * Python logo * Python \u00bb * 3.16.0a0 Documentation \u00bb * The Python standard library \u00bb * File and Directory Access \u00bb * pathlib \u2014 Object-oriented filesystem paths * | * Theme Auto Light Dark | pathlib \u2014 Object-oriented filesystem paths \u00b6 Added in version 3.4. Source code: Lib/pathlib/ This module offers classes representing filesystem paths with semantics appropriate for different operating systems. Path classes are divided between pure paths , which provide purely computational operations without I/O, and concrete paths , which inherit from pure paths but also provide I/O operations. Inheritance diagram showing the classes available in pathlib. Basic use \u00b6 Importing the main class: > from pathlib import Path > Listing subdirectories: > p = Path ( '.' ) > [ x for x in p . iterdir () if x . is_dir ()] > [PosixPath('.hg'), PosixPath('docs'), PosixPath('dist'), > PosixPath('__pycache__'), PosixPath('build')] > Listing Python source files in this directory tree: > list ( p . glob ( '**/*.py' )) > class pathlib. PurePosixPath ( * pathsegments ) \u00b6 A subclass of PurePath , this path flavour represents non-Windows filesystem paths: > PurePosixPath ( '/etc/hosts' ) > PurePosixPath('/etc/hosts') > pathsegments is specified similarly to PurePath . > class pathlib. Under Windows, the unicode form is the canonical representation of filesystem paths. > PurePath ( '/a/b/c.py' ) . full_match ( '**/*.py' ) > True > See also > Pattern language documentation. > As with other methods, case-sensitivity follows platform defaults: > PurePosixPath ( 'b.py' ) . full_match ( '*.PY' ) > False > PureWindowsPath ( 'b.py' ) . full_match ( '*.PY' ) > True > PosixPath('/home/eric/films/Monty Python') > Added in version 3.5. > classmethod Path. cwd ( ) \u00b6 Return a new path object representing the current directory (as returned by os.getcwd() ): > Path . cwd () > PosixPath('/home/antoine/pathlib') > Path. absolute ( ) \u00b6 Make the path absolute, without normalization or resolving symlinks. it could delete all of your files. Python\u2019s str and bytes types, and portions of the os and os.path modules, are written in C and are very speedy. pathlib is written in pure Python and is often slower, but rarely slow enough to matter. pathlib\u2019s path normalization is slightly more opinionated and consistent than os.path . it could delete all of your files. The pathlib.types module provides types for static type checking. Added in version 3.14. class pathlib.types. PathInfo \u00b6 A typing.Protocol describing the Path.info attribute. Implementations may return cached results from their methods. it could delete all of your files. * index * modules | * next | * previous | * Python logo * Python \u00bb * 3.16.0a0 Documentation \u00bb * The Python standard library \u00bb * File and Directory Access \u00bb * pathlib \u2014 Object-oriented filesystem paths * | * Theme Auto Light Dark | \u00a9 Copyright 2001 Python Software Foundation.\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.29, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "unwritable-state-fallthrough",
+    "command": [
+      "bin/fm-search.sh",
+      "--chain",
+      "K",
+      "--json",
+      "--limit",
+      "1",
+      "Python collections deque documentation"
+    ],
+    "exit": 0,
+    "elapsed_s": 2.25,
+    "stdout": "{\"results\": [{\"title\": \"collections \u2014 Container datatypes \u2014 Python 3.15.0 documentation\", \"url\": \"https://docs.python.org/3/library/collections.html\", \"date\": \"\", \"snippet\": \"`deque` objects \u00b6 _class_ collections. deque ( [ _iterable_ [ , _maxlen_ ] ] ) \u00b6 Returns a new deque object initialized left-to-right (using `append()` ) with data from _iterable_ . If _iterable_ is not specified, the new deque is empty. Deques are a generalization of stacks and queues (the name is pronounced \\\"deck\\\" and is short for \\\"double-ended queue\\\"). Deques support thread-safe, memory efficient appends and pops from either side of the deque with approximately the same _O_ (1) performance in either direction.\"}], \"meta\": {\"provider\": \"ketch-multi\", \"hops\": 4, \"lat\": 2.04, \"cost\": 0.0, \"route\": \"forced\"}}\n",
+    "stderr": ""
+  },
+  {
+    "name": "all-hops-unavailable",
+    "command": [
+      "bin/fm-search.sh",
+      "--no-jev",
+      "unavailable provider diagnostic"
+    ],
+    "exit": 3,
+    "elapsed_s": 0.2,
+    "stdout": "",
+    "stderr": "fm-search: exa-keyless: ketch not runnable\nfm-search: exa-lite: skipped: no exa key\nfm-search: tinyfish: skipped: no tinyfish key\nfm-search: ketch-multi: ketch not runnable\n"
+  },
+  {
+    "name": "usage-conflicting-flags",
+    "command": [
+      "bin/fm-search.sh",
+      "--urls",
+      "--deep",
+      "public query"
+    ],
+    "exit": 1,
+    "elapsed_s": 0.12,
+    "stdout": "",
+    "stderr": "usage: fm-search.sh [--limit N] [--json] [--urls | --deep] [--chain F|K] [--no-jev] \"<query>\"\n       fm-search.sh --ledger\nWeb search router: Jev picks a query class, a provider chain (Exa, TinyFish, ketch) answers.\n  --limit N    results wanted (default 5)\n  --json       print {\"results\": [...], \"meta\": {...}} instead of text\n  --urls       cheap URL list: TinyFish first\n  --deep       hard question: Exa type auto first\n  --chain F|K  force the chain (F keyless first, K keyed first)\n  --no-jev     skip the Jev class pick and use chain F\n  --ledger     month-to-date spend and calls per provider\nExit: 0 results, 3 every hop empty (one line per hop on stderr), 1 usage error.\nSend only non-private queries: the query goes to third-party providers.\n"
+  }
+]

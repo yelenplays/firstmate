@@ -1,0 +1,2 @@
+tests/fm-search.test.sh
+tests/fm-search-dates.test.sh
