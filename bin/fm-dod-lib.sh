@@ -804,8 +804,8 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # author tests, the launch section that tells every other worker, the explicit
 # captain exception, what counts as a test file, and the done gate that enforces it.
 # The ban is an allowlist: only Claude Opus, Claude Fable, and GPT Sol may author
-# tests (FM_TEST_AUTHOR_MODEL_PATTERNS), so Sonnet, Haiku, DeepSeek, GLM, and any
-# model added to a dispatch rule later are banned until listed here.
+# tests via FM_TEST_AUTHOR_MODEL_PATTERNS below; Sonnet, Haiku, DeepSeek, GLM,
+# and other named models that match none of those globs are banned.
 # bin/fm-spawn.sh records test_ban_model=<model> in state/<id>.meta for a ship or
 # scout whose resolved --model is banned, plus one
 # test_ban_allowed=<path> record per path explicitly named under the
