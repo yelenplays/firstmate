@@ -2,7 +2,8 @@
 # Behavior tests for the tdd-split ship profile: bin/fm-tdd-split-lib.sh's
 # brief contract and test-seat done gate, and bin/fm-tdd-split.sh's handoff,
 # which proves the seat's tests fail on the base before it relaunches the task
-# onto the implementer.
+# onto the implementer, its dispute route back to the seat, and its optional
+# mutation gate.
 # shellcheck disable=SC2016 # single-quoted commands and code spans expand later, in the brief's shell.
 set -u
 
@@ -55,13 +56,34 @@ report() {  # <id> <line>
   printf '%s\n' "$2" >>"$CASE_STATE/$1.status"
 }
 
-handoff() {  # <id> [args...]
-  local id=$1
-  shift
+tdd_split() {  # <subcommand> <id> [args...]
+  local sub=$1 id=$2
+  shift 2
   FM_STATE_OVERRIDE="$CASE_STATE" FM_DATA_OVERRIDE="$CASE_DATA" \
     FM_CONTROL_BIN="$TMP_ROOT/$id/fm-control.sh" \
-    bash "$ROOT/bin/fm-tdd-split.sh" handoff "$id" "$@" 2>&1
+    bash "$ROOT/bin/fm-tdd-split.sh" "$sub" "$id" "$@" 2>&1
 }
+
+handoff() {  # <id> [args...]
+  tdd_split handoff "$@"
+}
+
+# Hands the case's seat over and records what the implementer's relaunch would:
+# its banned model. Sets SEAT_HEAD.
+to_implementer() {  # <id>
+  SEAT_HEAD=$(git -C "$CASE_WT" rev-parse HEAD)
+  report "$1" "done: tests-ready $SEAT_HEAD"
+  handoff "$1" >/dev/null || fail "the setup handoff of $1 was refused"
+  printf '%s\n' test_ban_model=opencode-go/deepseek-v4.1-flash >>"$CASE_META"
+  rm -f "$CASE_CONTROL_LOG"
+}
+
+# The relaunch the stub fm-control.sh recorded, without its note.
+relaunched_onto() {
+  sed -n 1,9p "$CASE_CONTROL_LOG" | tr '\n' ' '
+}
+
+SEAT_RELAUNCH="relaunch --harness claude --model claude-opus-5-5 --effort medium --note "
 
 meta_lines() {  # <key>
   sed -n "s/^$1=//p" "$CASE_META"
@@ -140,6 +162,7 @@ test_handoff_relaunches_onto_the_implementer() {
   assert_contains "$note" "$head" "relaunch note did not name the seat's head"
   [ "$(meta_lines tdd_split)" = implement ] || fail "meta did not record tdd_split=implement: $(cat "$CASE_META")"
   [ "$(meta_lines tdd_split_tests)" = "$head" ] || fail "meta did not record the handed-over tests"
+  [ "$(meta_lines test_ban_since)" = "$head" ] || fail "meta did not start the implementer's test ban at the seat's head"
   [ ! -e "$CASE_WT/side-effect" ] || fail "the red run wrote into the worker copy"
   assert_contains "$(cat "$CASE_DATA/ok/tdd-split-red.log")" "head=$head exit=1" "red log did not record the run"
   out=$(handoff ok) && fail "a second handoff on the implementer was accepted"
@@ -202,10 +225,147 @@ test_handoff_refuses_an_unready_seat() {
   pass "handoff refuses a seat that is not ready to hand over"
 }
 
+test_mutation_command_is_optional_and_single() {
+  local brief="$TMP_ROOT/mutation-brief.md" got
+  printf 'Fail-to-pass command: `a`\nMutation command: `mutmut run`\n' >"$brief"
+  got=$(fm_tdd_split_mutation_command "$brief") || fail "a single mutation line was not read"
+  [ "$got" = 'mutmut run' ] || fail "mutation command read as '$got'"
+  printf 'Fail-to-pass command: `a`\n' >"$brief"
+  fm_tdd_split_mutation_command "$brief" >/dev/null && fail "a brief without a mutation line declared one"
+  printf 'Mutation command: `one`\nMutation command: `two`\n' >"$brief"
+  fm_tdd_split_mutation_command "$brief" >/dev/null && fail "two mutation lines were accepted"
+  pass "the brief declares at most one mutation command"
+}
+
+test_dispute_routes_back_to_the_seat() {
+  local out impl_head fix_head status_tail
+  new_case dispute
+  seat_commit tests/feature.test.sh '[ "$(cat feature.sh 2>/dev/null)" = "echo wrong" ]'
+  to_implementer dispute
+  seat_commit feature.sh 'echo done'
+  impl_head=$(git -C "$CASE_WT" rev-parse HEAD)
+  printf 'pr=https://example.test/o/r/pull/9\n' >>"$CASE_META"
+
+  out=$(tdd_split dispute dispute) && fail "a dispute with no open key was accepted"
+  assert_contains "$out" "no open blocked [key=test-dispute]" "refusal did not name the missing report"
+  report dispute "blocked [key=test-dispute]: tests/feature.test.sh: it expects the wrong output"
+  out=$(tdd_split dispute dispute) || fail "an open dispute was refused: $out"
+  assert_contains "$out" "dispute accepted at $impl_head" "dispute did not report the head"
+  [ "$(relaunched_onto)" = "dispute $SEAT_RELAUNCH" ] || fail "dispute relaunched with: $(relaunched_onto)"
+  assert_contains "$(sed -n 10p "$CASE_CONTROL_LOG")" "it expects the wrong output" "seat note did not carry the dispute"
+  [ "$(meta_lines tdd_split)" = tests ] || fail "dispute did not record tdd_split=tests"
+  [ "$(meta_lines tdd_split_dispute_head)" = "$impl_head" ] || fail "dispute did not record the implementer's head"
+  status_tail=$(tail -1 "$CASE_STATE/dispute.status")
+  assert_contains "$status_tail" "resolved [key=test-dispute]" "dispute did not close its key"
+
+  # Back on the seat, the implementer's code is not the seat's change, but
+  # any new production change is.
+  seat_commit tests/feature.test.sh '[ "$(cat feature.sh 2>/dev/null)" = "echo done" ]'
+  fix_head=$(git -C "$CASE_WT" rev-parse HEAD)
+  fm_dod_accept_ship_done ship no-mistakes "$CASE_WT" "$TMP_ROOT/dispute/repo" \
+    "done: tests-ready $fix_head" "$CASE_STATE" dispute "$CASE_META" >/dev/null \
+    || fail "the seat's fixed test was refused after a dispute"
+  seat_commit other.sh 'echo more'
+  out=$(fm_dod_accept_ship_done ship no-mistakes "$CASE_WT" "$TMP_ROOT/dispute/repo" \
+    'done: tests-ready' "$CASE_STATE" dispute "$CASE_META")
+  [ "$?" -eq 1 ] || fail "a seat production change after a dispute was accepted"
+  assert_contains "$out" "not tests since $impl_head: other.sh" "refusal did not measure from the disputed head"
+  git -C "$CASE_WT" reset -q --hard "$fix_head"
+
+  # The fixed test passes with the implementer's code, yet the second
+  # handoff proves it red on the base alone, and moves the ban baseline.
+  report dispute "done: tests-ready $fix_head"
+  out=$(handoff dispute) || fail "the post-dispute handoff was refused: $out"
+  [ "$(meta_lines test_ban_since)" = "$fix_head" ] || fail "the second handoff left test_ban_since at $(meta_lines test_ban_since)"
+  [ -z "$(meta_lines tdd_split_dispute_head)" ] || fail "the second handoff kept tdd_split_dispute_head"
+  [ "$(meta_lines tdd_split)" = implement ] || fail "the second handoff did not return to the implementer"
+  pass "an accepted dispute sends the task back to the seat, which then hands over again"
+}
+
+test_dispute_refusals() {
+  local out
+  new_case dispute-edit
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer dispute-edit
+  seat_commit tests/feature.test.sh 'true'
+  report dispute-edit "blocked [key=test-dispute]: tests/feature.test.sh: too strict"
+  out=$(tdd_split dispute dispute-edit) && fail "a dispute after the implementer edited the test was accepted"
+  assert_contains "$out" "no test authoring" "refusal did not name the test edit"
+  [ ! -e "$CASE_CONTROL_LOG" ] || fail "a refused dispute relaunched the task"
+
+  new_case dispute-dirty
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer dispute-dirty
+  printf 'wip\n' >"$CASE_WT/feature.sh"
+  report dispute-dirty "blocked [key=test-dispute]: tests/feature.test.sh: too strict"
+  out=$(tdd_split dispute dispute-dirty) && fail "a dispute over uncommitted work was accepted"
+  assert_contains "$out" "uncommitted changes" "refusal did not name the uncommitted work"
+
+  new_case dispute-seat
+  report dispute-seat "blocked [key=test-dispute]: tests/feature.test.sh: too strict"
+  out=$(tdd_split dispute dispute-seat) && fail "a dispute on the test seat was accepted"
+  assert_contains "$out" "not a tdd-split ship on its implementer" "refusal did not name the phase"
+  pass "a dispute is refused off the implementer, over uncommitted work, or after a test edit"
+}
+
+test_mutation_gate() {
+  local out rc head
+  new_case mutation-none
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer mutation-none
+  report mutation-none "done: PR https://example.test/o/r/pull/3 checks green"
+  out=$(tdd_split mutation mutation-none) && fail "the mutation gate ran without a mutation command"
+  assert_contains "$out" "declares no single Mutation command:" "refusal did not name the brief contract"
+
+  new_case mutation-pass
+  printf 'Mutation command: `[ "$1" = tests/feature.test.sh ] && [ -f feature.sh ]`\n' >>"$CASE_DATA/mutation-pass/brief.md"
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer mutation-pass
+  seat_commit feature.sh 'echo done'
+  report mutation-pass "working: implementing"
+  out=$(tdd_split mutation mutation-pass) && fail "the mutation gate ran before the implementer's done"
+  assert_contains "$out" "has not reported done:" "refusal did not name the missing done"
+  report mutation-pass "done: PR https://example.test/o/r/pull/3 checks green"
+  out=$(tdd_split mutation mutation-pass) || fail "a passing mutation run was refused: $out"
+  assert_contains "$out" "mutation gate passed at $(git -C "$CASE_WT" rev-parse HEAD)" "pass did not name the head"
+  [ ! -e "$CASE_CONTROL_LOG" ] || fail "a passing mutation run relaunched the task"
+
+  new_case mutation-fail
+  printf 'Mutation command: `echo 3 mutants survived; exit 1`\n' >>"$CASE_DATA/mutation-fail/brief.md"
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer mutation-fail
+  seat_commit feature.sh 'echo done'
+  head=$(git -C "$CASE_WT" rev-parse HEAD)
+  report mutation-fail "done: PR https://example.test/o/r/pull/3 checks green"
+  out=$(tdd_split mutation mutation-fail)
+  rc=$?
+  [ "$rc" -eq 3 ] || fail "a failing mutation run exited $rc: $out"
+  [ "$(relaunched_onto)" = "mutation-fail $SEAT_RELAUNCH" ] || fail "mutation failure relaunched with: $(relaunched_onto)"
+  assert_contains "$(sed -n 10p "$CASE_CONTROL_LOG")" "mutants of the implementation survive" "seat note did not explain the mutation failure"
+  [ "$(meta_lines tdd_split_dispute_head)" = "$head" ] || fail "mutation failure did not record the implementer's head"
+  assert_contains "$(cat "$CASE_DATA/mutation-fail/tdd-split-mutation.log")" "3 mutants survived" "mutation log did not keep the output"
+
+  new_case mutation-broken
+  printf 'Mutation command: `no-such-mutation-tool`\n' >>"$CASE_DATA/mutation-broken/brief.md"
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer mutation-broken
+  report mutation-broken "done: PR https://example.test/o/r/pull/3 checks green"
+  out=$(tdd_split mutation mutation-broken)
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a mutation command that could not run exited $rc"
+  assert_contains "$out" "could not run (exit 127)" "refusal did not say the command could not run"
+  [ ! -e "$CASE_CONTROL_LOG" ] || fail "a mutation command that could not run relaunched the task"
+  pass "the mutation gate passes, sends surviving mutants back to the seat, and refuses a run that proves nothing"
+}
+
 test_check_command_needs_exactly_one_line
+test_mutation_command_is_optional_and_single
 test_seat_done_gate
 test_handoff_relaunches_onto_the_implementer
 test_handoff_refuses_tests_that_prove_nothing
 test_handoff_refuses_an_unready_seat
+test_dispute_routes_back_to_the_seat
+test_dispute_refusals
+test_mutation_gate
 
 echo "all fm-tdd-split tests passed"

@@ -28,16 +28,27 @@
 #      on the base - and refuses unless it exits red. It then relaunches the
 #      task onto the recorded implementer with bin/fm-control.sh and records
 #      tdd_split=implement.
-#   4. That relaunch records test_ban_since=<seat HEAD> through bin/fm-dod-lib.sh's
-#      test-authoring block, whose done gate and pre-PR check refuse any
+#   4. The handoff records test_ban_since=<seat HEAD>, which bin/fm-dod-lib.sh's
+#      test-authoring block reads: its done gate and pre-PR check refuse any
 #      implementer change to the handed-over tests. From here the task is an
 #      ordinary banned ship on the implementer.
+#   5. Two ways lead back to the seat, both through bin/fm-tdd-split.sh. The
+#      implementer that finds a handed-over test wrong reports
+#      `blocked [key=test-dispute]: <test>: <reason>`; firstmate either answers
+#      it with bin/fm-send.sh --resolve-key or accepts it with `dispute <id>`.
+#      A brief that declares the optional mutation command
+#      (fm_tdd_split_mutation_command) gets `mutation <id>` on the
+#      implementer's done:, which runs it and on surviving mutants sends the
+#      task back the same way. Either route records tdd_split=tests and
+#      tdd_split_dispute_head=<implementer HEAD> and relaunches the seat, which
+#      from that head may again change tests only, and then hands over again
+#      from step 3.
 #
-# Supported boundary: this profile automates test-seat launch and handoff,
-# not a separate review/retry state machine or an Opus takeover after two
-# failed rounds. The task's selected delivery path owns validation afterward.
-# The test lock is completion/pre-PR enforcement under fm-dod-lib.sh, not a
-# filesystem write restriction. tests/fm-tdd-split.test.sh,
+# Supported boundary: this profile automates test-seat launch, handoff, and
+# the routes back to the seat. Model escalation after failed rounds belongs to
+# bin/fm-escalate.sh, and the task's selected delivery path owns validation
+# afterward. The test lock is completion/pre-PR enforcement under
+# fm-dod-lib.sh, not a filesystem write restriction. tests/fm-tdd-split.test.sh,
 # tests/fm-control-relaunch.test.sh, and tests/fm-pr-check-security.test.sh
 # cover the handoff and lock boundaries.
 
@@ -47,6 +58,8 @@ FM_TDD_SPLIT_SEAT_HARNESS=claude
 FM_TDD_SPLIT_SEAT_MODEL=claude-opus-5-5
 FM_TDD_SPLIT_SEAT_EFFORT=medium
 FM_TDD_SPLIT_CHECK_LABEL='Fail-to-pass command:'
+FM_TDD_SPLIT_MUTATION_LABEL='Mutation command:'
+FM_TDD_SPLIT_DISPUTE_KEY=test-dispute
 FM_TDD_SPLIT_READY_VERB=tests-ready
 
 # The fail-to-pass command a brief declares on exactly one line of its own,
@@ -56,9 +69,23 @@ FM_TDD_SPLIT_READY_VERB=tests-ready
 # "$@". Prints the command; 1 when the brief declares none, more than one, or
 # one that is not a single code span.
 fm_tdd_split_check_command() {  # <brief>
+  fm_tdd_split_brief_command "${1:-}" "$FM_TDD_SPLIT_CHECK_LABEL"
+}
+
+# The optional mutation command a brief declares the same way, as
+# `Mutation command: `<command>``: a project's mutation-testing run, such as
+# mutmut, Stryker, or cargo-mutants, that exits non-zero when too many mutants
+# survive the tests. 1 when the brief declares none, more than one, or one that
+# is not a single code span.
+fm_tdd_split_mutation_command() {  # <brief>
+  fm_tdd_split_brief_command "${1:-}" "$FM_TDD_SPLIT_MUTATION_LABEL"
+}
+
+# The one `<label> `<command>`` line of a brief, outside fenced blocks.
+fm_tdd_split_brief_command() {  # <brief> <label>
   local lines
   [ -f "${1:-}" ] || return 1
-  lines=$(awk -v label="$FM_TDD_SPLIT_CHECK_LABEL" '
+  lines=$(awk -v label="$2" '
     /^[ \t]*(```|~~~)/ { fenced = !fenced; next }
     fenced { next }
     index($0, label) == 1 {
@@ -84,10 +111,18 @@ fm_tdd_split_seat_path_ok() {  # <path>
 }
 
 # Prints the files the worker copy's commits change since their merge-base
-# with the base, one per line. 1 with a one-line reason on stdout when the base
-# cannot be resolved.
-fm_tdd_split_changed_files() {  # <worktree> [<base-branch>]
+# with the base, or since <since> when given, one per line. 1 with a one-line
+# reason on stdout when the base or <since> cannot be resolved.
+fm_tdd_split_changed_files() {  # <worktree> [<base-branch>] [<since>]
   local wt=$1 base_ref mb
+  if [ -n "${3:-}" ]; then
+    git -C "$wt" rev-parse --verify --quiet "$3^{commit}" >/dev/null 2>&1 || {
+      printf '%s\n' "tdd-split check cannot find the disputed head $3 in the worker copy"
+      return 1
+    }
+    git -C "$wt" diff --no-renames --name-only "$3" HEAD 2>/dev/null
+    return 0
+  fi
   if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
     printf '%s\n' "tdd-split check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
     return 1
@@ -100,10 +135,12 @@ fm_tdd_split_changed_files() {  # <worktree> [<base-branch>]
 }
 
 # 0 when the test seat's worker copy can be handed over: clean, and its commits
-# since the base change at least one file and only test files. 1 with a
+# since the base change at least one file and only test files. A seat sent back
+# by a dispute or the mutation gate is measured from tdd_split_dispute_head=
+# instead, and may hand over unchanged when it finds the tests right. 1 with a
 # one-line reason on stdout otherwise; nothing on stdout on success.
 fm_tdd_split_seat_ready() {  # <worktree> <meta>
-  local wt=$1 meta=$2 files path others=
+  local wt=$1 meta=$2 files path since others=
   if [ -z "$wt" ] || [ ! -d "$wt" ] || ! git -C "$wt" rev-parse --git-dir >/dev/null 2>&1; then
     printf '%s\n' "tdd-split check cannot read the worker copy"
     return 1
@@ -112,11 +149,12 @@ fm_tdd_split_seat_ready() {  # <worktree> <meta>
     printf '%s\n' "tdd-split test seat has uncommitted changes; commit the tests and report $FM_TDD_SPLIT_READY_VERB again"
     return 1
   fi
-  files=$(fm_tdd_split_changed_files "$wt" "$(fm_dod_meta_value "$meta" base_branch)") || {
+  since=$(fm_dod_meta_value "$meta" tdd_split_dispute_head)
+  files=$(fm_tdd_split_changed_files "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$since") || {
     printf '%s\n' "$files"
     return 1
   }
-  [ -n "$files" ] || {
+  [ -n "$files" ] || [ -n "$since" ] || {
     printf '%s\n' "tdd-split test seat committed no tests since the base"
     return 1
   }
@@ -125,7 +163,7 @@ fm_tdd_split_seat_ready() {  # <worktree> <meta>
     fm_tdd_split_seat_path_ok "$path" || others="$others $path"
   done <<<"$files"
   [ -z "$others" ] || {
-    printf '%s\n' "tdd-split test seat changed files that are not tests:$others; the seat writes tests only, so revert those changes and report $FM_TDD_SPLIT_READY_VERB again"
+    printf '%s\n' "tdd-split test seat changed files that are not tests${since:+ since $since}:$others; the seat writes tests only, so revert those changes and report $FM_TDD_SPLIT_READY_VERB again"
     return 1
   }
   return 0
