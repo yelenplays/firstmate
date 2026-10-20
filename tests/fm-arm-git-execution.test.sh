@@ -36,6 +36,7 @@ pass 'compound external diff cannot execute through the arm guard'
 
 # Git operations with execution-capable modes do not belong to the compound
 # read-only exception, including cat-file text conversion and filters.
+# shellcheck disable=SC2016 # Command fixtures intentionally preserve literal $f.
 for command in \
   'for f in bin/fm-watch.sh; do git diff before after; done' \
   'for f in bin/fm-watch.sh; do git log; done' \
