@@ -312,7 +312,7 @@ write_poll_meta() {
 run_check_entry() {
   local dir=$1
   shift
-  FM_ROOT_OVERRIDE="$dir/root" FM_HOME="$dir/home" \
+  FM_ROOT_OVERRIDE="$dir/root" FM_HOME="$dir/home" NM_HOME="$dir/nm-home" \
     FM_TEST_GUARD_LOG="$dir/guard.log" FM_TEST_GH_LOG="$dir/gh.log" \
     FM_TEST_GH_AXI_LOG="$dir/gh-axi.log" FM_TEST_GLAB_LOG="$dir/glab.log" \
     FM_TEST_GERRIT_AXI_LOG="$dir/gerrit-axi.log" \
@@ -820,6 +820,43 @@ test_test_ban_covers_pipeline_fixer_commits() {
   grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "pipeline fixer refusal did not name the test: $(cat "$dir/stderr")"
   ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a pipeline fixer's test file still recorded the PR"
   pass "fm-pr-check refuses a test file a pipeline fixer commit adds on a banned task"
+}
+
+# The pipeline fixer's own model decides, not the worker's lane: on an Opus
+# task a Sonnet review fixer's test refuses the PR record, while a test the
+# Sol-run test step commits registers it.
+test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
+  local dir head step
+  for step in review test; do
+    dir=$(make_case "test-ban-allowlisted-builder-$step")
+    write_task_meta "$dir"
+    fm_write_meta "$dir/home/state/task-a.meta" \
+      "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+      "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
+    mkdir -p "$dir/nm-home"
+    printf '%s\n' 'agent: [pi]' 'agent_args_override:' '  pi:' '    - --model' '    - openai-codex/gpt-6.1-sol' \
+      'review_agents:' '  fixer:' '    agent: claude' '    model: claude-sonnet-5-5' > "$dir/nm-home/config.yaml"
+    printf 'impl\n' > "$dir/wt/impl.sh"
+    git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'Opus implements without tests'
+    mkdir -p "$dir/wt/tests"
+    printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+    git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "no-mistakes($step): add a unit test"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    if [ "$step" = review ]; then
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" && fail "a Sonnet review fixer's test passed the pre-PR check on an Opus task"
+      grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
+        || fail "fixer refusal did not name the fixer's model: $(cat "$dir/stderr")"
+      grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "fixer refusal did not name the test: $(cat "$dir/stderr")"
+      ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a banned fixer's test still recorded the PR"
+    else
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "an allowlisted pipeline step's test was refused: $(cat "$dir/stderr")"
+      grep -q '^pr=https://github.com/o/r/pull/82$' "$dir/home/state/task-a.meta" \
+        || fail "an allowlisted pipeline step's test did not record the PR"
+    fi
+  done
+  pass "fm-pr-check bans a banned pipeline fixer's tests by its own model, not the worker's"
 }
 
 test_valid_recording_and_merge_derivation() {
@@ -3703,6 +3740,7 @@ test_secondmate_record_refuses_a_pr_watch
 test_unpushed_named_head_refuses_registration
 test_test_ban_runs_when_forge_head_is_available
 test_test_ban_covers_pipeline_fixer_commits
+test_test_ban_covers_banned_fixers_on_allowlisted_tasks
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert

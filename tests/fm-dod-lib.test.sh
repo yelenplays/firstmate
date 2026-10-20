@@ -742,6 +742,116 @@ test_test_ban_handoff_ignores_test_changes_from_the_base() {
   pass "test-ban gate ignores test changes the base brings in after a handoff"
 }
 
+# A no-mistakes home whose review fixer is Sonnet and whose agent chain is
+# Sol then Opus, the shape the pre-PR check reads when no run is recorded.
+write_nm_config() {  # <nm-home> [<extra agent>]
+  mkdir -p "$1"
+  cat > "$1/config.yaml" <<YAML
+# fixture
+agent: [pi, claude${2:+, $2}]
+agent_config:
+  claude:
+    model: claude-opus-5-5
+    effort: medium
+  opencode:
+    model: opencode-go/deepseek-v4.1-flash
+agent_args_override:
+  pi:
+    - --provider
+    - openai-codex
+    - --model
+    - openai-codex/gpt-6.1-sol
+review_agents:
+  reviewer:
+    agent: claude
+    model: claude-sonnet-5-5
+  fixer:
+    agent: claude
+    model: claude-sonnet-5-5 # the cheap fixer
+YAML
+}
+
+pipeline_commit() {  # <worktree> <step> <path>
+  mkdir -p "$(dirname "$1/$3")"
+  printf 'fix\n' > "$1/$3"
+  git -C "$1" add -- "$3" && git -C "$1" commit -q -m "no-mistakes($2): cover the finding"
+}
+
+# The pipeline-fixer half of the pre-PR check bans a test a banned fixer
+# commits even when the task's own worker is allowlisted, and keeps the tests
+# an allowlisted step commits.
+test_test_ban_pipeline_fixer_on_an_allowlisted_task() {
+  local repo wt meta nm reason rc
+  repo="$TMP_ROOT/fixer-repo"
+  wt="$TMP_ROOT/fixer-wt"
+  meta="$TMP_ROOT/fixer.meta"
+  nm="$TMP_ROOT/fixer-nm"
+  fm_git_worktree "$repo" "$wt" fm/fixer
+  git -C "$wt" fetch -q origin
+  write_nm_config "$nm"
+  printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/fixer\n' > "$meta"
+  printf 'impl\n' > "$wt/impl.sh"
+  git -C "$wt" add impl.sh && git -C "$wt" commit -q -m 'Opus implements'
+  mkdir -p "$wt/tests"
+  printf 'opus\n' > "$wt/tests/opus.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'Opus adds its own test'
+  pipeline_commit "$wt" test tests/sol.test.sh
+  NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
+    || fail "an allowlisted worker's and an allowlisted pipeline step's tests were refused"
+
+  pipeline_commit "$wt" review tests/fixer.test.sh
+  reason=$(NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1)
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a Sonnet review fixer's test on an Opus task was accepted"
+  assert_contains "$reason" "no test authoring on claude-sonnet-5-5" "refusal did not name the fixer's model"
+  assert_contains "$reason" "no-mistakes(review)" "refusal did not name the pipeline step"
+  assert_contains "$reason" "tests/fixer.test.sh" "refusal did not name the fixer's test"
+  assert_not_contains "$reason" "tests/opus.test.sh" "refusal blamed the worker's own test"
+  assert_not_contains "$reason" "tests/sol.test.sh" "refusal blamed the allowlisted step's test"
+
+  NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: implemented' "$meta" \
+    || fail "the worker's handoff done was checked against pipeline commits"
+  NM_HOME="$TMP_ROOT/no-nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
+    || fail "a pipeline step with no known model was banned"
+  printf 'test_ban_allowed=tests/fixer.test.sh\n' >> "$meta"
+  NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
+    || fail "the captain-authorized test path was refused for a pipeline fixer"
+  pass "pre-PR check bans a banned pipeline fixer's tests on an allowlisted task"
+}
+
+# A step whose fallback chain can run a banned model is banned, and a run's
+# recorded fixer model wins over the config.
+test_test_ban_pipeline_fixer_model_resolution() {
+  local nm db models
+  nm="$TMP_ROOT/resolve-nm"
+  write_nm_config "$nm" opencode
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
+  [ "$models" = claude-sonnet-5-5 ] || fail "review step resolved to '$models', not the configured fixer"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models lint fm/x | tr '\n' ' ')
+  [ "$models" = "openai-codex/gpt-6.1-sol claude-opus-5-5 opencode-go/deepseek-v4.1-flash " ] \
+    || fail "lint step did not resolve to the whole agent chain: '$models'"
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    pass "pipeline fixer models resolve from the config (sqlite3 absent, recorded runs not exercised)"
+    return
+  fi
+  db="$nm/state.sqlite"
+  sqlite3 "$db" "create table runs (id text primary key, branch text not null);
+    create table agent_invocations (id text primary key, run_id text not null, step_name text not null,
+      purpose text not null, model text, exit_status text not null, started_at integer not null);
+    insert into runs values ('r1', 'fm/x'), ('r2', 'fm/other');
+    insert into agent_invocations values
+      ('a', 'r1', 'review', 'review', 'claude-haiku-5-5', 'ok', 1),
+      ('b', 'r1', 'review', 'review-fix', 'claude-opus-5-5', 'ok', 2),
+      ('c', 'r2', 'review', 'review-fix', 'claude-sonnet-5-5', 'ok', 3),
+      ('d', 'r1', 'review', 'review-fix', 'deepseek-v4', 'failed', 4);" \
+    || fail "cannot write the fixture state database"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
+  [ "$models" = claude-opus-5-5 ] || fail "the recorded review fixer did not win: '$models'"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/none)
+  [ "$models" = claude-sonnet-5-5 ] || fail "a branch with no recorded run did not fall back to the config: '$models'"
+  pass "pipeline fixer models resolve from recorded runs, then the config"
+}
+
 test_test_ban_model_list
 test_test_ban_path_heuristic
 test_test_ban_exception_requires_explicit_paths
@@ -749,5 +859,7 @@ test_test_ban_gate_refuses_added_tests
 test_test_ban_gate_reads_the_named_base
 test_test_ban_gate_measures_from_the_tests_first_handoff
 test_test_ban_handoff_ignores_test_changes_from_the_base
+test_test_ban_pipeline_fixer_on_an_allowlisted_task
+test_test_ban_pipeline_fixer_model_resolution
 
 echo "all fm-dod-lib tests passed"
