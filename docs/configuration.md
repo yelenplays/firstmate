@@ -1213,7 +1213,9 @@ The router never signs up for, upgrades or buys anything.
 Keyed Exa calls use the returned cost when available, otherwise the configured per-query price; only an HTTP error status counts as an unbilled rejection, so a timeout, a dropped connection or a malformed or undecodable body still records that price against the monthly cap.
 `state/fm-search/route-cache.tsv` caches accepted class picks for the configured lifetime under a hash of the lowercased query.
 Neither file stores query text.
-Ledger and route-cache writes are best-effort: a write failure does not discard search results, but missing ledger entries can undercount spend and calls, weakening cap enforcement.
+For the capped Exa and TinyFish hops, accounting is a precondition: under the provider lock the router writes a reservation line (`n_results` of -1, the Exa price as cost) before contacting the provider and rewrites it in place with the result afterwards, so a call that is killed or whose result cannot be written back still counts toward the cap.
+An unreadable ledger, a corrupt row or a reservation that cannot be written skips the capped hop and leaves the free hops; a missing ledger is an empty history.
+Only free-hop lines and route-cache writes are best-effort.
 `fm-search.sh --ledger` prints month-to-date spend and calls per provider.
 A keyed Exa hop runs only when this month's spend plus its own price stays within the cap, and the Exa and TinyFish cap checks hold a per-provider lock under `state/fm-search/` through the call and its ledger line, so parallel workers cannot all pass one cap; a worker that cannot create the lock or acquire it within the hop timeout skips the hop.
 Each hop's timeout is one wall-clock deadline over the whole exchange - connect, status line, headers and body - so a provider that trickles bytes cannot hold the hop.

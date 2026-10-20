@@ -435,6 +435,69 @@ assert_equals 00 "$(reqs exa)$(reqs tinyfish)" "unwritable state: no paid call w
 rm -f "$STATE"
 pass "an unwritable state dir degrades to best-effort bookkeeping"
 
+# A usable lock with a ledger that cannot record or report spend: every paid hop
+# is skipped before it reaches the provider, and the free hops still answer.
+for broken in read-only unreadable corrupt; do
+  new_case "ledger-$broken"
+  printf '%s\texa-lite\t0.00400\t   0.10\t  1\tforced\n' "$(date +%s)" > "$STATE/ledger.tsv"
+  case "$broken" in
+    read-only) chmod 444 "$STATE/ledger.tsv" ;;
+    unreadable) chmod 000 "$STATE/ledger.tsv" ;;
+    corrupt) printf 'half a line\n' >> "$STATE/ledger.tsv" ;;
+  esac
+  if [ "$broken" != corrupt ] && [ -w "$STATE/ledger.tsv" ]; then
+    chmod 644 "$STATE/ledger.tsv"
+    echo "# skip ledger-$broken: file modes do not bind this user"
+    continue
+  fi
+  for i in 1 2 3; do
+    search --chain K "ledger $broken probe $i $QMARK"
+    expect_code 0 "$code" "ledger $broken $i: $err"
+    assert_contains "$(trailer)" 'provider=exa-keyless hops=3' "ledger $broken $i: both paid hops are skipped and the keyless hop answers"
+  done
+  assert_equals 00 "$(reqs exa)$(reqs tinyfish)" "ledger $broken: no paid call without stored accounting"
+  set_mode ketch-exa empty
+  set_mode ketch-multi empty
+  search --chain K "ledger $broken reasons $QMARK"
+  expect_code 3 "$code" "ledger $broken reasons"
+  assert_contains "$err" 'exa-lite: skipped: ledger' "ledger $broken: the Exa skip names the ledger"
+  assert_contains "$err" 'tinyfish: skipped: ledger' "ledger $broken: the TinyFish skip names the ledger"
+  chmod 644 "$STATE/ledger.tsv"
+done
+pass "a read-only, unreadable or corrupt ledger stops paid calls"
+
+# A paid call killed mid-flight keeps its reservation, so the next cap check counts it.
+new_case interrupted
+printf '%s\texa-lite\t7.99500\t   0.80\t  5\tjev\n' "$(date +%s)" > "$STATE/ledger.tsv"
+set_mode exa slow
+FM_HOME="$TMP_ROOT/home" FM_SEARCH_STATE="$STATE" FM_SEARCH_KEY_DIR="$KEYS" \
+  FM_SEARCH_CONFIG="$TMP_ROOT/fm-search.json" FM_SEARCH_KETCH_BIN="$FAKEBIN/ketch" \
+  FM_SEARCH_STUB="$STUB" FM_SEARCH_FIX="$FIX" FM_SEARCH_EXA_URL="http://127.0.0.1:$PORT/exa" \
+  "$TOOL" --chain K "interrupted probe $QMARK" > /dev/null 2>&1 &
+victim=$!
+for _ in $(seq 1 200); do
+  [ -s "$STUB/exa.req" ] && break
+  sleep 0.05
+done
+[ -s "$STUB/exa.req" ] || fail "interrupted: the paid request never reached the stub"
+kill -9 "$victim" 2>/dev/null
+wait "$victim" 2>/dev/null
+assert_equals 1 "$(awk -F'\t' '$2 == "exa-lite" && $3 == 0.004 && $5 == -1' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "interrupted: the killed call left its reservation at the Exa price"
+set_mode exa ok
+search --chain K "after interrupt probe $QMARK"
+expect_code 0 "$code" "after interrupt: $err"
+assert_contains "$(trailer)" 'provider=tinyfish hops=2' "after interrupt: the reservation pushes the next call over the cap"
+assert_equals 1 "$(reqs exa)" "after interrupt: no second Exa request past the cap"
+pass "an interrupted paid call keeps its reservation against the cap"
+
+new_case settled
+search --chain K "settled probe $QMARK"
+expect_code 0 "$code" "settled: $err"
+assert_equals 1 "$(ledger_rows exa-lite)" "settled: one ledger row per paid call"
+assert_equals 0 "$(awk -F'\t' '$5 == -1' "$STATE/ledger.tsv" | wc -l | tr -d ' ')" "settled: a finished call leaves no open reservation"
+assert_contains "$(cat "$STATE/ledger.tsv")" $'exa-lite\t0.00500\t' "settled: the reservation is rewritten with the reported cost"
+pass "a finished paid call settles its reservation in place"
+
 # --- usage errors ------------------------------------------------------------------------
 
 new_case usage

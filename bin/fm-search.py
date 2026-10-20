@@ -205,27 +205,77 @@ def month_of(ts):
     return time.strftime("%Y-%m", time.gmtime(ts))
 
 
-def read_ledger():
+def read_ledger(strict=False):
+    """Ledger rows; strict raises HopError when the history cannot be trusted, so a cap check fails closed.
+
+    A missing ledger is an empty history. An unreadable file or a corrupt row is not.
+    """
     rows = []
     try:
         with open(LEDGER) as f:
             for line in f:
                 p = line.rstrip("\n").split("\t")
-                if len(p) >= 6:
-                    try:
-                        rows.append((int(p[0]), p[1], float(p[2]), float(p[3]), int(p[4]), p[5]))
-                    except ValueError:
-                        pass
-    except OSError:
+                try:
+                    rows.append((int(p[0]), p[1], float(p[2]), float(p[3]), int(p[4]), p[5]))
+                except (ValueError, IndexError):
+                    if strict:
+                        raise HopError("skipped: ledger has a corrupt row, spend unknown")
+    except FileNotFoundError:
         pass
+    except (OSError, UnicodeDecodeError):
+        if strict:
+            raise HopError("skipped: ledger unreadable, spend unknown")
     return rows
 
 
+def ledger_line(ts, provider, cost, lat, n, route):
+    # Fixed-width numbers, so a reservation can be rewritten in place with its result.
+    return "%d\t%s\t%.5f\t%7.2f\t%3d\t%s\n" % (ts, provider, min(max(cost, 0.0), 9.99999), min(lat, 9999.99), n, route)
+
+
 def append_ledger(provider, cost, lat, n, route):
+    """Best-effort line for an uncapped (free) hop."""
     try:
         os.makedirs(STATE, exist_ok=True)
         with open(LEDGER, "a") as f:
-            f.write("%d\t%s\t%.5f\t%.2f\t%d\t%s\n" % (time.time(), provider, cost, lat, n, route))
+            f.write(ledger_line(time.time(), provider, cost, lat, n, route))
+    except OSError:
+        pass
+
+
+def reserve(provider, cost, route):
+    """Persist a capped call before it is made; return (offset, line) or skip the hop when it cannot be stored.
+
+    The reservation (n = -1) already counts toward caps. If the call is interrupted
+    or its result cannot be written back, the conservative reservation stays.
+    """
+    line = ledger_line(time.time(), provider, cost, 0.0, -1, route)
+    try:
+        os.makedirs(STATE, exist_ok=True)
+        with open(LEDGER, "ab") as f:
+            f.write(line.encode())
+            f.flush()
+            os.fsync(f.fileno())
+            end = f.tell()
+    except OSError:
+        raise HopError("skipped: ledger unwritable, cap cannot be enforced")
+    return end - len(line.encode()), line
+
+
+def settle(slot, cost, lat, n):
+    """Rewrite a reservation with the call's result; on any doubt keep the reservation."""
+    offset, line = slot
+    ts, provider, _cost, _lat, _n, route = line.rstrip("\n").split("\t")
+    new = ledger_line(int(ts), provider, cost, lat, n, route).encode()
+    if len(new) != len(line.encode()):
+        return
+    try:
+        with open(LEDGER, "r+b") as f:
+            f.seek(offset)
+            if f.read(len(new)) != line.encode():
+                return
+            f.seek(offset)
+            f.write(new)
     except OSError:
         pass
 
@@ -340,7 +390,7 @@ def hop_order(args, cls):
 
 def tinyfish_blocked(cfg):
     now = time.time()
-    rows = [r for r in read_ledger() if r[1] == "tinyfish"]
+    rows = [r for r in read_ledger(strict=True) if r[1] == "tinyfish"]
     if sum(1 for r in rows if now - r[0] < 60) >= cfg["tinyfish"]["per_minute"]:
         return "per-minute cap"
     if sum(1 for r in rows if now - r[0] < 86400) >= cfg["tinyfish"]["per_day"]:
@@ -372,17 +422,30 @@ def capped(name, wait):
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def logged(hop, route, call):
-    """Run one provider call and write its ledger line; return (results, cost) or raise HopError."""
+def logged(hop, route, call, reserve_cost=None):
+    """Run one provider call and record it; return (results, cost) or raise HopError.
+
+    A capped hop passes reserve_cost: its ledger line is written before the call
+    and settled after it, so the next cap check sees this call even when it never
+    returns. A free hop is only logged afterwards.
+    """
+    slot = reserve(hop, reserve_cost, route) if reserve_cost is not None else None
     t0 = time.time()
     try:
         results, cost = call()
     except (HopError, ValueError, TypeError, AttributeError, KeyError) as e:
         e = e if isinstance(e, HopError) else HopError("malformed reply")
-        append_ledger(hop, e.cost, time.time() - t0, 0, route)
+        record(slot, hop, e.cost, time.time() - t0, 0, route)
         raise e
-    append_ledger(hop, cost, time.time() - t0, len(results), route)
+    record(slot, hop, cost, time.time() - t0, len(results), route)
     return results, cost
+
+
+def record(slot, hop, cost, lat, n, route):
+    if slot:
+        settle(slot, cost, lat, n)
+    else:
+        append_ledger(hop, cost, lat, n, route)
 
 
 def attempt(hop, query, limit, cfg, cls, route):
@@ -395,10 +458,10 @@ def attempt(hop, query, limit, cfg, cls, route):
         price = cfg["exa"]["deep_per_query_usd" if deep else "per_query_usd"]
         with capped("exa", t):
             now = time.time()
-            spend = exa_month_spend(read_ledger(), now)
+            spend = exa_month_spend(read_ledger(strict=True), now)
             if spend + price > cfg["exa"]["monthly_usd_cap"] + 1e-9:
                 raise HopError("skipped: exa monthly cap reached")
-            out = logged(hop, route, lambda: run_exa(cfg["exa"]["deep_type" if deep else "type"], price, query, limit, t))
+            out = logged(hop, route, lambda: run_exa(cfg["exa"]["deep_type" if deep else "type"], price, query, limit, t), price)
             warn_exa(cfg, exa_month_spend(read_ledger(), now), now)
             return out
     if hop == "tinyfish":
@@ -408,7 +471,7 @@ def attempt(hop, query, limit, cfg, cls, route):
             why = tinyfish_blocked(cfg)
             if why:
                 raise HopError("skipped: tinyfish " + why)
-            return logged(hop, route, lambda: run_tinyfish(query, limit, t, "de" if cls == "de_admin" else None))
+            return logged(hop, route, lambda: run_tinyfish(query, limit, t, "de" if cls == "de_admin" else None), 0.0)
     return logged(hop, route, lambda: run_ketch(["-b", "exa"] if hop == "exa-keyless" else ["--multi"], query, limit, t))
 
 

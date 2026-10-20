@@ -24,6 +24,8 @@
 # Ledger format: headerless TSV, one line per call:
 #   ts provider cost_usd lat_s n_results route
 # ts is Unix seconds; lat_s covers the provider call, not routing or lock waits.
+# lat_s and n_results are space-padded to a fixed width: a capped call is first
+# written as a reservation (n_results -1) and rewritten in place when it ends.
 # --ledger reports the current UTC calendar month, not a rolling month.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
