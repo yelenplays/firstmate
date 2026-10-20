@@ -1,0 +1,6 @@
+Fault-injected crew-state executable blocks for 40 seconds (not live evidence).
+$ bin/fm-branch-outcome.sh append --promote-finished --task hung-task --verdict routine --summary Probe unavailable; still record this report
+exit=0; elapsed=10.62s
+1
+$ bin/fm-branch-outcome.sh lookup --seqs 1
+{"seq":1,"epoch":1792533880,"task":"hung-task","wake":"","verdict":"routine","summary":"Probe unavailable; still record this report","silent":false,"statusEndpoint":0,"statusIdent":"-"}

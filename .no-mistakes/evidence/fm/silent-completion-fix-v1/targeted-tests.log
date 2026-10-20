@@ -1,0 +1,6 @@
+ok - report surface: only the branch actor's current turn may report, and only on the tasks its wake names
+ok - host: routine progress waits for a real drain; a mixed failure turn wakes main immediately
+ok - host: a torn-down task's completion reported routine still wakes main and is presented for relay
+ok - host: a task done after its routine report, with its records retained, is handed back as captain and wakes main
+ok - host: a silent report for a task done later in the turn is handed back as a visible result pointer and wakes main
+ok - drain: finished overflow has an independent byte budget, a hidden-result count, and durable retrieval

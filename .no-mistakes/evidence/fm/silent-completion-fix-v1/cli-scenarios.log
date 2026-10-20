@@ -1,0 +1,243 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DN3KN9FJ53VCC3H19YD5RQ/.local-test-tmp/fm-lab._i5_6ro6/home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DN3KN9FJ53VCC3H19YD5RQ/.local-test-tmp/fm-lab._i5_6ro6/home
+[exit 0]
+$ bin/fm-tasks-axi.sh add lab-scout Disposable completion delivery validation --kind scout
+ok: added lab-scout (scout) -> Queued
+task:
+  id: lab-scout
+  title: Disposable completion delivery validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start lab-scout` to move it to in flight
+  - Run `tasks-axi block lab-scout --by <other>` to record a dependency
+[exit 0]
+$ bin/fm-tasks-axi.sh done lab-scout --note Disposable task completed --no-prune
+ok: done lab-scout -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ bin/fm-crew-state.sh lab-scout
+state: done · source: backlog · closed 2026-10-21, no live metadata for lab-scout
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-scout --verdict routine --summary scout finished: lab result (routine supplied)
+1
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-scout --verdict captain --summary scout finished: lab result (captain supplied)
+2
+[exit 0]
+$ bin/fm-tasks-axi.sh add lab-ship Disposable completion delivery validation --kind ship
+ok: added lab-ship (ship) -> Queued
+task:
+  id: lab-ship
+  title: Disposable completion delivery validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start lab-ship` to move it to in flight
+  - Run `tasks-axi block lab-ship --by <other>` to record a dependency
+[exit 0]
+$ bin/fm-tasks-axi.sh done lab-ship --note Disposable task completed --no-prune
+ok: done lab-ship -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ bin/fm-crew-state.sh lab-ship
+state: done · source: backlog · closed 2026-10-21, no live metadata for lab-ship
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-ship --verdict routine --summary ship finished: lab result (routine supplied)
+3
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-ship --verdict captain --summary ship finished: lab result (captain supplied)
+4
+[exit 0]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-scout --verdict routine --silent true --summary Still busy, no changes
+5
+[exit 0]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+OBSERVED: both closed task kinds override routine verdict; silent completion becomes a visible result pointer.
+$ bin/fm-tasks-axi.sh add lab-open Disposable completion delivery validation --kind scout
+ok: added lab-open (scout) -> Queued
+task:
+  id: lab-open
+  title: Disposable completion delivery validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start lab-open` to move it to in flight
+  - Run `tasks-axi block lab-open --by <other>` to record a dependency
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-open --verdict routine --silent false --summary Still working, no result
+6
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-open --verdict routine --silent true --summary Still working, no result
+7
+[exit 0]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+OBSERVED: unfinished task stays routine; no-change report stays silent.
+$ bin/fm-tasks-axi.sh add lab-late Disposable completion delivery validation --kind scout
+ok: added lab-late (scout) -> Queued
+task:
+  id: lab-late
+  title: Disposable completion delivery validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start lab-late` to move it to in flight
+  - Run `tasks-axi block lab-late --by <other>` to record a dependency
+[exit 0]
+$ bin/fm-branch-outcome.sh append --promote-finished --task lab-late --verdict routine --summary Result ready; completion transition follows
+8
+[exit 0]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":8,"epoch":1792533832,"task":"lab-late","wake":"","verdict":"routine","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+$ bin/fm-tasks-axi.sh done lab-late --no-prune
+ok: done lab-late -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ bin/fm-branch-outcome.sh finished-handback --seqs 8
+9
+[exit 0]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":8,"epoch":1792533832,"task":"lab-late","wake":"","verdict":"routine","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":9,"epoch":1792533833,"task":"lab-late","wake":"","verdict":"captain","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":8,"epoch":1792533832,"task":"lab-late","wake":"","verdict":"routine","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":9,"epoch":1792533833,"task":"lab-late","wake":"","verdict":"captain","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+$ bin/fm-branch-outcome.sh finished-handback --seqs 8
+[exit 0]
+$ bin/fm-branch-outcome.sh present
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-","unread":true}
+{"seq":8,"epoch":1792533832,"task":"lab-late","wake":"","verdict":"routine","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true}
+{"seq":9,"epoch":1792533833,"task":"lab-late","wake":"","verdict":"captain","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-","unread":true,"recordedAgo":"0m"}
+[exit 0]
+OBSERVED: completion after report creates one captain handback; replay does not duplicate it.
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":8,"epoch":1792533832,"task":"lab-late","wake":"","verdict":"routine","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":9,"epoch":1792533833,"task":"lab-late","wake":"","verdict":"captain","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+$ bin/fm-branch-report.sh --task lab-scout --verdict captain --summary unauthorized write
+report refused: only the supervision branch reports outcomes; MAIN acts on them instead
+[exit 3]
+$ bin/fm-branch-outcome.sh list --recent 100
+{"seq":1,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":2,"epoch":1792533827,"task":"lab-scout","wake":"","verdict":"captain","summary":"scout finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":3,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (routine supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":4,"epoch":1792533829,"task":"lab-ship","wake":"","verdict":"captain","summary":"ship finished: lab result (captain supplied)","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":5,"epoch":1792533829,"task":"lab-scout","wake":"","verdict":"captain","summary":"lab-scout finished; its last report was a no-change note (Still busy, no changes), so read the finished result before relaying it: bin/fm-crew-state.sh lab-scout, its status log, and data/lab-scout/","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":6,"epoch":1792533830,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":7,"epoch":1792533831,"task":"lab-open","wake":"","verdict":"routine","summary":"Still working, no result","silent":true,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":8,"epoch":1792533832,"task":"lab-late","wake":"","verdict":"routine","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+{"seq":9,"epoch":1792533833,"task":"lab-late","wake":"","verdict":"captain","summary":"Result ready; completion transition follows","silent":false,"statusEndpoint":0,"statusIdent":"-"}
+[exit 0]
+OBSERVED: unauthorized branch-report CLI refuses with no appended outcome.
