@@ -3463,7 +3463,7 @@ SH
 }
 
 test_teardown_cannot_race_authority_consumption() {
-  local dir state url watcher_pid rc i
+  local dir state url watcher_pid rc deadline
   url=https://github.com/o/r/pull/1
   dir=$(make_case merge-authority-teardown-race)
   state="$dir/home/state"
@@ -3485,11 +3485,13 @@ test_teardown_cannot_race_authority_consumption() {
     run_watcher_bounded "$dir/home" "$dir/fakebin" \
       > "$dir/watch.out" 2> "$dir/watch.err" &
   watcher_pid=$!
-  i=0
+  # A loaded host can take seconds to start the watcher, so the wait is bounded
+  # by time, not by an iteration count.
+  deadline=$((SECONDS + FM_TEST_STUB_MAX_BLOCK_SECONDS))
   while [ ! -e "$dir/poll-started" ]; do
     sleep 0.01
-    i=$((i + 1))
-    if [ "$i" -ge 500 ]; then
+    if [ "$SECONDS" -ge "$deadline" ] || ! kill -0 "$watcher_pid" 2>/dev/null; then
+      [ -e "$dir/poll-started" ] && break
       kill "$watcher_pid" 2>/dev/null || true
       wait "$watcher_pid" 2>/dev/null || true
       fail "teardown race: watcher did not begin its validated poll"
