@@ -263,8 +263,8 @@
 #             re-emit (--reemit --source compact) prints a SLIM digest by
 #             default, sized to stay under 9 KB (see SLIM SIZE BUDGET): the lock
 #             line, then the supervision block's current state, condensed
-#             operating rules, and command for the whole block, bootstrap
-#             diagnostics, the wake queue (the drain's OPEN DECISIONS,
+#             operating rules, and command for the whole block, a pointer to
+#             bootstrap diagnostics, the wake queue (the drain's OPEN DECISIONS,
 #             UNREAD STATUS, UNFINISHED EXECUTION and
 #             BRANCH OUTCOMES sections ahead of its annotations and raw rows)
 #             with its WAKE_ACK_REQUIRED line whole, budgeted live-task lines, the
@@ -493,24 +493,39 @@ if [ "$SLIM" -eq 1 ]; then
   subsection() { printf '\n%s\n' "$1"; }
 fi
 
-# slim_capped <budget-bytes> <line-cap> <where-the-rest-is>: copy stdin, each
-# line cut by fm_cap_line_var, until the next line would pass the byte budget; then
-# name how many lines were left out and where they are.
+# slim_capped <budget-bytes> <line-cap> <where-the-rest-is>: the byte budget
+# includes the omission notice and its absolute recovery path, not just payload.
 slim_capped() {
-  local budget=$1 cap=$2 rest=$3 used=0 more=0 line bytes
+  local budget=$1 cap=$2 rest=$3 used=0 more=0 line bytes count=0 notice
+  local -a lines=()
   while IFS= read -r line || [ -n "$line" ]; do
     if [ "$more" -eq 0 ]; then
       fm_cap_line_var "$line" "$cap"
       bytes=$(printf '%s\n' "$FM_LINE_CAP_LINE" | wc -c)
       if [ $((used + bytes)) -le "$budget" ]; then
-        printf '%s\n' "$FM_LINE_CAP_LINE"
+        lines[count]=$FM_LINE_CAP_LINE
+        count=$((count + 1))
         used=$((used + bytes))
         continue
       fi
     fi
     more=$((more + 1))
   done
-  [ "$more" -eq 0 ] || printf '(%s more line(s) cut from the compact digest; full: %s)\n' "$more" "$rest"
+  if [ "$more" -gt 0 ]; then
+    while :; do
+      printf -v notice '(%s more line(s) cut from the compact digest; full: %s)' "$more" "$rest"
+      bytes=$(printf '%s\n' "$notice" | wc -c)
+      [ $((used + bytes)) -gt "$budget" ] && [ "$count" -gt 0 ] || break
+      count=$((count - 1))
+      bytes=$(printf '%s\n' "${lines[count]}" | wc -c)
+      used=$((used - bytes))
+      more=$((more + 1))
+    done
+  fi
+  for ((bytes = 0; bytes < count; bytes++)); do
+    printf '%s\n' "${lines[bytes]}"
+  done
+  [ "$more" -eq 0 ] || printf '%s\n' "$notice"
 }
 
 # slim_detail <title> <text>: append one section of uncut text to REEMIT_DETAIL.
@@ -870,7 +885,11 @@ print_supervision_stage() {
     PI_TURNEND_VERSION=$(fm_pi_extension_version "$PI_TURNEND_EXT" || printf '')
     if ! fm_pi_extension_loaded "$PI_WATCH_MARKER" "$PI_WATCH_VERSION" "$PI_LOCK" active \
       || ! fm_pi_extension_loaded "$PI_TURNEND_MARKER" "$PI_TURNEND_VERSION" "$PI_LOCK"; then
-      printf 'PI_WATCH_EXTENSION: not loaded - approve Pi project trust once per clone, then restart %s so %s and %s auto-load for turn-end guard and background wake coverage; use -e %s -e %s only if project hooks are not trusted\n' "$PI_RESTART_COMMAND" "$PI_TURNEND_EXT" "$PI_EXT" "$PI_TURNEND_EXT" "$PI_EXT"
+      if [ "$SLIM" -eq 1 ]; then
+        printf 'PI_WATCH_EXTENSION: not loaded - approve Pi project trust, then restart %s in this home for turn-end guard and background wake coverage; --full prints explicit extension paths.\n' "$PI_RESTART_COMMAND"
+      else
+        printf 'PI_WATCH_EXTENSION: not loaded - approve Pi project trust once per clone, then restart %s so %s and %s auto-load for turn-end guard and background wake coverage; use -e %s -e %s only if project hooks are not trusted\n' "$PI_RESTART_COMMAND" "$PI_TURNEND_EXT" "$PI_EXT" "$PI_TURNEND_EXT" "$PI_EXT"
+      fi
     fi
   fi
   # omp (Oh My Pi) has no project-trust gate: it auto-discovers <cwd>/.omp/extensions
@@ -888,7 +907,11 @@ print_supervision_stage() {
     OMP_TURNEND_VERSION=$(fm_pi_extension_version "$OMP_TURNEND_EXT" || printf '')
     if ! fm_pi_extension_loaded "$OMP_WATCH_MARKER" "$OMP_WATCH_VERSION" "$OMP_LOCK" \
       || ! fm_pi_extension_loaded "$OMP_TURNEND_MARKER" "$OMP_TURNEND_VERSION" "$OMP_LOCK"; then
-      printf 'OMP_WATCH_EXTENSION: not loaded - restart omp with this home as its working directory so %s and %s auto-load from .omp/extensions/ for turn-end guard and background wake coverage; pass -e %s -e %s only when omp must start from another directory, never together with auto-discovery (omp loads a file named both ways twice)\n' "$OMP_TURNEND_EXT" "$OMP_EXT" "$OMP_TURNEND_EXT" "$OMP_EXT"
+      if [ "$SLIM" -eq 1 ]; then
+        printf 'OMP_WATCH_EXTENSION: not loaded - restart omp in this home for turn-end guard and background wake coverage; --full prints explicit extension paths (never combine -e with auto-discovery).\n'
+      else
+        printf 'OMP_WATCH_EXTENSION: not loaded - restart omp with this home as its working directory so %s and %s auto-load from .omp/extensions/ for turn-end guard and background wake coverage; pass -e %s -e %s only when omp must start from another directory, never together with auto-discovery (omp loads a file named both ways twice)\n' "$OMP_TURNEND_EXT" "$OMP_EXT" "$OMP_TURNEND_EXT" "$OMP_EXT"
+      fi
     fi
   fi
   SUPERVISION_STATE_ONLY=
@@ -996,7 +1019,7 @@ if [ -z "$BOOT_OUT" ]; then
   printf '(silent - all good)\n'
 elif [ "$SLIM" -eq 1 ]; then
   slim_detail BOOTSTRAP "$BOOT_OUT"
-  printf '%s\n' "$BOOT_OUT" | slim_capped 600 160 "$REEMIT_REST"
+  printf 'Diagnostics omitted; see the uncut wake queue and bootstrap text below.\n'
 else
   printf '%s\n' "$BOOT_OUT"
 fi
@@ -1081,9 +1104,8 @@ else
       /^wake annotation: / { notes[++n] = $0; next }
       { print }
       END { for (i = 1; i <= n; i++) print notes[i]; for (i = 1; i <= r; i++) print rows[i] }
-    ' | slim_capped 1600 140 "$REEMIT_REST"
+    ' | slim_capped 1200 140 "$REEMIT_REST"
     printf '%s\n' "$DRAIN_OUT" | grep '^WAKE_ACK_REQUIRED:' | tail -n 1
-    printf 'Uncut wake queue and bootstrap text: %s\n' "$REEMIT_REST"
   else
     printf '%s\n' "$DRAIN_OUT"
   fi
@@ -1121,6 +1143,7 @@ fi
 stage read-once
 section "READ-ONCE CONTRACT"
 if [ "$SLIM" -eq 1 ]; then
+  printf 'Uncut wake queue and bootstrap text: %s\n' "$REEMIT_REST"
   cat <<EOF
 This compact digest is cut to fit inline: nothing it omitted or shortened was lost.
 Full report, once, only if this turn needs it: $SCRIPT_DIR/fm-session-start.sh --reemit --source compact --full
@@ -1362,7 +1385,7 @@ if [ "$REEMIT" -eq 1 ]; then
       # Newest words first into the budget: reverse, cut, and restore the order,
       # so the budget drops the oldest turns and the note naming them leads.
       printf '%s\n' "$HISTORY_RECENT" | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }' \
-        | slim_capped 1100 240 "$SCRIPT_DIR/fm-history.sh recent --n 5" \
+        | slim_capped 1400 240 "$SCRIPT_DIR/fm-history.sh recent --n 5" \
         | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }'
     else
       printf '%s\n' "$HISTORY_RECENT"

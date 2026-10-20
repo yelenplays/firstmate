@@ -2794,13 +2794,16 @@ EOF
 # pack - must still fit under 9 KB, with the supervision state ahead of the
 # bulk, the acknowledgement line whole, and the cut text kept on disk.
 test_compact_reemit_fits_the_inline_hook_limit() {
-  local rec root home fakebin slim bytes i long history_long sup_line wake_line rules_line ack detail
-  rec=$(new_world "compact-budget-${1:-ascii}")
+  local rec root home fakebin slim bytes i long history_long sup_line wake_line rules_line ack detail harness
+  harness=${2:-claude}
+  # Absolute recovery paths and missing-extension diagnostics also consume the
+  # delivered byte contract, not just the capped fleet and wake payloads.
+  rec=$(new_world "compact-budget-${1:-ascii}-$harness/long-isolated-home-path-for-compact-recovery")
   IFS='|' read -r root home fakebin <<EOF
 $rec
 EOF
   make_fake_toolchain "$fakebin"
-  make_fake_ps_claude "$fakebin"
+  make_fake_ps_harness "$fakebin" "$harness"
   make_fake_tmux "$fakebin" "fm-sess:live"
   printf 'ny-trenches\n' > "$home/config/theme"
   history_long=$(printf 'measured %s, ' $(seq 1 60))
@@ -2826,17 +2829,26 @@ EOF
     || fail "history capture failed for the budget fixture"
   rm -f "$fakebin/node"
   ln -s "$(command -v node)" "$fakebin/node"
-  FM_FAKE_HARNESS_PID=$$ run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+  printf 'Original startup instructions.\n' > "$root/AGENTS.md"
+  run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null
+  printf 'Updated instructions after startup.\n' > "$root/AGENTS.md"
   for i in 1 2 3; do
     append_wake "$home/state" signal "budget-task-$i.status" "signal: OVERSIZED_PAYLOAD_MARKER $long $long $long" \
       || fail "seed oversized wake failed"
   done
 
-  slim=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_FAKE_HARNESS_PID=$$ PATH="$fakebin:$BASE_PATH" \
-    env -u CLAUDECODE -u PI_CODING_AGENT -u FM_PI_HARNESS -u GROK_AGENT \
-    "$SESSION_START" --reemit --source compact)
+  slim=$(run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
   bytes=$(printf '%s\n' "$slim" | wc -c | tr -d ' ')
-  [ "$bytes" -lt 9000 ] || fail "the compact re-emit is $bytes bytes, over the 9000-byte inline budget"
+  [ "$bytes" -lt 9000 ] || fail "the $harness compact re-emit is $bytes bytes, over the 9000-byte inline budget"
+  case "$harness" in
+    pi)
+      assert_contains "$slim" "PI_WATCH_EXTENSION: not loaded" "the busy Pi fixture must exercise extension diagnostics"
+      assert_contains "$slim" "INSTRUCTION_REFRESH_REQUIRED:" "the busy Pi fixture must exercise instruction recovery"
+      ;;
+    omp)
+      assert_contains "$slim" "OMP_WATCH_EXTENSION: not loaded" "the busy OMP fixture must exercise extension diagnostics"
+      ;;
+  esac
   if [ "${1:-}" = multilingual ]; then
     printf '%s\n' "$slim" | python3 -c 'import sys; sys.stdin.buffer.read().decode("utf-8", errors="strict")' \
       || fail "the multilingual compact digest is not valid UTF-8"
@@ -2845,7 +2857,7 @@ EOF
   wake_line=$(printf '%s\n' "$slim" | grep -n '^WAKE QUEUE$' | head -n 1 | cut -d: -f1)
   [ -n "$sup_line" ] && [ -n "$wake_line" ] && [ "$sup_line" -lt "$wake_line" ] \
     || fail "the supervision state must print ahead of the wake queue (supervision line ${sup_line:-none}, wake line ${wake_line:-none})"
-  assert_contains "$slim" "fm-supervision-instructions.sh --harness claude" "the slim digest did not name the whole supervision block"
+  assert_contains "$slim" "fm-supervision-instructions.sh --harness $harness" "the slim digest did not name the whole supervision block"
   rules_line=$(printf '%s\n' "$slim" | grep -n '^Condensed operating rules' | head -n 1 | cut -d: -f1)
   [ -n "$rules_line" ] && [ "$rules_line" -lt "$wake_line" ] \
     || fail "the condensed supervision rules must print ahead of the wake queue (rules line ${rules_line:-none}, wake line ${wake_line:-none})"
@@ -2864,8 +2876,9 @@ EOF
   assert_contains "$slim" "$detail" "the slim digest did not point at the uncut drain text"
   assert_contains "$(cat "$detail")" "OVERSIZED_PAYLOAD_MARKER $long" "the uncut drain text lost a wake row"
   assert_contains "$(cat "$detail")" "budget-key-11" "the uncut drain text lost an open decision"
+  assert_contains "$(cat "$detail")" "== BOOTSTRAP ==" "the on-demand detail lost the bootstrap diagnostics"
 
-  pass "a compact re-emit of a busy fleet stays under the inline hook limit, supervision state first, cut text kept"
+  pass "the $harness compact re-emit stays under the inline hook limit ($bytes bytes), supervision first, cut text kept"
 }
 
 test_compact_reemit_keeps_each_presentation_detail_separately() {
@@ -3559,7 +3572,7 @@ case "${1:-}" in
   --hanging-git-only) test_runtime_bound_truncates_loudly_and_exits_zero; exit $? ;;
   --inherited-hanging-git-only) test_runtime_bound_with_inherited_startup_marker; exit $? ;;
   --reemit-only) test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain; exit $? ;;
-  --compact-budget-only) test_compact_reemit_fits_the_inline_hook_limit; test_compact_reemit_multilingual_fits_the_inline_hook_limit; exit $? ;;
+  --compact-budget-only) test_compact_reemit_fits_the_inline_hook_limit; test_compact_reemit_multilingual_fits_the_inline_hook_limit; test_compact_reemit_fits_the_inline_hook_limit ascii pi; test_compact_reemit_fits_the_inline_hook_limit ascii omp; exit $? ;;
   --compact-refresh-only) test_compact_instruction_refresh_fits_the_inline_hook_limit; exit $? ;;
   --compact-multilingual-only) test_compact_reemit_multilingual_fits_the_inline_hook_limit; exit $? ;;
   --compact-baseline-only)
@@ -3636,6 +3649,8 @@ test_reemit_skips_startup_sweeps_but_keeps_the_wake_drain
 test_compact_reemit_is_slim_and_full_flag_restores_the_report
 test_compact_reemit_fits_the_inline_hook_limit
 test_compact_reemit_multilingual_fits_the_inline_hook_limit
+test_compact_reemit_fits_the_inline_hook_limit ascii pi
+test_compact_reemit_fits_the_inline_hook_limit ascii omp
 test_compact_instruction_refresh_fits_the_inline_hook_limit
 test_theme_section_follows_config_theme
 test_reemit_cue_survives_the_hook_output_preview
