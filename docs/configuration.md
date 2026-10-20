@@ -1977,7 +1977,7 @@ Callers must pass only task facts and never personal data or private-vault conte
 Standard ship and scout launches, plus Devin launches, carry the spawning home's absolute path as `FM_HOME` and clear inherited provider keys; raw launch commands remain unchanged.
 The key itself is not added to the launch command or environment, so standard spawned workers must resolve `TYPESAFE_API_KEY` from the firstmate home `.env`; an environment-only key intentionally does not cross that launch boundary.
 A pick question offers at most 8 options; a longer list is refused before anything is sent, so the caller narrows it first.
-Transport attempts produce metadata-only logs for escalation audits by call site and task; the script header owns their path and schema.
+Calls reaching the shared client produce metadata-only logs for escalation audits by call site and task; the script header owns their path and schema.
 Crew workers run as the operator's same OS user and have full file access; they are not sandboxed and can read files available to that user.
 
 ## Jev remainder tool-gate (FM_JEV_TOOL_GATE)

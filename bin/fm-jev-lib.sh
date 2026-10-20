@@ -36,20 +36,20 @@
 # child environment. Nothing prints, logs, or writes the key.
 #
 # Caller tag: every Jev call names its call site with a stable lowercase
-# kebab-case tag (letters, digits, dashes; at most 40 characters). A sourcing
-# script sets the plain shell variable FM_JEV_CALLER once after sourcing this
-# file; fm_jev_decide --caller <tag> overrides it for one call. Sourcing clears
-# any inherited FM_JEV_CALLER, so a tag is never borrowed from a parent process.
-# fm_jev_decide refuses without a valid tag before any request is built, and
-# fm_jev_log_call stamps the tag into every record that does not carry one.
+# kebab-case tag (starts with a letter, then letters, digits, or dashes;
+# at most 40 characters). A sourcing script sets the plain shell variable
+# FM_JEV_CALLER once after sourcing this file; fm_jev_decide --caller <tag>
+# overrides it for one call, even when the override is empty or invalid.
+# Initial sourcing clears any inherited FM_JEV_CALLER, so a tag is never
+# borrowed from a parent process.
 #
 # Public helpers:
 #   fm_jev_caller_ok <tag>
 #     Succeeds when <tag> is a valid caller tag.
 #   fm_jev_decide <state> <questions-json> [--string] [--before-send <function>] [--caller <tag>]
-#     POST {model, state, questions}. Refuses with 2, without calling curl, when
-#     neither --caller nor FM_JEV_CALLER holds a valid caller tag; sets
-#     FM_JEV_LAST_CALLER to the tag used. By default, <state> is a JSON object or
+#     POST {model, state, questions}. Refuses with 2 before building a request
+#     when the resolved caller tag is missing or invalid; sets FM_JEV_LAST_CALLER
+#     to the tag used after validation. By default, <state> is a JSON object or
 #     array when the argument parses as one, otherwise a string; --string
 #     forces a JSON string. <questions-json> is a JSON object. An optional
 #     --before-send shell function receives the complete assembled request as
@@ -83,9 +83,11 @@
 #     scorer; it owns top-2 ordering and margin arithmetic.
 #   fm_jev_log_call <json-object> [<path>]
 #     Appends one JSONL line. Default path is $FM_HOME/state/jev-calls.jsonl.
-#     A record without a string caller field gets caller=$FM_JEV_CALLER; with
-#     neither a valid record caller nor a valid FM_JEV_CALLER it refuses with 2
-#     and writes nothing.
+#     A record's string caller takes precedence; otherwise caller=$FM_JEV_CALLER.
+#     If the resulting tag is missing or invalid, refuses with 2 and writes
+#     nothing, even when FM_JEV_CALLER is valid but the record's string is not.
+#     A per-call --caller override does not change FM_JEV_CALLER; callers logging
+#     that override must supply it in the record's caller field.
 #     Known secret-shaped object keys are replaced with [redacted]; live
 #     TYPESAFE_API_KEY / OPENROUTER_API_KEY values are stripped from the line.
 #   fm_jev_compact_state <state>
