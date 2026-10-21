@@ -2944,8 +2944,11 @@ EOF
       || fail "seed oversized wake failed"
   done
 
-  slim=$(run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
+  # Exercise recoverable bootstrap diagnostics even on a fully equipped host.
+  slim=$(FM_FAKE_LAVISH_AXI_VERSION=0.0.0 run_named_harness_session_start "$harness" "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
   assert_contains "$slim" "Public commitments" "the compact digest lost outstanding public commitments"
+  assert_contains "$slim" "BOARD " "the compact digest lost the board counts"
+  assert_contains "$slim" "full: bin/fm-board.sh" "the compact digest lost the full board command"
   bytes=$(printf '%s\n' "$slim" | wc -c | tr -d ' ')
   [ "$bytes" -lt 9000 ] || fail "the $harness compact re-emit is $bytes bytes, over the 9000-byte inline budget"
   followup_command=$(printf '%s\n' "$slim" | sed -n 's/^Open public loops remain\. List: //p')

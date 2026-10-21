@@ -1208,15 +1208,22 @@ stage fleet-state
 section "FLEET STATE"
 # The board goes first in this stage: it is the one view of what waits on the
 # captain, recomputed from stored state, so a truncated tail must not take it.
-subsection "Board (bin/fm-board.sh: what needs the captain, from stored state)"
+if [ "$SLIM" -eq 1 ]; then
+  subsection "Board (full: bin/fm-board.sh)"
+else
+  subsection "Board (bin/fm-board.sh: what needs the captain, from stored state)"
+fi
 BOARD_RC=0
 BOARD_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
   fm_run_timed "$BOARD_TIMEOUT" "$SCRIPT_DIR/fm-board.sh" --skip-done 2>&1) || BOARD_RC=$?
 if [ "$BOARD_RC" -ne 0 ]; then
-  printf 'board unavailable (exit %s, bound %ss); run bin/fm-board.sh on demand: %s\n' \
-    "$BOARD_RC" "$BOARD_TIMEOUT" "$(printf '%s' "$BOARD_OUT" | tail -1)"
-elif [ "$SLIM" -eq 1 ]; then
-  printf '%s\n' "$BOARD_OUT" | slim_capped 2400 200 "bin/fm-board.sh"
+  BOARD_OUT=$(printf 'board unavailable (exit %s, bound %ss); run bin/fm-board.sh on demand: %s\n' \
+    "$BOARD_RC" "$BOARD_TIMEOUT" "$(printf '%s' "$BOARD_OUT" | tail -1)")
+fi
+if [ "$SLIM" -eq 1 ]; then
+  # Keep only the counts (or failure diagnostic); task rows already have
+  # budgets under work under way and open decisions. The full-board command is above.
+  printf '%s\n' "$BOARD_OUT" | head -1 | slim_capped 200 200 "bin/fm-board.sh"
 else
   printf '%s\n' "$BOARD_OUT"
 fi
