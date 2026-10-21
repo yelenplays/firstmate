@@ -1,0 +1,6 @@
+ok - the brief declares exactly one fail-to-pass command
+ok - the test seat may only report committed tests as tests-ready
+ok - handoff proves the tests red on the base and relaunches onto the implementer
+ok - handoff refuses a run that is green, cannot run, or times out
+ok - handoff refuses a seat that is not ready to hand over
+all fm-tdd-split tests passed

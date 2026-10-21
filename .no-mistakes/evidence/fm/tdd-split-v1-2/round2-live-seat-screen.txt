@@ -1,0 +1,37 @@
+treehouse get
+project on  main
+❯ treehouse get
+A new version of treehouse is available: v2.0.0 → v3.1.4
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-live.48loNV/pool/.tree
+house/project-7d5b7d/1/project. Type 'exit' to return.
+project on  HEAD
+❯ cd -- '/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-live.48loNV/pool/.treehou
+se/project-7d5b7d/1/project'
+project on  HEAD
+❯ export GOTMPDIR=/tmp/fm-trial/gotmp
+project on  HEAD
+❯ export COMPACT_ADVISER_DISABLE=1
+project on  HEAD
+❯ export FM_TASK_ID=trial
+project on  HEAD
+❯ . '/tmp/fm-trial+fbf8281fac6b9be5d5830ed10f5b24b1ac8d05d973adc84025f6f408ffc47013/launch.s1792574241.84753.1477.sh'
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Allow external CLAUDE.md file imports?
+
+  This project's CLAUDE.md or .claude/rules imports files outside the current working directory. Never allow this for
+  third-party repositories.
+
+  External imports:
+    /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/AGENTS.md
+
+  Important: Only use Claude Code with files you trust. Accessing untrusted files may pose security risks
+  https://code.claude.com/docs/en/security
+
+  ❯ No, disable external imports
+    Yes, allow external imports
+
+  Enter to confirm · Esc to cancel

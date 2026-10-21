@@ -1,0 +1,3 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-live.Abss2Y/home
+error: fm-brief.sh --base-branch: a base branch cannot ship mode=local-only, whose landing fast-forwards local main; ship no-mistakes or direct-PR, which open a pull request against the base
+fm-herdr-lab: missing fleet-state tripwire for 'fm-lab-tdd-seat-round2-61438-229'; refusing destructive calls

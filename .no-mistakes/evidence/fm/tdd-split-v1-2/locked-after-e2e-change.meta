@@ -1,0 +1,14 @@
+kind=ship
+mode=direct-PR
+yolo=off
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli.x3Trqi/locked
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli.x3Trqi/project
+base_branch=main
+branch=fm/locked
+harness=claude
+model=claude-sonnet-5-5
+test_ban_model=claude-sonnet-5-5
+test_ban_since=f758eef0bb1658ef219c822d93ff9e87f4cc193e
+tdd_split=implement
+tdd_split_tests=f758eef0bb1658ef219c822d93ff9e87f4cc193e
+pr=https://github.com/firstmate-validation-lab/nonexistent-tdd-task/pull/1

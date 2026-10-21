@@ -1,0 +1,10 @@
+{
+  "trial_sessions": [],
+  "default_session": [
+    {
+      "name": "default",
+      "running": true,
+      "default": true
+    }
+  ]
+}

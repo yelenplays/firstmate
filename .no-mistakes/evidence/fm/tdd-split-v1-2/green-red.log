@@ -1,0 +1,2 @@
+
+fm-tdd-split: head=4cb3999998435bd5e777d8135e50da86232215d6 exit=0 command=for t; do bash "$t" || exit 1; done

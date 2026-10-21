@@ -1,0 +1,143 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli-round2.c9wVcu/home
+
+$ bin/fm-tdd-split.sh handoff premature --timeout 1
+error: task premature has not reported done: tests-ready
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff dirty --timeout 1
+error: tdd-split test seat has uncommitted changes; commit the tests and report tests-ready again
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff mixed --timeout 1
+error: tdd-split test seat changed files that are not tests: feature.sh; the seat writes tests only, so revert those changes and report tests-ready again
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff green --timeout 1
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli-round2.c9wVcu/home/data/green/tdd-split-red.log
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff missing --timeout 1
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli-round2.c9wVcu/home/data/missing/tdd-split-red.log
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff timeout --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli-round2.c9wVcu/home/data/timeout/tdd-split-red.log
+exit=1
+tdd_split=tests
+
+$ bin/fm-pr-check.sh deepseek <nonexistent-lab-URL> (tests authored by opencode-go/deepseek-v4.1-flash)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  7 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+exit=1
+
+$ bin/fm-pr-check.sh glm <nonexistent-lab-URL> (tests authored by opencode-go/glm-5)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on opencode-go/glm-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+exit=1
+
+Checkpoint 76bb7a3a968be51eae767f80dfa8ba9867478053: feature absent, handed tests fail (exit=1).
+diff --git a/tests/feature.test.sh b/tests/feature.test.sh
+index 88d6b67..27ba77d 100644
+--- a/tests/feature.test.sh
++++ b/tests/feature.test.sh
+@@ -1 +1 @@
+-[ -f feature.sh ]
++true
+
+$ bin/fm-pr-check.sh unit-weaken <nonexistent-lab-URL>
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+exit=1
+Refusal preserved metadata and left PR monitoring unarmed.
+
+Feature implemented: unit, checkpoint e2e, and new e2e tests pass.
+$ bin/fm-pr-check.sh unit-weaken <nonexistent-lab-URL> (checkpoint restored; implementation complete)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/unit-weaken.check.sh
+exit=0
+pr=https://github.com/firstmate-validation-lab/nonexistent-tdd-task/pull/1
+PR monitoring armed; checkpoint test bytes unchanged: yes
+
+Checkpoint c1bc58f6826cf5e7523ae979c10b2cf43728a4e6: feature absent, handed tests fail (exit=1).
+diff --git a/e2e/feature.test.sh b/e2e/feature.test.sh
+index 88d6b67..27ba77d 100644
+--- a/e2e/feature.test.sh
++++ b/e2e/feature.test.sh
+@@ -1 +1 @@
+-[ -f feature.sh ]
++true
+
+$ bin/fm-pr-check.sh e2e-weaken <nonexistent-lab-URL>
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files e2e/feature.test.sh; revert those changes and report done again
+exit=1
+Refusal preserved metadata and left PR monitoring unarmed.
+
+Feature implemented: unit, checkpoint e2e, and new e2e tests pass.
+$ bin/fm-pr-check.sh e2e-weaken <nonexistent-lab-URL> (checkpoint restored; implementation complete)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/e2e-weaken.check.sh
+exit=0
+pr=https://github.com/firstmate-validation-lab/nonexistent-tdd-task/pull/1
+PR monitoring armed; checkpoint test bytes unchanged: yes
+
+Checkpoint 1340112337a49aa9ddb9d607235976d286a58e5d: feature absent, handed tests fail (exit=1).
+diff --git a/e2e/feature.test.sh b/e2e/feature.test.sh
+deleted file mode 100644
+index 88d6b67..0000000
+--- a/e2e/feature.test.sh
++++ /dev/null
+@@ -1 +0,0 @@
+-[ -f feature.sh ]
+
+$ bin/fm-pr-check.sh e2e-delete <nonexistent-lab-URL>
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files e2e/feature.test.sh; revert those changes and report done again
+exit=1
+Refusal preserved metadata and left PR monitoring unarmed.
+
+Feature implemented: unit, checkpoint e2e, and new e2e tests pass.
+$ bin/fm-pr-check.sh e2e-delete <nonexistent-lab-URL> (checkpoint restored; implementation complete)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/e2e-delete.check.sh
+exit=0
+pr=https://github.com/firstmate-validation-lab/nonexistent-tdd-task/pull/1
+PR monitoring armed; checkpoint test bytes unchanged: yes
+
+Checkpoint ad08f4861da7354eef7bd56eebd8cf841730a0d7: feature absent, handed tests fail (exit=1).
+diff --git a/e2e/feature.test.sh b/disabled.sh
+similarity index 100%
+rename from e2e/feature.test.sh
+rename to disabled.sh
+
+$ bin/fm-pr-check.sh e2e-rename <nonexistent-lab-URL>
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files e2e/feature.test.sh; revert those changes and report done again
+exit=1
+Refusal preserved metadata and left PR monitoring unarmed.
+
+Feature implemented: unit, checkpoint e2e, and new e2e tests pass.
+$ bin/fm-pr-check.sh e2e-rename <nonexistent-lab-URL> (checkpoint restored; implementation complete)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/e2e-rename.check.sh
+exit=0
+pr=https://github.com/firstmate-validation-lab/nonexistent-tdd-task/pull/1
+PR monitoring armed; checkpoint test bytes unchanged: yes
+
+$ bin/fm-pr-check.sh fixer-on-opus <nonexistent-lab-URL> (Sonnet review fixer adds test on Opus task)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 20d5004a667e: tests/fixer.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+exit=1
+
+All manual CLI scenarios passed; disposable lab removed on exit. No published PR or live harness is claimed.

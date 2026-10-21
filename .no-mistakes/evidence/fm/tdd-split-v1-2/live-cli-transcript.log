@@ -1,0 +1,70 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli.x3Trqi/home
+
+$ bin/fm-tdd-split.sh handoff premature --timeout 1
+error: task premature has not reported done: tests-ready
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff dirty --timeout 1
+error: tdd-split test seat has uncommitted changes; commit the tests and report tests-ready again
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff production --timeout 1
+error: tdd-split test seat changed files that are not tests: feature.sh; the seat writes tests only, so revert those changes and report tests-ready again
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff green --timeout 1
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli.x3Trqi/home/data/green/tdd-split-red.log
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff missing-command --timeout 1
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli.x3Trqi/home/data/missing-command/tdd-split-red.log
+exit=1
+tdd_split=tests
+
+$ bin/fm-tdd-split.sh handoff timeout --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.test-tdd-cli.x3Trqi/home/data/timeout/tdd-split-red.log
+exit=1
+tdd_split=tests
+
+$ bin/fm-pr-check.sh deepseek <nonexistent-lab-URL> (unauthorized tests on opencode-go/deepseek-v4.1-flash)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  7 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DR0CF1E1R45T9NEBBZT18D/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+exit=1
+
+$ bin/fm-pr-check.sh glm <nonexistent-lab-URL> (unauthorized tests on opencode-go/glm-5)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on opencode-go/glm-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+exit=1
+
+Checkpoint-owned e2e test on missing feature: exit=1
+
+$ bin/fm-pr-check.sh locked <nonexistent-lab-URL> (unit test changed)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+exit=1
+
+Handed-over test diff (unit test restored; only end-to-end test weakened):
+diff --git a/e2e/feature.test.sh b/e2e/feature.test.sh
+index 88d6b67..27ba77d 100644
+--- a/e2e/feature.test.sh
++++ b/e2e/feature.test.sh
+@@ -1 +1 @@
+-[ -f feature.sh ]
++true
+Weakened e2e test: exit=0; feature.sh still absent=yes
+
+$ bin/fm-pr-check.sh locked <nonexistent-lab-URL> (handed e2e test changed)
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/locked.check.sh
+exit=0
+BUG REPRODUCED: handed-over e2e test was changed to true, yet PR registration succeeded.
