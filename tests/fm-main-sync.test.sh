@@ -24,7 +24,7 @@ export FM_ROOT_OVERRIDE
 
 H="$TMP_ROOT/home"
 GHFAKE="$TMP_ROOT/gh"
-mkdir -p "$H/state" "$H/data" "$H/config" "$H/projects" "$GHFAKE/compare"
+mkdir -p "$H/state" "$H/data" "$H/config" "$H/projects" "$GHFAKE/compare" "$GHFAKE/commits"
 GHLOG="$TMP_ROOT/gh.log"
 CHECKLOG="$TMP_ROOT/pr-check.log"
 : > "$GHLOG"
@@ -52,6 +52,11 @@ case "$1 $2" in
       exit 1
     fi
     echo '{"message":"Updating pull request branch."}'
+    ;;
+  api\ repos/*/commits/*)
+    ref=${2##*/commits/}
+    [ -f "$GHFAKE/commits/$ref" ] || { echo "no commit" >&2; exit 1; }
+    cat "$GHFAKE/commits/$ref"
     ;;
   api\ repos/*/compare/*)
     ref=${2##*/compare/}
@@ -102,7 +107,7 @@ run_sync() {
 
 {
   printf '## In flight\n'
-  for id in behind conflicting moved fork current refused own draft local busy; do
+  for id in behind conflicting moved fork current refused own worker offbase draft local busy; do
     printf -- '- [ ] %s - Task %s (repo: firstmate) (kind: ship) (since 2026-10-19)\n' "$id" "$id"
   done
   printf '\n## Queued\n\n## Done\n'
@@ -124,8 +129,20 @@ H7=$(sha 2 b); H7B=$(sha 2 c); ready_ship own 7 "$H7"; view 7 OPEN false false "
 printf 'version=fm-main-sync-v1\ntask=own\nspawn_gen=s1.own\npr=https://github.com/acme/repo/pull/7\nhead=%s\nbase=main\nresult=synced\ndetail=merged\nat=1\n' "$H7" \
   > "$H/state/own.main-sync"
 echo 0 > "$GHFAKE/compare/$H7...$H7B"
+BASE7=$(sha 2 f); echo "$H7 $BASE7" > "$GHFAKE/commits/$H7B"
+echo 0 > "$GHFAKE/compare/$BASE7...main"
 echo 0 > "$GHFAKE/compare/main...$H7B"
 echo "$H7B" > "$GHFAKE/new-head"
+synced_ship() {  # <id> <n> <recorded> <live> <parents>
+  ready_ship "$1" "$2" "$3"; view "$2" OPEN false false "$4" MERGEABLE
+  printf 'version=fm-main-sync-v1\ntask=%s\nspawn_gen=s1.%s\npr=https://github.com/acme/repo/pull/%s\nhead=%s\nbase=main\nresult=synced\ndetail=merged\nat=1\n' \
+    "$1" "$1" "$2" "$3" > "$H/state/$1.main-sync"
+  echo "$5" > "$GHFAKE/commits/$4"
+}
+H10=$(sha 3 b); H10B=$(sha 3 c); synced_ship worker 10 "$H10" "$H10B" "$H10"
+echo 0 > "$GHFAKE/compare/$H10...$H10B"
+H11=$(sha 3 d); H11B=$(sha 3 e); synced_ship offbase 11 "$H11" "$H11B" "$H11 $(sha 3 f)"
+echo 2 > "$GHFAKE/compare/$(sha 3 f)...main"
 H8=$(sha 2 d); ready_ship draft 8 "$H8"; view 8 OPEN true false "$H8" MERGEABLE
 mkdir -p "$H/projects/local"
 fm_write_meta "$H/state/local.meta" "worktree=$H/projects/local" "project=firstmate" "harness=claude" \
@@ -172,6 +189,12 @@ assert_grep 'own https://github.com/acme/repo/pull/7' "$CHECKLOG" "a head this c
 assert_equals current "$(sync_field own result)" "after re-recording, the moved head is compared afresh"
 assert_equals "$H7B" "$(sync_field own head)" "the record follows the re-recorded head"
 assert_no_grep 'pulls/7/update-branch' "$GHLOG" "the re-recorded head needed no further update"
+
+assert_equals "$H10" "$(sync_field worker head)" "a worker commit on top of the synced head is not adopted"
+assert_no_grep '^worker ' "$CHECKLOG" "a single-parent head never reaches fm-pr-check"
+assert_no_grep '^offbase ' "$CHECKLOG" "a merge whose second parent is off base never reaches fm-pr-check"
+assert_contains "$OUT" "worker skipped: live head" "the worker commit is reported as a moved head"
+assert_contains "$OUT" "offbase skipped: live head" "the off-base merge is reported as a moved head"
 
 assert_absent "$H/state/local.main-sync" "a local-only ready branch is not moved"
 assert_absent "$H/state/busy.main-sync" "a task still working is not synced"

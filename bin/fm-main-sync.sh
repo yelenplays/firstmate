@@ -85,6 +85,17 @@ head_contains() {  # <owner> <repo-path> <old> <new>
   [ "$behind" = 0 ]
 }
 
+is_sync_merge() {  # <owner> <repo-path> <recorded-head> <live-head> <base>
+  local parents first second extra
+  parents=$(gh_api "$1" api "repos/$2/commits/$4" --jq '.parents | map(.sha) | join(" ")' 2>/dev/null) || return 1
+  read -r first second extra <<EOF2
+$parents
+EOF2
+  [ -n "$second" ] && [ -z "$extra" ] && [ "$first" = "$3" ] || return 1
+  fm_pr_head_valid "$second" || return 1
+  head_contains "$1" "$2" "$second" "$5"
+}
+
 sync_one() {  # <facts-json-line>
   local facts=$1 id spawn_gen url pr_head view state draft cross head base mergeable owner behind
   local last_result last_head err
@@ -111,7 +122,7 @@ sync_one() {  # <facts-json-line>
   if [ "$head" != "$pr_head" ]; then
     last_result=$(fm_board_record_get "$STATE/$id.main-sync" result)
     last_head=$(fm_board_record_get "$STATE/$id.main-sync" head)
-    if [ "$last_result" = synced ] && [ "$last_head" = "$pr_head" ] && head_contains "$owner" "$FM_PR_PATH" "$pr_head" "$head"; then
+    if [ "$last_result" = synced ] && [ "$last_head" = "$pr_head" ] && is_sync_merge "$owner" "$FM_PR_PATH" "$pr_head" "$head" "$base"; then
       if ! err=$("$PR_CHECK_BIN" "$id" "$url" 2>&1 >/dev/null); then
         record "$id" "$spawn_gen" "$url" "$pr_head" "$base" error "synced, but re-recording the new head failed: $err"
         return 0
