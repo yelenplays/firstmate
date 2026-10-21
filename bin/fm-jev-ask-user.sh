@@ -27,12 +27,10 @@
 # or data-loss concern; a wiki vault project (an _meta/einstieg.sh,
 # _meta/pruefe.sh or _meta/einstieg-manifest.json marker, or a path under the
 # wikis root: FM_WIKIS_ROOT, else config/wikis-root, else ~/Documents/Wikis),
-# an unreadable project path, no Jev key, or a contract carrying a secret, or
-# findings alone over the library's state cap. A contract that only pushes the
-# state over the cap is trimmed deterministically: the captain's intent keeps up
-# to half the room the findings leave, the spec two thirds of the rest, the
-# steers the remainder, each cut at a line end with a trim marker. Other findings also escalate if their
-# typed risk screen returns p_yes > 0.2 or is malformed.
+# an unreadable project path, no Jev key, a contract carrying a secret, or
+# contract and findings over the library's state cap. Intent, spec, and steers
+# are never truncated: omitted text could restrict scope. Other findings also
+# escalate if their typed risk screen returns p_yes > 0.2 or is malformed.
 #
 # Otherwise one typed Jev call through bin/fm-jev-lib.sh sends the contract
 # and snapshot as state and asks a scope choice plus a separate yes/no risk
@@ -303,33 +301,6 @@ JEV_STATE=$(build_state "$INTENT" "$SPEC" "$STEERS")
 
 if fm_jev_has_sensitive_key "$JEV_STATE"; then
   escalate privacy "the contract or findings carry a secret-shaped value; nothing was sent"
-fi
-# An over-cap contract is trimmed, never the findings: the captain's intent
-# keeps up to half of the room the findings leave, the spec two thirds of the
-# rest, the steers what remains, each cut at a line end with a marker. Only
-# findings that alone exceed the cap still escalate below.
-trim_to() { # <text> <bytes>
-  local text=$1 limit=$2 marker='[... trimmed to fit the Jev state cap ...]' cut
-  [ "$(printf '%s' "$text" | wc -c)" -gt "$limit" ] || { printf '%s' "$text"; return 0; }
-  [ "$limit" -gt "${#marker}" ] || { printf '%s' "$marker"; return 0; }
-  cut=$(printf '%s' "$text" | LC_ALL=C head -c $((limit - ${#marker} - 1)))
-  case "$cut" in *$'\n'*) cut=${cut%$'\n'*} ;; esac
-  printf '%s\n%s' "$cut" "$marker"
-}
-state_bytes() { printf '%s' "$1" | wc -c | tr -d ' '; }
-STATE_MAX=$(_fm_jev_state_max)
-if [ "$(state_bytes "$JEV_STATE")" -gt "$STATE_MAX" ]; then
-  ROOM=$((STATE_MAX - $(state_bytes "$(build_state "" "" "")") - 64))
-  if [ "$ROOM" -gt 0 ]; then
-    INTENT_ROOM=$((ROOM / 2))
-    INTENT=$(trim_to "$INTENT" "$INTENT_ROOM")
-    ROOM=$((ROOM - $(state_bytes "$INTENT")))
-    SPEC_ROOM=$((ROOM * 2 / 3))
-    SPEC=$(trim_to "$SPEC" "$SPEC_ROOM")
-    ROOM=$((ROOM - $(state_bytes "$SPEC")))
-    STEERS=$(trim_to "$STEERS" "$ROOM")$'\n'
-    JEV_STATE=$(build_state "$INTENT" "$SPEC" "$STEERS")
-  fi
 fi
 # fm_jev_compact_state owns the state size cap and sensitive-data stripping;
 # any refusal or change means this contract cannot go to Jev as it stands.
