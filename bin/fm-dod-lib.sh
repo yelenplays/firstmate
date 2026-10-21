@@ -947,20 +947,25 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
   return 1
 }
 
-# Prints, one per line, the test files the worker copy's commits add or modify
-# since their merge-base with the base. With a tests-first handoff <since>, it
-# prints the test files added, modified, or deleted since <since> that are also
-# changed against the base or were handed over at <since>. 1 when the base or
-# <since> cannot be resolved; stdout then holds a one-line reason.
-fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
-  local wt=$1 since=${3:-} base_ref mb fork path
+# Prints, one per line, the test files the commits up to <head> (default the
+# worker copy's HEAD) add or modify since their merge-base with the base. With a
+# tests-first handoff <since>, it prints the test files added, modified, or
+# deleted since <since> that are also changed against the base or were handed
+# over at <since>. 1 when the base, <since>, or <head> cannot be resolved;
+# stdout then holds a one-line reason.
+fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
+  local wt=$1 since=${3:-} head=${4:-HEAD} base_ref mb fork path
   [ "$since" != base ] || since=
   if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
     printf '%s\n' "test-file check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
     return 1
   fi
-  if ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
-    printf '%s\n' "test-file check found no merge-base between HEAD and $base_ref"
+  if ! git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1; then
+    printf '%s\n' "test-file check cannot read the published head $head in the worker copy; fetch it and report again"
+    return 1
+  fi
+  if ! mb=$(git -C "$wt" merge-base "$base_ref" "$head" 2>/dev/null); then
+    printf '%s\n' "test-file check found no merge-base between $head and $base_ref"
     return 1
   fi
   if [ -n "$since" ] && ! fork=$(git -C "$wt" merge-base "$base_ref" "$since" 2>/dev/null); then
@@ -968,13 +973,13 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
     return 1
   fi
   if [ -z "$since" ]; then
-    git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null
+    git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" "$head" 2>/dev/null
   else
     # Deleting a handed-over failing test is as much a change to it as editing it.
     awk 'NR == FNR { owned[$0] = 1; next } $0 in owned' \
-      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$mb" HEAD 2>/dev/null
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$mb" "$head" 2>/dev/null
         git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
-      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" HEAD 2>/dev/null)
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" "$head" 2>/dev/null)
   fi | while IFS= read -r path; do
     if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
   done
@@ -990,8 +995,11 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
 # branch in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite: <step>-fix, and <step>
 # itself except for the read-only review. Without known recorded models, or
 # when sqlite3 or the database is unavailable, config.yaml in that same home
-# supplies review_agents.fixer for review, else every agent in the `agent:`
-# fallback chain. A step with no known candidate model is not banned, like an
+# supplies the models with no-mistakes' own precedence: an agent's native
+# --model pin in agent_args_override wins over review_agents.fixer.model for
+# review and over agent_config.<agent>.model everywhere. Review uses
+# review_agents.fixer.agent, else every agent in the `agent:` fallback chain,
+# which every other step uses. A step with no known candidate model is not banned, like an
 # unset worker model. tests/fm-dod-lib.test.sh and
 # tests/fm-pr-check-security.test.sh pin attribution and pre-PR enforcement.
 
@@ -1041,21 +1049,26 @@ fm_test_ban_nm_config_flat() {  # <config.yaml>
   ' "$1"
 }
 
-# Prints the model the no-mistakes config runs <agent> on: its
-# agent_config.<agent>.model, else the value after --model in its
-# agent_args_override list. Prints nothing when neither names one.
-fm_test_ban_nm_agent_model() {  # <flat-config> <agent>
+# Prints the model the no-mistakes config runs <agent> on for a step whose role
+# names <role-model>: the native --model pin in its agent_args_override list,
+# which wins over every configured model, else <role-model>, else its
+# agent_config.<agent>.model. Prints nothing when none names one.
+fm_test_ban_nm_agent_model() {  # <flat-config> <agent> [<role-model>]
   local flat=$1 agent=$2 model
-  model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_config.$agent.model" '$1 == p { print $2 }' | tail -1)
-  [ -n "$model" ] || model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_args_override.$agent" '
-    $1 == p { if (want) { print $2; exit } want = ($2 == "--model") }')
+  model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_args_override.$agent" '
+    $1 != p { next }
+    want { print $2; exit }
+    $2 == "--model" { want = 1; next }
+    index($2, "--model=") == 1 { print substr($2, 9); exit }')
+  [ -n "$model" ] || model=${3:-}
+  [ -n "$model" ] || model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_config.$agent.model" '$1 == p { print $2 }' | tail -1)
   [ -z "$model" ] || printf '%s\n' "$model"
 }
 
 # Prints candidate models for <step> on <branch> under the pipeline-fixer
 # contract above; these are not attributed to individual commits.
 fm_test_ban_nm_step_models() {  # <step> [<branch>]
-  local step=$1 branch=${2:-} nm_home db models='' flat agent model
+  local step=$1 branch=${2:-} nm_home db models='' flat agent agents model role=
   nm_home=${NM_HOME:-$HOME/.no-mistakes}
   db="$nm_home/state.sqlite"
   case "$step$branch" in *"'"*) return 0 ;; esac
@@ -1066,31 +1079,34 @@ fm_test_ban_nm_step_models() {  # <step> [<branch>]
   fi
   if [ -z "$models" ]; then
     flat=$(fm_test_ban_nm_config_flat "$nm_home/config.yaml")
+    agents=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "agent" { print $2 }')
     if [ "$step" = review ]; then
-      models=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "review_agents.fixer.model" { print $2 }' | tail -1)
-      if [ -z "$models" ]; then
-        agent=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "review_agents.fixer.agent" { print $2 }' | tail -1)
-        [ -z "$agent" ] || models=$(fm_test_ban_nm_agent_model "$flat" "$agent")
-      fi
-    else
-      while IFS= read -r agent; do
-        [ -n "$agent" ] || continue
-        model=$(fm_test_ban_nm_agent_model "$flat" "$agent")
-        [ -z "$model" ] || models="$models$model"$'\n'
-      done < <(printf '%s\n' "$flat" | awk -F'\t' '$1 == "agent" { print $2 }')
+      role=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "review_agents.fixer.model" { print $2 }' | tail -1)
+      agent=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "review_agents.fixer.agent" { print $2 }' | tail -1)
+      [ -z "$agent" ] || agents=$agent
+      # A role model with no agent to run it still names the fixer's model.
+      [ -n "$agents" ] || models=$role
     fi
+    while IFS= read -r agent; do
+      [ -n "$agent" ] || continue
+      model=$(fm_test_ban_nm_agent_model "$flat" "$agent" "$role")
+      [ -z "$model" ] || models="$models$model"$'\n'
+    done <<<"$agents"
   fi
   printf '%s\n' "$models" | sed '/^$/d'
 }
 
 # Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
-# pipeline-fixer contract above. Unreadable history returns 0 without output:
-# no pipeline commit can then be attributed, like an unknown model.
-fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta>
-  local wt=$1 meta=$2 base_ref mb sha subject step model banned path
+# pipeline-fixer contract above, in the commits up to <head> (default the
+# worker copy's HEAD). Unreadable history, including a <head> the worker copy
+# does not hold, returns 0 without output: no pipeline commit can then be
+# attributed, like an unknown model.
+fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
+  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step model banned path
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
   base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
-  mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null) || return 0
+  mb=$(git -C "$wt" merge-base "$base_ref" "$head" 2>/dev/null) || return 0
   while IFS=$'\t' read -r sha subject; do
     case "$subject" in no-mistakes\(*\):*) ;; *) continue ;; esac
     step=${subject#no-mistakes(}
@@ -1104,10 +1120,10 @@ fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta>
     while IFS= read -r path; do
       fm_test_ban_path_is_test "$path" || continue
       fm_test_ban_path_allowed "$path" "$meta" && continue
-      git -C "$wt" diff --quiet "$sha^" HEAD -- "$path" && continue
+      git -C "$wt" diff --quiet "$sha^" "$head" -- "$path" && continue
       printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$banned" "$path"
     done < <(git -C "$wt" diff-tree --no-commit-id --no-renames --name-only --diff-filter=ACMR -r "$sha" 2>/dev/null)
-  done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..HEAD" 2>/dev/null)
+  done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..$head" 2>/dev/null)
 }
 
 # 0 when this done: is one the test-authoring gate must check: a ship done: from
@@ -1139,12 +1155,14 @@ fm_test_ban_should_check_pipeline() {  # <kind> <mode> <line> <meta> [force]
 
 # 0 when the test-authoring gate does not apply or finds no test files. 1 when
 # refused; stdout then holds a one-line reason naming the files. The worker's
-# lane is checked first, then the forced pre-PR pipeline-fixer check.
-fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
+# lane is checked first, then the forced pre-PR pipeline-fixer check. Both
+# inspect the commits up to <head>, the published head the check approves, when
+# given; otherwise the worker copy's HEAD.
+fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force] [<head>]
   local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path fixer
   fm_test_ban_accept_worker_done "$@" || return 1
   fm_test_ban_should_check_pipeline "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
-  files=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta") || return 0
+  files=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta" "${7:-}") || return 0
   [ -n "$files" ] || return 0
   rejected=$(printf '%s\n' "$files" | awk -F'\t' '{ print "no-mistakes(" $2 ") on " $3 " in " substr($1, 1, 12) ": " $4 }' | sed 's/$/;/' | tr '\n' ' ' | sed 's/; $//')
   fixer=$(printf '%s\n' "$files" | awk -F'\t' 'NR == 1 { print $3 }')
@@ -1154,14 +1172,14 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
 
 # The worker's own half of fm_test_ban_accept_done: the test files the branch
 # changes on a task whose worker runs banned.
-fm_test_ban_accept_worker_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
+fm_test_ban_accept_worker_done() {  # <kind> <mode> <worktree> <line> <meta> [force] [<head>]
   local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path
   fm_test_ban_should_check "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
   if [ -z "$wt" ] || [ ! -d "$wt" ] || ! git -C "$wt" rev-parse --git-dir >/dev/null 2>&1; then
     printf '%s\n' "test-file check cannot read the worker copy"
     return 1
   fi
-  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$(fm_dod_meta_value "$meta" test_ban_since)") || {
+  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$(fm_dod_meta_value "$meta" test_ban_since)" "${7:-}") || {
     printf '%s\n' "$files"
     return 1
   }

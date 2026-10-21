@@ -168,7 +168,16 @@ case "$PROVIDER:$MODE" in
   *:no-mistakes|*:) DONE_LINE="done: PR $URL checks green" ;;
   *) DONE_LINE="done: PR $URL" ;;
 esac
-if ! GATE_REASON=$(fm_test_ban_accept_done "${KIND:-ship}" "$MODE" "$WT" "$DONE_LINE" "$META" 1); then
+# The test-authoring gate inspects the head the PR record approves: the forge's
+# head when it supplies one, fetched into the worker copy's object store when
+# an isolated pipeline pushed it, else the worker copy's HEAD.
+TEST_BAN_HEAD=
+if [ -n "$PR_HEAD" ] && [ -n "$WT" ] && git -C "$WT" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$WT" rev-parse --verify --quiet "$PR_HEAD^{commit}" >/dev/null 2>&1 \
+    || fm_run_timed 60 git -C "$WT" fetch -q origin "$PR_HEAD" >/dev/null 2>&1 || true
+  TEST_BAN_HEAD=$PR_HEAD
+fi
+if ! GATE_REASON=$(fm_test_ban_accept_done "${KIND:-ship}" "$MODE" "$WT" "$DONE_LINE" "$META" 1 "$TEST_BAN_HEAD"); then
   echo "error: $GATE_REASON" >&2
   exit 1
 fi

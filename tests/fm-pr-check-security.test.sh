@@ -902,6 +902,80 @@ test_test_ban_registration_without_pipeline_history() {
   pass "registration accepts an unresolved pipeline base on Opus and still refuses banned workers"
 }
 
+# The gate approves the forge's head, so a worker copy whose HEAD predates the
+# pipeline's pushed commits cannot hide them: a banned fixer's test and a
+# banned worker's test change at the published head both refuse, and an
+# allowlisted fixer's test at that head still registers.
+test_test_ban_binds_to_the_published_head() {
+  local dir case fixer local_head pr_head
+  for case in banned-fixer allowed-fixer banned-worker; do
+    dir=$(make_case "test-ban-published-head-$case")
+    write_task_meta "$dir"
+    fixer=claude-sonnet-5-5
+    [ "$case" != allowed-fixer ] || fixer=claude-opus-5-5
+    fm_write_meta "$dir/home/state/task-a.meta" \
+      "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+      "project=$dir/project" "kind=ship" "mode=no-mistakes" "branch=fm/task-a"
+    if [ "$case" = banned-worker ]; then
+      printf '%s\n' model=claude-sonnet-5-5 test_ban_model=claude-sonnet-5-5 >> "$dir/home/state/task-a.meta"
+    else
+      printf '%s\n' model=claude-opus-5-5 >> "$dir/home/state/task-a.meta"
+    fi
+    mkdir -p "$dir/nm-home"
+    printf '%s\n' 'review_agents:' '  fixer:' '    agent: claude' "    model: $fixer" > "$dir/nm-home/config.yaml"
+    local_head=$(git -C "$dir/wt" rev-parse HEAD)
+    mkdir -p "$dir/wt/tests"
+    printf 'unapproved test\n' > "$dir/wt/tests/fixer.test.sh"
+    git -C "$dir/wt" add tests
+    if [ "$case" = banned-worker ]; then
+      git -C "$dir/wt" commit -q -m 'implementer adds a test'
+    else
+      git -C "$dir/wt" commit -q -m 'no-mistakes(review): add a test'
+    fi
+    pr_head=$(git -C "$dir/wt" rev-parse HEAD)
+    git -C "$dir/wt" checkout -q --detach "$local_head"
+    if [ "$case" = allowed-fixer ]; then
+      FM_TEST_GH_HEAD=$pr_head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "an allowlisted fixer's test at the published head was refused: $(cat "$dir/stderr")"
+      grep -qx 'pr=https://github.com/o/r/pull/82' "$dir/home/state/task-a.meta" \
+        || fail "an allowlisted fixer's test at the published head did not record the PR"
+    else
+      FM_TEST_GH_HEAD=$pr_head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" && fail "$case: a test at the published head passed behind an older worker HEAD"
+      grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
+        || fail "$case: refusal did not name the banned model: $(cat "$dir/stderr")"
+      grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "$case: refusal did not name the test: $(cat "$dir/stderr")"
+      ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "$case: an unauthorized published test recorded the PR"
+    fi
+  done
+  pass "fm-pr-check inspects the published head, not an older worker HEAD"
+}
+
+# A native --model pin is the model no-mistakes runs, so Opus defaults that it
+# overrides cannot let a Sonnet review fixer's test register.
+test_test_ban_native_model_pin_registration() {
+  local dir head
+  dir=$(make_case test-ban-native-pin)
+  write_task_meta "$dir"
+  fm_write_meta "$dir/home/state/task-a.meta" \
+    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+    "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
+  mkdir -p "$dir/nm-home"
+  printf '%s\n' 'agent: [claude]' 'agent_config:' '  claude:' '    model: claude-opus-5-5' \
+    'agent_args_override:' '  claude:' '    - --model' '    - claude-sonnet-5-5' \
+    'review_agents:' '  fixer:' '    agent: claude' '    model: claude-opus-5-5' > "$dir/nm-home/config.yaml"
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(review): cover finding'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+    > "$dir/stdout" 2> "$dir/stderr" && fail "Opus defaults hid a native Sonnet pin at registration"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
+    || fail "native-pin refusal did not name Sonnet: $(cat "$dir/stderr")"
+  ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a natively pinned Sonnet fixer's test recorded the PR"
+  pass "fm-pr-check attributes a fixer to its native model pin"
+}
+
 test_valid_recording_and_merge_derivation() {
   local dir expected sidecar count rc
   dir=$(make_case valid-recording)
@@ -3785,6 +3859,8 @@ test_test_ban_runs_when_forge_head_is_available
 test_test_ban_covers_pipeline_fixer_commits
 test_test_ban_covers_banned_fixers_on_allowlisted_tasks
 test_test_ban_registration_without_pipeline_history
+test_test_ban_binds_to_the_published_head
+test_test_ban_native_model_pin_registration
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
