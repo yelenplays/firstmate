@@ -989,13 +989,18 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # since the base named `no-mistakes(<step>): ...`, independently of the worker's
 # lane. Their added or modified test files are accepted only when the step's
 # author is positively recorded as allowlisted: every successful writing
-# invocation of <step> across runs on the task's branch in
-# ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite (<step>-fix, and <step> itself
-# except for the read-only review) names a model that matches
+# invocation of <step> across runs on the task's branch of the task's
+# repository in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite (<step>-fix, and
+# <step> itself except for the read-only review) names a model that matches
 # FM_TEST_AUTHOR_MODEL_PATTERNS. Every other case refuses, naming the first such
 # model or `an unrecorded model`: a banned or empty model, `default`, no recorded
-# invocation, or sqlite3 or the database unavailable. The no-mistakes config is
-# never consulted, because native overrides there can select any model.
+# invocation, or sqlite3 or the database unavailable. The repository is the
+# meta's project=, matched exactly against the registered repos.working_path, so
+# another project's run on the same branch name neither authorizes nor refuses;
+# a task with no registered project has no record. Runs are not bound to a head
+# SHA, because the pipeline's own rebase rewrites the head that authored each
+# commit. The no-mistakes config is never consulted, because native overrides
+# there can select any model.
 # Attribution is step-wide, not per commit. Captain-authorized paths and paths
 # restored at the checked head to their state before that commit are exempt;
 # deletions alone are not checked here. If the worker copy, checked head, origin
@@ -1013,25 +1018,26 @@ fm_test_ban_model_allowlisted() {  # <model>
   [ -n "$model" ] && [ "$model" != default ] && ! fm_test_ban_model_applies "$model"
 }
 
-# Prints the models recorded for <step> on <branch> under the pipeline-fixer
-# contract above, `-` for an invocation with no model; these are not
-# attributed to individual commits. Prints nothing when none is readable.
-fm_test_ban_nm_step_models() {  # <step> [<branch>]
-  local step=$1 branch=${2:-} db
+# Prints the models recorded for <step> on <branch> of the repository
+# registered at <repo-path> under the pipeline-fixer contract above, `-` for an
+# invocation with no model; these are not attributed to individual commits.
+# Prints nothing when none is readable.
+fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
+  local step=$1 branch=${2:-} repo=${3:-} db
   db="${NM_HOME:-$HOME/.no-mistakes}/state.sqlite"
-  case "$step$branch" in *"'"*) return 0 ;; esac
-  [ -n "$branch" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 0
+  case "$step$branch$repo" in *"'"*) return 0 ;; esac
+  [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 0
   fm_run_timed 10 sqlite3 -readonly "$db" \
-    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id where r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
+    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
     2>/dev/null || true
 }
 
-# Prints `an unrecorded model` when <step> on <branch> has no recorded writing
-# invocation, the first recorded model that is not an allowlisted test author,
-# or nothing when every recorded model is one.
-fm_test_ban_nm_step_author_refusal() {  # <step> [<branch>]
+# Prints `an unrecorded model` when <step> on <branch> of <repo-path> has no
+# recorded writing invocation, the first recorded model that is not an
+# allowlisted test author, or nothing when every recorded model is one.
+fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
   local models model
-  models=$(fm_test_ban_nm_step_models "$1" "${2:-}")
+  models=$(fm_test_ban_nm_step_models "$1" "${2:-}" "${3:-}")
   if [ -z "$models" ]; then
     printf '%s\n' 'an unrecorded model'
     return 0
@@ -1065,7 +1071,8 @@ fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
       git -C "$wt" diff --quiet "$sha^" "$head" -- "$path" && continue
       if [ -z "$authored" ]; then
         authored=1
-        author=$(fm_test_ban_nm_step_author_refusal "$step" "$(fm_dod_meta_value "$meta" branch)")
+        author=$(fm_test_ban_nm_step_author_refusal "$step" "$(fm_dod_meta_value "$meta" branch)" \
+          "$(fm_dod_meta_value "$meta" project)")
       fi
       [ -n "$author" ] || break
       printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
