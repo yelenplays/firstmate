@@ -21,9 +21,11 @@
 #   needs_you  a live captain hold, an open needs-decision or blocked event, a
 #              failed task, a ready branch that conflicts with main, or a
 #              post-merge watch that is reverting or blocked
-#   ready      a ship with a recorded or reported PR (or a local-only ready
-#              branch) that is not merged yet: waiting for approval
-#   working    every other task with a live task record
+#   ready      an unmerged ship with a recorded or reported PR and a latest
+#              done event (or no event), or a local-only ship with a done event,
+#              unless an earlier rule above requires attention
+#   working    every other task with task metadata, including PR-less ship
+#              handoffs and in-flight backlog rows missing their task record
 #   queued     queued backlog work and non-live captain holds, with why
 #   merged     merged, but the post-merge watch has not confirmed it yet
 #   live       merged and confirmed live by a passing witness

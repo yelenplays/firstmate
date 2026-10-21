@@ -144,6 +144,11 @@ Pi's `/supervision-model` command pins a cheaper model and a shallower reasoning
 > alright merge it
 ```
 
+To see what needs you, run `bin/fm-board.sh` in your Firstmate home; the session-start digest includes this terminal board too.
+It keeps waiting approvals and merged-but-not-live work visible from durable records, including secondmates' published summaries, even when a notification was missed.
+The [command reference](bin/fm-board.sh) owns output options and limits, and [waiting-PR synchronization](bin/fm-main-sync.sh) owns automatic branch-update safeguards without changing merge authority.
+This is separate from the interactive `/bearings lavish` board described below.
+
 ### More backends
 
 Setup guides for tmux (the default) and every other supported backend (herdr, zellij, Orca, cmux) are linked in [Documentation](#documentation) below.
