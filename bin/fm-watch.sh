@@ -314,7 +314,8 @@ HOME_SUMMARY_INTERVAL=${FM_HOME_SUMMARY_INTERVAL:-300}
 case "$HOME_SUMMARY_INTERVAL" in
   ''|*[!0-9]*|0) HOME_SUMMARY_INTERVAL=300 ;;
 esac
-# Cadence for keeping waiting pull requests current with main (bin/fm-main-sync.sh).
+# Cadence for keeping waiting pull requests and local ready branches current
+# with main (bin/fm-main-sync.sh).
 MAIN_SYNC_INTERVAL=${FM_MAIN_SYNC_INTERVAL:-900}
 case "$MAIN_SYNC_INTERVAL" in
   ''|*[!0-9]*|0) MAIN_SYNC_INTERVAL=900 ;;
@@ -2931,8 +2932,8 @@ home_summary_refresh_detached() {
   HOME_SUMMARY_PID=$!
 }
 
-# Waiting pull requests are kept current with main on the same detached
-# pattern: the sync makes forge calls, so it must never sit between two beacon
+# Waiting pull requests and local ready branches are kept current with main on
+# the same detached pattern: the sync makes forge calls, so it must never sit between two beacon
 # touches. The stamp is touched at launch so a failing sync is retried on the
 # next interval rather than every poll; bin/fm-main-sync.sh owns every guard.
 MAIN_SYNC_PID=

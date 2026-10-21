@@ -26,16 +26,31 @@
 #     refuses rather than merging anything that conflicts, so nothing is
 #     forced, rebased, or rewritten; a conflict refusal is recorded conflict,
 #     while other update failures are recorded error.
-# Local-only ready branches are not moved: bin/fm-merge-local.sh lands them
-# only as a clean fast-forward and refuses a diverged branch itself.
+# A local-only ready branch (meta branch=, default fm/<id>, in the project
+# checkout named by project=) is kept a fast-forward of the project's local
+# default branch, because bin/fm-merge-local.sh lands it only as one:
+#   - the task's control lock (state/.control-<id>.lock, the one the local
+#     landing holds) must be free, or the task is skipped this run;
+#   - a branch that already contains the default branch is recorded current;
+#   - a branch checked out in a worktree with uncommitted changes is recorded
+#     blocked and not touched;
+#   - git merge-tree computes the merge without touching any checkout; a
+#     conflict is recorded conflict and nothing moves;
+#   - otherwise the merge commit (first parent the branch, second the default
+#     branch) is created with commit-tree and the branch moves to it as a
+#     fast-forward: git merge --ff-only in the worktree that has it checked
+#     out, or update-ref pinned to the old head when none does. The project's
+#     main checkout and its default branch are never touched.
 #
 # Completed comparisons and update attempts write state/<id>.main-sync, a private
 # key=value record: version=fm-main-sync-v1, task, spawn_gen, pr, head (the
-# pull request head the result applies to), base, result
-# (current|synced|conflict|error), detail, and at. The board reads it: a
+# pull request or local branch head the result applies to), base, result
+# (current|synced|conflict|blocked|error), detail, and at. The board reads it: a
 # conflict at the current recorded head shows the task under NEEDS YOU instead
 # of READY TO APPROVE; re-recording a different pr_head makes that conflict
-# stale without anyone clearing it. Teardown removes it with the task.
+# stale without anyone clearing it. A local-only conflict or blocked result for
+# the task's current incarnation shows under NEEDS YOU until a later run
+# records something else. Teardown removes it with the task.
 # The watcher runs this command detached every FM_MAIN_SYNC_INTERVAL seconds
 # (default 900); it never lands a PR, approves it, or changes merge authority.
 # Result lines are <id> <result>: <detail>; live eligibility or read refusals
@@ -47,8 +62,8 @@
 # only once it holds it; a run that finds the lock held by a live process prints
 # a skip and exits zero. A failed update never replaces a synced record for the
 # same head, since that record is the evidence adoption needs.
-# Tasks lacking recorded PR metadata, unsupported forges, and local-only tasks
-# are skipped silently.
+# Non-local tasks lacking recorded PR metadata, and unsupported forges, are
+# skipped silently.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -171,14 +186,92 @@ sync_one() {  # <facts-json-line>
   if gh_api "$owner" api -X PUT "repos/$FM_PR_PATH/pulls/$FM_PR_NUMBER/update-branch" \
       -f "expected_head_sha=$head" >/dev/null 2>"$TMP/err"; then
     record "$id" "$spawn_gen" "$url" "$head" "$base" synced "merged $behind new $base commits into the branch"
-  elif grep -qi 'conflict' "$TMP/err"; then
-    record "$id" "$spawn_gen" "$url" "$head" "$base" conflict "GitHub refused to merge $base: $(head -c 120 "$TMP/err")"
   elif [ "$(fm_board_record_get "$STATE/$id.main-sync" result)" = synced ] \
       && [ "$(fm_board_record_get "$STATE/$id.main-sync" head)" = "$head" ]; then
     echo "$id skipped: update-branch failed after an earlier sync of this head, keeping its record: $(head -c 160 "$TMP/err")"
+  elif grep -qi 'conflict' "$TMP/err"; then
+    record "$id" "$spawn_gen" "$url" "$head" "$base" conflict "GitHub refused to merge $base: $(head -c 120 "$TMP/err")"
   else
     record "$id" "$spawn_gen" "$url" "$head" "$base" error "update-branch failed: $(head -c 160 "$TMP/err")"
   fi
+}
+
+local_default_branch() {  # <project>: the same choice bin/fm-merge-local.sh makes
+  local ref branch
+  ref=$(git -C "$1" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+  if [ -n "$ref" ]; then
+    printf '%s\n' "${ref#origin/}"
+    return 0
+  fi
+  for branch in main master; do
+    git -C "$1" show-ref --verify --quiet "refs/heads/$branch" && { printf '%s\n' "$branch"; return 0; }
+  done
+  return 1
+}
+
+worktree_of() {  # <project> <branch>: the worktree that has <branch> checked out
+  git -C "$1" worktree list --porcelain 2>/dev/null | awk -v want="branch refs/heads/$2" '
+    /^worktree / { wt = substr($0, 10) }
+    $0 == want { print wt; exit }'
+}
+
+sync_local() {  # <facts-json-line>
+  local id spawn_gen meta proj branch default head base wt tree new behind rc
+  id=$(printf '%s' "$1" | jq -r '.id')
+  spawn_gen=$(printf '%s' "$1" | jq -r '.spawn_gen // ""')
+  meta="$STATE/$id.meta"
+  proj=$(fm_board_record_get "$meta" project)
+  branch=$(fm_board_record_get "$meta" branch)
+  [ -n "$branch" ] || branch="fm/$id"
+  if [ -z "$proj" ] || ! git -C "$proj" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "$id skipped: project checkout unreadable"
+    return 0
+  fi
+  git check-ref-format --branch "$branch" >/dev/null 2>&1 || { echo "$id skipped: invalid ship branch"; return 0; }
+  default=$(local_default_branch "$proj") || { echo "$id skipped: no default branch in $proj"; return 0; }
+  head=$(git -C "$proj" rev-parse --verify --quiet "refs/heads/$branch^{commit}") \
+    || { echo "$id skipped: branch $branch does not exist"; return 0; }
+  base=$(git -C "$proj" rev-parse --verify --quiet "refs/heads/$default^{commit}") \
+    || { echo "$id skipped: default branch $default unreadable"; return 0; }
+  if git -C "$proj" merge-base --is-ancestor "$base" "$head"; then
+    record "$id" "$spawn_gen" "" "$head" "$default" current "up to date with local $default"
+    return
+  fi
+  wt=$(worktree_of "$proj" "$branch")
+  if [ -n "$wt" ] && [ -n "$(git -C "$wt" status --porcelain 2>/dev/null | head -1)" ]; then
+    record "$id" "$spawn_gen" "" "$head" "$default" blocked "its ready copy at $wt has uncommitted changes; needs its worker"
+    return
+  fi
+  behind=$(git -C "$proj" rev-list --count "$head..$base" 2>/dev/null) || behind='?'
+  rc=0
+  tree=$(git -C "$proj" merge-tree --write-tree "$head" "$base" 2>/dev/null) || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    record "$id" "$spawn_gen" "" "$head" "$default" conflict "$behind commits behind local $default and they conflict; needs a rebase by its worker"
+    return
+  fi
+  tree=${tree%%$'\n'*}
+  [ "$rc" -eq 0 ] && [ -n "$tree" ] || { record "$id" "$spawn_gen" "" "$head" "$default" error "merge-tree failed"; return; }
+  new=$(git -C "$proj" commit-tree "$tree" -p "$head" -p "$base" -m "Merge $default into $branch" 2>"$TMP/err") \
+    || { record "$id" "$spawn_gen" "" "$head" "$default" error "commit-tree failed: $(head -c 160 "$TMP/err")"; return; }
+  if [ -n "$wt" ]; then
+    git -C "$wt" merge --ff-only --quiet "$new" >/dev/null 2>"$TMP/err" \
+      || { record "$id" "$spawn_gen" "" "$head" "$default" error "fast-forward in $wt failed: $(head -c 160 "$TMP/err")"; return; }
+  else
+    git -C "$proj" update-ref "refs/heads/$branch" "$new" "$head" 2>"$TMP/err" \
+      || { record "$id" "$spawn_gen" "" "$head" "$default" error "branch update failed: $(head -c 160 "$TMP/err")"; return; }
+  fi
+  record "$id" "$spawn_gen" "" "$head" "$default" synced "merged $behind new local $default commits into $branch"
+}
+
+# The local landing holds the task's control lock; never move a ship branch
+# underneath it.
+sync_local_locked() {  # <facts-json-line>
+  local id lock
+  id=$(printf '%s' "$1" | jq -r '.id')
+  lock="$STATE/.control-$id.lock"
+  fm_lock_try_acquire "$lock" || { echo "$id skipped: a lifecycle action holds the task"; return 0; }
+  sync_local "$1"
+  fm_lock_release "$lock" || true
 }
 
 # Two overlapping runs would race the same recorded head, and the loser's
@@ -193,7 +286,7 @@ LOCK_HELD=1
 "$SCRIPT_DIR/fm-fleet-snapshot.sh" --backlog-json > "$TMP/backlog.json" \
   || { echo "fm-main-sync: backlog read failed" >&2; exit 1; }
 fm_board_home_json "$STATE" "$TMP/backlog.json" \
-  | jq -r '.items[] | select(.group == "ready" or .reason == "conflict") | .id' > "$TMP/ready" \
+  | jq -r '.items[] | select(.group == "ready" or .reason == "conflict" or .reason == "sync-blocked") | .id' > "$TMP/ready" \
   || { echo "fm-main-sync: board derivation failed" >&2; exit 1; }
 fm_board_task_facts "$STATE" > "$TMP/facts.jsonl" || { echo "fm-main-sync: task read failed" >&2; exit 1; }
 
@@ -206,6 +299,9 @@ while IFS= read -r line; do
     for arg in "$@"; do [ "$arg" = "$id" ] && want=1; done
     [ "$want" = 1 ] || continue
   fi
-  printf '%s' "$line" | jq -e '.mode != "local-only"' >/dev/null || continue
-  sync_one "$line"
+  if printf '%s' "$line" | jq -e '.mode == "local-only"' >/dev/null; then
+    sync_local_locked "$line"
+  else
+    sync_one "$line"
+  fi
 done < "$TMP/facts.jsonl"

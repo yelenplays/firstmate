@@ -146,7 +146,7 @@ Pi's `/supervision-model` command pins a cheaper model and a shallower reasoning
 
 To see what needs you, run `bin/fm-board.sh` in your Firstmate home; the session-start digest includes this terminal board too.
 It keeps waiting approvals and merged-but-not-live work visible from durable records, including secondmates' published summaries, even when a notification was missed.
-The [command reference](bin/fm-board.sh) owns output options and limits, and [waiting-PR synchronization](bin/fm-main-sync.sh) owns automatic branch-update safeguards without changing merge authority.
+The [command reference](bin/fm-board.sh) owns output options and limits, and [ready-branch synchronization](bin/fm-main-sync.sh) owns automatic update safeguards for waiting PRs and local-only ready branches without changing merge authority.
 This is separate from the interactive `/bearings lavish` board described below.
 
 ### More backends

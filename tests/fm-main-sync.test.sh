@@ -6,10 +6,14 @@
 # is recorded conflict; an up-to-date one is recorded current; a head someone
 # else moved, a fork head, and a draft are left alone; a head this command moved
 # itself is re-recorded through fm-pr-check before the next step; a task that is
-# not ready, and a local-only ready branch, are never touched; named tasks
-# limit the walk; an overlapping run skips while another holds the lock, and a
-# run that loses the expected-head race keeps the synced record so the next
-# run still adopts the sync merge.
+# not ready is never touched; named tasks limit the walk; an overlapping run
+# skips while another holds the lock, and a run that loses the expected-head
+# race (or gets a conflict-worded refusal) keeps the synced record so the next
+# run still adopts the sync merge. Local-only ready branches in a real git
+# project: an independent main advance is merged in as a fast-forward of the
+# branch (checked out in a worktree or not), a dirty ready copy is recorded
+# blocked, a conflicting advance is recorded conflict, neither moves anything,
+# the board lists both under needs you, and a held task control lock skips it.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -119,7 +123,7 @@ run_sync() {
 
 {
   printf '## In flight\n'
-  for id in behind conflicting moved fork current refused own worker offbase retry draft local busy racer; do
+  for id in behind conflicting moved fork current refused own worker offbase retry draft local busy racer lclean ldirty lconflict lbare; do
     printf -- '- [ ] %s - Task %s (repo: firstmate) (kind: ship) (since 2026-10-19)\n' "$id" "$id"
   done
   printf '\n## Queued\n\n## Done\n'
@@ -163,7 +167,7 @@ echo "$H12B" > "$GHFAKE/new-head"
 touch "$GHFAKE/retry.check-fail"
 H8=$(sha 2 d); ready_ship draft 8 "$H8"; view 8 OPEN true false "$H8" MERGEABLE
 mkdir -p "$H/projects/local"
-fm_write_meta "$H/state/local.meta" "worktree=$H/projects/local" "project=firstmate" "harness=claude" \
+fm_write_meta "$H/state/local.meta" "worktree=$H/projects/local" "project=$H/projects/no-such-checkout" "harness=claude" \
   "kind=ship" "mode=local-only" "spawn_gen=s1.local"
 printf 'done: ready branch fm/local\n' > "$H/state/local.status"
 H9=$(sha 2 e); ready_ship busy 9 "$H9"; view 9 OPEN false false "$H9" MERGEABLE
@@ -221,7 +225,8 @@ OUT=$(run_sync retry 2>&1) || fail "the retry run exits zero: $OUT"
 assert_equals current "$(sync_field retry result)" "the next run adopts the sync merge"
 assert_equals "$H12B" "$(sync_field retry head)" "the retried record follows the adopted head"
 
-assert_absent "$H/state/local.main-sync" "a local-only ready branch is not moved"
+assert_absent "$H/state/local.main-sync" "a local-only task without a readable project checkout gets no record"
+assert_equals "local skipped: project checkout unreadable" "$(run_sync local 2>&1)" "the unreadable local project is reported"
 assert_absent "$H/state/busy.main-sync" "a task still working is not synced"
 assert_no_grep 'pull/9' "$GHLOG" "a task still working is not even read from the forge"
 
@@ -264,6 +269,10 @@ OUT=$(run_sync racer 2>&1) || fail "the race-losing run exits zero: $OUT"
 assert_contains "$OUT" "racer skipped: update-branch failed after an earlier sync" "the lost race is reported"
 assert_equals synced "$(sync_field racer result)" "a lost expected-head race keeps the synced record"
 assert_equals "$H13" "$(sync_field racer head)" "the kept record still names the head the sync applied to"
+echo 'gh: merge conflict between base and head (HTTP 422)' > "$GHFAKE/13.update-fail"
+OUT=$(run_sync racer 2>&1) || fail "the conflict-refused run exits zero: $OUT"
+assert_equals synced "$(sync_field racer result)" "a conflict-worded refusal keeps a same-head synced record"
+assert_equals "$H13" "$(sync_field racer head)" "the kept record names the synced head after a conflict-worded refusal"
 
 # The next run sees the sync merge, adopts it, and keeps the branch current.
 rm -f "$GHFAKE/13.update-fail"
@@ -278,4 +287,91 @@ assert_grep 'racer https://github.com/acme/repo/pull/13' "$CHECKLOG" "the next r
 assert_equals synced "$(sync_field racer result)" "the adopted head is synced again"
 assert_equals "$H13B" "$(sync_field racer head)" "the new record follows the adopted head"
 assert_grep "pulls/13/update-branch -f expected_head_sha=$H13B" "$GHLOG" "the next update is pinned to the adopted head"
+
+# --- local-only ready branches ------------------------------------------------
+fm_git_identity
+P="$TMP_ROOT/proj"
+fm_git_init_commit "$P"
+printf 'one\n' > "$P/shared.txt"
+git -C "$P" add shared.txt && git -C "$P" commit -qm shared
+local_ship() {  # <id> <file> <content> [worktree]: a ready local-only ship on fm/<id>
+  local id=$1 file=$2 content=$3 wt=${4:-}
+  if [ -n "$wt" ]; then
+    git -C "$P" worktree add -q -b "fm/$id" "$wt" main
+    printf '%s\n' "$content" > "$wt/$file"
+    git -C "$wt" add "$file" && git -C "$wt" commit -qm "$id work"
+  else
+    git -C "$P" checkout -q -b "fm/$id" main
+    printf '%s\n' "$content" > "$P/$file"
+    git -C "$P" add "$file" && git -C "$P" commit -qm "$id work"
+    git -C "$P" checkout -q main
+  fi
+  fm_write_meta "$H/state/$id.meta" "worktree=${wt:-$P}" "project=$P" "branch=fm/$id" "harness=claude" \
+    "kind=ship" "mode=local-only" "spawn_gen=s1.$id"
+  printf 'done: ready branch fm/%s\n' "$id" > "$H/state/$id.status"
+}
+local_ship lclean clean.txt clean "$TMP_ROOT/wt-clean"
+local_ship ldirty dirty.txt dirty "$TMP_ROOT/wt-dirty"
+printf 'unsaved\n' >> "$TMP_ROOT/wt-dirty/dirty.txt"
+local_ship lconflict shared.txt branch-side "$TMP_ROOT/wt-conflict"
+local_ship lbare bare.txt bare
+printf 'main side\n' > "$P/shared.txt"
+printf 'new\n' > "$P/main.txt"
+git -C "$P" add shared.txt main.txt && git -C "$P" commit -qm "independent main work"
+MAIN=$(git -C "$P" rev-parse main)
+CLEAN0=$(git -C "$P" rev-parse fm/lclean); DIRTY0=$(git -C "$P" rev-parse fm/ldirty)
+CONFLICT0=$(git -C "$P" rev-parse fm/lconflict); BARE0=$(git -C "$P" rev-parse fm/lbare)
+: > "$GHLOG"
+
+OUT=$(run_sync lclean ldirty lconflict lbare 2>&1) || fail "a local-only run exits zero: $OUT"
+assert_equals synced "$(sync_field lclean result)" "a clean local ready branch behind main is synced"
+git -C "$P" merge-base --is-ancestor main fm/lclean || fail "the synced local branch is not a fast-forward of main"
+assert_equals "$CLEAN0" "$(git -C "$P" rev-parse fm/lclean^1)" "the sync merge's first parent is the old ready head"
+assert_equals "$(git -C "$P" rev-parse fm/lclean)" "$(git -C "$TMP_ROOT/wt-clean" rev-parse HEAD)" "the ready worktree follows its branch"
+assert_equals "" "$(git -C "$TMP_ROOT/wt-clean" status --porcelain)" "the ready worktree stays clean"
+assert_present "$TMP_ROOT/wt-clean/main.txt" "the ready worktree has main's new file"
+
+assert_equals blocked "$(sync_field ldirty result)" "a dirty ready copy is recorded blocked"
+assert_equals "$DIRTY0" "$(git -C "$P" rev-parse fm/ldirty)" "a dirty ready copy's branch does not move"
+assert_grep unsaved "$TMP_ROOT/wt-dirty/dirty.txt" "the uncommitted change is left alone"
+
+assert_equals conflict "$(sync_field lconflict result)" "a conflicting main advance is recorded conflict"
+assert_equals "$CONFLICT0" "$(git -C "$P" rev-parse fm/lconflict)" "a conflicting branch does not move"
+assert_equals "" "$(git -C "$TMP_ROOT/wt-conflict" status --porcelain)" "a conflicting ready copy is left clean"
+
+assert_equals synced "$(sync_field lbare result)" "a local ready branch checked out nowhere is synced"
+git -C "$P" merge-base --is-ancestor main fm/lbare || fail "the unchecked-out branch is not a fast-forward of main"
+assert_equals "$BARE0" "$(git -C "$P" rev-parse fm/lbare^1)" "the unchecked-out sync merge keeps the old head first"
+
+assert_equals "$MAIN" "$(git -C "$P" rev-parse main)" "local main never moves"
+assert_equals main "$(git -C "$P" symbolic-ref --short HEAD)" "the project checkout stays on main"
+assert_equals "" "$(git -C "$P" status --porcelain)" "the project checkout stays clean"
+assert_equals 0 "$(wc -l < "$GHLOG" | tr -d ' ')" "local-only sync makes no forge call"
+
+BOARD=$(PATH="$FB:$PATH" GHLOG="$GHLOG" FM_HOME="$H" "$ROOT/bin/fm-board.sh" --json --home-only) \
+  || fail "the board renders after a local sync"
+group() { printf '%s' "$BOARD" | jq -r --arg id "$1" '[.groups | to_entries[] | .key as $g | .value[] | select(.id == $id) | "\($g) \(.reason)"] | join(",")'; }
+assert_equals "needs_you conflict" "$(group lconflict)" "a conflicting local ready branch needs the captain"
+assert_equals "needs_you sync-blocked" "$(group ldirty)" "a blocked local ready branch needs the captain"
+assert_equals "ready approval" "$(group lclean)" "a synced local ready branch stays ready"
+assert_contains "$(printf '%s' "$BOARD" | jq -r '.groups.ready[] | select(.id == "lclean") | .detail')" "kept current with main" \
+  "the synced local row says it is kept current"
+
+OUT=$(run_sync lclean 2>&1) || fail "the repeat local run exits zero: $OUT"
+assert_equals current "$(sync_field lclean result)" "a synced local branch is current on the next run"
+
+# A held task control lock means a landing or other lifecycle action is running.
+git -C "$P" checkout -q main && printf 'more\n' > "$P/more.txt" && git -C "$P" add more.txt && git -C "$P" commit -qm more
+BARE1=$(git -C "$P" rev-parse fm/lbare)
+mkdir -p "$TMP_ROOT/lockdone"
+bash -c '. "$1/bin/fm-wake-lib.sh"; fm_lock_try_acquire "$2" || exit 1; touch "$3/held"; while [ ! -f "$3/release" ]; do sleep 0.1; done; fm_lock_release "$2"' \
+  _ "$ROOT" "$H/state/.control-lbare.lock" "$TMP_ROOT/lockdone" &
+HOLDER=$!
+for _ in $(seq 100); do [ -f "$TMP_ROOT/lockdone/held" ] && break; sleep 0.1; done
+assert_present "$TMP_ROOT/lockdone/held" "the fixture holds the task control lock"
+OUT=$(run_sync lbare 2>&1) || fail "the locked local run exits zero: $OUT"
+touch "$TMP_ROOT/lockdone/release"
+wait "$HOLDER" || true
+assert_contains "$OUT" "lbare skipped: a lifecycle action holds the task" "a held control lock skips the task"
+assert_equals "$BARE1" "$(git -C "$P" rev-parse fm/lbare)" "a held control lock leaves the branch alone"
 pass "fm-main-sync keeps waiting pull requests current without forcing anything"
