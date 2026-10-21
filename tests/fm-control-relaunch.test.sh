@@ -2854,6 +2854,13 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+if [ "${1:-}" = --tdd-split ]; then
+  test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff
+  test_tdd_split_handoff_relaunches_onto_the_locked_implementer
+  test_relaunch_round_trip_keeps_a_banned_run_baseline
+  exit 0
+fi
+
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
 test_relaunch_profile_changes_do_not_require_a_receipt

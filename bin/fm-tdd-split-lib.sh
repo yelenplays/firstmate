@@ -18,9 +18,10 @@
 #      tdd_split_impl_effort= in state/<id>.meta, and appends
 #      fm_tdd_split_seat_overlay to the launch brief.
 #   2. The seat commits tests only and reports `done: tests-ready <sha>`.
-#      fm_tdd_split_accept_done refuses any other done: from the seat, and that
-#      report while the worker copy is dirty or its commits since the base
-#      change no test or any file that is not a test.
+#      fm_tdd_split_accept_done requires a tests-ready note and a clean worker
+#      copy whose net diff against the merge-base changes at least one file
+#      and only test paths (fm_tdd_split_seat_path_ok). The gate checks the
+#      current HEAD, not the optional SHA text in the note.
 #   3. Firstmate runs `bin/fm-tdd-split.sh handoff <id>` on that report. It
 #      re-checks step 2, runs the fail-to-pass command in a private clone of the
 #      seat's HEAD - the base plus tests only, so a red run is the tests failing
@@ -31,6 +32,14 @@
 #      test-authoring block, whose done gate and pre-PR check refuse any
 #      implementer change to the handed-over tests. From here the task is an
 #      ordinary banned ship on the implementer.
+#
+# Supported boundary: this profile automates test-seat launch and handoff,
+# not a separate review/retry state machine or an Opus takeover after two
+# failed rounds. The task's selected delivery path owns validation afterward.
+# The test lock is completion/pre-PR enforcement under fm-dod-lib.sh, not a
+# filesystem write restriction. tests/fm-tdd-split.test.sh,
+# tests/fm-control-relaunch.test.sh, and tests/fm-pr-check-security.test.sh
+# cover the handoff and lock boundaries.
 
 # The test seat: Opus at medium effort on Claude Code.
 # shellcheck disable=SC2034 # read by bin/fm-spawn.sh and bin/fm-tdd-split.sh.

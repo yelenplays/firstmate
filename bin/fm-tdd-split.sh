@@ -14,6 +14,9 @@
 #       seat's HEAD with the changed test files as "$@", exits red: non-zero,
 #       and neither 124 (the --timeout bound, default 900 seconds), 126 or 127
 #       (the command could not run), nor a signal death above 128.
+#   Exit status alone cannot distinguish an assertion failure from every
+#   setup or syntax failure. Firstmate must inspect the log for a meaningful
+#   missing-behavior failure; the command does not verify each test separately.
 #   The run's output and exit status go to data/<id>/tdd-split-red.log. It then
 #   relaunches the task onto the recorded implementer (bin/fm-control.sh
 #   relaunch with tdd_split_impl_harness=, tdd_split_impl_model=, and
