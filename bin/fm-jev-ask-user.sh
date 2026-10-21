@@ -28,9 +28,10 @@
 # _meta/pruefe.sh or _meta/einstieg-manifest.json marker, or a path under the
 # wikis root: FM_WIKIS_ROOT, else config/wikis-root, else ~/Documents/Wikis),
 # an unreadable project path, no Jev key, a contract carrying a secret, or
-# contract and findings over the library's state cap. Intent, spec, and steers
-# are never truncated: omitted text could restrict scope. Other findings also
-# escalate if their typed risk screen returns p_yes > 0.2 or is malformed.
+# contract and findings over 32 KiB (JEV_STATE_MAX_BYTES overrides this cap).
+# Intent, spec, and steers are never truncated: omitted text could restrict
+# scope. Other findings also escalate if their typed risk screen returns
+# p_yes > 0.2 or is malformed.
 #
 # Otherwise one typed Jev call through bin/fm-jev-lib.sh sends the contract
 # and snapshot as state and asks a scope choice plus a separate yes/no risk
@@ -302,9 +303,10 @@ JEV_STATE=$(build_state "$INTENT" "$SPEC" "$STEERS")
 if fm_jev_has_sensitive_key "$JEV_STATE"; then
   escalate privacy "the contract or findings carry a secret-shaped value; nothing was sent"
 fi
-# fm_jev_compact_state owns the state size cap and sensitive-data stripping;
-# any refusal or change means this contract cannot go to Jev as it stands.
-if ! COMPACT=$(fm_jev_compact_state "$JEV_STATE" 2>&1); then
+# Full accepted contracts need more room than the library's 8 KiB default.
+# Keep a bounded 32 KiB allowance for this caller rather than dropping scope;
+# explicit operator caps still win, and privacy screening stays unchanged.
+if ! COMPACT=$(JEV_STATE_MAX_BYTES=${JEV_STATE_MAX_BYTES:-32768} fm_jev_compact_state "$JEV_STATE" 2>&1); then
   case "$COMPACT" in
     *"state exceeds"*) escalate contract-too-large "the contract and findings are over the Jev state cap (${COMPACT#jev: })" ;;
     *) escalate privacy "the contract could not be screened for secrets; nothing was sent" ;;

@@ -438,8 +438,7 @@ test_escalates_oversized_or_secret_contract() {
   local code out
   world
   answer in-scope-fix 0.99 in-scope-fix 0.99
-  head -c 9000 /dev/zero | tr '\0' 'a' >> "$HOME_DIR/data/t1/brief.md"
-  sed -i.bak "s/^Make the parser/$(head -c 9000 /dev/zero | tr '\0' 'b') Make the parser/" "$HOME_DIR/data/t1/brief.md"
+  sed -i.bak "s/^Make the parser/$(head -c 32769 /dev/zero | tr '\0' 'b') Make the parser/" "$HOME_DIR/data/t1/brief.md"
   run code out t1 "$GATE" --round 1
   assert_equals "$code" 2 "a contract over the state cap escalates without losing scope"
   assert_contains "$out" "contract-too-large" "the contract size refusal is named"
@@ -448,7 +447,7 @@ test_escalates_oversized_or_secret_contract() {
 
   world
   answer in-scope-fix 0.99 in-scope-fix 0.99
-  sed -i.bak "s/^description: No test covers/description: $(head -c 9000 /dev/zero | tr '\0' 'c') No test covers/" "$FINDINGS"
+  sed -i.bak "s/^description: No test covers/description: $(head -c 32769 /dev/zero | tr '\0' 'c') No test covers/" "$FINDINGS"
   run code out t1 "$GATE" --round 1
   assert_equals "$code" 2 "findings over the state cap escalate"
   assert_contains "$out" "contract-too-large" "the size cap is named"
@@ -524,6 +523,37 @@ test_json_ci_gate_with_long_setup_is_decided() {
   assert_equals "$([ "$(printf '%s' "$state" | wc -c)" -le 8192 ] && echo under)" under "the complete contract fits the cap"
   assert_equals "$(jq -c '.questions | keys' "$LOG/body")" '["f1","s1"]' "only the asked JSON id is a question"
   pass "fm-jev-ask-user: a JSON CI gate under an over-cap brief retains the entire accepted contract"
+}
+
+test_ci_gate_with_oversized_accepted_contract_is_decided() {
+  local shape code out state intent spec steer gate=${GATE%-review}-ci
+  intent=$(printf 'Preserve every field, including the final record without a newline.\n%.0s' {1..140})
+  spec=$(printf 'Keep field ordering stable and test empty trailing fields.\n%.0s' {1..160})
+  steer=$(printf 'Keep existing parser behavior for records ending with a newline.\n%.0s' {1..140})
+  for shape in json toon; do
+    world
+    if [ "$shape" = json ]; then
+      printf '%s\n' '{"findings":[{"id":"ci-1","severity":"error","action":"ask-user","description":"The first CI run failed on a flaky network fetch; the replacement run is green."}]}' > "$FINDINGS"
+    else
+      printf 'gate:\n  findings[1]{id,severity,action,description}:\n    ci-1,error,ask-user,"The first CI run failed on a flaky network fetch; the replacement run is green."\n' > "$FINDINGS"
+    fi
+    printf 'needs-decision [at=1791145829] [key=%s]: ask-user findings=ci-1 file=%s\n' "$gate" "$FINDINGS" > "$HOME_DIR/state/t1.status"
+    printf "# Task\n## Captain's intent\n%s\n\n## Firstmate spec\n%s\n" "$intent" "$spec" > "$HOME_DIR/data/t1/brief.md"
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' "$steer" > "$HOME_DIR/state/t1.inbox/002.msg"
+    answer in-scope-fix 0.95
+    run code out t1 "$gate" --round 1
+    assert_equals 0 "$code" "a $shape CI gate with an over-26-KiB accepted contract is decided: $out"
+    assert_equals 1 "$(calls)" "the full $shape contract reaches Jev once"
+    state=$(jq -r .state "$LOG/body")
+    [ "$(printf '%s' "$state" | wc -c)" -gt 26477 ] || fail "the $shape regression must exceed the reported contract size"
+    assert_contains "$state" "$intent" "the entire $shape intent reaches Jev"
+    assert_contains "$state" "$spec" "the entire $shape spec reaches Jev"
+    assert_contains "$state" "$steer" "the entire $shape steer reaches Jev"
+    assert_contains "$state" '[1] Also keep empty trailing fields.' "the handled $shape steer is retained"
+    assert_contains "$state" 'the replacement run is green' "the $shape finding is retained"
+    assert_contains "$(sed -n 4p "$LOG/send-args")" '--step ci --action fix --findings ci-1' "the $shape decision is delivered"
+  done
+  pass "fm-jev-ask-user: oversized JSON and TOON CI contracts reach Jev without scope loss"
 }
 
 test_record_errors_refuse() {
@@ -804,6 +834,7 @@ test_escalates_wrong_or_missing_answer_type
 test_always_escalate_classes_skip_jev
 test_escalates_oversized_or_secret_contract
 test_json_ci_gate_with_long_setup_is_decided
+test_ci_gate_with_oversized_accepted_contract_is_decided
 test_record_errors_refuse
 test_send_failure_reports_error
 test_subset_snapshot_with_noop_context_approves
