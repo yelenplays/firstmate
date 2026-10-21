@@ -834,6 +834,9 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # banned, every relaunch, banned or not, carries its test_ban_since forward,
 # writing test_ban_since=base when that banned run started from the base, so a
 # generic relaunch never moves the baseline past tests a banned run wrote.
+# An allowlisted takeover has no test_ban_model and is not subject to the
+# worker test gate; retaining the baseline constrains a later banned relaunch.
+# The independent pipeline-fixer check still applies at PR registration.
 # A tdd-split handoff refreshes that baseline under bin/fm-tdd-split.sh's
 # checked test-seat contract instead. The done gate counts a test file only
 # when it changed since that commit and is

@@ -19,18 +19,19 @@
 #      fm_tdd_split_seat_overlay to the launch brief.
 #   2. The seat commits tests only and reports `done: tests-ready <sha>`.
 #      fm_tdd_split_accept_done requires a tests-ready note and a clean worker
-#      copy whose net diff against the merge-base changes at least one file
-#      and only test paths (fm_tdd_split_seat_path_ok). The gate checks the
+#      copy whose first-seat net diff against the merge-base changes at least
+#      one file and only test paths (fm_tdd_split_seat_path_ok); step 5 covers
+#      a returned seat. The gate checks the
 #      current HEAD, not the optional SHA text in the note.
 #   3. Firstmate runs `bin/fm-tdd-split.sh handoff <id>` on that report. It
 #      re-checks step 2 and verifies the branch's tests fail without the
 #      implementation before relaunching onto the recorded implementer and
 #      recording tdd_split=implement. That script's header owns the isolated
 #      red-run procedure and its limits, including after a return to the seat.
-#   4. The handoff records test_ban_since=<seat HEAD>, which bin/fm-dod-lib.sh's
-#      test-authoring block reads: its done gate and pre-PR check refuse any
-#      implementer change to the handed-over tests. From here the task is an
-#      ordinary banned ship on the implementer.
+#   4. The handoff records test_ban_since=<seat HEAD>. From here the task is an
+#      ordinary banned ship on the implementer; bin/fm-dod-lib.sh's
+#      test-authoring block owns lock enforcement and its scope, including
+#      after an allowlisted takeover.
 #   5. Two ways lead back to the seat, both through bin/fm-tdd-split.sh. The
 #      implementer that finds a handed-over test wrong reports
 #      `blocked [key=test-dispute]: <test>: <reason>`; firstmate either answers
