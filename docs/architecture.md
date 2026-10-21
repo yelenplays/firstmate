@@ -178,6 +178,9 @@ Each home atomically publishes that bounded home summary with freshness epoch me
 The fleet snapshot and Bearings paths use the concurrent remote-ledger collection, cache, unreadable-home disclosure, and remote-liveness boundary owned by `bin/fm-fleet-snapshot.sh`'s header.
 `bin/fm-fleet-view.sh` renders that snapshot as Markdown for humans, while `bin/fm-bearings-snapshot.sh` provides the bounded bearings projection, so both views consume one structured contract instead of reparsing raw fleet files.
 The script header owns the exact JSON schema.
+The terminal attention board uses [`bin/fm-board-lib.sh`](../bin/fm-board-lib.sh)'s durable-record derivation rather than a second task-state store; [`bin/fm-board.sh`](../bin/fm-board.sh) aggregates the local view with published secondmate boards.
+[`bin/fm-session-start.sh`](../bin/fm-session-start.sh) owns digest integration, while [`bin/fm-main-sync.sh`](../bin/fm-main-sync.sh) owns the guarded updates of waiting PRs and local-only ready branches that the watcher runs detached.
+Board regressions are in [`tests/fm-board.test.sh`](../tests/fm-board.test.sh), with update guards in [`tests/fm-main-sync.test.sh`](../tests/fm-main-sync.test.sh) and publication bounds in [`tests/fm-home-summary-refresh.test.sh`](../tests/fm-home-summary-refresh.test.sh).
 
 On a Pi primary, supervision is default-on: the watcher extension can hand rows eligible under the [wake-dispatch contract](pi-supervision-branch.md#wake-dispatch) to a persistent in-process supervision conversation while main-only rows remain on the captain-facing path.
 The branch handles those rows, stores the outcome durably, and merges it back into main.

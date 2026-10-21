@@ -30,8 +30,9 @@ The locked startup inactive-outcome scan joins that worker so a slow local curre
 4. **Supervision operating instructions** - the digest emits exactly one harness-aware operating block; `bin/fm-session-start.sh` owns its ordering and compact form, and `bin/fm-supervision-instructions.sh` renders it.
    The read-once contract precedes the fleet and context digests it governs.
    The script itself never starts supervision; the emitted harness protocol owns the exact wait or wake mechanism.
-5. **Fleet-state digest** - a full digest places this after the read-once contract and ahead of the context digest: the compact backlog listing owned by `bin/fm-session-start.sh`; every `state/<id>.meta`; a bounded tail of each task's `state/<id>.status` (labeled as wake-EVENT history, not current state, with the full log path printed for a deeper read); the away or quiet posture (`state/.afk-contract`, plus the `state/.afk` daemon flag where a daemon runs); and one cheap alive/dead read of each task's recorded backend endpoint.
-   That liveness line is a fast presence check only, not a full state read - when you need a crew's actual current state (a run-step, not just "is the pane there"), read it with `bin/fm-crew-state.sh <id>` as before; the digest deliberately skips that deeper, slower read for every task so it stays fast and bounded.
+5. **Fleet-state digest** - `bin/fm-session-start.sh`'s header owns contents and bounds, including the terminal attention board; consult `bin/fm-board.sh` for its on-demand view.
+   Treat status tails as wake-EVENT history, not current state; use the printed full-log path when deeper history is needed.
+   The digest's endpoint-liveness line is a fast presence check only, not a full state read - when you need a crew's actual current state (a run-step, not just "is the pane there"), read it with `bin/fm-crew-state.sh <id>` as before; the digest deliberately skips that deeper, slower read for every task so it stays fast and bounded.
    A compact-source re-emit uses the slim fleet digest; `bin/fm-session-start.sh` owns its exact contents and the `--full` opt-in.
 6. **Network checks** - after the fleet-state digest, the deferred stage's result, or an explicit statement of what it has not confirmed yet.
    A read-only session runs no network checks at all and says so.

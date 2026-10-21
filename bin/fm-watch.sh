@@ -314,6 +314,12 @@ HOME_SUMMARY_INTERVAL=${FM_HOME_SUMMARY_INTERVAL:-300}
 case "$HOME_SUMMARY_INTERVAL" in
   ''|*[!0-9]*|0) HOME_SUMMARY_INTERVAL=300 ;;
 esac
+# Cadence for keeping waiting pull requests and local ready branches current
+# with main (bin/fm-main-sync.sh).
+MAIN_SYNC_INTERVAL=${FM_MAIN_SYNC_INTERVAL:-900}
+case "$MAIN_SYNC_INTERVAL" in
+  ''|*[!0-9]*|0) MAIN_SYNC_INTERVAL=900 ;;
+esac
 SIGNAL_GRACE=${FM_SIGNAL_GRACE:-30}   # seconds to linger after a signal so trailing
                                       # signals (a status write, then the same turn's
                                       # turn-end hook) coalesce into one wake
@@ -2926,6 +2932,24 @@ home_summary_refresh_detached() {
   HOME_SUMMARY_PID=$!
 }
 
+# Waiting pull requests and local ready branches are kept current with main on
+# the same detached pattern: the sync makes forge calls, so it must never sit between two beacon
+# touches. The stamp is touched at launch so a failing sync is retried on the
+# next interval rather than every poll; bin/fm-main-sync.sh owns every guard.
+MAIN_SYNC_PID=
+main_sync_detached() {
+  if [ -n "$MAIN_SYNC_PID" ]; then
+    if kill -0 "$MAIN_SYNC_PID" 2>/dev/null; then
+      return 0
+    fi
+    wait "$MAIN_SYNC_PID" 2>/dev/null || true
+    MAIN_SYNC_PID=
+  fi
+  touch "$STATE/.main-sync-last" 2>/dev/null || return 0
+  "$SCRIPT_DIR/fm-main-sync.sh" </dev/null >/dev/null 2>&1 &
+  MAIN_SYNC_PID=$!
+}
+
 RECONCILE_REQUEST_PID=
 reconcile_requests_pending() {
   local request
@@ -3036,11 +3060,13 @@ pr_poll_publish_release() {
 
 watcher_cleanup() {
   local exit_status=$?
-  local cleanup_status=0 owns_lock=0 transition=release-lock
+  local cleanup_status=0 owns_lock=0 transition=release-lock lock_pid=
   signal_publish_release || cleanup_status=1
   pr_poll_publish_release || cleanup_status=1
   pr_poll_control_release || cleanup_status=1
-  if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${WATCHER_PID:-}" ]; then
+  # Keep ownership proof in-process even when a stop interrupts a child read.
+  IFS= read -r -d '' lock_pid 2>/dev/null < "$WATCH_LOCK/pid" || true
+  if [ "${lock_pid%$'\n'}" = "${WATCHER_PID:-}" ]; then
     owns_lock=1
     if [ "${WATCHER_RECOVERY_PENDING:-0}" -eq 1 ] \
       && [ "${FM_WATCH_DELIVERED_REASON:-}" = "check: rearm-resurface" ]; then
@@ -3209,7 +3235,9 @@ while :; do
   # no-ops because the lock pid is not ours, so the survivor's lock is untouched.
   # This makes any duplicate self-resolve within one poll instead of persisting
   # and doubling every wake.
-  if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" != "$WATCHER_PID" ]; then
+  lock_pid=
+  IFS= read -r -d '' lock_pid 2>/dev/null < "$WATCH_LOCK/pid" || true
+  if [ "${lock_pid%$'\n'}" != "$WATCHER_PID" ]; then
     exit 0
   fi
 
@@ -3223,6 +3251,9 @@ while :; do
 
   if [ "$(age_of "$STATE/home-summary.json")" -ge "$HOME_SUMMARY_INTERVAL" ]; then
     home_summary_refresh_detached
+  fi
+  if [ "$(age_of "$STATE/.main-sync-last")" -ge "$MAIN_SYNC_INTERVAL" ]; then
+    main_sync_detached
   fi
 
   # Bearings publishes reconcile asks as local one-shot request files and

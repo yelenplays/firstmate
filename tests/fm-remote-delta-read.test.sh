@@ -101,7 +101,10 @@ PREFIX_SHA=$(sha 'alpha\nbeta\n')
 run_reader 11 "$PREFIX_SHA" 4 > "$TMP_ROOT/truncated.out" &
 READER_PID=$!
 sleep 0.3
-printf 'a\n' > "$DELTA_HOME/$DELTA_LOG_REL"
+# Publish the shorter file atomically: a truncating redirection could expose
+# zero bytes before printf writes, racing the expected remaining size/hash.
+printf 'a\n' > "$TMP_ROOT/shorter.status"
+mv "$TMP_ROOT/shorter.status" "$DELTA_HOME/$DELTA_LOG_REL"
 wait "$READER_PID" || fail 'the truncated read did not exit 0'
 OUT=$(<"$TMP_ROOT/truncated.out")
 assert_contains "$OUT" 'status=continuity-broken' 'truncation did not produce a break'
@@ -117,7 +120,11 @@ printf 'alpha\nbeta\n' > "$DELTA_HOME/$DELTA_LOG_REL"
 run_reader 11 "$PREFIX_SHA" 4 > "$TMP_ROOT/rewrite.out" &
 READER_PID=$!
 sleep 1.1
-printf 'OMEGA\nbeta\n' > "$DELTA_HOME/$DELTA_LOG_REL"
+# Preserve both size and inode throughout the rewrite, including before the
+# write: shell > would first truncate the log and could yield a valid break
+# for the wrong reason. dd writes these 11 bytes without truncating.
+printf 'OMEGA\nbeta\n' | dd of="$DELTA_HOME/$DELTA_LOG_REL" bs=11 count=1 conv=notrunc 2>/dev/null \
+  || fail 'the same-size rewrite could not be written'
 wait "$READER_PID" || fail 'the rewritten read did not exit 0'
 OUT=$(<"$TMP_ROOT/rewrite.out")
 assert_contains "$OUT" 'status=continuity-broken' 'a same-size rewrite did not produce a break'
@@ -147,7 +154,7 @@ case "\$3" in
     if [ "\${FM_TEST_REMOVE_LOG:-0}" = 1 ]; then
       rm -- "\$FM_TEST_REWRITE_LOG"
     else
-      printf 'OMEGA\\nbeta\\n' > "\$FM_TEST_REWRITE_LOG"
+      printf 'OMEGA\\nbeta\\n' | dd of="\$FM_TEST_REWRITE_LOG" bs=11 count=1 conv=notrunc 2>/dev/null || exit 1
     fi
     : > "\$FM_TEST_REWRITE_DONE"
   fi

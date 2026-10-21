@@ -57,7 +57,11 @@
 #                       a command for the full supervision block.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
-#   6. fleet digest   - on a full digest, a compact data/backlog.md
+#   6. fleet digest   - first the attention board (bin/fm-board.sh --skip-done), bounded
+#                       by FM_SESSION_START_BOARD_TIMEOUT (default 20s) and
+#                       reduced to byte-capped counts plus the full-board
+#                       command on a slim re-emit; then, on a full digest,
+#                       a compact data/backlog.md
 #                       identity/metadata listing, every state/*.meta, a
 #                       bounded state/*.status tail, the away posture
 #                       (state/.afk-contract and the legacy state/.afk daemon
@@ -174,11 +178,12 @@
 # The context and fleet-state digests
 # below are always read-only, so they run unconditionally in both modes.
 #
-# BACKLOG DIGEST: the startup listing is a RECOVERY input, not a reporting
-# surface, so it carries what this turn can act on and nothing else.
-#   - `done` rows are never listed. Retained completion history belongs to the
-#     reporting surfaces (bin/fm-bearings-snapshot.sh, /ahoy), and at startup it
-#     is pure weight - 10 done rows cost 3.3KB in an observed main-home digest.
+# BACKLOG DIGEST: the compact backlog listing after the attention board is a
+# RECOVERY input, not a reporting surface, so it carries what this turn can act
+# on and nothing else. These rules apply only to that listing; bin/fm-board.sh
+# owns the board's separate selection and display limits.
+#   - `done` backlog rows are never listed here; the attention board above
+#     retains post-merge visibility without repeating completion history.
 #   - Every in-flight, held, and blocked row is listed IN FULL, with its
 #     hold_kind/hold_reason and blocked_by. Those are the rows AGENTS.md
 #     sections 7 and 10 make actionable at startup, so they are never bounded
@@ -464,6 +469,8 @@ case "$QUEUED_LIMIT" in ''|*[!0-9]*|0) QUEUED_LIMIT=20 ;; esac
 # One per-task endpoint read may never outlive this bound: a hung backend CLI
 # becomes that task's endpoint: error line instead of the digest's whole
 # runtime budget.
+BOARD_TIMEOUT=${FM_SESSION_START_BOARD_TIMEOUT:-20}
+case "$BOARD_TIMEOUT" in ''|*[!0-9]*|0) BOARD_TIMEOUT=20 ;; esac
 ENDPOINT_TIMEOUT=${FM_SESSION_START_ENDPOINT_TIMEOUT:-10}
 case "$ENDPOINT_TIMEOUT" in ''|*[!0-9]*) ENDPOINT_TIMEOUT=10 ;; esac
 [ "$ENDPOINT_TIMEOUT" -gt 0 ] 2>/dev/null || ENDPOINT_TIMEOUT=10
@@ -1201,6 +1208,27 @@ fi
 # truncated tail must never take.
 stage fleet-state
 section "FLEET STATE"
+# The board goes first in this stage: it is the one view of what waits on the
+# captain, recomputed from stored state, so a truncated tail must not take it.
+if [ "$SLIM" -eq 1 ]; then
+  subsection "Board (full: bin/fm-board.sh)"
+else
+  subsection "Board (bin/fm-board.sh: what needs the captain, from stored state)"
+fi
+BOARD_RC=0
+BOARD_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+  fm_run_timed "$BOARD_TIMEOUT" "$SCRIPT_DIR/fm-board.sh" --skip-done 2>&1) || BOARD_RC=$?
+if [ "$BOARD_RC" -ne 0 ]; then
+  BOARD_OUT=$(printf 'board unavailable (exit %s, bound %ss); run bin/fm-board.sh on demand: %s\n' \
+    "$BOARD_RC" "$BOARD_TIMEOUT" "$(printf '%s' "$BOARD_OUT" | tail -1)")
+fi
+if [ "$SLIM" -eq 1 ]; then
+  # Keep only the counts (or failure diagnostic); task rows already have
+  # budgets under work under way and open decisions. The full-board command is above.
+  printf '%s\n' "$BOARD_OUT" | head -1 | slim_capped 200 200 "bin/fm-board.sh"
+else
+  printf '%s\n' "$BOARD_OUT"
+fi
 [ "$SLIM" -eq 1 ] || print_backlog_compact "$DATA/backlog.md" "data/backlog.md"
 
 META_FOUND=0

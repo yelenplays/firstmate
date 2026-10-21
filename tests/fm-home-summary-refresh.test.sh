@@ -61,6 +61,8 @@ exit 0
 SH
 chmod +x "$FAKEBIN/tmux" "$FAKEBIN/no-mistakes"
 
+# Keep recovery/diagnostic checks runnable without unrelated snapshot fixtures.
+if [ "${1:-}" != --recovery-only ]; then
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/data" "$HOME_DIR/config" \
   "$HOME_DIR/projects/task" "$HOME_DIR/bin"
 HOME_DIR=$(cd "$HOME_DIR" && pwd -P)
@@ -87,6 +89,8 @@ fm_write_meta "$HOME_DIR/state/ledger-task.meta" \
 busy_gen=$("$ROOT/bin/fm-busy-event.sh" arm "$HOME_DIR/state" ledger-task)
 "$ROOT/bin/fm-busy-event.sh" apply "$HOME_DIR/state" ledger-task idle \
   --gen "$busy_gen" --source claude-hook --event stop
+
+fi
 
 NOW_ONE=2026-08-28T10:00:00Z
 EPOCH_ONE=1787911200
@@ -122,6 +126,7 @@ wait_for_ledger_generation() {  # <generated> [tenths]
   return 1
 }
 
+if [ "${1:-}" != --recovery-only ]; then
 run_writer "$NOW_ONE" "$EPOCH_ONE" || fail "initial home-summary publication failed"
 jq -e --arg home "$HOME_DIR" --arg now "$NOW_ONE" --argjson epoch "$EPOCH_ONE" '
   .schema == "fm-secondmate-home-summary.v1"
@@ -244,6 +249,8 @@ PATH="$FAKEBIN:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$LARGE_CHILD_HOME" \
 large_child_bytes=$(wc -c < "$LARGE_CHILD_HOME/state/home-summary.json")
 [ "$large_child_bytes" -gt 131072 ] && [ "$large_child_bytes" -le 262144 ] \
   || fail "large child ledger did not cross only the per-argument limit: $large_child_bytes"
+jq -e '(.board.items | length) < 600 and .board.omitted.working > 0' "$LARGE_CHILD_HOME/state/home-summary.json" >/dev/null \
+  || fail "large child ledger did not bound its published board"
 mkdir -p "$LARGE_PARENT_HOME/state" "$LARGE_PARENT_HOME/data" \
   "$LARGE_PARENT_HOME/config" "$LARGE_PARENT_HOME/projects"
 printf -- '- large-child - fixture domain (home: %s; scope: fixture work; projects: firstmate; added 2026-08-28)\n' \
@@ -809,6 +816,8 @@ wait "$LOCK_HOLDER_PID" >/dev/null 2>&1 || true
 LOCK_HOLDER_PID=
 pass "a stalled publication does not delay the watcher liveness beacon"
 
+fi
+
 RESTART_HOME="$TMP_ROOT/restart-home"
 mkdir -p "$RESTART_HOME/state" "$RESTART_HOME/data" "$RESTART_HOME/config" \
   "$RESTART_HOME/projects/task"
@@ -887,39 +896,21 @@ done
 sleep 4
 [ ! -s "$RESTART_HOME/state/.home-summary-refresh.log" ] \
   || fail "watcher restart queued refreshes behind a live publication lock: $(cat "$RESTART_HOME/state/.home-summary-refresh.log")"
-if ! kill -0 "$WATCH_PID" 2>/dev/null; then
-  wait "$WATCH_PID" >/dev/null 2>&1 || true
-  rm -f "$RESTART_HOME/state/.last-watcher-beat"
-  PATH="$FAKEBIN:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$RESTART_HOME" \
-    FM_POLL=1 FM_HOME_SUMMARY_INTERVAL=999999 FM_HOME_SUMMARY_TIMEOUT=2 \
-    FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=9999999 FM_HEARTBEAT=9999999 \
-    "$WATCH" > "$TMP_ROOT/restart-watch-three.out" 2> "$TMP_ROOT/restart-watch-three.err" &
-  WATCH_PID=$!
-  i=0
-  while [ ! -e "$RESTART_HOME/state/.last-watcher-beat" ] && [ "$i" -lt 100 ]; do
-    kill -0 "$WATCH_PID" 2>/dev/null || break
-    sleep 0.05
-    i=$((i + 1))
-  done
-  [ -e "$RESTART_HOME/state/.last-watcher-beat" ] \
-    || fail "the recovery replacement watcher did not begin polling"
-fi
+# The short watcher deadline above detects refreshes wrongly queued behind a
+# live lock. Stop that observer before testing recovery: its two-second producer
+# budget is not a publication deadline for a loaded runner.
+kill "$WATCH_PID" >/dev/null 2>&1 || true
+wait "$WATCH_PID" >/dev/null 2>&1 || true
+WATCH_PID=
 kill -KILL "$LOCK_HOLDER_PID" >/dev/null 2>&1 || true
 wait "$LOCK_HOLDER_PID" >/dev/null 2>&1 || true
 LOCK_HOLDER_PID=
 PATH="$FAKEBIN:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$RESTART_HOME" \
   FM_HOME_SUMMARY_IF_IDLE=1 "$WRITER" --best-effort \
   || fail "stale-lock recovery changed the best-effort caller result"
-i=0
-while [ ! -e "$RESTART_HOME/state/home-summary.json" ] && [ "$i" -lt 200 ]; do
-  sleep 0.05
-  i=$((i + 1))
-done
-[ -e "$RESTART_HOME/state/home-summary.json" ] \
-  || fail "a dead publication lock wedged publication"
-kill "$WATCH_PID" >/dev/null 2>&1 || true
-wait "$WATCH_PID" >/dev/null 2>&1 || true
-WATCH_PID=
+jq -e --arg home "$RESTART_HOME" '.schema == "fm-secondmate-home-summary.v1"
+  and .home == $home' "$RESTART_HOME/state/home-summary.json" >/dev/null 2>&1 \
+  || fail "a dead publication lock wedged publication: $(cat "$RESTART_HOME/state/.home-summary-refresh.log" 2>/dev/null)"
 pass "publication remains single-flight across watcher restart"
 
 # A publication that keeps failing is deliberately non-fatal to its caller, so
@@ -1013,13 +1004,13 @@ REAL_DATE=$(command -v date)
 cat > "$ORDER_DATE_BIN/date" <<'SH'
 #!/usr/bin/env bash
 if [ "$#" -eq 2 ] && [ "$1" = -u ] && [ "$2" = +%Y-%m-%dT%H:%M:%SZ ]; then
-  python3 - "$FM_TEST_ORDER_START" "$FM_TEST_ORDER_EARLY" "$FM_TEST_ORDER_LATE" <<'PY'
-import sys
-import time
-
-started = float(sys.argv[1])
-print(sys.argv[2] if time.time() - started < 1 else sys.argv[3])
-PY
+  # Advance on the first clock read, not elapsed wall time: scheduling delays
+  # before the parent starts must not turn its attempt into a later failure.
+  if mkdir "$FM_TEST_ORDER_CLOCK" 2>/dev/null; then
+    printf '%s\n' "$FM_TEST_ORDER_EARLY"
+  else
+    printf '%s\n' "$FM_TEST_ORDER_LATE"
+  fi
   exit 0
 fi
 exec "$FM_TEST_REAL_DATE" "$@"
@@ -1040,13 +1031,15 @@ while [ ! -e "$ORDER_LOCK_MARKER" ] && [ "$i" -lt 100 ]; do
   i=$((i + 1))
 done
 [ -e "$ORDER_LOCK_MARKER" ] || fail "could not hold the publication lock for ordering coverage"
-order_started=$(python3 -c 'import time; print(time.time())')
 PATH="$ORDER_DATE_BIN:$FAKEBIN:$PATH" FM_TEST_REAL_DATE="$REAL_DATE" \
-  FM_TEST_ORDER_START="$order_started" FM_TEST_ORDER_EARLY="$NOW_ONE" \
+  FM_TEST_ORDER_CLOCK="$TMP_ROOT/order-clock" FM_TEST_ORDER_EARLY="$NOW_ONE" \
   FM_TEST_ORDER_LATE="$NOW_THREE" FM_ROOT_OVERRIDE="$ROOT" \
   FM_HOME="$ORDER_HOME" FM_HOME_SUMMARY_TIMEOUT=2 \
   "$WRITER" --best-effort \
   || fail "ordered timeout changed the best-effort caller result"
+grep -Fx "[$NOW_ONE] refresh exceeded its 2-second deadline" \
+  "$ORDER_HOME/state/.home-summary-refresh.log" >/dev/null \
+  || fail "the timed-out refresh did not retain its attempt timestamp"
 kill "$LOCK_HOLDER_PID" >/dev/null 2>&1 || true
 wait "$LOCK_HOLDER_PID" >/dev/null 2>&1 || true
 LOCK_HOLDER_PID=

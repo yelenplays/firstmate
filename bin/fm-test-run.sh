@@ -763,6 +763,8 @@ tests/fm-bearings-board-lavish-live-e2e.test.sh 51
 tests/fm-bearings-board-render.test.sh 15612
 tests/fm-bearings-board.test.sh 40817
 tests/fm-bearings-snapshot.test.sh 186219
+# Successful Ubuntu sample from run 39639539641 (completed serial shard).
+tests/fm-board.test.sh 6399
 # The live test's 74 ms value is a successful CI capability-skip sample.
 tests/fm-browser-routes.test.sh 6000
 tests/fm-browser-step-live-e2e.test.sh 74
@@ -869,6 +871,8 @@ tests/fm-live-lab-up-mate.test.sh 17363
 tests/fm-live-lab.test.sh 79639
 tests/fm-mail-check.test.sh 7524
 tests/fm-mail.test.sh 9684
+# Successful Ubuntu sample from run 39639539641 (completed serial shard).
+tests/fm-main-sync.test.sh 4809
 tests/fm-matt-pointers.test.sh 13064
 tests/fm-memory-migrate.test.sh 8698
 tests/fm-memory.test.sh 1761
