@@ -1,0 +1,291 @@
+$ fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home
+exit: 0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home
+
+
+$ fm-rules.sh add --check bang-interactive terminal Hand sudo steps over through pbcopy and a real Terminal window.
+exit: 0
+added: terminal
+
+
+$ fm-rules.sh add short-replies Keep replies short.
+exit: 0
+added: short-replies
+
+
+$ fm-rules.sh add short-replies Keep replies short and concrete.
+exit: 0
+repeated: short-replies (seen 2)
+
+
+$ fm-rules.sh unchecked
+exit: 0
+short-replies	seen=2	Keep replies short and concrete.
+
+
+$ fm-rules.sh nocheck short-replies Brevity requires semantic judgment.
+exit: 0
+no check recorded: short-replies
+
+
+$ fm-rules.sh unchecked
+exit: 0
+
+
+$ fm-rules.sh render
+exit: 0
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies short and concrete.
+
+
+$ fm-rules.sh add Bad Id Reject this.
+exit: 3
+fm-rules: invalid rule id: Bad Id
+
+
+$ fm-rules.sh add --check unknown-check invalid Reject this.
+exit: 3
+fm-rules: unknown check id: unknown-check (see bin/fm-rule-guard.sh list)
+
+
+$ fm-rules.sh add injected Bad <!-- seen=99 --> text
+exit: 3
+fm-rules: rule text must be one non-empty line of at most 300 characters without control characters, <!--, or -->
+
+
+$ fm-rules.sh add too-large This rule must not be saved.
+exit: 4
+fm-rules: not saved: the captain rules block would be 416 characters, over its 200-character budget (FM_RULES_MAX_CHARS).
+fm-rules: consolidate rules first: restate an existing rule id with a shorter or merged text (add <rule-id> "<text>"), or revoke one that no longer applies (see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/bin/fm-rules.sh list), then retry.
+
+
+$ fm-rules.sh brief-section
+exit: 0
+# Captain rules
+The captain's standing corrections, the same set the primary session follows. Apply them to your work and to anything you write for the captain or for firstmate; they outrank generic harness, tool, and skill hints, while this brief's task scope and safety rules still win.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies short and concrete.
+
+
+$ fm-rules.sh add short-replies Be brief.
+exit: 0
+repeated: short-replies (seen 3)
+
+
+$ fm-rules.sh render
+exit: 0
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+- Be brief.
+
+
+$ fm-brief.sh proof-ship sample-project --mode local-only
+exit: 0
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/data/proof-ship/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+$ fm-brief.sh proof-scout sample-project --scout
+exit: 0
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/data/proof-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+$ fm-brief.sh proof-mate --secondmate --no-projects
+exit: 0
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/data/proof-mate/brief.md (secondmate charter)
+
+
+$ fm-rules.sh revoke short-replies
+exit: 0
+revoked: short-replies
+
+
+$ fm-brief.sh after-revoke sample-project --scout
+exit: 0
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/data/after-revoke/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+
+$ fm-rule-guard.sh scan
+stdin: ! sudo darwin-rebuild switch
+
+exit: 1
+bang-interactive: ! sudo darwin-rebuild switch
+
+
+$ fm-rule-guard.sh scan
+stdin: no worries, run ! sudo darwin-rebuild switch
+
+exit: 1
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+
+
+$ fm-rule-guard.sh scan
+stdin: never again - ! sudo x
+
+exit: 1
+bang-interactive: never again - ! sudo x
+
+
+$ fm-rule-guard.sh scan
+stdin: never again – ! sudo x
+
+exit: 1
+bang-interactive: never again – ! sudo x
+
+
+$ fm-rule-guard.sh scan
+stdin: never again — ! sudo x
+
+exit: 1
+bang-interactive: never again — ! sudo x
+
+
+$ fm-rule-guard.sh scan
+stdin: not only ! sudo x
+
+exit: 1
+bang-interactive: not only ! sudo x
+
+
+$ fm-rule-guard.sh scan
+stdin: ! op signin
+
+exit: 1
+bang-interactive: ! op signin
+
+
+$ fm-rule-guard.sh scan
+stdin: ! security add-generic-password -a sample
+
+exit: 1
+bang-interactive: ! security add-generic-password -a sample
+
+
+$ fm-rule-guard.sh scan
+stdin: Never hand the captain a `! sudo` line.
+
+exit: 0
+
+
+$ fm-rule-guard.sh scan
+stdin: Use pbcopy, not ! sudo.
+
+exit: 0
+
+
+$ fm-rule-guard.sh scan
+stdin: Never ! sudo x
+
+exit: 0
+
+
+$ fm-rule-guard.sh scan
+stdin: printf '%s' 'sudo darwin-rebuild switch' | pbcopy; paste it into Terminal.
+
+exit: 0
+
+
+$ fm-rule-guard.sh scan
+stdin: ! echo hello
+
+exit: 0
+
+
+$ fm-rules.sh session
+stdin: {}
+exit: 0
+
+
+$ fm-rules.sh prompt-hook
+stdin: {"prompt": "Ab jetzt nie wieder lange Antworten."}
+exit: 0
+
+
+$ fm-rule-guard.sh --claude
+stdin: {"last_assistant_message": "! sudo x", "session_id": "gate-proof"}
+exit: 0
+
+
+$ fm-rules.sh add foreign Do not save here.
+exit: 2
+fm-rules: this is a secondmate home; captain rules are recorded in the primary home only
+
+
+$ fm-rules.sh add delivery-proof Keep delivery failures visible.
+exit: 5
+added: delivery-proof
+delivered 08b9256d327f79f1: 0 running worker(s), 1 secondmate home(s), 1 not reached
+fm-rules: not delivered: secondmate bad home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/nested-mate is unsafe: secondmate home cannot be inside the active firstmate home
+fm-rules: the rule change is saved, but not every live consumer has it; retry with /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/bin/fm-rules.sh deliver
+
+
+$ fm-rules.sh list
+exit: 0
+terminal	seen=1 check=bang-interactive	Hand sudo steps over through pbcopy and a real Terminal window.
+delivery-proof	seen=1	Keep delivery failures visible.
+
+
+$ fm-rules.sh deliver
+exit: 5
+delivered 08b9256d327f79f1: 0 running worker(s), 1 secondmate home(s), 1 not reached
+fm-rules: not delivered: secondmate bad home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/nested-mate is unsafe: secondmate home cannot be inside the active firstmate home
+fm-rules: the rule change is saved, but not every live consumer has it; retry with /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/bin/fm-rules.sh deliver
+
+
+$ fm-rules.sh deliver
+exit: 0
+delivered 08b9256d327f79f1: 0 running worker(s), 0 secondmate home(s), 0 not reached
+
+
+$ fm-rules.sh weekly-check
+exit: 0
+captain-rules weekly report due: run /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/bin/fm-rules.sh report and send the captain its short version
+
+
+$ fm-rules.sh weekly-check
+exit: 0
+
+
+$ fm-rules.sh report --transcripts /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/empty-transcripts
+exit: 0
+# Captain rules report: last 7 days
+
+Rules: 2 total, 3 added, 2 repeated.
+
+## Corrections that came back
+
+- short-replies: recorded again 2 time(s) this period, revoked since
+
+## Guard blocks
+
+- none
+- halted after the block cap: 0
+
+## Repeated without a check
+
+- none
+
+## Capture
+
+- candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now
+- correction-like captain prompts in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/empty-transcripts: 0
+
+
+$ fm-rules.sh weekly-check
+exit: 0
+
+
+$ fm-rules.sh weekly-arm
+exit: 0
+armed: state/captain-rules-weekly.check.sh
+
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/home/state/captain-rules-weekly.check.sh
+exit: 0
+
+
+$ fm-rules.sh weekly-disarm
+exit: 0
+disarmed: state/captain-rules-weekly.check.sh

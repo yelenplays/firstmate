@@ -1,0 +1,4 @@
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep replies short and concrete.

@@ -1,10 +1,10 @@
 # Captain rules report: last 7 days
 
-Rules: 6 total, 7 added, 1 repeated.
+Rules: 2 total, 3 added, 2 repeated.
 
 ## Corrections that came back
 
-- short-replies: recorded again 1 time(s) this period, revoked since
+- short-replies: recorded again 2 time(s) this period, revoked since
 
 ## Guard blocks
 
@@ -18,4 +18,4 @@ Rules: 6 total, 7 added, 1 repeated.
 ## Capture
 
 - candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now
-- transcripts: none found
+- correction-like captain prompts in /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F8CH6J7CNWEYR35GZ49HV1/.memory-cli-validation/empty-transcripts: 0

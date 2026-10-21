@@ -1,0 +1,15 @@
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"add","rule":"terminal","check":"bang-interactive","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"deliver","generation":"cd3ed32d82b6cc8a","workers":"0","secondmates":"0","failed":"0"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"add","rule":"short-replies","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"deliver","generation":"ef9f15fce4635e4d","workers":"0","secondmates":"0","failed":"0"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"repeat","rule":"short-replies","seen":"2","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"deliver","generation":"43c8364af3b2f41a","workers":"0","secondmates":"0","failed":"0"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:41Z","event":"nocheck","rule":"short-replies","reason":"Brevity requires semantic judgment."}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:42Z","event":"repeat","rule":"short-replies","seen":"3","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:42Z","event":"deliver","generation":"cb0ef8f6242c08ec","workers":"0","secondmates":"0","failed":"0"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:43Z","event":"revoke","rule":"short-replies","text":"Be brief."}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:43Z","event":"deliver","generation":"cd3ed32d82b6cc8a","workers":"0","secondmates":"0","failed":"0"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:44Z","event":"add","rule":"delivery-proof","check":"","candidate":""}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:44Z","event":"deliver","generation":"08b9256d327f79f1","workers":"0","secondmates":"1","failed":"1"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:44Z","event":"deliver","generation":"08b9256d327f79f1","workers":"0","secondmates":"1","failed":"1"}
+{"schema":"fm-rules-event.v1","at":"2026-10-21T14:32:44Z","event":"deliver","generation":"08b9256d327f79f1","workers":"0","secondmates":"0","failed":"0"}

@@ -1,0 +1,10 @@
+[
+  "persist-restate-check-and-invalid-input: pass",
+  "overflow-refuses-before-save-and-allows-consolidation: pass",
+  "new-ship-and-scout-briefs-carry-current-complete-rule-set: pass",
+  "bang-scan-blocks-handovers-without-blocking-negated-rules: pass",
+  "gate-hooks-never-capture-or-block-a-worker-session: pass",
+  "secondmate-refuses-authoritative-rule-mutations: pass",
+  "unsafe-delivery-is-refused-with-saved-rule-and-explicit-retry: pass",
+  "weekly-report-recounts-actual-repeats-and-reminder-is-one-shot: pass"
+]
