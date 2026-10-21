@@ -2897,7 +2897,7 @@ SH
   done
 }
 
-if [ "${1:-}" != --opus-effort ] && [ "${1:-}" != --opus-raw-effort ]; then
+if [ "${1:-}" != --opus-effort ] && [ "${1:-}" != --opus-raw-effort ] && [ "${1:-}" != --tdd-split ]; then
   test_launch_environment_allowlist
   test_launch_environment_invalid_config_refuses
   test_launch_environment_inaccessible_config_refuses

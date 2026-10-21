@@ -3958,6 +3958,17 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
+if [ "${1:-}" = --test-ban ]; then
+  test_tdd_split_locks_checkpoint_e2e_tests
+  test_test_ban_runs_when_forge_head_is_available
+  test_test_ban_covers_pipeline_fixer_commits
+  test_test_ban_covers_banned_fixers_on_allowlisted_tasks
+  test_test_ban_registration_without_pipeline_history
+  test_test_ban_binds_to_the_published_head
+  test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
+  exit 0
+fi
+
 if [ "${1:-}" = --tdd-lock ]; then
   test_tdd_split_locks_checkpoint_e2e_tests
   exit 0

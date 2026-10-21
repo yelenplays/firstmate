@@ -23,11 +23,10 @@
 #      and only test paths (fm_tdd_split_seat_path_ok). The gate checks the
 #      current HEAD, not the optional SHA text in the note.
 #   3. Firstmate runs `bin/fm-tdd-split.sh handoff <id>` on that report. It
-#      re-checks step 2, runs the fail-to-pass command in a private clone of the
-#      seat's HEAD - the base plus tests only, so a red run is the tests failing
-#      on the base - and refuses unless it exits red. It then relaunches the
-#      task onto the recorded implementer with bin/fm-control.sh and records
-#      tdd_split=implement.
+#      re-checks step 2 and verifies the branch's tests fail without the
+#      implementation before relaunching onto the recorded implementer and
+#      recording tdd_split=implement. That script's header owns the isolated
+#      red-run procedure and its limits, including after a return to the seat.
 #   4. The handoff records test_ban_since=<seat HEAD>, which bin/fm-dod-lib.sh's
 #      test-authoring block reads: its done gate and pre-PR check refuse any
 #      implementer change to the handed-over tests. From here the task is an
@@ -64,10 +63,9 @@ FM_TDD_SPLIT_READY_VERB=tests-ready
 
 # The fail-to-pass command a brief declares on exactly one line of its own,
 # outside fenced blocks, as `Fail-to-pass command: `<command>``. Firstmate
-# writes it, never the worker. The handoff runs it with `bash -c` from the root
-# of a clone of the seat's HEAD, passing the test files the seat changed as
-# "$@". Prints the command; 1 when the brief declares none, more than one, or
-# one that is not a single code span.
+# writes it, never the worker. bin/fm-tdd-split.sh's header owns the execution
+# environment and test-file arguments. Prints the command; 1 when the brief
+# declares none, more than one, or one that is not a single code span.
 fm_tdd_split_check_command() {  # <brief>
   fm_tdd_split_brief_command "${1:-}" "$FM_TDD_SPLIT_CHECK_LABEL"
 }
