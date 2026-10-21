@@ -1,0 +1,151 @@
+Candidate: 12178060f16e02efe4197b6bbf19a6612445d616
+No stubs, no FM_CONTROL_BIN override, no alternate harness.
+
+$ bin/fm-tdd-split.sh handoff green --timeout 1
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/.qa-tdd-hisbzz56/green/home/data/green/tdd-split-red.log
+[exit=1]
+
+Red-run output:
+
+fm-tdd-split: head=3fc4b0783f67fe03ac742d7940eedb3e9229f705 exit=0 command=for t; do bash "$t" || exit 1; done
+
+$ bin/fm-tdd-split.sh handoff unrunnable --timeout 1
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/.qa-tdd-hisbzz56/unrunnable/home/data/unrunnable/tdd-split-red.log
+[exit=1]
+
+Red-run output:
+fm-tdd-split: Zeile 1: qa-command-that-does-not-exist: Kommando nicht gefunden
+
+fm-tdd-split: head=0fdfbb2a988665c2075b5b2b363ac3f89bd28410 exit=127 command=qa-command-that-does-not-exist "$@"
+
+$ bin/fm-tdd-split.sh handoff timeout --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/.qa-tdd-hisbzz56/timeout/home/data/timeout/tdd-split-red.log
+[exit=1]
+
+Red-run output:
+
+fm-tdd-split: head=c9aece9b071762f777a1ac3541359340c3a7ebae exit=124 command=sleep 3
+
+$ bin/fm-tdd-split.sh handoff mixed --timeout 1
+error: tdd-split test seat changed files that are not tests: feature.sh; the seat writes tests only, so revert those changes and report tests-ready again
+[exit=1]
+
+$ bin/fm-tdd-split.sh mutation mutation-pass --timeout 5
+tdd-split: mutation-pass mutation gate passed at 5cec9b70bfaf06635ff73a645b84c96f593e67e5
+[exit=0]
+
+Mutation log:
+MUTATION_EXECUTED
+arg=tests/feature.test.sh
+
+fm-tdd-split: head=5cec9b70bfaf06635ff73a645b84c96f593e67e5 exit=0 command=echo MUTATION_EXECUTED; printf "arg=%s\n" "$@"; for t; do bash "$t" || exit 1; done; touch clone-only-marker
+
+Observed: clone-only-marker absent from worker copy; worker copy clean.
+
+$ bin/fm-tdd-split.sh mutation missing-base
+error: tdd-split check cannot resolve the base branch origin/main in the worker copy
+[exit=1]
+
+Observed: no mutation log was created; task metadata remains on implement seat.
+
+$ bin/fm-tdd-split.sh mutation unrelated-base
+error: tdd-split check found no merge-base between HEAD and refs/remotes/origin/main
+[exit=1]
+
+Observed: no mutation log was created; task metadata remains on implement seat.
+
+$ bin/fm-tdd-split.sh mutation no-tests
+error: the branch's commits leave no test file to run the mutation command against
+[exit=1]
+
+Observed: no mutation log was created; task metadata remains on implement seat.
+
+$ bin/fm-tdd-split.sh dispute locked-edit-deepseek-v4.1-flash
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit=1]
+
+$ bin/fm-tdd-split.sh dispute locked-edit-glm-5.2
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit=1]
+
+$ bin/fm-tdd-split.sh dispute locked-edit-claude-sonnet-5-5
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit=1]
+
+$ bin/fm-tdd-split.sh dispute locked-delete-deepseek-v4.1-flash
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit=1]
+
+$ bin/fm-tdd-split.sh dispute locked-delete-glm-5.2
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit=1]
+
+$ bin/fm-tdd-split.sh dispute locked-delete-claude-sonnet-5-5
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit=1]
+
+$ bin/fm-escalate.sh record-failure rounds --reason first review failure
+task=rounds
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=e20117b147f06724ac409df55b82953796d3ebb2
+action=none
+[exit=0]
+
+$ bin/fm-escalate.sh record-failure rounds --reason same head repeated
+task=rounds
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=e20117b147f06724ac409df55b82953796d3ebb2
+action=none
+[exit=0]
+
+$ bin/fm-escalate.sh check rounds
+task=rounds
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=e20117b147f06724ac409df55b82953796d3ebb2
+action=none
+[exit=0]
+
+$ bin/fm-escalate.sh record-failure rounds --reason second review failure
+task=rounds
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=2
+heads=e20117b147f06724ac409df55b82953796d3ebb2,4736412b9a2bdcb12caee3522dd3bd163ee90aaa
+action=relaunch
+next_harness=claude
+next_model=claude-opus-5-5
+next_effort=medium
+[exit=0]
+
+Persisted round records:
+{"at":"2026-10-21T23:14:50Z","head":"e20117b147f06724ac409df55b82953796d3ebb2","reason":"first review failure","spawn_gen":"s1.1.qa"}
+{"at":"2026-10-21T23:14:50Z","head":"e20117b147f06724ac409df55b82953796d3ebb2","reason":"same head repeated","spawn_gen":"s1.1.qa"}
+{"at":"2026-10-21T23:14:50Z","head":"4736412b9a2bdcb12caee3522dd3bd163ee90aaa","reason":"second review failure","spawn_gen":"s1.1.qa"}
+
+$ bin/fm-escalate.sh record-failure top-step --reason first
+task=top-step
+current=claude/claude-opus-5-5/medium
+failed_rounds=1
+heads=3e060918c7257f361f57b28bd990b329241a84f4
+action=none
+[exit=0]
+
+$ bin/fm-escalate.sh record-failure top-step --reason second
+task=top-step
+current=claude/claude-opus-5-5/medium
+failed_rounds=2
+heads=3e060918c7257f361f57b28bd990b329241a84f4,11fdf0d4594acdb210e17b43060bba58be29d539
+action=captain
+reason=2 failed rounds on claude-opus-5-5, the top of the escalation ladder
+[exit=0]
+
+$ bin/fm-escalate.sh run top-step
+task=top-step
+current=claude/claude-opus-5-5/medium
+failed_rounds=2
+heads=3e060918c7257f361f57b28bd990b329241a84f4,11fdf0d4594acdb210e17b43060bba58be29d539
+action=captain
+reason=2 failed rounds on claude-opus-5-5, the top of the escalation ladder
+[exit=3]

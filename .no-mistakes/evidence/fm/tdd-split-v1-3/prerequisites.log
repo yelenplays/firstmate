@@ -1,0 +1,11 @@
+Candidate: 12178060f16e02efe4197b6bbf19a6612445d616
+bash: /run/current-system/sw/bin/bash
+jq: /etc/profiles/per-user/yelen/bin/jq
+python3: /opt/homebrew/bin/python3
+herdr: /opt/homebrew/bin/herdr
+tmux: NOT ON PATH
+claude: /Users/yelen/.local/bin/claude
+treehouse: /Users/yelen/.local/bin/treehouse
+sqlite3: /usr/bin/sqlite3
+
+No Claude process launched: normal workspace-trust configuration writes are outside the authorized boundary. No login availability claim made.

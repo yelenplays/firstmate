@@ -1,0 +1,52 @@
+
+Scenario: unrelated-base
+
+$ before-fix: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/.qa-regression-dpu3wp6e/bin/fm-tdd-split.sh mutation trial
+error: tdd-split check found no merge-base between HEAD and refs/remotes/origin/main
+tdd-split: trial mutation gate passed at 265a3fec1f1159c5cd688461d0a09e765628235a
+[exit=0]
+
+MUTATION_EXECUTED argc=0
+
+fm-tdd-split: head=265a3fec1f1159c5cd688461d0a09e765628235a exit=0 command=echo MUTATION_EXECUTED argc=$#; exit 0
+
+$ candidate: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/bin/fm-tdd-split.sh mutation trial
+error: tdd-split check found no merge-base between HEAD and refs/remotes/origin/main
+[exit=1]
+
+Observed: mutation command was not invoked.
+
+
+Scenario: missing-base
+
+$ before-fix: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/.qa-regression-dpu3wp6e/bin/fm-tdd-split.sh mutation trial
+error: tdd-split check cannot resolve the base branch origin/main in the worker copy
+tdd-split: trial mutation gate passed at d95e920ce626c17f98a7d3cdc206138d5d472ff9
+[exit=0]
+
+MUTATION_EXECUTED argc=0
+
+fm-tdd-split: head=d95e920ce626c17f98a7d3cdc206138d5d472ff9 exit=0 command=echo MUTATION_EXECUTED argc=$#; exit 0
+
+$ candidate: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/bin/fm-tdd-split.sh mutation trial
+error: tdd-split check cannot resolve the base branch origin/main in the worker copy
+[exit=1]
+
+Observed: mutation command was not invoked.
+
+
+Scenario: no-tests
+
+$ before-fix: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/.qa-regression-dpu3wp6e/bin/fm-tdd-split.sh mutation trial
+tdd-split: trial mutation gate passed at 03057ff23da26504b02637f3ef3ed776f76d8272
+[exit=0]
+
+MUTATION_EXECUTED argc=0
+
+fm-tdd-split: head=03057ff23da26504b02637f3ef3ed776f76d8272 exit=0 command=echo MUTATION_EXECUTED argc=$#; exit 0
+
+$ candidate: bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GBFQ8RGJCKZH4F73FR0NMT/bin/fm-tdd-split.sh mutation trial
+error: the branch's commits leave no test file to run the mutation command against
+[exit=1]
+
+Observed: mutation command was not invoked.

@@ -1,0 +1,6 @@
+ok - two failed rounds on a cheap model relaunch it onto Sonnet medium
+ok - Sonnet escalates to Opus medium, and Opus goes to the captain
+ok - a model the ladder does not list as cheap escalates to Opus medium, never down to Sonnet
+ok - only accepted failures and recorded failures since the incarnation began count
+ok - malformed calls are refused
+all fm-escalate tests passed
