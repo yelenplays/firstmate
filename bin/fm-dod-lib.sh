@@ -953,8 +953,9 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
 # worker copy's HEAD) add or modify since their merge-base with the base. With a
 # tests-first handoff <since>, it prints the test files added, modified, or
 # deleted since <since> that are also changed against the base or were handed
-# over at <since>. 1 when the base, <since>, or <head> cannot be resolved;
-# stdout then holds a one-line reason.
+# over at <since>. Handed-over e2e tests are locked too; other e2e tests keep
+# the usual authoring exception. 1 when the base, <since>, or <head> cannot be
+# resolved; stdout then holds a one-line reason.
 fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
   local wt=$1 since=${3:-} head=${4:-HEAD} base_ref mb fork path
   [ "$since" != base ] || since=
@@ -983,7 +984,12 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
         git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
       <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" "$head" 2>/dev/null)
   fi | while IFS= read -r path; do
-    if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+    if fm_test_ban_path_is_test "$path" || {
+      [ -n "$since" ] && fm_tdd_split_seat_path_ok "$path" &&
+        ! git -C "$wt" diff --quiet "$fork" "$since" -- "$path"
+    }; then
+      printf '%s\n' "$path"
+    fi
   done
 }
 
