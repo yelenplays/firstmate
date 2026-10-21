@@ -178,11 +178,12 @@
 # The context and fleet-state digests
 # below are always read-only, so they run unconditionally in both modes.
 #
-# BACKLOG DIGEST: the startup listing is a RECOVERY input, not a reporting
-# surface, so it carries what this turn can act on and nothing else.
-#   - `done` rows are never listed. Retained completion history belongs to the
-#     reporting surfaces (bin/fm-bearings-snapshot.sh, /ahoy), and at startup it
-#     is pure weight - 10 done rows cost 3.3KB in an observed main-home digest.
+# BACKLOG DIGEST: the compact backlog listing after the attention board is a
+# RECOVERY input, not a reporting surface, so it carries what this turn can act
+# on and nothing else. These rules apply only to that listing; bin/fm-board.sh
+# owns the board's separate selection and display limits.
+#   - `done` backlog rows are never listed here; the attention board above
+#     retains post-merge visibility without repeating completion history.
 #   - Every in-flight, held, and blocked row is listed IN FULL, with its
 #     hold_kind/hold_reason and blocked_by. Those are the rows AGENTS.md
 #     sections 7 and 10 make actionable at startup, so they are never bounded
