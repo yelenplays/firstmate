@@ -45,8 +45,9 @@ Successful delivery does not confirm that the receiving agent has read or applie
 
 Additions, changed texts, revocations, and linked checks are delivered alike, in write order; an unchanged repeat sends nothing.
 When a consumer cannot be reached, the change stays saved, the command names that consumer and exits 5, and `bin/fm-rules.sh deliver` retries.
-A secondmate whose home cannot be found, whose route fails, or whose copy is still the older set counts as not reached, and its workers are never sent the older set.
-The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the delivery order, record wording, and exit codes.
+A secondmate whose home cannot be found, whose route fails, or whose copy is still the older set counts as not reached.
+Until delivery is retried successfully, that home's workers can retain or receive older rules.
+The [`fm-rules.sh` header](../bin/fm-rules.sh) owns generation-check ordering, record wording, and exit codes; resolve any config-push failure before retrying.
 Secondmate charters carry no rules section because the secondmate session loads them itself.
 Task worktrees, no-mistakes gates, and the supervision branch get no session block.
 
@@ -79,8 +80,7 @@ A rule whose mistake has a fixed shape gets a deterministic check right away, an
 
 The first check is `bang-interactive`.
 The Claude Stop hook `bin/fm-rule-guard.sh --claude` blocks a primary reply that hands the captain a `! <command>` line for sudo, a rebuild, a login, a password, or a keychain step, and tells the agent to put the command on the clipboard with `pbcopy`, ask for a real Terminal window, and verify the result itself.
-Only a negated instruction in the same clause, such as "never run" or "not", passes as a quoted rule; a negation of something harmless, such as "no worries" or "kein Problem", does not exempt the command, and neither does an additive "not only" or "nicht nur".
-The [guard header](../bin/fm-rule-guard.sh) owns the exact window and exceptions, with regressions in [`tests/fm-rule-guard.test.sh`](../tests/fm-rule-guard.test.sh).
+The [guard header](../bin/fm-rule-guard.sh) owns quoted-rule exemptions, the negation window, clause boundaries, and exceptions, with regressions in [`tests/fm-rule-guard.test.sh`](../tests/fm-rule-guard.test.sh).
 A violating reply never ends the turn as a success.
 The guard keeps blocking each forced continuation that still hands over the line, up to a small cap per session.
 Past the cap it halts the turn instead, and the captain sees a stop reason saying not to run the `!` line and to use a real Terminal window.
@@ -93,7 +93,7 @@ Only Claude primary replies are checked here; other harnesses and workers receiv
 `bin/fm-rules.sh report` prints the last seven days: rules added and repeated, guard blocks and halts, rules repeated without a check, candidate counts, and correction-like captain prompts found in the Claude transcripts of this home.
 `bin/fm-rules.sh weekly-arm` binds a watcher check that reminds main to run the report and send a short version to the captain; it does not generate or send the report automatically.
 The reminder appears once when no report exists or the last report is at least a week old, and stays quiet until another report runs; `weekly-disarm` removes the check.
-Running the report resets the week.
+Running the report restarts the reminder timer; the report itself remains a rolling lookback.
 
 ## Verification
 

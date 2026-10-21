@@ -69,9 +69,10 @@
 # ship or scout task recorded in this home's state/*.meta. `deliver` in a
 # secondmate home hands that home's own copy to its own workers and always
 # prints "delivered <generation>: ..."; the primary counts a secondmate as
-# reached only when that generation is its own, so a skipped or failed push is
-# reported instead of resending an old set. A repeat that leaves the lines
-# unchanged delivers nothing. `deliver` repeats the delivery of the current set
+# reached only when that generation is its own. This comparison happens after
+# the secondmate's delivery attempt, so a skipped or failed push can resend its
+# older set to its workers before the primary reports the mismatch. A repeat
+# that leaves the lines unchanged delivers nothing. `deliver` repeats the current set
 # by hand, for example after an exit 5; secondmate homes nested more than four
 # deep are reported as not reached.
 #
