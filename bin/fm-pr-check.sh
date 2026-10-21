@@ -4,6 +4,8 @@
 # Refuses when bin/fm-dod-lib.sh will not accept the named head as reachable
 # outside the worker's disposable copy; in no-mistakes mode a forge-reported
 # head is that named head and is already stored on the forge.
+# The library's test-authoring contract also gates registration independently
+# of named-head reachability.
 # The watcher check source is byte-for-byte bin/fm-pr-poll.sh; task and PR data
 # live only in a private sidecar and are never interpolated into shell source.
 # A GitHub pull request URL, a GitLab merge request URL, and a Gerrit change URL
@@ -141,8 +143,8 @@ fi
 # nor a Forgejo task records a pr_head here, and neither does a Gerrit task: a
 # Gerrit revision names one patch set, every amend or rebase is a new patch set,
 # and bin/fm-review-diff.sh has no Gerrit path to resolve a current head with,
-# so a recorded revision would silently become the reviewed content. Both
-# consumers already treat it as optional:
+# so a recorded revision would silently become the reviewed content. The
+# reachability and review consumers already treat it as optional:
 # bin/fm-teardown.sh reads the head from the forge at teardown rather than from
 # metadata and falls back to its provider-agnostic content check, and
 # bin/fm-review-diff.sh fetches a pull request head from the remote when none is
