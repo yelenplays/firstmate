@@ -773,18 +773,13 @@ EOF
 #     long ago its row was recorded (the store's "recordedAgo"), because a row
 #     main never acknowledged can come back long after its situation settled
 #     (after a harness or posture switch, or an upgrade whose earlier
-#     presenter never advanced the read cursor), and the section asks main to
-#     check the task's current state first and reply to the captain only
-#     about outcomes still open, as if settled ones had never been listed,
-#     then acknowledge every presented outcome, settled and open alike.
-#   - Visible routine outcomes are listed once, for awareness, the way the Pi
-#     branch's routine notes reach main's transcript without a turn; silent
-#     routine outcomes never appear. The newest visible rows that fit a byte
-#     cap are listed, and older visible rows collapse into a count, since
-#     bin/fm-branch-outcome.sh list keeps them all.
+#     presenter never advanced the read cursor).
+#   - docs/supervision-host.md "Captain outcomes" owns relay duties and the
+#     FINISHED versus ROUTINE presentation, including their independent budgets
+#     and overflow retrieval. Silent routine rows never appear.
 # Once the section is printed, the store's read cursor advances through every
-# presented row, which is what lets mark-processed accept main's
-# acknowledgement and keeps a routine row from repeating; a drain stopped
+# unread row, including omitted routine rows; captain rows still wait for
+# mark-processed. This keeps a routine row from repeating; a drain stopped
 # before it prints leaves every row unread. The budgets count bytes. When jq is
 # missing, the store cannot be read or projected, the section cannot be printed, or its read
 # cursor cannot advance, the section says so on stderr and fails, and the drain exits
@@ -793,8 +788,8 @@ EOF
 # outcomes a later drain would present again.
 print_branch_outcomes_section() {
   local config rows through captain routine line seq task task_line target i
-  local text='' used=0 shown=0 held=0 bytes item_bytes=600 captain_bytes=4000 routine_bytes=2000
-  local routine_lines='' routine_count=0 routine_shown=0
+  local text='' used=0 shown=0 held=0 bytes item_bytes=600 captain_bytes=4000 routine_bytes=2000 done_bytes=4000
+  local routine_lines='' routine_count=0 routine_shown=0 done_rows='' done_lines='' routine_rows='' done_count=0 done_shown=0
   local -a captain_tasks=() captain_lines=() captain_line_bytes=()
   [ "$ACTOR" = main ] || return 0
   config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
@@ -817,8 +812,12 @@ print_branch_outcomes_section() {
           .count[$r.task] += 1
           | .lines += ["\($r.seq)\t\($r.task)\t[seq \($r.seq)\(if .count[$r.task] > 1 then ", newest of \(.count[$r.task]) for this task" else "" end), recorded \($r.recordedAgo) ago] \($r.task): \($r.summary | gsub("[\t\n\r]"; " "))"])
       | .lines[]' 2>/dev/null) \
-    || ! routine=$(printf '%s\n' "$rows" | jq -rs 'map(select(.unread and .verdict == "routine" and .silent != true)) | sort_by(.seq) | reverse | .[]
-      | "[seq \(.seq)] \(.task): \(.summary | gsub("[\t\n\r]"; " "))"' 2>/dev/null) \
+    || ! routine=$(printf '%s\n' "$rows" | jq -rs '. as $all
+      | map(select(.unread and .verdict == "routine" and .silent != true)
+          | . as $r | ($r.summary | gsub("[\n\r]"; " ")) as $text
+          | select(any($all[]; .verdict == "captain" and .seq > $r.seq and .task == $r.task and .summary == $text) | not))
+      | sort_by(.seq) | reverse | .[]
+      | "\(.task)\t[seq \(.seq)] \(.task): \(.summary | gsub("[\t\n\r]"; " "))"' 2>/dev/null) \
     || case "$through" in ''|*[!0-9]*) true ;; *) false ;; esac; then
     printf 'BRANCH OUTCOMES SKIPPED: the outcome store could not be projected safely; nothing was marked read, so these outcomes are presented again on the next drain.\n' >&2
     return 1
@@ -850,7 +849,7 @@ print_branch_outcomes_section() {
 $captain
 ROWS
   if [ "$shown" -gt 0 ]; then
-    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one), and sort them into still open and already settled, such as a decision since answered, a PR since merged, or a task since finished - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
+    text="BRANCH OUTCOMES (captain outcomes the supervision session recorded for you, one line per task, oldest first; each says what was true when it was recorded, so check the task's current state first, including its still-open decisions under OPEN DECISIONS (bin/fm-wake-drain.sh --decisions lists every one), and sort them into still open and already settled, such as a decision since answered or a PR since merged; a finished task's result is news to relay, not settled - process the still-open ones as firstmate: tell the captain, land or merge what is ready, answer or escalate a decision, or act on a blocker; your reply to the captain covers only those, as if the settled ones had never been listed, and a settled one needs only the acknowledgement):
 "
     for line in "${captain_lines[@]}"; do
       text="$text$line
@@ -862,6 +861,37 @@ ROWS
 "
   fi
 
+  # A routine row for a retired task (fm_task_retired) is a completion: news
+  # to relay, so it is listed apart from the awareness rows. A routine row
+  # handed back as a captain row (fm-branch-outcome.sh finished-handback) is
+  # already in the captain section, so it was left out above.
+  while IFS=$(printf '\t') read -r task line; do
+    [ -n "$line" ] || continue
+    if fm_task_retired "$task"; then
+      done_rows="$done_rows$line
+"
+    else
+      routine_rows="$routine_rows$line
+"
+    fi
+  done <<ROWS
+$routine
+ROWS
+  routine=${routine_rows%?}
+  used=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    done_count=$((done_count + 1))
+    cap_outcome_line "$line" $((item_bytes - 1))
+    bytes=$(( OUTCOME_LINE_BYTES + 1 ))
+    [ $((used + bytes)) -le "$done_bytes" ] || continue
+    done_lines="$OUTCOME_LINE
+$done_lines"
+    used=$((used + bytes))
+    done_shown=$((done_shown + 1))
+  done <<ROWS
+$done_rows
+ROWS
   used=0
   while IFS= read -r line; do
     [ -n "$line" ] || continue
@@ -882,6 +912,13 @@ $routine_lines"
   done <<ROWS
 $routine
 ROWS
+  if [ -n "$done_lines" ]; then
+    text="${text}BRANCH OUTCOMES, FINISHED (tasks that finished or were torn down since your last drain; this is news for the captain: relay each result in your reply unless you already told the captain in chat, then nothing to acknowledge):
+"
+    [ "$done_shown" -eq "$done_count" ] || text="${text}($((done_count - done_shown)) further finished outcome(s) not shown; bin/fm-branch-outcome.sh list keeps them)
+"
+    text="$text$done_lines"
+  fi
   if [ "$routine_count" -gt 0 ]; then
     text="${text}BRANCH OUTCOMES, ROUTINE (handled by the supervision session since your last drain; for your awareness, nothing to acknowledge):
 "

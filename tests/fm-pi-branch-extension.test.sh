@@ -637,8 +637,10 @@ function dispatch(message, projects, heartbeat, eligible) {
   bus.emit("fm-branch-supervision:dispatch", offer);
   return offer;
 }
+// A positive wait returns as soon as the predicate holds; the 30s bound only
+// keeps a loaded host's slow script round trips from failing the suite.
 async function settle(predicate, label) {
-  for (let i = 0; i < 250; i += 1) {
+  for (let i = 0; i < 3000; i += 1) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -2499,6 +2501,119 @@ EOF
   out=$(cat "$TMP_ROOT/node-output")
   expect_code 0 "$status" "a co-present check row must not carry a heartbeat review into main: $out"
   pass "a heartbeat review survives a check row arriving before its drain"
+}
+
+# A finished task reaches main as news to relay on Pi, whichever order the
+# branch reports and tears down in. A routine report for a task already torn
+# down is stored as captain; a routine report written before the teardown in
+# the same turn is handed back as captain when the turn settles. Either way
+# main's processing request tells it to relay the finished result, never to
+# drop it as settled. A silent no-change note before teardown is handed back
+# too, as a visible pointer to the finished result.
+test_finished_task_reaches_main_as_news_in_either_report_order() {
+  local repo home out status
+  repo="$TMP_ROOT/finished-relay-root"
+  home="$TMP_ROOT/finished-relay-home"
+  mkdir -p "$home/state" "$home/config" "$home/data/branch-driver" "$home/fakebin"
+  # The current-state reader reports done once the task's meta is gone.
+  # shellcheck disable=SC2016 # the stub expands its own arguments.
+  printf '#!/usr/bin/env bash\nif [ -e "$FM_HOME/state/$1.meta" ]; then echo "state: working · source: pane"; else echo "state: done · source: backlog"; fi\n' \
+    > "$home/fakebin/crew-state"
+  chmod +x "$home/fakebin/crew-state"
+  install_pi_branch_extension_fixture "$repo"
+  PLUGIN="$repo/.pi/extensions/fm-branch-supervision.ts" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
+    FM_CREW_STATE_BIN="$home/fakebin/crew-state" \
+    DRIVER_PRELUDE="$DRIVER_PRELUDE" node --input-type=module > "$TMP_ROOT/node-output" 2>&1 <<'EOF'
+const prelude = process.env.DRIVER_PRELUDE;
+await eval(`(async () => { ${prelude}; globalThis.__t = { dispatch, fire, home, settle, sentToMain, outcomeScript, approvedProject, defaultSessionCtx }; })()`);
+const { dispatch, fire, home, settle, sentToMain, outcomeScript, approvedProject, defaultSessionCtx } = globalThis.__t;
+import { existsSync, rmSync, writeFileSync } from "node:fs";
+
+const meta = `${home}/state/branch-driver.meta`;
+const processing = () => sentToMain.filter((sent) => sent.message.customType === "fm-branch-process");
+const rows = () => outcomeScript(["list", "--recent", "50"]).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+await fire("session_start", {}, defaultSessionCtx);
+let requestsBefore = 0;
+
+async function wakeTurn(index, inTurn) {
+  let finish;
+  globalThis.__fmOnBranchPrompt = () => new Promise((resolve) => { finish = resolve; });
+  const offer = dispatch("signal: branch-driver.status");
+  if (!offer.accepted) throw new Error(`branch refused wake ${index}`);
+  await settle(() => (globalThis.__fmPrompts ?? []).length === index, `branch prompt ${index}`);
+  const session = globalThis.__fmSessions[globalThis.__fmSessions.length - 1];
+  const report = session.options.customTools.find((tool) => tool.name === "fm_branch_report");
+  await inTurn(report);
+  finish();
+  await offer.settlement;
+  await fire("agent_settled", {}, defaultSessionCtx);
+}
+
+// Main may be re-presented an open outcome at a run boundary, so this checks
+// that the turn opened at least one new request and reads the newest.
+function assertRelayRequest(before, summary) {
+  const requests = processing();
+  if (requests.length <= before) throw new Error(`the finished result opened no processing request on main: ${JSON.stringify(sentToMain)}`);
+  const body = requests.at(-1).message.content;
+  if (!body.includes(summary)) throw new Error(`processing request lost the finished result: ${body}`);
+  if (!body.includes("A finished task's result is news to relay, never settled")) {
+    throw new Error(`processing request does not tell main to relay a finished result: ${body}`);
+  }
+  if (body.includes("a task since finished")) throw new Error(`processing request still files a finished task as settled: ${body}`);
+}
+
+// Report after teardown: the store promotes the routine verdict at append time.
+await wakeTurn(1, async (report) => {
+  rmSync(meta);
+  const result = await report.execute("after", { task: "branch-driver", verdict: "routine", summary: "Requested bench finished; worker cleaned up." }, undefined, undefined, {});
+  if (result.isError) throw new Error(`report after teardown failed: ${JSON.stringify(result)}`);
+});
+if (rows().at(-1).verdict !== "captain") throw new Error(`a torn-down task's routine report was not stored as captain: ${JSON.stringify(rows())}`);
+assertRelayRequest(requestsBefore, "Requested bench finished; worker cleaned up.");
+outcomeScript(["mark-processed", "--through", String(rows().at(-1).seq)]);
+requestsBefore = processing().length;
+
+// Report before teardown in the same turn: the settle-time handback adds a
+// captain row carrying the same result.
+writeFileSync(meta, `project=${approvedProject}\nwindow=fm-branch-driver\n`);
+await wakeTurn(2, async (report) => {
+  const result = await report.execute("before", { task: "branch-driver", verdict: "routine", summary: "Second bench finished; cleaning up." }, undefined, undefined, {});
+  if (result.isError) throw new Error(`report before teardown failed: ${JSON.stringify(result)}`);
+  if (rows().at(-1).verdict !== "routine") throw new Error("a live task's routine report was promoted before it finished");
+  rmSync(meta);
+});
+const after = rows();
+const handed = after.at(-1);
+if (handed.verdict !== "captain" || handed.summary !== "Second bench finished; cleaning up." || after.at(-2).verdict !== "routine") {
+  throw new Error(`a report written before teardown was not handed back as captain: ${JSON.stringify(after)}`);
+}
+if (!outcomeScript(["unprocessed"]).includes("Second bench finished")) throw new Error("the handed-back completion is not open for main");
+assertRelayRequest(requestsBefore, "Second bench finished; cleaning up.");
+if (existsSync(meta)) throw new Error("fixture: teardown did not remove the meta");
+outcomeScript(["mark-processed", "--through", String(rows().at(-1).seq)]);
+requestsBefore = processing().length;
+
+// A silent no-change note before teardown in the same turn: completion
+// outranks the silence, so the handback adds one visible captain row that
+// points main at the finished result instead of relaying the stale note.
+writeFileSync(meta, `project=${approvedProject}\nwindow=fm-branch-driver\n`);
+await wakeTurn(3, async (report) => {
+  const result = await report.execute("silent", { task: "branch-driver", verdict: "routine", summary: "Worker is still busy; no new result yet.", silent: true }, undefined, undefined, {});
+  if (result.isError) throw new Error(`silent report before teardown failed: ${JSON.stringify(result)}`);
+  if (rows().at(-1).silent !== true) throw new Error("a live task's silent report lost its silence before the task finished");
+  rmSync(meta);
+});
+const pointer = rows().at(-1);
+if (pointer.verdict !== "captain" || pointer.silent !== false || !pointer.summary.includes("read the finished result before relaying it")) {
+  throw new Error(`a silent report written before teardown was not handed back as a visible result pointer: ${JSON.stringify(rows())}`);
+}
+assertRelayRequest(requestsBefore, "branch-driver finished; its last report was a no-change note");
+process.exit(0);
+EOF
+  status=$?
+  out=$(cat "$TMP_ROOT/node-output")
+  expect_code 0 "$status" "a finished task must reach main as news in either report order: $out"
+  pass "Pi: a finished task reaches main as a relay-this processing request whether the branch reports before or after teardown"
 }
 
 # The report tool refuses a task the wake being handled never named: the
@@ -5969,6 +6084,7 @@ test_away_unchanged_held_outcome_reaches_the_captain_once_until_a_new_event
 test_away_only_wake_rejects_when_record_is_archived_before_drain
 test_away_claimed_heartbeat_on_a_task_wake_lifts_task_scoping
 test_branch_predrain_recheck_keeps_a_heartbeat_a_co_present_check_arrives_under
+test_finished_task_reaches_main_as_news_in_either_report_order
 test_branch_report_refuses_a_task_the_wake_did_not_name
 test_branch_predrain_recheck_excludes_new_main_owned_row_without_deferring_eligible_work
 test_branch_predrain_needs_decision_keeps_routine_row_branch_eligible

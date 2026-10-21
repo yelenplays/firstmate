@@ -82,9 +82,9 @@
 # releases the branch's leases and grant, and counts the wake handled only
 # when that turn exited cleanly, recorded a durable report
 # (bin/fm-branch-report.sh), and left none of its granted rows in the wake
-# queue. A handled wake with only informational (routine) outcomes, including
-# healthy completions needing no action, never wakes main: those rows remain
-# unread for main's next real drain. Neither does any handled wake while away: captain outcomes wait in
+# queue. Routine progress stays off main; completion handback follows
+# docs/supervision-host.md "Attended". No handled wake wakes main while away:
+# captain outcomes wait in
 # the outcome store for the return drain's BRANCH OUTCOMES section. A handled
 # attended wake that recorded a captain outcome exits with one "supervision-host: branch-outcome:"
 # line naming its store rows, without the close it handled; main drains, where
@@ -1030,16 +1030,35 @@ handle_wake() {  # <reason-lines>
   return 1
 }
 
+# Hand back, as captain rows, the turn's routine reports, silent ones
+# included, whose task finished later in the turn: torn down, or done with its records retained
+# while cleanup waits. The shared store command does it, as Pi's turn end does
+# (fm-branch-outcome.sh finished-handback), so the completion is captain in the
+# store for main, the drain, and the return alike. Sets TURN_HANDBACK_SEQS.
+turn_finished_handback() {  # <turn>
+  local seqs rows routine
+  TURN_HANDBACK_SEQS=
+  seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1
+  [ -n "$seqs" ] || return 0
+  rows=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$seqs" 2>/dev/null) || return 1
+  routine=$(printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "routine") | .seq) | join(",")') || return 1
+  [ -n "$routine" ] || return 0
+  TURN_HANDBACK_SEQS=$("$SCRIPT_DIR/fm-branch-outcome.sh" finished-handback --seqs "$routine" 2>/dev/null) || return 1
+  TURN_HANDBACK_SEQS=$(printf '%s\n' "$TURN_HANDBACK_SEQS" | paste -sd , -)
+}
+
 # Verify every recorded outcome before deciding whether main must wake. The
-# prompt owns routine/informational versus captain/action classification; the
-# store, not a receipt's copied verdict, owns the outcome. No read or processed
-# cursor moves here, so deferred information survives until a real main drain.
+# store, not a receipt's copied verdict, owns the outcome; promotion follows
+# fm-branch-outcome.sh's header, and turn_finished_handback adds the captain
+# rows for tasks that finished after reporting in this turn
+# (docs/supervision-host.md "Attended"). No read or processed cursor moves here.
 turn_captain_seqs() {  # <turn>
   local seqs rows
   seqs=$(awk -F '\t' -v turn="$1" '$1 == turn { printf "%s%s", sep, $2; sep = "," }' "$RECEIPTS" 2>/dev/null) || return 1
   [ -n "$seqs" ] || return 1
+  seqs="$seqs${TURN_HANDBACK_SEQS:+,$TURN_HANDBACK_SEQS}"
   rows=$("$SCRIPT_DIR/fm-branch-outcome.sh" lookup --seqs "$seqs" 2>/dev/null) || return 1
-  printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "captain") | .seq | tostring) | join(", ")'
+  printf '%s\n' "$rows" | jq -rs 'map(select(.verdict == "captain") | .seq) | sort | map(tostring) | join(", ")'
 }
 
 # Why an attended close stays with main exactly as the plain arm delivers it,
@@ -1187,6 +1206,9 @@ while :; do
   elif [ "$RETURNED_LOOKUP_FAILED" -eq 1 ]; then
     exit_to_main "the captain returned while the away session was handling this wake, but the recorded outcomes could not be verified; main must review them" \
       "$(turn_outcome_lookup_warning)"
+  fi
+  if [ -n "$LAST_TURN" ] && ! turn_finished_handback "$LAST_TURN"; then
+    exit_to_main "the supervision session handled this wake, but the check for tasks that finished after reporting failed; main must review its recorded outcomes" "$HEALTH_NOTE"
   fi
   # Attended captain outcomes are main's to process; away they wait for the
   # return, including when the captain left while this turn ran. The close

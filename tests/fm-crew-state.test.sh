@@ -2589,6 +2589,25 @@ test_claude_session_list_needs_input_reads_blocked() {
   pass "a Claude session waiting on a prompt reads blocked and a busy one reads working from its own session list"
 }
 
+# A torn-down task has no meta; its closed backlog item reports done instead
+# of hiding the known outcome behind unknown. An open item still reads unknown.
+test_missing_meta_reads_done_from_a_closed_backlog_item() {
+  reset_fakes
+  local d out
+  d=$(new_case backlog-done)
+  make_fakebin "$d" >/dev/null
+  mkdir -p "$d/data"
+  printf '## In flight\n\n## Queued\n- [ ] still-open - Queued work (kind: scout)\n\n## Done\n- [x] bench-done - Run the bench (kind: scout) (closed 2026-10-20)\n' > "$d/data/backlog.md"
+  out=$(FM_HOME="$d" run_crew_state "$d" bench-done)
+  assert_contains "$out" 'state: done · source: backlog · closed 2026-10-20, no live metadata for bench-done' \
+    'a torn-down task with a closed backlog item did not read done'
+  out=$(FM_HOME="$d" run_crew_state "$d" still-open)
+  assert_contains "$out" 'state: unknown · source: none · no metadata for still-open' 'an open backlog item without meta must stay unknown'
+  out=$(FM_HOME="$d" run_crew_state "$d" never-listed)
+  assert_contains "$out" 'state: unknown · source: none · no metadata for never-listed' 'an unknown task must stay unknown'
+  pass "a missing meta reads done from a closed backlog item and unknown otherwise"
+}
+
 test_launch_and_old_working_events_do_not_prove_processing() {
   reset_fakes
   local d gen token out
@@ -5894,6 +5913,7 @@ test_no_mistakes_prevalidation_done_stays_done
 test_moved_remote_branch_without_named_head_is_blocked
 test_no_run_busy_pane
 test_claude_session_list_needs_input_reads_blocked
+test_missing_meta_reads_done_from_a_closed_backlog_item
 test_launch_and_old_working_events_do_not_prove_processing
 test_no_run_launch_prompt_parked_is_not_working
 test_no_run_footer_text_alone_is_not_working

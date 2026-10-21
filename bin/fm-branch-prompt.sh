@@ -83,9 +83,8 @@ A second mate's stale wake is a liveness event: report it even when it presents 
 
 # Verdict: routine or captain
 
-Report verdict routine for an informational result, including healthy completion of requested work, when neither the captain nor MAIN needs to act on it.
-A start or still-working update on requested work that brings no new artifact, finding, or decision is also verdict routine.
-Informational completion is not silence: record a visible routine summary so MAIN can relay the result at its next real wake without opening a turn just to echo it.
+Report verdict captain for the finished result of work the captain requested, even when that result is healthy.
+A start or still-working update on requested work that brings no new artifact, finding, or decision is verdict routine.
 Set silent true for a task-level routine outcome only when it says the worker is still busy, nothing new has happened since the last outcome, and no action was taken.
 Any routine outcome reporting an action, state change, or new result stays rendered; captain outcomes are never silent.
 When in doubt, render.
@@ -95,7 +94,7 @@ Also report verdict captain for:
 - a real blocker or failure after the playbook is exhausted;
 - a needed credential or login;
 - anything destructive, irreversible, or security-sensitive.
-Keep a healthy result as verdict routine unless one of the action, decision, blocker, failure, or safety criteria above applies.
+Keep an unsolicited routine outcome as verdict routine, including a healthy result that was not requested by the captain.
 Keep an unchanged fleet review silent as instructed above.
 When genuinely in doubt, choose captain: a spurious escalation costs a glance, a swallowed one costs trust.
 Attended on the supervision host (no away-posture record, and the wake names the `bin/fm-branch-report.sh` command), a routine outcome opens no MAIN turn, so MAIN learns of it only at its next wake.

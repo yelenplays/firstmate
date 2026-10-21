@@ -15,15 +15,17 @@
 #     Existing lines are never rewritten, reordered, or deleted by any
 #     subcommand; the read state lives
 #     entirely in the cursor sidecar so marking outcomes read cannot disturb
-#     the log. Retention: the log is small (one line per handled fleet event)
-#     and truncation, if ever needed, is a captain-approved manual act.
-#   - Cursor: $STATE/.branch-outcomes-cursor holds the highest seq presented
-#     by Pi as a routine merge note or sequence-keyed visible captain entry,
-#     emitted by Pi's locked session-start replay, silently consumed there
-#     because `silent` is true, or presented by the supervision-host drain.
-#     Records above the cursor are unread. A captain row advances only after
-#     Pi persists its matching visible entry or the host prints its drain
-#     section, so interrupted presentation can be retried.
+#     the log. Retention: truncation, if ever needed, is a captain-approved
+#     manual act.
+#   - Cursor: $STATE/.branch-outcomes-cursor holds the highest seq consumed
+#     by delivery. Pi advances it after a routine merge note, a persisted
+#     sequence-keyed visible captain entry, locked session-start replay, or
+#     silent consumption because `silent` is true. The supervision-host drain
+#     owns its bounded presentation and read advancement, including omitted
+#     rows (bin/fm-wake-drain.sh "BRANCH OUTCOMES"). Records above the cursor
+#     are unread. The host advances only after printing its section, so an
+#     interrupted presentation can be retried; reading never acknowledges a
+#     captain row, including one omitted by the host's presentation bounds.
 #     A cursor beyond the validated store tail fails closed.
 #   - Processed marker: $STATE/.branch-outcomes-processed holds the highest
 #     seq whose captain rows main has ACKNOWLEDGED as processed, separately
@@ -77,8 +79,29 @@
 #
 # Usage:
 #   fm-branch-outcome.sh append --task <id> --verdict routine|captain \
-#       --summary <text> [--wake <text>] [--silent true|false]
+#       --summary <text> [--wake <text>] [--silent true|false] [--promote-finished]
 #     Append one outcome record; prints the assigned seq.
+#     --promote-finished upgrades a routine report to captain when
+#     fm_task_retired (bin/fm-wake-lib.sh) succeeds or the current-state reader
+#     reports done. The host report command and Pi report tool opt in; other
+#     appends preserve the supplied verdict. Completion outranks the model's
+#     silence: a promoted silent report is stored visible, and because its
+#     summary was a no-change note, it is stored as a pointer to the finished
+#     result (finished_pointer_summary) rather than as that result.
+#     The current-state probe has a 10-second bound; an unreadable or timed-out
+#     probe leaves the supplied verdict unchanged. The check precedes the store
+#     lock, so it observes completion at report time, not later in the turn.
+#   fm-branch-outcome.sh finished-handback --seqs <n,...>
+#     Turn-end recheck for a report written before its task finished in the
+#     same turn: for each named routine row whose task the same check now
+#     finds finished, append one captain row carrying its task, wake, and
+#     summary, unless a captain row for that task already follows it. A silent
+#     row is handed back too, as a visible pointer to the finished result, but
+#     only when nothing else from this call or later reaches main for its
+#     task, so one task gets one pointer. Prints
+#     the appended seqs, one per line, or nothing. Both wake-turn ends run it:
+#     the Pi extension when a branch wake turn settles, and the supervision host's
+#     turn_finished_handback (bin/fm-supervision-host.sh).
 #   fm-branch-outcome.sh unread
 #     Print every unread record (raw JSONL). Exit 0 with no output when none.
 #   fm-branch-outcome.sh mark-read --through <seq>
@@ -162,8 +185,22 @@ RECORDED_AGO_JQ='def recorded_ago: ([$now - .epoch, 0] | max) as $s
     elif $s < 172800 then "\($s / 3600 | floor)h"
     else "\($s / 86400 | floor)d" end;'
 
+# The completion check --promote-finished and finished-handback share: the task
+# is torn down, or its current-state reader reports done within 10 seconds.
+task_finished() {  # <task>
+  fm_task_retired "$1" \
+    || [ "$(FM_HOME="$FM_HOME" fm_run_timed 10 "$FM_CREW_STATE_BIN" "$1" 2>/dev/null | sed -n '1s/^state: \([a-z]*\).*/\1/p')" = "done" ]
+}
+
+# A silent report says nothing changed, so once its task is finished it is not
+# the result: point main at where the result is instead.
+finished_pointer_summary() {  # <task> <silent summary>
+  printf '%s finished; its last report was a no-change note (%s), so read the finished result before relaying it: bin/fm-crew-state.sh %s, its status log, and data/%s/' \
+    "$1" "$2" "$1" "$1"
+}
+
 usage() {
-  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | startup-replay | seed-tail" >&2
+  echo "usage: fm-branch-outcome.sh append --task <id> --verdict routine|captain --summary <text> [--wake <text>] [--silent true|false] [--promote-finished] | unread | mark-read --through <seq> | unprocessed | mark-processed --through <seq> | present | processed-init [--held-lock] | list [--recent <n>] | lookup --seqs <n,...> | finished-handback --seqs <n,...> | startup-replay | seed-tail" >&2
   exit 2
 }
 
@@ -503,8 +540,10 @@ case "$CMD" in
     SUMMARY=''
     WAKE=''
     SILENT=false
+    PROMOTE_FINISHED=0
     while [ "$#" -gt 0 ]; do
       case "$1" in
+        --promote-finished) PROMOTE_FINISHED=1; shift ;;
         --task) TASK=${2:-}; shift 2 || usage ;;
         --verdict) VERDICT=${2:-}; shift 2 || usage ;;
         --summary) SUMMARY=${2:-}; shift 2 || usage ;;
@@ -522,6 +561,10 @@ case "$CMD" in
       echo "error: silent outcomes must have the routine verdict" >&2
       exit 2
     fi
+    TASK_FINISHED=0
+    if [ "$PROMOTE_FINISHED" -eq 1 ] && [ "$VERDICT" = routine ]; then
+      ! task_finished "$TASK" || TASK_FINISHED=1
+    fi
     fm_lock_acquire_wait "$LOCK"
     if ! LAST_SEQ=$(last_seq); then
       fm_lock_release "$LOCK"
@@ -532,6 +575,15 @@ case "$CMD" in
       fm_lock_release "$LOCK"
       echo "error: refusing append because the outcome cursor is invalid or ahead of the store" >&2
       exit 1
+    fi
+    # Apply the opt-in completion promotion documented in this header before
+    # storing, so both report surfaces deliver the authoritative verdict.
+    if [ "$TASK_FINISHED" -eq 1 ]; then
+      VERDICT=captain
+      if [ "$SILENT" = true ]; then
+        SILENT=false
+        SUMMARY=$(finished_pointer_summary "$TASK" "$SUMMARY")
+      fi
     fi
     SEQ=$(( LAST_SEQ + 1 ))
     capture_status_position "$TASK"
@@ -748,6 +800,32 @@ case "$CMD" in
       exit 1
     fi
     fm_lock_release "$LOCK"
+    ;;
+  finished-handback)
+    [ "$#" -eq 2 ] && [ "$1" = --seqs ] || usage
+    ROWS=$("$0" lookup --seqs "$2") || exit 1
+    FIRST=$(printf '%s\n' "$ROWS" | jq -s 'map(.seq) | min') || exit 1
+    # Captain rows after the named ones already reach main for their task.
+    LATER_CAPTAIN=$(jq -r --argjson first "$FIRST" \
+      'select(.seq > $first and .verdict == "captain") | "\(.seq) \(.task)"' "$STORE") || exit 1
+    # Unit-separated fields: an empty wake must not shift the summary. Visible
+    # rows come first, so a silent row for a task they already cover is
+    # skipped.
+    HANDED=
+    printf '%s\n' "$ROWS" | jq -rs 'map(select(.verdict == "routine")) | sort_by(.silent == true)[]
+      | [(.seq | tostring), .task, .wake, (.silent == true | tostring), (.summary | gsub("[\n\r]"; " "))] | join("\u001f")' \
+    | while IFS=$'\037' read -r SEQ TASK WAKE QUIET SUMMARY; do
+        [ -n "$SEQ" ] || continue
+        printf '%s\n' "$LATER_CAPTAIN" | awk -v seq="$SEQ" -v task="$TASK" '$1 + 0 > seq + 0 && $2 == task { found = 1 } END { exit !found }' \
+          && continue
+        if [ "$QUIET" = true ]; then
+          case " $HANDED " in *" $TASK "*) continue ;; esac
+        fi
+        task_finished "$TASK" || continue
+        [ "$QUIET" = false ] || SUMMARY=$(finished_pointer_summary "$TASK" "$SUMMARY")
+        "$0" append --task "$TASK" --verdict captain --summary "$SUMMARY" --wake "$WAKE" || exit 1
+        HANDED="$HANDED $TASK"
+      done || exit 1
     ;;
   startup-replay)
     [ "$#" -eq 0 ] || usage

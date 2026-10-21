@@ -383,7 +383,7 @@ An authorization addressed to main (for example "you may merge when green") does
 ## Two-stage noise filter
 
 Stage one is unchanged: the bash watcher absorbs everything provably fine at zero token cost.
-Stage two is the branch's verdict on each handled event, reported through its `fm_branch_report` tool:
+Stage two delivers each handled event using its stored verdict after the report tool's [completion checks](#ownership-and-verdict-rules):
 
 | Verdict | Delivery |
 | --- | --- |
@@ -419,7 +419,7 @@ The other half is processing, because a blocker, a decision, or a ready PR needs
    Summaries over 1024 characters are abbreviated within that bound and point to `bin/fm-branch-outcome.sh lookup --seqs <N>` for the full outcome.
    Main must read the full outcome for any abbreviated line before acting on, relaying, or acknowledging it.
    It says each outcome was recorded earlier and may already have been seen or handled, rather than claiming a visible entry in this transcript, because an outcome carried over from before a restart or a switch of primary has none here.
-   Main sorts the outcomes by that state, and its reply to the captain covers only the still-open ones, as if the settled ones had never been listed; a settled one needs only the acknowledgement below.
+   Main follows the [Pi supervision protocol's processing duties](supervision-protocols/pi.md), including relay of finished results rather than treating completion alone as settlement.
    A listed row without a valid age breaks the store's contract, so the extension reports it to main as a visible note and sends no request; every row stays unprocessed and is presented once the store is healthy.
 2. That request opens exactly one main turn.
 3. Main closes it only by calling `fm_branch_processed` with the highest sequence the request listed.
@@ -458,8 +458,10 @@ The generated [Pi supervision protocol](supervision-protocols/pi.md) owns event 
 Deterministic entry delivery owns captain visibility.
 
 The branch prompt's "Verdict: routine or captain" section owns the classification criteria, including task-level silence eligibility and the rule to escalate doubt.
+The report tool also opts into the store's completion promotion contract in [`bin/fm-branch-outcome.sh`](../bin/fm-branch-outcome.sh), `append --promote-finished`.
+When a wake turn settles, the extension rechecks its routine rows, silent ones included, through that script's `finished-handback` under the same completion contract.
 
-Its "PR identity: copy or abstain" section owns where a PR URL in a summary or tool argument may come from:
+The prompt's "PR identity: copy or abstain" section owns where a PR URL in a summary or tool argument may come from:
 
 - The task's ready status or `pr=` metadata, verbatim.
 - Otherwise, only the identifier the branch actually has.
