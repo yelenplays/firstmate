@@ -797,6 +797,55 @@ test_test_ban_runs_when_forge_head_is_available() {
   pass "fm-pr-check enforces the test ban when a forge head is available"
 }
 
+# A handed-over end-to-end test is locked even though ordinary e2e authoring
+# is exempt from the model-based test ban.
+test_tdd_split_locks_checkpoint_e2e_tests() {
+  local dir checkpoint head change
+  for change in weaken delete rename; do
+    dir=$(make_case "tdd-split-locked-e2e-$change")
+    mkdir -p "$dir/wt/e2e"
+    printf '[ -f feature.sh ]\n' > "$dir/wt/e2e/feature.test.sh"
+    git -C "$dir/wt" add e2e && git -C "$dir/wt" commit -q -m 'tests first'
+    checkpoint=$(git -C "$dir/wt" rev-parse HEAD)
+    (cd "$dir/wt" && bash e2e/feature.test.sh) && fail "checkpoint test was not red"
+    fm_write_meta "$dir/home/state/task-a.meta" \
+      "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+      "project=$dir/project" "kind=ship" "mode=no-mistakes" \
+      'model=claude-sonnet-5-5' 'test_ban_model=claude-sonnet-5-5' \
+      "test_ban_since=$checkpoint" 'tdd_split=implement' "tdd_split_tests=$checkpoint"
+    case "$change" in
+      weaken)
+        printf 'true\n' > "$dir/wt/e2e/feature.test.sh"
+        (cd "$dir/wt" && bash e2e/feature.test.sh) || fail "weakened test did not pass"
+        ;;
+      delete) rm "$dir/wt/e2e/feature.test.sh" ;;
+      rename) mv "$dir/wt/e2e/feature.test.sh" "$dir/wt/disabled.sh" ;;
+    esac
+    git -C "$dir/wt" add -A && git -C "$dir/wt" commit -q -m "$change checkpoint test"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    [ ! -e "$dir/wt/feature.sh" ] || fail "fixture unexpectedly implemented the feature"
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/84 \
+      > "$dir/stdout" 2> "$dir/stderr" && fail "a $change change to a checkpoint e2e test registered a PR"
+    grep -Fq 'e2e/feature.test.sh' "$dir/stderr" \
+      || fail "lock refusal did not name the changed test: $(cat "$dir/stderr")"
+    ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "changed checkpoint test recorded the PR"
+    [ ! -e "$dir/home/state/task-a.check.sh" ] || fail "changed checkpoint test armed monitoring"
+
+    git -C "$dir/wt" revert --no-edit HEAD >/dev/null || fail "could not restore checkpoint test"
+    printf 'implemented\n' > "$dir/wt/feature.sh"
+    printf '[ -f feature.sh ]\n' > "$dir/wt/e2e/new.test.sh"
+    git -C "$dir/wt" add -A && git -C "$dir/wt" commit -q -m 'implement without changing checkpoint tests'
+    (cd "$dir/wt" && bash e2e/feature.test.sh) || fail "implementation did not pass the checkpoint test"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/84 \
+      > "$dir/stdout" 2> "$dir/stderr" || fail "unchanged checkpoint test was refused: $(cat "$dir/stderr")"
+    grep -qx 'pr=https://github.com/o/r/pull/84' "$dir/home/state/task-a.meta" \
+      || fail "implementation did not record the PR"
+    [ -e "$dir/home/state/task-a.check.sh" ] || fail "implementation did not arm monitoring"
+  done
+  pass "fm-pr-check locks checkpoint-owned end-to-end tests and allows new e2e tests"
+}
+
 # A pipeline fixer runs after the worker's checked handoff, so the pre-PR
 # check must still see a test file its commit adds on a banned task.
 test_test_ban_covers_pipeline_fixer_commits() {
@@ -3753,6 +3802,12 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
+if [ "${1:-}" = --tdd-lock ]; then
+  test_tdd_split_locks_checkpoint_e2e_tests
+  exit 0
+fi
+
+test_tdd_split_locks_checkpoint_e2e_tests
 test_parser_matrix
 test_gitlab_merge_watch
 test_forgejo_merge_watch
