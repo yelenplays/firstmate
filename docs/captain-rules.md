@@ -38,13 +38,14 @@ The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the budget and its exit code
 A change to the worker-facing rule set triggers delivery to running consumers before the save returns; no restart or manual push is needed when delivery succeeds.
 
 - Secondmate homes get the new `config/captain-rules.md` through the guarded config push, with that home's reread instruction.
-- Every running ship or scout worker of the primary home and of each local secondmate home gets the complete new set as one steering-inbox record instructing it to replace its brief's rules section.
+- Each secondmate home, local or remote, then hands its own copy to its own running ship and scout workers; main reaches a remote home through its configured route, and finds a home from the live record or, for older records, from the secondmate registry.
+- Every running ship or scout worker gets the complete new set as one steering-inbox record instructing it to replace its brief's rules section.
 
 Successful delivery does not confirm that the receiving agent has read or applied the update.
 
 Additions, changed texts, revocations, and linked checks are delivered alike, in write order; an unchanged repeat sends nothing.
 When a consumer cannot be reached, the change stays saved, the command names that consumer and exits 5, and `bin/fm-rules.sh deliver` retries.
-Running workers of a remote secondmate are always reported as not reached; that home gets the new file through the push.
+A secondmate whose home cannot be found, whose route fails, or whose copy is still the older set counts as not reached, and its workers are never sent the older set.
 The [`fm-rules.sh` header](../bin/fm-rules.sh) owns the delivery order, record wording, and exit codes.
 Secondmate charters carry no rules section because the secondmate session loads them itself.
 Task worktrees, no-mistakes gates, and the supervision branch get no session block.
@@ -78,7 +79,7 @@ A rule whose mistake has a fixed shape gets a deterministic check right away, an
 
 The first check is `bang-interactive`.
 The Claude Stop hook `bin/fm-rule-guard.sh --claude` blocks a primary reply that hands the captain a `! <command>` line for sudo, a rebuild, a login, a password, or a keychain step, and tells the agent to put the command on the clipboard with `pbcopy`, ask for a real Terminal window, and verify the result itself.
-Only a negated instruction in the same clause, such as "never run" or "not", passes as a quoted rule; a negation of something harmless, such as "no worries" or "kein Problem", does not exempt the command.
+Only a negated instruction in the same clause, such as "never run" or "not", passes as a quoted rule; a negation of something harmless, such as "no worries" or "kein Problem", does not exempt the command, and neither does an additive "not only" or "nicht nur".
 The [guard header](../bin/fm-rule-guard.sh) owns the exact window and exceptions, with regressions in [`tests/fm-rule-guard.test.sh`](../tests/fm-rule-guard.test.sh).
 A violating reply never ends the turn as a success.
 The guard keeps blocking each forced continuation that still hands over the line, up to a small cap per session.

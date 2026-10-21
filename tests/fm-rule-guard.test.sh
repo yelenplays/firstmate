@@ -54,7 +54,9 @@ test_scan_flags_handed_over_interactive_lines() {
     'Kein Problem: `! sudo -v`' 'No problem, run `! gh auth login`' \
     'Never use the old command; run `! sudo -v` instead.' 'keine Sorge einfach ! sudo -v' \
     'nicht vergessen ! sudo -v' "don't forget ! sudo -v" 'vergiss nicht ! sudo -v' \
-    'No worries - run ! sudo -v' 'Not sure? run ! sudo -v'; do
+    'No worries - run ! sudo -v' 'Not sure? run ! sudo -v' \
+    'Not only run ! sudo darwin-rebuild switch' 'Nicht nur ! sudo darwin-rebuild switch' \
+    'Not just ! sudo -v' 'not merely run ! sudo -v' 'Nicht bloß ! sudo -v' 'nicht lediglich ! sudo -v'; do
     out=$(printf '%s\n' "$text" | "$GUARD" scan); rc=$?
     expect_code 1 "$rc" "scan missed: $text"
     assert_contains "$out" 'bang-interactive: ' "scan did not name the check for: $text"
@@ -64,7 +66,8 @@ test_scan_flags_handed_over_interactive_lines() {
     'Done! sudo is no longer needed.' 'Wow! login works now.' '! git status' 'Use pbcopy, not ! sudo.' \
     'sudo darwin-rebuild switch (pasted into Terminal)' 'Never run ! sudo -v' \
     'Do not ever run ! sudo -v' 'Never hand the captain a "! <cmd>" line for sudo.' \
-    'Statt ! sudo -v nimm pbcopy.' 'Use pbcopy instead of ! gh auth login.'; do
+    'Statt ! sudo -v nimm pbcopy.' 'Use pbcopy instead of ! gh auth login.' \
+    'Not ! sudo -v but pbcopy.' 'Nur nicht ! sudo -v schicken.'; do
     out=$(printf '%s\n' "$text" | "$GUARD" scan) || fail "scan flagged: $text ($out)"
   done
   assert_contains "$("$GUARD" list)" 'bang-interactive' 'list did not print the check registry'
@@ -117,6 +120,8 @@ test_claude_stop_blocks_until_a_halt() {
   stop_succeeded "$rc" && fail 'a zero cap let a violating reply succeed'
   assert_equals false "$(jq -r '.continue' "$HOME_DIR/out")" 'a zero cap did not halt the first violation'
 
+  SESSION=s-4 stop 'Not only run ! sudo darwin-rebuild switch' false; rc=$?
+  expect_code 2 "$rc" 'an additive "not only" handover must block the first stop'
   stop 'All done, nothing for you to run.' false || fail 'a clean reply was blocked'
   printf '{}' | run_env "$GUARD" --claude || fail 'a payload without a reply did not fail open'
   printf '{"last_assistant_message":42}' | run_env "$GUARD" --claude || fail 'a non-string reply did not fail open'

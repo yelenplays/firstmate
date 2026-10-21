@@ -60,15 +60,20 @@
 # Delivery: a write that changes the worker-facing rule lines (a new rule, a
 # changed text, a revocation, a linked check) delivers the complete new set to
 # every live consumer before it returns, still under the store lock so
-# deliveries arrive in write order: bin/fm-config-push.sh for every secondmate
-# home (it copies config/captain-rules.md and sends that home's reread
-# instruction), then one "CAPTAIN RULES UPDATE <generation>" record through
-# bin/fm-send.sh into the steering inbox of every ship or scout task recorded
-# in state/*.meta of this home and of each local secondmate home. Each local
-# secondmate copy is compared byte for byte afterwards, because the push skips
-# an unsafe home with exit 0. A repeat that leaves the lines unchanged delivers
-# nothing. `deliver` repeats the delivery of the current set by hand, for
-# example after an exit 5.
+# deliveries arrive in write order: bin/fm-config-push.sh for every live
+# secondmate (it copies config/captain-rules.md and sends that home's reread
+# instruction), then `deliver` inside each secondmate home, found from its meta
+# home= or the data/secondmates.md registry and reached directly when local or
+# through bin/fm-on.sh when remote, then one "CAPTAIN RULES UPDATE
+# <generation>" record through bin/fm-send.sh into the steering inbox of every
+# ship or scout task recorded in this home's state/*.meta. `deliver` in a
+# secondmate home hands that home's own copy to its own workers and always
+# prints "delivered <generation>: ..."; the primary counts a secondmate as
+# reached only when that generation is its own, so a skipped or failed push is
+# reported instead of resending an old set. A repeat that leaves the lines
+# unchanged delivers nothing. `deliver` repeats the delivery of the current set
+# by hand, for example after an exit 5; secondmate homes nested more than four
+# deep are reported as not reached.
 #
 # `brief-section` prints the "# Captain rules" section bin/fm-brief.sh puts in
 # ship and scout briefs with the same complete rule list, or nothing when there
@@ -101,10 +106,10 @@
 # Home-local report and reminder state can still be written there.
 #
 # Exit codes: 0 success; 1 not found (unknown rule or candidate); 2 usage
-# error, a secondmate home, or an unusable store; 3 invalid rule id, text, or
+# error, a rule write in a secondmate home, or an unusable store; 3 invalid rule id, text, or
 # check id; 4 the write would push the rendered block past FM_RULES_MAX_CHARS;
 # 5 the change is saved but at least one live consumer was not reached (each
-# one is named on stderr; a running worker of a remote secondmate always is).
+# one is named on stderr).
 #
 # Environment: FM_HOME, FM_CONFIG_OVERRIDE, FM_STATE_OVERRIDE, FM_ROOT_OVERRIDE,
 # FM_RULES_MAX_CHARS, FM_RULES_REVOKE_WINDOW, FM_RULES_TODAY (tests),
@@ -116,6 +121,7 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-$FM_ROOT}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 RULES_FILE="$CONFIG/captain-rules.md"
 RSTATE="$STATE/captain-rules"
 LOG="$RSTATE/log.jsonl"
@@ -390,69 +396,92 @@ meta_value() {  # <meta> <key>
   sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1
 }
 
-send_to_worker() {  # <home> <task-id> <message>
-  if [ "$1" = "$FM_HOME" ]; then
-    "$SCRIPT_DIR/fm-send.sh" "$2" "$3" >/dev/null
+# Run `deliver` in one secondmate home, which then hands its own copy of the
+# rules to its own running workers: a local home directly, a remote home
+# through its fm-on.sh route. Prints that run's output; returns its status.
+deliver_in_secondmate() {  # <id> <home> <meta>
+  if [ -n "$(meta_value "$3" remote_host)" ]; then
+    "$SCRIPT_DIR/fm-on.sh" "$1" fm-rules.sh deliver 2>&1
   else
-    env -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE FM_HOME="$1" \
-      "$SCRIPT_DIR/fm-send.sh" "$2" "$3" >/dev/null
+    env -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE FM_HOME="$2" \
+      FM_RULES_DELIVER_DEPTH=$((${FM_RULES_DELIVER_DEPTH:-0} + 1)) \
+      "$SCRIPT_DIR/fm-rules.sh" deliver 2>&1
   fi
 }
 
 # Deliver the current rule set to every live consumer that already loaded an
-# older one: secondmate homes through the guarded config push and its reread
-# instruction, and every running ship or scout worker of this home and of each
-# local secondmate home through its durable steering inbox. Prints one summary
-# line; returns 5 and names each consumer that was not reached.
-deliver_rules() {
-  local gen msg meta kind home id out err sent=0 failed=0 secondmates=0 homes=()
+# older one. Secondmate homes first get the file through the guarded config
+# push; then each one runs `deliver` itself (a remote one through its fm-on.sh
+# route), which proves its copy has this generation and hands that copy to its
+# own running workers. Last, every running ship or scout worker of this home
+# gets it through its durable steering inbox. Prints one summary line when
+# anything was delivered or when [report] is set; returns 5 and names each
+# consumer that was not reached.
+deliver_rules() {  # [report]
+  local report=${1:-} gen msg meta kind id home out err line got n sent=0 failed=0 secondmates=0 records
   gen=$(rules_generation)
   msg=$(update_message "$gen")
-  for meta in "$STATE"/*.meta; do
-    [ -f "$meta" ] || continue
-    [ "$(meta_value "$meta" kind)" = secondmate ] || continue
-    secondmates=$((secondmates + 1))
-    home=$(meta_value "$meta" home)
-    if [ -n "$(meta_value "$meta" remote_host)" ]; then
-      printf 'fm-rules: not delivered: the running workers of remote secondmate %s\n' "${meta##*/}" >&2
-      failed=$((failed + 1))
-    elif [ -n "$home" ] && [ -d "$home/state" ]; then
-      homes+=("$home")
+  if [ "${FM_RULES_DELIVER_DEPTH:-0}" -lt 4 ]; then
+    if ! command -v live_secondmate_meta_records >/dev/null 2>&1; then
+      # shellcheck source=bin/fm-ff-lib.sh
+      . "$SCRIPT_DIR/fm-ff-lib.sh" || return 5
     fi
-  done
-  if [ "$secondmates" -gt 0 ] && ! out=$("$SCRIPT_DIR/fm-config-push.sh" 2>&1); then
+    records=$(live_secondmate_meta_records "$STATE" "$DATA/secondmates.md")
+  else
+    printf 'fm-rules: not delivered: secondmate homes nested deeper than 4 levels\n' >&2
+    records=''
+    failed=1
+  fi
+  if [ -n "$records" ] && ! out=$("$SCRIPT_DIR/fm-config-push.sh" 2>&1); then
     printf 'fm-rules: not delivered: the secondmate config push failed:\n%s\n' "$out" >&2
     failed=$((failed + 1))
   fi
-  # The push skips unsafe homes with exit 0, so prove each local copy instead.
-  for home in ${homes[@]+"${homes[@]}"}; do
-    if [ -f "$RULES_FILE" ] && ! cmp -s "$RULES_FILE" "$home/config/captain-rules.md"; then
-      printf 'fm-rules: not delivered: secondmate home %s still has an older captain-rules.md\n' "$home" >&2
+  while IFS='|' read -r id home _ meta; do
+    [ -n "$id" ] || continue
+    secondmates=$((secondmates + 1))
+    if [ -z "$home" ]; then
+      printf 'fm-rules: not delivered: secondmate %s has no home= and no registry home\n' "$id" >&2
       failed=$((failed + 1))
-    elif [ ! -f "$RULES_FILE" ] && [ -f "$home/config/captain-rules.md" ]; then
-      printf 'fm-rules: not delivered: secondmate home %s still has a captain-rules.md\n' "$home" >&2
+      continue
+    fi
+    if [ -z "$(meta_value "$meta" remote_host)" ] && [ ! -d "$home/state" ]; then
+      printf 'fm-rules: not delivered: secondmate %s home %s has no state directory\n' "$id" "$home" >&2
+      failed=$((failed + 1))
+      continue
+    fi
+    out=$(deliver_in_secondmate "$id" "$home" "$meta")
+    line=$(printf '%s\n' "$out" | grep -E '^delivered [0-9a-f]+: [0-9]+ running worker' | tail -n 1)
+    got=$(printf '%s\n' "$line" | sed -n 's/^delivered \([0-9a-f]*\):.*/\1/p')
+    n=$(printf '%s\n' "$line" | sed -n 's/^delivered [0-9a-f]*: \([0-9]*\) running worker.*/\1/p')
+    if [ -n "$got" ] && [ "$got" != "$gen" ]; then
+      printf 'fm-rules: not delivered: secondmate %s still has rule set %s instead of %s\n' "$id" "$got" "$gen" >&2
+      failed=$((failed + 1))
+      continue
+    fi
+    sent=$((sent + ${n:-0}))
+    if [ -z "$got" ] || ! printf '%s\n' "$out" | grep -qE '^delivered [0-9a-f]+: .*, 0 not reached$'; then
+      printf 'fm-rules: not delivered: the running workers of secondmate %s: %s\n' "$id" \
+        "$(printf '%s\n' "$out" | grep -v '^delivered ' | tail -n 1)" >&2
+      failed=$((failed + 1))
+    fi
+  done <<< "$records"
+  err=$(mktemp "${TMPDIR:-/tmp}/fm-rules-deliver.XXXXXX") || err=/dev/null
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    kind=$(meta_value "$meta" kind)
+    [ "$kind" = ship ] || [ "$kind" = scout ] || continue
+    id=${meta##*/}
+    id=${id%.meta}
+    if "$SCRIPT_DIR/fm-send.sh" "$id" "$msg" >/dev/null 2>"$err"; then
+      sent=$((sent + 1))
+    else
+      printf 'fm-rules: not delivered: worker %s in %s: %s\n' "$id" "$FM_HOME" "$(tail -n 1 "$err" 2>/dev/null)" >&2
       failed=$((failed + 1))
     fi
   done
-  err=$(mktemp "${TMPDIR:-/tmp}/fm-rules-deliver.XXXXXX") || err=/dev/null
-  for home in "$FM_HOME" ${homes[@]+"${homes[@]}"}; do
-    for meta in "$home"/state/*.meta; do
-      [ -f "$meta" ] || continue
-      kind=$(meta_value "$meta" kind)
-      [ "$kind" = ship ] || [ "$kind" = scout ] || continue
-      id=${meta##*/}
-      id=${id%.meta}
-      if send_to_worker "$home" "$id" "$msg" 2>"$err"; then
-        sent=$((sent + 1))
-      else
-        printf 'fm-rules: not delivered: worker %s in %s: %s\n' "$id" "$home" "$(tail -n 1 "$err" 2>/dev/null)" >&2
-        failed=$((failed + 1))
-      fi
-    done
-  done
   [ "$err" = /dev/null ] || rm -f -- "$err"
   log_event deliver generation "$gen" workers "$sent" secondmates "$secondmates" failed "$failed"
-  if [ "$sent" -gt 0 ] || [ "$secondmates" -gt 0 ] || [ "$failed" -gt 0 ]; then
+  if [ -n "$report" ] || [ "$sent" -gt 0 ] || [ "$secondmates" -gt 0 ] || [ "$failed" -gt 0 ]; then
     printf 'delivered %s: %s running worker(s), %s secondmate home(s), %s not reached\n' \
       "$gen" "$sent" "$secondmates" "$failed"
   fi
@@ -472,9 +501,9 @@ deliver_if_changed() {  # <generation-before>
 
 cmd_deliver() {
   [ $# -eq 0 ] || die "deliver takes no arguments"
-  require_primary_store
+  # A secondmate home delivers its own copy of the rules to its own workers.
   store_lock || die "cannot take $STORE_LOCK"
-  deliver_rules || exit 5
+  deliver_rules report || exit 5
 }
 
 cmd_add() {

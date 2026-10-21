@@ -295,6 +295,114 @@ test_saved_changes_reach_running_consumers() {
   pass 'saved additions, restatements, and revocations reach running workers and secondmate homes, and an unreached consumer is reported'
 }
 
+# A fixture bin/ whose scripts are the real ones, except the SSH transport
+# (fm-on.sh runs the command in a local stand-in for the remote home, or fails
+# with ssh's 255 while $FM_FAKE_REMOTE_DOWN exists) and the config push (copies
+# the rule file into that home unless $FM_FAKE_PUSH_STALE exists).
+make_remote_fixture_bin() {  # <dir> -> fixture bin
+  local fx="$1/fixbin" f
+  rm -rf "$fx"
+  mkdir -p "$fx"
+  for f in "$ROOT"/bin/*; do ln -s "$f" "$fx/${f##*/}"; done
+  rm -f "$fx/fm-on.sh" "$fx/fm-config-push.sh"
+  cat > "$fx/fm-on.sh" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" != --stdin ] || shift
+shift
+cmd=$1
+shift
+[ ! -e "$FM_FAKE_REMOTE_DOWN" ] || exit 255
+exec env -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_ROOT_OVERRIDE \
+  FM_HOME="$FM_FAKE_REMOTE_HOME" "$FM_FAKE_REAL_BIN/$cmd" "$@"
+SH
+  cat > "$fx/fm-config-push.sh" <<'SH'
+#!/usr/bin/env bash
+[ ! -e "$FM_FAKE_PUSH_STALE" ] || exit 0
+mkdir -p "$FM_FAKE_REMOTE_HOME/config"
+if [ -f "$FM_HOME/config/captain-rules.md" ]; then
+  cp "$FM_HOME/config/captain-rules.md" "$FM_FAKE_REMOTE_HOME/config/captain-rules.md"
+else
+  rm -f "$FM_FAKE_REMOTE_HOME/config/captain-rules.md"
+fi
+SH
+  chmod +x "$fx/fm-on.sh" "$fx/fm-config-push.sh"
+  printf '%s\n' "$fx"
+}
+
+test_registry_and_remote_secondmates_reach_their_workers() {
+  local fb sm="$TMP_ROOT/sm-home" rm_home="$TMP_ROOT/remote-home" fx out rc
+  fresh_home
+  rm -rf "$sm" "$rm_home"
+  mkdir -p "$sm/state" "$sm/config" "$sm/data" "$sm/bin" "$rm_home/state" "$rm_home/config" "$rm_home/data"
+  printf 'sm\n' > "$sm/.fm-secondmate-home"
+  printf 'rm\n' > "$rm_home/.fm-secondmate-home"
+  : > "$sm/AGENTS.md"
+  : > "$rm_home/AGENTS.md"
+  fb=$(make_tmux_stub "$TMP_ROOT")
+  deliver_env() { run_env env PATH="$fb:$PATH" FM_SEND_SETTLE=0 "$@"; }
+
+  # A live secondmate meta without home=, whose home only the registry records.
+  printf -- '- sm - fixture mate (home: %s; scope: fixture; projects: -; added 2026-10-20)\n' "$sm" \
+    > "$HOME_DIR/data/secondmates.md"
+  fm_write_meta "$HOME_DIR/state/sm.meta" 'window=sess:fm-sm' 'kind=secondmate' 'harness=claude'
+  fm_write_meta "$sm/state/sm-worker.meta" 'window=sess:fm-sm-worker' 'kind=ship' 'harness=claude'
+  out=$(deliver_env "$RULES" add correction 'Apply the new correction immediately.' 2>&1) \
+    || fail "a registry-only secondmate home was not reached: $out"
+  assert_contains "$out" '1 running worker(s), 1 secondmate home(s), 0 not reached' 'the registry-only home did not count its worker'
+  assert_contains "$(inbox_bodies "$sm/state" sm-worker | tail -n 1)" '- Apply the new correction immediately.' \
+    'the worker of a registry-only secondmate home got no update'
+
+  # A live secondmate with neither home= nor a registry home is reported, never skipped.
+  fm_write_meta "$HOME_DIR/state/lost.meta" 'window=sess:fm-lost' 'kind=secondmate' 'harness=claude'
+  out=$(deliver_env "$RULES" deliver 2>&1); rc=$?
+  expect_code 5 "$rc" 'a secondmate without a resolvable home must count as not reached'
+  assert_contains "$out" 'secondmate lost has no home= and no registry home' 'the unresolved home was not named'
+  rm -f "$HOME_DIR/state/lost.meta" "$HOME_DIR/state/sm.meta"
+
+  # A remote secondmate delivers to its own running workers through its route.
+  fx=$(make_remote_fixture_bin "$TMP_ROOT")
+  remote_env() {
+    deliver_env env FM_FAKE_REMOTE_HOME="$rm_home" FM_FAKE_REAL_BIN="$ROOT/bin" \
+      FM_FAKE_REMOTE_DOWN="$TMP_ROOT/remote-down" FM_FAKE_PUSH_STALE="$TMP_ROOT/push-stale" "$@"
+  }
+  rm -f "$TMP_ROOT/remote-down" "$TMP_ROOT/push-stale"
+  printf -- '- rm - remote mate (host: fixture-host; root: %s; home: %s; scope: fixture; projects: -; added 2026-10-20)\n' \
+    "$ROOT" "$rm_home" > "$HOME_DIR/data/secondmates.md"
+  fm_write_meta "$HOME_DIR/state/rm.meta" 'window=sess:fm-rm' 'kind=secondmate' 'harness=claude' \
+    "home=$rm_home" 'remote_host=fixture-host'
+  fm_write_meta "$rm_home/state/rm-worker.meta" 'window=sess:fm-rm-worker' 'kind=ship' 'harness=claude'
+  out=$(remote_env "$fx/fm-rules.sh" add remote-rule 'Reach the remote workers too.' 2>&1) \
+    || fail "a remote secondmate's workers were not reached: $out"
+  assert_contains "$out" '1 running worker(s), 1 secondmate home(s), 0 not reached' 'the remote worker was not counted'
+  assert_contains "$(inbox_bodies "$rm_home/state" rm-worker | tail -n 1)" '- Reach the remote workers too.' \
+    'the remote secondmate did not hand the update to its worker'
+
+  # A transport failure is reported, and the printed retry recovers it.
+  : > "$TMP_ROOT/remote-down"
+  out=$(remote_env "$fx/fm-rules.sh" add outage-rule 'Survive a remote outage.' 2>&1); rc=$?
+  expect_code 5 "$rc" 'an unreachable remote secondmate must exit 5'
+  assert_contains "$out" 'not delivered: the running workers of secondmate rm' 'the unreachable remote was not named'
+  assert_not_contains "$(inbox_bodies "$rm_home/state" rm-worker | tail -n 1)" 'Survive a remote outage.' \
+    'the remote worker got an update across a failed route'
+  rm -f "$TMP_ROOT/remote-down"
+  out=$(remote_env "$fx/fm-rules.sh" deliver 2>&1) || fail "the retry after the outage failed: $out"
+  assert_contains "$(inbox_bodies "$rm_home/state" rm-worker | tail -n 1)" '- Survive a remote outage.' \
+    'the retry did not reach the remote worker'
+
+  # A home whose copy did not arrive is reported instead of re-sending its old set.
+  : > "$TMP_ROOT/push-stale"
+  out=$(remote_env "$fx/fm-rules.sh" add stale-rule 'Never resend an old set.' 2>&1); rc=$?
+  expect_code 5 "$rc" 'a secondmate with a stale copy must exit 5'
+  assert_contains "$out" 'secondmate rm still has rule set' 'the stale copy was not named'
+  assert_not_contains "$(inbox_bodies "$rm_home/state" rm-worker | tail -n 1)" 'Never resend an old set.' \
+    'the remote worker got a set its home does not have'
+  rm -f "$TMP_ROOT/push-stale"
+  out=$(remote_env "$fx/fm-rules.sh" deliver 2>&1) || fail "the retry after the stale push failed: $out"
+  assert_contains "$(inbox_bodies "$rm_home/state" rm-worker | tail -n 1)" '- Never resend an old set.' \
+    'the retry did not deliver the current set'
+  pass 'registry-only and remote secondmate homes hand each saved change to their own running workers, and failures are retried'
+}
+
 test_writes_refuse_in_a_secondmate_home() {
   local out rc
   fresh_home
@@ -465,6 +573,7 @@ test_projections_carry_every_rule_and_overflow_is_refused
 test_concurrent_writes_keep_every_rule
 test_tabs_survive_and_control_characters_are_refused
 test_saved_changes_reach_running_consumers
+test_registry_and_remote_secondmates_reach_their_workers
 test_writes_refuse_in_a_secondmate_home
 test_prompt_hook_captures_and_confirms
 test_hooks_stand_down_outside_their_scope

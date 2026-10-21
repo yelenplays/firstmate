@@ -23,7 +23,8 @@
 #                     A negation that only negates a harmless word ("no
 #                     worries", "kein Problem", "don't forget", "vergiss
 #                     nicht") is not one, so the command still counts as
-#                     handed over.
+#                     handed over. Neither is an additive "not only", "not
+#                     just", or "nicht nur", which asks for the command too.
 #
 # `--claude` reads `.last_assistant_message` from the Stop payload and acts only
 # in a primary seat (the main home or a secondmate home, never a task worktree,
@@ -88,7 +89,8 @@ scan_text() {
       my $nearby = join " ", (@words > 3 ? @words[-3..-1] : @words);
       my $around = join " ", (@words > 4 ? @words[-4..-1] : @words);
       next if $nearby =~ /\b(?:nie|niemals|never|kein|keine|keinen|no|not|nicht|don\x27t|statt|instead\s+of)\b/
-        && $around !~ /\b(?:problems?|problemo|worr(?:y|ies|ied)|sorgen?|stress|pressure|doubt|rush|hurry|panic|panik|angst|drama|idea|ahnung|issues?|biggie|deal|forget|vergessen|vergiss|hesitate|z(?:\x{f6}|oe)gern?)\b/;
+        && $around !~ /\b(?:problems?|problemo|worr(?:y|ies|ied)|sorgen?|stress|pressure|doubt|rush|hurry|panic|panik|angst|drama|idea|ahnung|issues?|biggie|deal|forget|vergessen|vergiss|hesitate|z(?:\x{f6}|oe)gern?)\b/
+        && $around !~ /\b(?:not|nicht)\s+(?:only|just|merely|nur|blo(?:\x{df}|ss)|lediglich|allein)\b/;
       print "bang-interactive: $line\n";
       $hit = 1;
       last;
