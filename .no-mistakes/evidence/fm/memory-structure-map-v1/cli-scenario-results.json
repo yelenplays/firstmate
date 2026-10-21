@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Record and repeat a correction; persist one updated rule and require a check or explanation",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Reject malformed rules and context-budget overflow without changing persisted rules",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Scaffold ship and scout instructions containing the complete central rule set",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Retract a stored correction and observe its removal from subsequent context",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Scan unsafe sudo handovers including spaced dashes while allowing negated rule quotations",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Reproduce the spaced-dash bypass on the prior guard and verify the new guard rejects it",
+    "result": "pass",
+    "live": false
+  },
+  {
+    "name": "Invoke primary-only hooks from the gate and observe no capture, context, or guard-state writes",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Arm the weekly reminder, report repeated corrections, and silence reminders after reporting",
+    "result": "pass",
+    "live": true
+  }
+]

@@ -1,0 +1,226 @@
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh render
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh add --check bang-interactive terminal-sudo 'Hand sudo steps over through pbcopy and a real Terminal window.'
+added: terminal-sudo
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh add short-replies 'Keep answers short.'
+added: short-replies
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh add short-replies 'Keep answers short and concrete.'
+repeated: short-replies (seen 2)
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh list
+terminal-sudo	seen=1 check=bang-interactive	Hand sudo steps over through pbcopy and a real Terminal window.
+short-replies	seen=2	Keep answers short and concrete.
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh unchecked
+short-replies	seen=2	Keep answers short and concrete.
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh render
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep answers short and concrete.
+REPEATED WITHOUT A CHECK - build a check in bin/fm-rule-guard.sh and link it with bin/fm-rules.sh check <rule-id> <check-id>, or record why not with bin/fm-rules.sh nocheck <rule-id> "<reason>":
+- short-replies (seen 2 times)
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh nocheck short-replies 'Requires judgment about the answer, not a fixed text pattern.'
+no check recorded: short-replies
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh unchecked
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh list
+terminal-sudo	seen=1 check=bang-interactive	Hand sudo steps over through pbcopy and a real Terminal window.
+short-replies	seen=2 nocheck=2026-10-21	Keep answers short and concrete.
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh add 'Bad Id' 'This must not be saved.'
+fm-rules: invalid rule id: Bad Id
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh check terminal-sudo unknown-check
+fm-rules: unknown check id: unknown-check (see bin/fm-rule-guard.sh list)
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh add injected 'text <!-- seen=99 -->'
+fm-rules: rule text must be one non-empty line of at most 300 characters without control characters, <!--, or -->
+[exit 3]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh add overflow 'An additional correction must be refused without losing the existing rules.'
+fm-rules: not saved: the captain rules block would be 463 characters, over its 200-character budget (FM_RULES_MAX_CHARS).
+fm-rules: consolidate rules first: restate an existing rule id with a shorter or merged text (add <rule-id> "<text>"), or revoke one that no longer applies (see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh list), then retry.
+[exit 4]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh list
+terminal-sudo	seen=1 check=bang-interactive	Hand sudo steps over through pbcopy and a real Terminal window.
+short-replies	seen=2 nocheck=2026-10-21	Keep answers short and concrete.
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh render
+CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+- Keep answers short and concrete.
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-brief.sh ship-demo validation-project --mode local-only
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/data/ship-demo/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-brief.sh scout-demo validation-project --scout
+scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/data/scout-demo/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh revoke short-replies
+revoked: short-replies
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh list
+terminal-sudo	seen=1 check=bang-interactive	Hand sudo steps over through pbcopy and a real Terminal window.
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh render
+CAPTAIN RULES (1, from config/captain-rules.md via bin/fm-rules.sh)
+These are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a "! <command>" line.
+- Hand sudo steps over through pbcopy and a real Terminal window. [check: bang-interactive]
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh revoke short-replies
+fm-rules: no rule: short-replies
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: '! sudo darwin-rebuild switch\n'
+bang-interactive: ! sudo darwin-rebuild switch
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'no worries, run ! sudo darwin-rebuild switch\n'
+bang-interactive: no worries, run ! sudo darwin-rebuild switch
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'never again - ! sudo x\n'
+bang-interactive: never again - ! sudo x
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'never again – ! sudo x\n'
+bang-interactive: never again – ! sudo x
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'never again — ! sudo x\n'
+bang-interactive: never again — ! sudo x
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'Never use the old command; run `! sudo -v` instead.\n'
+bang-interactive: Never use the old command; run `! sudo -v` instead.
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'Not only run ! sudo -v\n'
+bang-interactive: Not only run ! sudo -v
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'Nicht nur ! sudo -v\n'
+bang-interactive: Nicht nur ! sudo -v
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'Never hand the captain a `! sudo` line.\n'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'Use pbcopy, not ! sudo.\n'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'Never run ! sudo -v\n'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'sudo darwin-rebuild switch (pasted into Terminal)\n'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: '! git status\n'
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/before/fm-rule-guard.sh scan
+stdin: 'never again - ! sudo x\n'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh scan
+stdin: 'never again - ! sudo x\n'
+bang-interactive: never again - ! sudo x
+[exit 1]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh session
+stdin: '{}'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh prompt-hook
+stdin: '{"prompt": "Ab jetzt nie wieder lange Antworten."}'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rule-guard.sh --claude
+stdin: '{"last_assistant_message": "never again - ! sudo x", "session_id": "isolated-gate-check"}'
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh weekly-arm
+armed: state/captain-rules-weekly.check.sh
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/state/captain-rules-weekly.check.sh
+captain-rules weekly report due: run /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh report and send the captain its short version
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/state/captain-rules-weekly.check.sh
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh report --transcripts /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/no-transcripts
+# Captain rules report: last 7 days
+
+Rules: 1 total, 2 added, 1 repeated.
+
+## Corrections that came back
+
+- short-replies: recorded again 1 time(s) this period, revoked since
+
+## Guard blocks
+
+- none
+- halted after the block cap: 0
+
+## Repeated without a check
+
+- none
+
+## Capture
+
+- candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now
+- transcripts: none found
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/.fm-validation-hmgfizsk/state/captain-rules-weekly.check.sh
+[exit 0]
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EWQHV31ED14R3Z36GS5T6A/bin/fm-rules.sh weekly-disarm
+disarmed: state/captain-rules-weekly.check.sh
+[exit 0]

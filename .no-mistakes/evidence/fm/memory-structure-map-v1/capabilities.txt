@@ -1,0 +1,5 @@
+Required tmux primary launch capability: tmux is not on PATH (exit 1).
+Claude executable: /Users/yelen/.local/bin/claude
+Herdr executable: /opt/homebrew/bin/herdr
+Gate context: NO_MISTAKES_GATE=1
+Primary-only hooks were exercised without a bypass in cli-scenarios.log; all returned silently with no state changes.
