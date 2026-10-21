@@ -200,7 +200,7 @@ This worker is the test seat of a tdd-split ship; this section supersedes any in
 From the brief's intent and the existing code's interfaces, write the tests that pin the required behavior: acceptance tests for new behavior and a reproducing test for a bug.
 Change no file that is not a test: no production code, documentation, or configuration.
 Each test must fail on the current code because the required behavior is missing, and pass once the change is implemented as specified.
-Before the handover firstmate runs \`$1\` from the root of a clean clone of your HEAD, with the test files you changed as its arguments, and refuses the handover unless that command exits non-zero.
+Before the handover firstmate runs \`$1\` from the root of a clean clone of the branch's merge-base with the base, with the test files the branch changes checked out from your HEAD and passed as its arguments, and refuses the handover unless that command exits non-zero.
 Run the same command yourself first; a test that fails only because it cannot run, such as a syntax error or a missing helper, does not count as failing.
 Commit the tests, report \`done: $FM_TDD_SPLIT_READY_VERB <sha>\` naming your HEAD, and stop; do not run no-mistakes, push, or open a PR.
 After the handover the task continues on $2, which must make your tests pass and cannot change them.
