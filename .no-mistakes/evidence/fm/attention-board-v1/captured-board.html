@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Firstmate captured board output</title><style>body{max-width:1200px;margin:32px auto;padding:0 20px;font:16px system-ui;color:#222;background:#fafafa}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.6 monospace;background:#fff;border:1px solid #ccc;padding:20px}h2{margin-top:32px;font-size:20px}</style><h1>Captured Firstmate CLI board</h1><p>Verbatim product output from an isolated disposable home. HTML is an evidence presentation, not a separate product UI. No worker, GitHub PR, or deployment is represented by these queued tasks.</p><h2>A durable decision remains visible</h2><pre>BOARD 2026-10-21T20:03:43Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- investigate [decision] Investigate the release delay - Choose the deployment window
+QUEUED (2)
+- implement [queued] Implement the approved change
+- document [queued] Document the release
+</pre><h2>Bounded queue discloses hidden rows</h2><pre>BOARD 2026-10-21T20:03:44Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- investigate [decision] Investigate the release delay - Choose the deployment window
+QUEUED (2, showing 1; fm-board.sh --all shows every row)
+- implement [queued] Implement the approved change
+</pre><h2>The full queue on demand</h2><pre>BOARD 2026-10-21T20:03:44Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- investigate [decision] Investigate the release delay - Choose the deployment window
+QUEUED (2)
+- implement [queued] Implement the approved change
+- document [queued] Document the release
+</pre><h2>Answering removes the decision from attention</h2><pre>BOARD 2026-10-21T20:03:50Z: 0 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+QUEUED (2)
+- implement [queued] Implement the approved change
+- document [queued] Document the release
+DONE (1)
+- investigate [done] Investigate the release delay - closed
+</pre>

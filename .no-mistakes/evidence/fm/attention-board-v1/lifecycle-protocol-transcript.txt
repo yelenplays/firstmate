@@ -1,0 +1,25 @@
+PROTOCOL-INPUT CHECK ONLY: no worker or real PR was launched.
+After note: review evidence collected
+BOARD 2026-10-21T20:02:58Z: 0 need you · 1 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (1)
+- approval [approval] https://github.com/acme/demo/pull/181 Reported-only PR awaiting approval - waiting for approval
+After resolved [key=unrelated]: unrelated question answered
+BOARD 2026-10-21T20:02:59Z: 0 need you · 1 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (1)
+- approval [approval] https://github.com/acme/demo/pull/181 Reported-only PR awaiting approval - waiting for approval
+After captain-held [key=unrelated]: unrelated question transferred
+BOARD 2026-10-21T20:02:59Z: 0 need you · 1 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (1)
+- approval [approval] https://github.com/acme/demo/pull/181 Reported-only PR awaiting approval - waiting for approval
+An unrelated resolution and later note do not hide an open decision:
+BOARD 2026-10-21T20:03:00Z: 1 need you · 0 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- approval [needs-decision] Reported-only PR awaiting approval - Choose release window
+Resolving the actual decision and reporting done restores ready:
+BOARD 2026-10-21T20:03:01Z: 0 need you · 1 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (1)
+- approval [approval] https://github.com/acme/demo/pull/181 Reported-only PR awaiting approval - waiting for approval
+Resumed work invalidates readiness even beneath a later note:
+BOARD 2026-10-21T20:03:01Z: 0 need you · 0 ready to approve · 1 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+WORKING (1)
+- approval [note] Reported-only PR awaiting approval - halfway

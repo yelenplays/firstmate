@@ -1,0 +1,25 @@
+ok - session start auto-arms the routing check idempotently
+ok - session start alerts once for missing samples and resets after recovery
+ok - context digest distinguishes ABSENT, empty-but-present, and populated files
+ok - a lock refusal prints a loud read-only banner, skips every mutating step, and still completes the digest
+ok - session start stays read-only when lock ownership cannot be published
+ok - locked session start freezes trace context and lock refusal leaves it unchanged
+tests/fm-session-start.test.sh: Zeile 1056: 13341 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13390 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13394 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13386 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13379 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13361 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1053: [: : Ganzzahl erwartet
+tests/fm-session-start.test.sh: Zeile 1056: 13344 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13352 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13355 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13321 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13343 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13299 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13311 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 13313 Killed: 9                  sleep 0.01
+tests/fm-session-start.test.sh: Zeile 1056: 75832 Killed: 9                  FM_HOME="$home" FM_FAKE_LOCK_STATE="$home/state" FM_FAKE_HARNESS_PID="$harness_pid" PATH="$fakebin:$BASE_PATH" "$ROOT/bin/fm-lock.sh" > /dev/null 2>&1
+tests/fm-session-start.test.sh: Zeile 1056: 75819 Killed: 9                  FM_HOME="$home" FM_FAKE_LOCK_STATE="$home/state" FM_FAKE_HARNESS_PID="$harness_pid" PATH="$fakebin:$BASE_PATH" "$ROOT/bin/fm-lock.sh" > /dev/null 2>&1
+tests/fm-session-start.test.sh: Zeile 1056: 75807 Killed: 9                  FM_HOME="$home" FM_FAKE_LOCK_STATE="$home/state" FM_FAKE_HARNESS_PID="$harness_pid" PATH="$fakebin:$BASE_PATH" "$ROOT/bin/fm-lock.sh" > /dev/null 2>&1
+tests/fm-session-start.test.sh: Zeile 1056: 75790 Killed: 9                  FM_HOME="$home" FM_FAKE_LOCK_STATE="$home/state" FM_FAKE_HARNESS_PID="$harness_pid" PATH="$fakebin:$BASE_PATH" "$ROOT/bin/fm-lock.sh" > /dev/null 2>&1

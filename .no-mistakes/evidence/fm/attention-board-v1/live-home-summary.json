@@ -1,0 +1,164 @@
+{
+  "schema": "fm-secondmate-home-summary.v1",
+  "hold_classifier_schema": "fm-captain-hold-buckets.v1",
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "board": {
+    "schema": "fm-board-home.v1",
+    "items": [
+      {
+        "group": "needs_you",
+        "id": "investigate",
+        "title": "Investigate the release delay",
+        "kind": "scout",
+        "repo": "demo",
+        "since": "2026-10-21",
+        "at": null,
+        "url": null,
+        "reason": "decision",
+        "detail": "Choose the deployment window"
+      },
+      {
+        "group": "queued",
+        "id": "implement",
+        "title": "Implement the approved change",
+        "kind": "ship",
+        "repo": "demo",
+        "since": "2026-10-21",
+        "at": null,
+        "url": null,
+        "reason": "queued",
+        "detail": null
+      },
+      {
+        "group": "queued",
+        "id": "document",
+        "title": "Document the release",
+        "kind": "docs",
+        "repo": "demo",
+        "since": "2026-10-21",
+        "at": null,
+        "url": null,
+        "reason": "queued",
+        "detail": null
+      }
+    ],
+    "omitted": {}
+  },
+  "generated": "2026-10-21T20:03:44Z",
+  "generated_epoch": 1792613024,
+  "home": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G097QX1HT5QR2KEXWQZZBK/.test-validation/tmp/fm-lab.k3A4es",
+  "valid": true,
+  "reason": null,
+  "invalidity": {
+    "kind": null,
+    "ids": []
+  },
+  "state": "captain_decision",
+  "active_children": [],
+  "decisions_open": [
+    {
+      "id": "investigate",
+      "key": "investigate",
+      "verb": "captain-hold",
+      "summary": "Investigate the release delay",
+      "reason": "Choose the deployment window",
+      "hold_until": null,
+      "hold_bucket": "live",
+      "hold_age_days": 0,
+      "source": "backlog"
+    }
+  ],
+  "holds": [
+    {
+      "id": "investigate",
+      "title": "Investigate the release delay",
+      "blocked_by": null,
+      "blocked_by_ids": [],
+      "unresolved_blocker_ids": [],
+      "reason": "Choose the deployment window",
+      "source": "backlog"
+    }
+  ],
+  "queued": [
+    {
+      "id": "implement",
+      "title": "Implement the approved change",
+      "blocked_by": null,
+      "blocked_by_ids": [],
+      "unresolved_blocker_ids": [],
+      "blocked_reason": null,
+      "hold_reason": null,
+      "hold_kind": null,
+      "hold_until": null,
+      "hold_bucket": null,
+      "hold_age_days": 0,
+      "captain_actionable": false,
+      "repo": "demo",
+      "kind": "ship",
+      "since": "2026-10-21"
+    },
+    {
+      "id": "document",
+      "title": "Document the release",
+      "blocked_by": null,
+      "blocked_by_ids": [],
+      "unresolved_blocker_ids": [],
+      "blocked_reason": null,
+      "hold_reason": null,
+      "hold_kind": null,
+      "hold_until": null,
+      "hold_bucket": null,
+      "hold_age_days": 0,
+      "captain_actionable": false,
+      "repo": "demo",
+      "kind": "docs",
+      "since": "2026-10-21"
+    },
+    {
+      "id": "investigate",
+      "title": "Investigate the release delay",
+      "blocked_by": null,
+      "blocked_by_ids": [],
+      "unresolved_blocker_ids": [],
+      "blocked_reason": null,
+      "hold_reason": "Choose the deployment window",
+      "hold_kind": "captain",
+      "hold_until": null,
+      "hold_bucket": "live",
+      "hold_age_days": 0,
+      "captain_actionable": true,
+      "repo": "demo",
+      "kind": "scout",
+      "since": "2026-10-21"
+    }
+  ],
+  "landed": [],
+  "endpoints": [],
+  "counts": {
+    "active_children": 0,
+    "decisions_open": 1,
+    "holds": 1,
+    "queued": 3,
+    "landed": 0,
+    "endpoints": 0
+  },
+  "omitted": []
+}

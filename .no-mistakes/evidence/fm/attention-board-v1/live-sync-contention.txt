@@ -1,0 +1,1 @@
+fm-main-sync skipped: another run holds /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G097QX1HT5QR2KEXWQZZBK/.test-validation/tmp/fm-lab.k3A4es/state/.main-sync.lock (pid 38899)

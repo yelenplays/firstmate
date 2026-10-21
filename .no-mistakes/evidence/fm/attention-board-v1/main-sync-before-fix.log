@@ -1,0 +1,3 @@
+not ok - an overlapping run skips while the first holds the lock (missing: 'fm-main-sync skipped: another run holds')
+--- output ---
+racer synced: merged 2 new main commits into the branch

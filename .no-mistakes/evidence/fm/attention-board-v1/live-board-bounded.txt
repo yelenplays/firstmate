@@ -1,0 +1,5 @@
+BOARD 2026-10-21T20:03:44Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- investigate [decision] Investigate the release delay - Choose the deployment window
+QUEUED (2, showing 1; fm-board.sh --all shows every row)
+- implement [queued] Implement the approved change
