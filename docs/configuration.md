@@ -2615,7 +2615,7 @@ Bridge polls attempt outcomes still owed 15 minutes after their event (`FM_UPDAT
 Local outcomes are attempted before PR lookups; deferred lookups rotate across polls, with remaining work retried as the poll budget permits.
 Ordinary task cleanup posts its owed outcome before staging a replayable close receipt and retains the task records when posting fails; secondmate retirement and explicitly approved discard with `--force` skip this step.
 The backstop never bypasses landed-work, approval, or scout-completion guards.
-Every wake drain lists, under REPORT AND CLOSE, each outcome still unreported after its grace period and each reported final result awaiting cleanup, until its record is gone.
+Every wake drain lists, under REPORT AND CLOSE, each outcome not yet posted after its grace period and each final result awaiting cleanup, until its record is gone; a cleanup-due line still asks Firstmate to tell the captain in chat first, because a bridge post is never that report.
 Tasks reported as `ready` or `stuck` need approval or recovery rather than immediate cleanup.
 Without the bridge, chat is the report, so final results are listed for cleanup at once.
 

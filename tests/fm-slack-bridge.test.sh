@@ -339,6 +339,43 @@ test_invalid_config_is_reported() {
   pass "fm-slack-bridge: invalid config is refused and reported"
 }
 
+test_outbound_off_stops_posts_and_keeps_inbound() {
+  local home out rc=0 before
+  home=$(make_home outbound)
+  write_config "$home"
+  bridge "$home" arm >/dev/null 2>&1 || fail "arm must succeed"
+  out=$(bridge "$home" post report "PR ready" 2>&1) || fail "post without an outbound key must succeed: $out"
+  assert_contains "$out" "posted report C0REPORT01" "an absent outbound key keeps posting on"
+  out=$(bridge "$home" settings) || fail "settings must succeed"
+  assert_contains "$out" "bridge=on" "an absent outbound key keeps the bridge on"
+  write_thread_fixture "$home"
+
+  printf 'outbound=off\n' >> "$home/config/slack-bridge"
+  before=$(grep -c . "$home/slack.log")
+  out=$(bridge "$home" post report "PR ready again" 2>&1) || rc=$?
+  expect_code 0 "$rc" "post with outbound off exits 0"
+  assert_equals "slack outbound off" "$out" "post with outbound off prints one line"
+  out=$(bridge "$home" post decision -- "pick A" 2>&1) || fail "a decision post with outbound off must exit 0: $out"
+  assert_equals "slack outbound off" "$out" "every post kind is off"
+  assert_equals "$before" "$(grep -c . "$home/slack.log")" "post with outbound off never calls slack-axi"
+  assert_equals 1 "$(grep -c '^v1' "$home/state/slack-bridge/posts")" "post with outbound off records nothing"
+  out=$(bridge "$home" settings) || fail "settings must succeed"
+  assert_equals "bridge=off" "$out" "outbound off reads as off to the outcome backstop"
+
+  out=$(bridge "$home" check 2>&1) || fail "check must succeed: $out"
+  assert_contains "$out" "slack: delivered 1 captain reply(s) and 2 handoff request(s)" "check with outbound off still reads inbound"
+  assert_equals 1 "$(note_count "$home" slack-captain)" "the captain's thread reply still arrives"
+  assert_not_contains "$out" "posted" "check with outbound off posts nothing"
+  assert_no_grep '"draft","send"' <(tail -n +"$((before + 1))" "$home/slack.log") "check with outbound off sends no draft"
+
+  printf 'outbound=maybe\n' >> "$home/config/slack-bridge"
+  rc=0
+  out=$(bridge "$home" post report "x" 2>&1) || rc=$?
+  expect_code 1 "$rc" "an invalid outbound value is refused"
+  assert_contains "$out" "outbound must be on or off" "the refusal names the key"
+  pass "fm-slack-bridge: outbound off stops every post and keeps inbound"
+}
+
 # ------------------------------------------------------------ bot transport
 
 BOT_TOKEN=xoxb-test-token-0001
@@ -1203,6 +1240,7 @@ test_macOS_base64_fallback_decodes_inbound_fields
 test_unverified_slack_axi_keeps_inbound_off
 test_poll_cadence_state_and_validation
 test_invalid_config_is_reported
+test_outbound_off_stops_posts_and_keeps_inbound
 test_bot_posts_instead_of_slack_axi
 test_bot_delivers_only_the_captain_and_replies_back
 test_independent_bot_homes_deliver_only_their_captains

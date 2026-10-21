@@ -202,7 +202,7 @@ test_auto_merge_task_never_sits_unreported() {
   out=$(FM_TEST_PR_STATE=MERGED run "$home" "$NOW" "$UPDATES" tick) || fail "tick must succeed: $out"
   assert_equals "posted auto-ship merged" "$out" "the tick reports the merge"
   out=$(FM_TEST_PR_STATE=MERGED run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
-  assert_contains "$out" "cleanup-due auto-ship: merged and reported" "a reported merge is then due for cleanup"
+  assert_contains "$out" "cleanup-due auto-ship: merged; tell the captain in chat if not yet" "a reported merge is then due for cleanup"
   pass "fm-updates: an auto-merge task is reported once merged, closed, or stale"
 }
 
@@ -213,8 +213,8 @@ test_cleanup_due_is_listed_until_closed() {
   seed_fleet "$home"
   run "$home" "$NOW" "$UPDATES" tick >/dev/null || fail "tick must succeed"
   out=$(run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
-  assert_contains "$out" "cleanup-due bochum-rank: finished and reported" "a reported finished scout is due for cleanup"
-  assert_contains "$out" "cleanup-due mylina-live: merged and reported" "a reported merge is due for cleanup"
+  assert_contains "$out" "cleanup-due bochum-rank: finished; tell the captain in chat if not yet" "a reported finished scout is due for cleanup"
+  assert_contains "$out" "cleanup-due mylina-live: merged; tell the captain in chat if not yet" "a reported merge is due for cleanup"
   assert_not_contains "$out" "lay-hero" "a task waiting for approval is not cleaned up"
   assert_not_contains "$out" "broken-task" "a stuck task needs a look, not a cleanup"
   out=$(run "$home" "$((NOW + 86400))" "$UPDATES" scan) || fail "a later scan must succeed: $out"
@@ -354,6 +354,27 @@ test_drain_lists_report_and_close() {
   pass "fm-wake-drain: finished work is listed on every drain until it is closed"
 }
 
+test_outbound_off_posts_nothing_and_chat_is_the_report() {
+  local home out
+  home=$(make_home outbound-off)
+  write_config "$home" 'outbound=off'
+  seed_fleet "$home"
+  out=$(run "$home" "$NOW" "$BRIDGE" check 2>&1) || fail "check must succeed: $out"
+  assert_not_contains "$out" "posted" "check with outbound off posts no missed outcome"
+  out=$(run "$home" "$NOW" "$UPDATES" tick) || fail "tick must succeed: $out"
+  assert_equals "" "$out" "tick with outbound off posts nothing"
+  out=$(run "$home" "$NOW" "$UPDATES" settle bochum-rank) || fail "settle must succeed: $out"
+  assert_equals "" "$out" "settle with outbound off posts nothing and lets cleanup go on"
+  out=$(run "$home" "$(local_epoch "2026-10-21 09:00")" "$UPDATES" tick) || fail "a digest-hour tick must succeed: $out"
+  assert_equals "" "$out" "no digest is posted with outbound off"
+  assert_equals 0 "$(draft_count "$home")" "nothing reached Slack"
+  out=$(run "$home" "$NOW" "$UPDATES" scan) || fail "scan must succeed: $out"
+  assert_not_contains "$out" "unreported" "no outcome waits for a Slack post"
+  assert_contains "$out" "cleanup-due bochum-rank: finished; tell the captain in chat if not yet" \
+    "a final result asks for the chat report before cleanup"
+  pass "fm-updates: outbound off posts nothing and chat is the report"
+}
+
 test_undated_status_uses_file_age
 test_backstop_reports_each_missed_outcome_once
 test_auto_merge_task_never_sits_unreported
@@ -363,3 +384,4 @@ test_settle_reports_before_cleanup
 test_bridge_check_runs_the_backstop
 test_morning_digest_posts_once_in_five_lines
 test_drain_lists_report_and_close
+test_outbound_off_posts_nothing_and_chat_is_the_report
