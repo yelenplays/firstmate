@@ -950,6 +950,40 @@ YAML
   pass "a native model pin wins over role and agent_config models, in both directions"
 }
 
+# A no-mistakes config that runs opencode on an Opus agent_config with
+# <override-item>s as its native arguments.
+nm_override_config() {  # <override-item>...
+  printf '%s\n' 'agent: [opencode]' 'agent_config:' '  opencode:' '    model: anthropic/claude-opus-5-5' \
+    'agent_args_override:' '  opencode:'
+  printf '    - %s\n' "$@"
+}
+
+test_test_ban_pipeline_fixer_native_flags_fail_closed() {
+  local nm models spelling
+  nm="$TMP_ROOT/native-flags-nm"
+  mkdir -p "$nm"
+  nm_override_config -m opencode-go/deepseek-v4.1-flash > "$nm/config.yaml"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+  [ "$models" = opencode-go/deepseek-v4.1-flash ] || fail "-m lost the native DeepSeek pin: '$models'"
+  nm_override_config --print-logs -m anthropic/claude-opus-5-5 > "$nm/config.yaml"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+  [ "$models" = anthropic/claude-opus-5-5 ] || fail "-m lost the native Opus pin: '$models'"
+  nm_override_config --model anthropic/claude-opus-5-5 -m opencode-go/deepseek-v4.1-flash > "$nm/config.yaml"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+  [ "$models" = $'anthropic/claude-opus-5-5\nopencode-go/deepseek-v4.1-flash' ] \
+    || fail "two native pins did not both stay candidates: '$models'"
+  for spelling in '-qm opencode-go/deepseek-v4.1-flash' '-m=opencode-go/deepseek-v4.1-flash' \
+    '-mopencode-go/deepseek-v4.1-flash' '--model-id opencode-go/deepseek-v4.1-flash' \
+    '--model -q' '--model=' '--model'; do
+    # shellcheck disable=SC2086  # Each spelling splits into its native argument items.
+    nm_override_config $spelling > "$nm/config.yaml"
+    models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+    [ "$models" = unparsed-native-model-pin ] || fail "'$spelling' did not name an unparsed pin: '$models'"
+    fm_test_ban_model_applies "$models" || fail "an unparsed pin from '$spelling' was not banned"
+  done
+  pass "a native model flag that does not parse names a banned unknown model, never the configured one"
+}
+
 test_test_ban_model_list
 test_test_ban_path_heuristic
 test_test_ban_exception_requires_explicit_paths
@@ -960,6 +994,7 @@ test_test_ban_handoff_ignores_test_changes_from_the_base
 test_test_ban_pipeline_fixer_on_an_allowlisted_task
 test_test_ban_pipeline_fixer_model_resolution
 test_test_ban_pipeline_fixer_native_pin_wins
+test_test_ban_pipeline_fixer_native_flags_fail_closed
 test_test_ban_unreadable_pipeline_history
 
 echo "all fm-dod-lib tests passed"
