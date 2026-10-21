@@ -1004,9 +1004,13 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # `unparsed-native-model-pin`, which is banned, rather than letting the
 # configured model stand in for what the native command selects. Review uses
 # review_agents.fixer.agent, else every agent in the `agent:` fallback chain,
-# which every other step uses. A step with no known candidate model is not banned, like an
-# unset worker model. tests/fm-dod-lib.test.sh and
-# tests/fm-pr-check-security.test.sh pin attribution and pre-PR enforcement.
+# which every other step uses. A step with no known candidate model is not banned,
+# like an unset worker model. If the worker copy, checked head, origin base, or
+# merge-base cannot be read, this pipeline-fixer check accepts without output:
+# no pipeline commit can then be attributed. The banned-worker check still
+# refuses unreadable history before this check runs.
+# tests/fm-dod-lib.test.sh and tests/fm-pr-check-security.test.sh pin attribution,
+# unreadable-history handling, and pre-PR enforcement.
 
 # Prints the no-mistakes config's settings as `<dotted.path>\t<value>` lines;
 # each list item, block or inline, prints under its list's path.
@@ -1104,10 +1108,8 @@ fm_test_ban_nm_step_models() {  # <step> [<branch>]
 }
 
 # Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
-# pipeline-fixer contract above, in the commits up to <head> (default the
-# worker copy's HEAD). Unreadable history, including a <head> the worker copy
-# does not hold, returns 0 without output: no pipeline commit can then be
-# attributed, like an unknown model.
+# pipeline-fixer contract above, including its unreadable-history policy, in
+# the commits up to <head> (default the worker copy's HEAD).
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
   local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step model banned path
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
