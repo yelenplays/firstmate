@@ -996,8 +996,13 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # itself except for the read-only review. Without known recorded models, or
 # when sqlite3 or the database is unavailable, config.yaml in that same home
 # supplies the models with no-mistakes' own precedence: an agent's native
-# --model pin in agent_args_override wins over review_agents.fixer.model for
-# review and over agent_config.<agent>.model everywhere. Review uses
+# model pin in agent_args_override (--model or -m) wins over
+# review_agents.fixer.model for review and over agent_config.<agent>.model
+# everywhere. A model-selecting flag there that does not parse as exactly one of
+# `--model VALUE`, `--model=VALUE`, or `-m VALUE` (a combined short flag, an
+# attached or missing value, `--model` with a suffix) names the unknown model
+# `unparsed-native-model-pin`, which is banned, rather than letting the
+# configured model stand in for what the native command selects. Review uses
 # review_agents.fixer.agent, else every agent in the `agent:` fallback chain,
 # which every other step uses. A step with no known candidate model is not banned, like an
 # unset worker model. tests/fm-dod-lib.test.sh and
@@ -1049,17 +1054,19 @@ fm_test_ban_nm_config_flat() {  # <config.yaml>
   ' "$1"
 }
 
-# Prints the model the no-mistakes config runs <agent> on for a step whose role
-# names <role-model>: the native --model pin in its agent_args_override list,
+# Prints the models the no-mistakes config runs <agent> on for a step whose role
+# names <role-model>: every native model pin in its agent_args_override list,
 # which wins over every configured model, else <role-model>, else its
 # agent_config.<agent>.model. Prints nothing when none names one.
 fm_test_ban_nm_agent_model() {  # <flat-config> <agent> [<role-model>]
   local flat=$1 agent=$2 model
-  model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_args_override.$agent" '
+  model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_args_override.$agent" -v u=unparsed-native-model-pin '
     $1 != p { next }
-    want { print $2; exit }
-    $2 == "--model" { want = 1; next }
-    index($2, "--model=") == 1 { print substr($2, 9); exit }')
+    want { print ($2 == "" || $2 ~ /^-/) ? u : $2; want = 0; next }
+    $2 == "--model" || $2 == "-m" { want = 1; next }
+    index($2, "--model=") == 1 { print (length($2) > 8) ? substr($2, 9) : u; next }
+    $2 ~ /^--model/ || $2 ~ /^-[A-Za-z0-9]*m/ { print u }
+    END { if (want) print u }')
   [ -n "$model" ] || model=${3:-}
   [ -n "$model" ] || model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_config.$agent.model" '$1 == p { print $2 }' | tail -1)
   [ -z "$model" ] || printf '%s\n' "$model"

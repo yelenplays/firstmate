@@ -976,6 +976,61 @@ test_test_ban_native_model_pin_registration() {
   pass "fm-pr-check attributes a fixer to its native model pin"
 }
 
+# One registration whose no-mistakes config runs opencode on an Opus
+# agent_config with <override-items> as its native arguments; prints the exit
+# status and stderr.
+native_pin_registration() {  # <case-name> <override-item>...
+  local dir head item rc=0
+  dir=$(make_case "$1")
+  shift
+  write_task_meta "$dir"
+  fm_write_meta "$dir/home/state/task-a.meta" \
+    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+    "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
+  mkdir -p "$dir/nm-home"
+  {
+    printf '%s\n' 'agent: [opencode]' 'agent_config:' '  opencode:' '    model: anthropic/claude-opus-5-5' \
+      'agent_args_override:' '  opencode:'
+    for item in "$@"; do printf '    - %s\n' "$item"; done
+  } > "$dir/nm-home/config.yaml"
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(test): add a test'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+    > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+  if [ "$rc" = 0 ] && ! grep -q '^pr=' "$dir/home/state/task-a.meta"; then rc=registered-without-pr; fi
+  printf '%s\n' "$rc"
+  cat "$dir/stderr"
+}
+
+test_test_ban_native_model_flags_fail_closed() {
+  local out spelling n=0
+  for spelling in '--model opencode-go/deepseek-v4.1-flash' '-m opencode-go/deepseek-v4.1-flash' \
+    '--model=opencode-go/deepseek-v4.1-flash'; do
+    n=$((n + 1))
+    # shellcheck disable=SC2086  # Each spelling splits into its native argument items.
+    out=$(native_pin_registration "test-ban-flag-$n" $spelling)
+    [ "${out%%$'\n'*}" != 0 ] || fail "a DeepSeek pin spelled '$spelling' registered behind an Opus default"
+    grep -Fq 'no test authoring on opencode-go/deepseek-v4.1-flash' <<<"$out" \
+      || fail "the '$spelling' refusal did not name DeepSeek: $out"
+  done
+  for spelling in '-qm opencode-go/deepseek-v4.1-flash' '-mopencode-go/deepseek-v4.1-flash' \
+    '--model-id opencode-go/deepseek-v4.1-flash' '--model=' '--model'; do
+    n=$((n + 1))
+    # shellcheck disable=SC2086  # Each spelling splits into its native argument items.
+    out=$(native_pin_registration "test-ban-flag-$n" $spelling)
+    [ "${out%%$'\n'*}" != 0 ] || fail "an unparseable model flag '$spelling' fell back to the Opus default"
+    grep -Fq 'no test authoring on unparsed-native-model-pin' <<<"$out" \
+      || fail "the '$spelling' refusal did not name an unparsed pin: $out"
+  done
+  out=$(native_pin_registration test-ban-flag-opus-control -m anthropic/claude-opus-5-5)
+  [ "${out%%$'\n'*}" = 0 ] || fail "an Opus pin spelled -m refused registration: $out"
+  out=$(native_pin_registration test-ban-flag-unrelated-control --print-logs)
+  [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated native flag displaced the Opus default: $out"
+  pass "fm-pr-check refuses every native model flag spelling it cannot attribute to an allowlisted model"
+}
+
 test_valid_recording_and_merge_derivation() {
   local dir expected sidecar count rc
   dir=$(make_case valid-recording)
@@ -3861,6 +3916,7 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks
 test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
 test_test_ban_native_model_pin_registration
+test_test_ban_native_model_flags_fail_closed
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
