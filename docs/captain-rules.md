@@ -25,9 +25,10 @@ Rules are included in these context surfaces, regardless of model:
 | Consumer | Surface | When |
 | --- | --- | --- |
 | Claude main or secondmate | SessionStart hook `bin/fm-rules.sh session` | startup, resume, clear, and every compaction |
-| Codex, Pi, and other primaries | `CAPTAIN RULES` section of `bin/fm-session-start.sh`, inside the operating stage | full and compact digests |
+| Codex, Pi, and other primaries | `CAPTAIN RULES` section of `bin/fm-session-start.sh`, inside the operating stage | whenever a full or compact digest runs |
 | Ship and scout workers | `# Captain rules` section of the brief from `bin/fm-brief.sh`, then steering-inbox updates | every scaffold and rule-set change |
 
+[Native session-start adapters](sessionstart-nudge.md#tier-by-harness) owns which harness surfaces deliver a digest, including uncovered interactive and compaction paths.
 Every surface carries every rule whole; no projection cuts the block.
 The size limit is enforced when a rule is written instead: an `add`, `confirm`, or `check` that would grow the block beyond its budget is refused before it is saved, and the refusal asks to consolidate rules by restating an existing rule more briefly or revoking an obsolete one.
 Writes that do not grow the block remain possible even when it is already over budget.
@@ -68,7 +69,7 @@ Inside a worker brief, the brief's task scope and safety rules still win over a 
 
 The hook never writes a rule itself; only main's `confirm` or an explicit `add` does.
 Recording a rule id that already exists is a repeat: the count grows and the text is replaced, so main should reuse the existing id when a correction comes back.
-Codex and Pi primaries have no capture hook here, so main records corrections there with `bin/fm-rules.sh add`.
+On primaries without this capture hook, including Codex and Pi, main records corrections with `bin/fm-rules.sh add`.
 
 ## From rule to check
 
@@ -90,7 +91,8 @@ Only Claude primary replies are checked here; other harnesses and workers receiv
 
 ## Weekly report
 
-`bin/fm-rules.sh report` prints the last seven days: rules added and repeated, guard blocks and halts, rules repeated without a check, candidate counts, and correction-like captain prompts found in the Claude transcripts of this home.
+`bin/fm-rules.sh report` prints rules added and repeated, guard blocks and halts, candidate activity, and correction-like captain prompts from this home's Claude transcripts over the last seven days.
+It also shows the current rule total, rules repeated without a check, and open candidate count, regardless of age.
 `bin/fm-rules.sh weekly-arm` binds a watcher check that reminds main to run the report and send a short version to the captain; it does not generate or send the report automatically.
 The reminder appears once when no report exists or the last report is at least a week old, and stays quiet until another report runs; `weekly-disarm` removes the check.
 Running the report restarts the reminder timer; the report itself remains a rolling lookback.
