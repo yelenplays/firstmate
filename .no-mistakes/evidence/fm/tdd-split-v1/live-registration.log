@@ -1,0 +1,86 @@
+Surface: real fm-pr-check.sh, real Git and filesystem; no fake executable or forge.
+The URL is an inert registration input, not evidence of a remotely opened PR.
+gh availability: Tests-first acceptance before implementation: exit=1
+Tests-first acceptance after implementation: exit=0
+
+=== sonnet ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/sonnet.err:error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== haiku ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/haiku.err:error: no test authoring on haiku: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== opencode-go-deepseek-v4-1-flash ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/opencode-go-deepseek-v4-1-flash.err:error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== zai-glm-5-3-flash ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/zai-glm-5-3-flash.err:error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== opus-author ===
+CLI exit=0 expected=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/opus-author.out:armed: state/opus-author.check.sh
+pr=https://github.com/example/isolated-registration/pull/1
+Persisted merge-monitor registration exists.
+
+=== sonnet-handoff ===
+CLI exit=0 expected=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/sonnet-handoff.out:armed: state/sonnet-handoff.check.sh
+pr=https://github.com/example/isolated-registration/pull/1
+Persisted merge-monitor registration exists.
+
+=== sonnet-edit ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/sonnet-edit.err:error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== sonnet-delete ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/sonnet-delete.err:error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== sonnet-rename ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/sonnet-rename.err:error: no test authoring on sonnet: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== explicit-exception ===
+CLI exit=0 expected=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/explicit-exception.out:armed: state/explicit-exception.check.sh
+pr=https://github.com/example/isolated-registration/pull/1
+Persisted merge-monitor registration exists.
+
+=== wrong-exception ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/wrong-exception.err:error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/answer.test.sh; revert those changes and report done again
+No PR registration or merge monitor was persisted.
+
+=== opus-no-base ===
+CLI exit=0 expected=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/opus-no-base.out:armed: state/opus-no-base.check.sh
+pr=https://github.com/example/isolated-registration/pull/1
+Persisted merge-monitor registration exists.
+
+=== sonnet-no-base ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/sonnet-no-base.err:error: test-file check cannot resolve the base branch origin/main in the worker copy
+No PR registration or merge monitor was persisted.
+
+=== unrecorded-fixer ===
+CLI exit=1 expected=1
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/unrecorded-fixer.err:error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on an unrecorded model in 822e4645b42f: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+No PR registration or merge monitor was persisted.
+
+=== reverted-fixer ===
+CLI exit=0 expected=0
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FSAP09E7P0EN195XAT673W/.test-runtime/fm-lab.registration.ng7Rvp/reverted-fixer.out:armed: state/reverted-fixer.check.sh
+pr=https://github.com/example/isolated-registration/pull/1
+Persisted merge-monitor registration exists.
+
+All local CLI scenarios completed. Lab cleanup follows automatically.

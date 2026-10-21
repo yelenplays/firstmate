@@ -1,0 +1,9 @@
+Regression selector: test_test_ban_pipeline_fixer_model_resolution
+
+Parent ef33008b (expected to expose cross-repository attribution):
+not ok - a recorded Fable document step was refused
+Parent exit=1
+
+Target e0995aecd2edf94e8d61adc82420925256f7384f:
+ok - pipeline fixer models come only from recorded runs, and only allowlisted records accept
+Target exit=0

@@ -1,0 +1,6 @@
+ok - fm-pr-check enforces the test ban when a forge head is available
+ok - fm-pr-check refuses a test file a pipeline fixer commit adds on a banned task
+ok - fm-pr-check bans a banned pipeline fixer's tests by its own model, not the worker's
+ok - registration accepts an unresolved pipeline base on Opus and still refuses banned workers
+ok - fm-pr-check inspects the published head, not an older worker HEAD
+ok - fm-pr-check registers a pipeline fixer's test only on a recorded allowlisted model
