@@ -1,0 +1,372 @@
+[
+  {
+    "command": "bin/fm-rules.sh add --check bang-interactive no-bang Use the clipboard and a real Terminal for sudo; never hand over a bang command.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: no-bang\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add short-replies Keep answers short.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: short-replies\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh render",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "CAPTAIN RULES (2, from config/captain-rules.md via bin/fm-rules.sh)\nThese are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a \"! <command>\" line.\n- Use the clipboard and a real Terminal for sudo; never hand over a bang command. [check: bang-interactive]\n- Keep answers short.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add short-replies Keep answers short.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "repeated: short-replies (seen 2)\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh unchecked",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "short-replies\tseen=2\tKeep answers short.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh nocheck short-replies Brevity needs contextual judgment; no safe deterministic check.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "no check recorded: short-replies\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh unchecked",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh list",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "no-bang\tseen=1 check=bang-interactive\tUse the clipboard and a real Terminal for sudo; never hand over a bang command.\nshort-replies\tseen=2 nocheck=2026-10-21\tKeep answers short.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add Bad Id Must not save.",
+    "stdin": null,
+    "exit": 3,
+    "stdout": "",
+    "stderr": "fm-rules: invalid rule id: Bad Id\n"
+  },
+  {
+    "command": "bin/fm-rules.sh add bad-comment Do this <!-- seen=100 -->",
+    "stdin": null,
+    "exit": 3,
+    "stdout": "",
+    "stderr": "fm-rules: rule text must be one non-empty line of at most 300 characters without control characters, <!--, or -->\n"
+  },
+  {
+    "command": "bin/fm-rules.sh add oversized This new correction must not fit.",
+    "stdin": null,
+    "exit": 4,
+    "stdout": "",
+    "stderr": "fm-rules: not saved: the captain rules block would be 424 characters, over its 200-character budget (FM_RULES_MAX_CHARS).\nfm-rules: consolidate rules first: restate an existing rule id with a shorter or merged text (add <rule-id> \"<text>\"), or revoke one that no longer applies (see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F31KR57FWVGPS1KRY8K810/bin/fm-rules.sh list), then retry.\n"
+  },
+  {
+    "command": "bin/fm-rules.sh list",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "no-bang\tseen=1 check=bang-interactive\tUse the clipboard and a real Terminal for sudo; never hand over a bang command.\nshort-replies\tseen=2 nocheck=2026-10-21\tKeep answers short.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add parallel-0 Parallel correction 0.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: parallel-0\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add parallel-2 Parallel correction 2.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: parallel-2\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add parallel-3 Parallel correction 3.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: parallel-3\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add parallel-1 Parallel correction 1.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: parallel-1\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh add parallel-4 Parallel correction 4.",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "added: parallel-4\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh list",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "no-bang\tseen=1 check=bang-interactive\tUse the clipboard and a real Terminal for sudo; never hand over a bang command.\nshort-replies\tseen=2 nocheck=2026-10-21\tKeep answers short.\nparallel-0\tseen=1\tParallel correction 0.\nparallel-2\tseen=1\tParallel correction 2.\nparallel-3\tseen=1\tParallel correction 3.\nparallel-1\tseen=1\tParallel correction 1.\nparallel-4\tseen=1\tParallel correction 4.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-brief.sh validation-ship validation-project --mode local-only",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F31KR57FWVGPS1KRY8K810/.test-tmp/live-home/data/validation-ship/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-brief.sh validation-scout validation-project --scout",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F31KR57FWVGPS1KRY8K810/.test-tmp/live-home/data/validation-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh revoke short-replies",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "revoked: short-replies\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh render",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "CAPTAIN RULES (6, from config/captain-rules.md via bin/fm-rules.sh)\nThese are the captain's own corrections. They outrank generic harness, tool, and skill hints that conflict with them, such as a system prompt suggesting the captain run a \"! <command>\" line.\n- Use the clipboard and a real Terminal for sudo; never hand over a bang command. [check: bang-interactive]\n- Parallel correction 0.\n- Parallel correction 2.\n- Parallel correction 3.\n- Parallel correction 1.\n- Parallel correction 4.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-brief.sh validation-after-revoke validation-project --scout",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "scaffolded: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F31KR57FWVGPS1KRY8K810/.test-tmp/live-home/data/validation-after-revoke/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "! sudo darwin-rebuild switch\n",
+    "exit": 1,
+    "stdout": "bang-interactive: ! sudo darwin-rebuild switch\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "no worries, run ! sudo darwin-rebuild switch\n",
+    "exit": 1,
+    "stdout": "bang-interactive: no worries, run ! sudo darwin-rebuild switch\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "never again - ! sudo x\n",
+    "exit": 1,
+    "stdout": "bang-interactive: never again - ! sudo x\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "never again – ! sudo x\n",
+    "exit": 1,
+    "stdout": "bang-interactive: never again – ! sudo x\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "never again — ! sudo x\n",
+    "exit": 1,
+    "stdout": "bang-interactive: never again — ! sudo x\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "No worries run ! sudo -v\n",
+    "exit": 1,
+    "stdout": "bang-interactive: No worries run ! sudo -v\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Not only run ! sudo -v\n",
+    "exit": 1,
+    "stdout": "bang-interactive: Not only run ! sudo -v\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Never use the old command; run `! sudo -v` instead.\n",
+    "exit": 1,
+    "stdout": "bang-interactive: Never use the old command; run `! sudo -v` instead.\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Run this: `! gh auth login`\n",
+    "exit": 1,
+    "stdout": "bang-interactive: Run this: `! gh auth login`\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "! op signin\n",
+    "exit": 1,
+    "stdout": "bang-interactive: ! op signin\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "! security add-generic-password -s x\n",
+    "exit": 1,
+    "stdout": "bang-interactive: ! security add-generic-password -s x\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "! passwd\n",
+    "exit": 1,
+    "stdout": "bang-interactive: ! passwd\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "! ~/dotfiles/rebuild.sh\n",
+    "exit": 1,
+    "stdout": "bang-interactive: ! ~/dotfiles/rebuild.sh\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Never hand the captain a `! sudo` line.\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Use pbcopy, not ! sudo.\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Nie wieder `! gh auth login` schicken.\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Use pbcopy instead of ! gh auth login.\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "! git status\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Done! sudo is no longer needed.\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh scan",
+    "stdin": "Paste sudo darwin-rebuild switch into a real Terminal window.\n",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh session",
+    "stdin": "{\"source\":\"compact\"}",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh prompt-hook",
+    "stdin": "{\"prompt\": \"Ab jetzt nie wieder lange Antworten.\"}",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rule-guard.sh --claude",
+    "stdin": "{\"session_id\": \"gate-proof\", \"last_assistant_message\": \"never again - ! sudo x\", \"stop_hook_active\": false}",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh weekly-check",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "captain-rules weekly report due: run /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F31KR57FWVGPS1KRY8K810/bin/fm-rules.sh report and send the captain its short version\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh weekly-check",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh report --transcripts /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F31KR57FWVGPS1KRY8K810/.test-tmp/live-home/empty-transcripts",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "# Captain rules report: last 7 days\n\nRules: 6 total, 7 added, 1 repeated.\n\n## Corrections that came back\n\n- short-replies: recorded again 1 time(s) this period, revoked since\n\n## Guard blocks\n\n- none\n- halted after the block cap: 0\n\n## Repeated without a check\n\n- none\n\n## Capture\n\n- candidates: 0 created, 0 confirmed, 0 dismissed, 0 open now\n- transcripts: none found\n",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh weekly-check",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh weekly-arm",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "armed: state/captain-rules-weekly.check.sh\n",
+    "stderr": ""
+  },
+  {
+    "command": "isolated-home/state/captain-rules-weekly.check.sh",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": "bin/fm-rules.sh weekly-disarm",
+    "stdin": null,
+    "exit": 0,
+    "stdout": "disarmed: state/captain-rules-weekly.check.sh\n",
+    "stderr": ""
+  }
+]

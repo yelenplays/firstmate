@@ -1,6 +1,6 @@
 # Captain rules report: last 7 days
 
-Rules: 1 total, 2 added, 1 repeated.
+Rules: 6 total, 7 added, 1 repeated.
 
 ## Corrections that came back
 

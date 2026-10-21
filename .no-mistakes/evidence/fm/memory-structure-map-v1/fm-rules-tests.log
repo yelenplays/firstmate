@@ -1,0 +1,13 @@
+ok - the store records rules, repeats, checks, and reasons, and refuses invalid input
+ok - render, session, and brief-section carry every rule whole, and an overflowing write is refused before it is saved
+ok - concurrent adds, repeats, and confirms all survive with correct counts under the store lock
+ok - tabs are stored as spaces so every projection keeps the rule whole, and control characters are refused unsaved
+ok - saved additions, restatements, and revocations reach running workers and secondmate homes, and an unreached consumer is reported
+ok - registry-only and remote secondmate homes hand each saved change to their own running workers, and failures are retried
+ok - rule writes refuse in a secondmate home, whose config is a primary copy
+ok - the capture hook raises candidates only for corrections, never writes rules, and supports confirm, dismiss, and nein
+ok - capture runs only in the primary main session and the session block reaches main and secondmate seats only
+ok - the registered Claude SessionStart and UserPromptSubmit entries reach fm-rules.sh
+ok - ship and scout briefs carry the captain rules; charters and rule-free homes carry none
+ok - the weekly report counts repeats, blocks, unchecked rules, and transcript corrections, and the check reminds once per due week
+# fm-rules.test.sh: all assertions passed

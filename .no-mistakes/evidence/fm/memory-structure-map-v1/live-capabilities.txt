@@ -1,0 +1,7 @@
+Candidate: cf950172f075498f2eed5f7deab0ef16e22ce0b8
+jq: available on PATH
+python3: available on PATH
+claude: available on PATH
+tmux: missing from PATH; not searched elsewhere
+herdr-cli: missing from PATH; not searched elsewhere
+Real-primary checks not launched: the authorized private tmux and named Herdr lab transports are unavailable.
