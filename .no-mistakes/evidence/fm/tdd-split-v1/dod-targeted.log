@@ -25,4 +25,8 @@ ok - test-ban gate refuses only a banned lane's added test files
 ok - test-ban gate measures commits from the task's named base
 ok - test-ban gate measures a tests-first handoff from its recorded commit
 ok - test-ban gate ignores test changes the base brings in after a handoff
+ok - pre-PR check bans a banned pipeline fixer's tests on an allowlisted task
+ok - pipeline fixer models resolve from recorded runs, then the config
+ok - a native model pin wins over role and agent_config models, in both directions
+ok - unreadable pipeline history accepts Opus silently and still refuses banned workers
 all fm-dod-lib tests passed

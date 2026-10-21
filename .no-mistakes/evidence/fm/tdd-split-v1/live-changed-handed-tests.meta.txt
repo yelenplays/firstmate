@@ -1,0 +1,8 @@
+kind=ship
+mode=no-mistakes
+model=claude-sonnet-5-5
+test_ban_model=claude-sonnet-5-5
+test_ban_since=198497ca81b21514fff3a227e97f6e8e68e8a607
+base_branch=main
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/handoff-home.RIpPQw/projects/policy-check
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/handoff-home.RIpPQw/projects/policy-check

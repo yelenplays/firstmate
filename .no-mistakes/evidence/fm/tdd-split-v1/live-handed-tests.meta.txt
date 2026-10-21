@@ -1,0 +1,10 @@
+kind=ship
+mode=no-mistakes
+model=claude-sonnet-5-5
+test_ban_model=claude-sonnet-5-5
+test_ban_since=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+base_branch=main
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/handoff-home.RIpPQw/projects/policy-check
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/handoff-home.RIpPQw/projects/policy-check
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2

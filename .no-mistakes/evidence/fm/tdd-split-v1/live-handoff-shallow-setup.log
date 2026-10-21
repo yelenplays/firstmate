@@ -1,0 +1,14 @@
+Product code: 885d904ee0b4e08cefd443fe97599976ec60b851
+Real PR: https://github.com/yelenplays/firstmate/pull/187
+Initial local HEAD: 7b19c659297c540778cca6cf9878b5cdae201cc5
+PR head initially absent: 16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+
+=== unchanged handed-over tests: exit 1 ===
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: test-file check found no merge-base between 16ff368c43c3e5a8691c67d0cc03632cc371b1c2 and refs/remotes/origin/main

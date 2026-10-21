@@ -1,0 +1,9 @@
+kind=ship
+mode=no-mistakes
+model=claude-opus-5-5
+branch=fm/tdd-split-v1
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
+base_branch=main
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2

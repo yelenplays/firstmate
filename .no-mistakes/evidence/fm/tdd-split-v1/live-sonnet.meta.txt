@@ -1,0 +1,8 @@
+kind=ship
+mode=no-mistakes
+model=claude-sonnet-5-5
+branch=fm/tdd-split-v1
+worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
+base_branch=main
+test_ban_model=claude-sonnet-5-5

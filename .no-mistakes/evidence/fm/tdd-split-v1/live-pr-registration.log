@@ -1,364 +1,61 @@
-HEAD=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
-Real GitHub reads only; no external writes, no fake harness/forge. Histories and lane metadata are synthetic inputs.
+Product code: 885d904ee0b4e08cefd443fe97599976ec60b851
+Input PR: https://github.com/yelenplays/firstmate/pull/187
+Fetched PR head: 16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+Older local HEAD: 7b19c659297c540778cca6cf9878b5cdae201cc5
 
-
-## Opus registers without a readable origin base and records the real forge head
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-no-origin https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/opus-no-origin.check.sh
-
-stderr:
+=== live-deepseek (expected refuse): exit 1 ===
 ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ●  WATCHER DOWN - SUPERVISION IS OFF
 ●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
 ●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
 ●  This is a supervision warning only; the guarded operation WILL still run.
-●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
 ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
+Observed: no PR registration or merge poll created.
 
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/opus-no-origin
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-no-origin
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-no-origin
+=== live-glm (expected refuse): exit 1 ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
+Observed: no PR registration or merge poll created.
+
+=== live-sonnet (expected refuse): exit 1 ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
+Observed: no PR registration or merge poll created.
+
+=== live-opus-no-base (expected accept): exit 0 ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/live-opus-no-base.check.sh
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
 pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
+pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+Observed: canonical PR and exact forge head recorded; merge poll armed, not executed.
 
-merge poll present=True
-
-## Banned Sonnet cannot register without an origin base
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh sonnet-no-origin https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
+=== live-sonnet-no-base (expected refuse): exit 1 ===
 WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: test-file check cannot resolve the base branch in the worker copy
+error: test-file check cannot resolve the base branch origin/main in the worker copy
+Observed: no PR registration or merge poll created.
 
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-sonnet-5-5
-branch=fm/sonnet-no-origin
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/sonnet-no-origin
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/sonnet-no-origin
-test_ban_model=claude-sonnet-5-5
-
-merge poll present=False
-
-## Opus initially registers a readable worker copy
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-missing https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/opus-missing.check.sh
-
-stderr:
+=== live-native-sonnet (expected refuse): exit 1 ===
 WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(ci) on claude-sonnet-5-5 in d1c223e963e2: tests/fm-dod-lib.test.sh; no-mistakes(ci) on claude-sonnet-5-5 in d1c223e963e2: tests/fm-pr-check-security.test.sh; no-mistakes(test) on claude-sonnet-5-5 in eb180028b1db: tests/fm-pr-check-security.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+Observed: no PR registration or merge poll created.
 
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/opus-missing
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-missing
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-missing
+=== live-native-opus (expected accept): exit 0 ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/live-native-opus.check.sh
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
 pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
+pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+Observed: canonical PR and exact forge head recorded; merge poll armed, not executed.
 
-merge poll present=True
-
-## Opus re-registers after worker removal using the already recorded forge head
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-missing https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/opus-missing.check.sh
-
-stderr:
+=== live-unknown-fixer (expected accept): exit 0 ===
 WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/opus-missing
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-missing
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-missing
+armed: state/live-unknown-fixer.check.sh
+project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
 pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
+Observed: canonical PR and exact forge head recorded; merge poll armed, not executed.
 
-merge poll present=True
-
-## Banned Sonnet cannot register a missing worker copy
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh sonnet-missing https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: test-file check cannot read the worker copy
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-sonnet-5-5
-branch=fm/sonnet-missing
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/sonnet-missing
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/sonnet-missing
-test_ban_model=claude-sonnet-5-5
-
-merge poll present=False
-
-## Opus registers when origin and HEAD have no merge-base
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh opus-unrelated https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/opus-unrelated.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/opus-unrelated
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-unrelated
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/opus-unrelated
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## Banned Sonnet is still refused when origin has no merge-base
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh sonnet-unrelated https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: test-file check found no merge-base between HEAD and refs/remotes/origin/main
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-sonnet-5-5
-branch=fm/sonnet-unrelated
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/sonnet-unrelated
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/sonnet-unrelated
-test_ban_model=claude-sonnet-5-5
-
-merge poll present=False
-
-## Opus task refuses Sonnet-fixer added and modified tests despite real forge head
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh pipeline-banned https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 122a56ae52ee: tests/fixer.test.sh; no-mistakes(review) on claude-sonnet-5-5 in 5672fc4aad09: tests/existing.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/pipeline-banned
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-banned
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-banned
-
-merge poll present=False
-
-## Reverting unauthorized fixer changes restores PR registration
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh pipeline-banned https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/pipeline-banned.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/pipeline-banned
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-banned
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-banned
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## Allowlisted test-step changes register successfully
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh pipeline-allowed https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/pipeline-allowed.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/pipeline-allowed
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-allowed
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-allowed
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## Exact captain-authorized fixer test path registers
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh pipeline-exception https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/pipeline-exception.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-opus-5-5
-branch=fm/pipeline-exception
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-exception
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/pipeline-exception
-test_ban_allowed=tests/exact.test.sh
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## opencode-go/deepseek-v4.1-flash worker cannot register unauthorized unit tests
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh deepseek https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/banned.test.sh; revert those changes and report done again
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=opencode-go/deepseek-v4.1-flash
-branch=fm/deepseek
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/deepseek
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/deepseek
-test_ban_model=opencode-go/deepseek-v4.1-flash
-
-merge poll present=False
-
-## opencode-go/deepseek-v4.1-flash worker can register implementation and e2e only
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh deepseek https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/deepseek.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=opencode-go/deepseek-v4.1-flash
-branch=fm/deepseek
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/deepseek
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/deepseek
-test_ban_model=opencode-go/deepseek-v4.1-flash
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## zai/glm-5.3-flash worker cannot register unauthorized unit tests
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh glm https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/banned.test.sh; revert those changes and report done again
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=zai/glm-5.3-flash
-branch=fm/glm
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/glm
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/glm
-test_ban_model=zai/glm-5.3-flash
-
-merge poll present=False
-
-## zai/glm-5.3-flash worker can register implementation and e2e only
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh glm https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/glm.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=zai/glm-5.3-flash
-branch=fm/glm
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/glm
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/glm
-test_ban_model=zai/glm-5.3-flash
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## Sonnet registers unchanged tests inherited at handoff
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh handoff https://github.com/yelenplays/firstmate/pull/187
-exit=0
-stdout:
-armed: state/handoff.check.sh
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-sonnet-5-5
-branch=fm/handoff
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/handoff
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/handoff
-test_ban_model=claude-sonnet-5-5
-test_ban_since=38a4e3fcd4418d059ea4f74a166820c3b12899b3
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=573910da0942bb0d465d9f164cf0da9ab5138698
-
-merge poll present=True
-
-## Changing a handed-over test blocks registration
-$ FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-pr-check.sh handoff-tamper https://github.com/yelenplays/firstmate/pull/187
-exit=1
-stdout:
-
-stderr:
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/locked.test.sh; revert those changes and report done again
-
-Persisted task metadata:
-kind=ship
-mode=no-mistakes
-model=claude-sonnet-5-5
-branch=fm/handoff
-worktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/handoff
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5DNQYW054A2EFMRB2C5X2BE/.test-runtime/registration-r0nmvxpk/projects/handoff
-test_ban_model=claude-sonnet-5-5
-test_ban_since=38a4e3fcd4418d059ea4f74a166820c3b12899b3
-
-merge poll present=False
-Disposable lab removed; no supervisor or worker process was launched.
+Completed; disposable home removed by EXIT trap. No forge writes or pipeline commands were executed.
