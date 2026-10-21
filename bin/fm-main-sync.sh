@@ -127,7 +127,7 @@ sync_one() {  # <facts-json-line>
     last_head=$(fm_board_record_get "$STATE/$id.main-sync" head)
     if [ "$last_result" = synced ] && [ "$last_head" = "$pr_head" ] && is_sync_merge "$owner" "$FM_PR_PATH" "$pr_head" "$head" "$base"; then
       if ! err=$("$PR_CHECK_BIN" "$id" "$url" 2>&1 >/dev/null); then
-        record "$id" "$spawn_gen" "$url" "$pr_head" "$base" error "synced, but re-recording the new head failed: $err"
+        echo "$id skipped: re-recording the new head failed, will retry: $(printf '%s' "$err" | head -c 160)"
         return 0
       fi
       pr_head=$head

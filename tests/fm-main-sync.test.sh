@@ -73,6 +73,11 @@ chmod +x "$FB/gh"
 cat > "$FB/fm-pr-check" <<'SH'
 #!/usr/bin/env bash
 echo "$*" >> "$CHECKLOG"
+if [ -f "$GHFAKE/$1.check-fail" ]; then
+  rm -f "$GHFAKE/$1.check-fail"
+  echo "transient failure" >&2
+  exit 1
+fi
 meta="$FM_HOME/state/$1.meta"
 grep -v '^pr_head=' "$meta" > "$meta.tmp"
 printf 'pr_head=%s\n' "$(cat "$GHFAKE/new-head")" >> "$meta.tmp"
@@ -107,7 +112,7 @@ run_sync() {
 
 {
   printf '## In flight\n'
-  for id in behind conflicting moved fork current refused own worker offbase draft local busy; do
+  for id in behind conflicting moved fork current refused own worker offbase retry draft local busy; do
     printf -- '- [ ] %s - Task %s (repo: firstmate) (kind: ship) (since 2026-10-19)\n' "$id" "$id"
   done
   printf '\n## Queued\n\n## Done\n'
@@ -143,6 +148,12 @@ H10=$(sha 3 b); H10B=$(sha 3 c); synced_ship worker 10 "$H10" "$H10B" "$H10"
 echo 0 > "$GHFAKE/compare/$H10...$H10B"
 H11=$(sha 3 d); H11B=$(sha 3 e); synced_ship offbase 11 "$H11" "$H11B" "$H11 $(sha 3 f)"
 echo 2 > "$GHFAKE/compare/$(sha 3 f)...main"
+H12=$(sha 4 b); H12B=$(sha 4 c); BASE12=$(sha 4 d); synced_ship retry 12 "$H12" "$H12B" "$H12 $BASE12"
+echo 0 > "$GHFAKE/compare/$H12...$H12B"
+echo 0 > "$GHFAKE/compare/$BASE12...main"
+echo 0 > "$GHFAKE/compare/main...$H12B"
+echo "$H12B" > "$GHFAKE/new-head"
+touch "$GHFAKE/retry.check-fail"
 H8=$(sha 2 d); ready_ship draft 8 "$H8"; view 8 OPEN true false "$H8" MERGEABLE
 mkdir -p "$H/projects/local"
 fm_write_meta "$H/state/local.meta" "worktree=$H/projects/local" "project=firstmate" "harness=claude" \
@@ -195,6 +206,13 @@ assert_no_grep 'worker https://github.com/acme/repo/pull/10' "$CHECKLOG" "a sing
 assert_no_grep 'offbase https://github.com/acme/repo/pull/11' "$CHECKLOG" "a merge whose second parent is off base never reaches fm-pr-check"
 assert_contains "$OUT" "worker skipped: live head" "the worker commit is reported as a moved head"
 assert_contains "$OUT" "offbase skipped: live head" "the off-base merge is reported as a moved head"
+
+assert_equals synced "$(sync_field retry result)" "a failed re-record leaves the synced record untouched"
+assert_equals "$H12" "$(sync_field retry head)" "a failed re-record keeps the synced head"
+assert_contains "$OUT" "retry skipped: re-recording" "the failed re-record is reported"
+OUT=$(run_sync retry 2>&1) || fail "the retry run exits zero: $OUT"
+assert_equals current "$(sync_field retry result)" "the next run adopts the sync merge"
+assert_equals "$H12B" "$(sync_field retry head)" "the retried record follows the adopted head"
 
 assert_absent "$H/state/local.main-sync" "a local-only ready branch is not moved"
 assert_absent "$H/state/busy.main-sync" "a task still working is not synced"
