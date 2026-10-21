@@ -822,7 +822,8 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # records the PR, even when the forge supplies the head. The forced pre-PR
 # check also applies the pipeline-fixer contract below, independently of the
 # worker's lane.
-# End-to-end tests and running existing tests stay allowed.
+# New end-to-end tests and running existing tests stay allowed, but end-to-end
+# tests handed over at test_ban_since are locked like the other handed-over tests.
 # Tests-first handoff: a ship may start on an allowlisted lane, commit
 # failing tests there, and then be relaunched onto a banned lane to implement
 # until they pass (`bin/fm-control.sh <id> relaunch --model <banned-model>`).
@@ -953,9 +954,9 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
 # worker copy's HEAD) add or modify since their merge-base with the base. With a
 # tests-first handoff <since>, it prints the test files added, modified, or
 # deleted since <since> that are also changed against the base or were handed
-# over at <since>. Handed-over e2e tests are locked too; other e2e tests keep
-# the usual authoring exception. 1 when the base, <since>, or <head> cannot be
-# resolved; stdout then holds a one-line reason.
+# over at <since>, under the test-authoring contract above.
+# 1 when the base, <since>, or <head> cannot be resolved; stdout then holds a
+# one-line reason.
 fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
   local wt=$1 since=${3:-} head=${4:-HEAD} base_ref mb fork path
   [ "$since" != base ] || since=
@@ -1158,8 +1159,10 @@ fm_test_ban_accept_worker_done() {  # <kind> <mode> <worktree> <line> <meta> [fo
   return 0
 }
 
-# 0 when <line> is not a ship done: to gate, when it names the task's recorded
-# PR whose head the forge holds, when it names a Gerrit change whose current
+# A tdd-split test seat uses fm-tdd-split-lib.sh's completion gate instead of
+# the checks below; its tests-ready report does not require a published head.
+# Otherwise, 0 when <line> is not a ship done: to gate, when it names the task's
+# recorded PR whose head the forge holds, when it names a Gerrit change whose current
 # patch set carries the worker copy's HEAD tree, or otherwise when its named
 # head - the worker copy's HEAD - is reachable outside that disposable copy. A
 # published-for-review report that names no Gerrit change is refused.
