@@ -23,6 +23,7 @@ On `action=spawn-reviewer`, file the reviewer as its own work item, run that scr
 When an unsure merge decision needs a confirmation, the same path runs with `plan <id> --confirm`, and `bin/fm-cross-review.sh verify-confirm <id> <sha>` accepts it only for that exact sha.
 This review is evidence for the merge decision and changes no merge rule above.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line, the resolved checks-green crew-state line, or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
+Until it merges, the task stays under READY TO APPROVE on `bin/fm-board.sh`, which session start prints and any turn can run, and the watcher keeps the PR current with main through `bin/fm-main-sync.sh`; a NEEDS YOU `conflict` row means main moved into a conflict, so steer the worker to rebase rather than asking for the merge.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
 Before deciding a PR merge, run `bin/fm-jev-merge-gate.sh decide <PR URL>`; for a team project's PR, pass `--team` (`decide <PR URL> --team`). For a local-only landing, run `bin/fm-jev-merge-gate.sh decide --task <id>`; for a team project's landing, pass `--team` (`decide --task <id> --team`). Then decide exactly as you would without the shadow gate.
 Once decided, record your decision with `bin/fm-jev-merge-gate.sh record <PR URL | --task <id>> --head <sha> --firstmate merge|hold`, and after a merge `outcome ... merged`.

@@ -57,7 +57,10 @@
 #                       a command for the full supervision block.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
-#   6. fleet digest   - on a full digest, a compact data/backlog.md
+#   6. fleet digest   - first the attention board (bin/fm-board.sh --skip-done), bounded
+#                       by FM_SESSION_START_BOARD_TIMEOUT (default 20s) and
+#                       byte-capped on a slim re-emit; then, on a full
+#                       digest, a compact data/backlog.md
 #                       identity/metadata listing, every state/*.meta, a
 #                       bounded state/*.status tail, the away posture
 #                       (state/.afk-contract and the legacy state/.afk daemon
@@ -464,6 +467,8 @@ case "$QUEUED_LIMIT" in ''|*[!0-9]*|0) QUEUED_LIMIT=20 ;; esac
 # One per-task endpoint read may never outlive this bound: a hung backend CLI
 # becomes that task's endpoint: error line instead of the digest's whole
 # runtime budget.
+BOARD_TIMEOUT=${FM_SESSION_START_BOARD_TIMEOUT:-20}
+case "$BOARD_TIMEOUT" in ''|*[!0-9]*|0) BOARD_TIMEOUT=20 ;; esac
 ENDPOINT_TIMEOUT=${FM_SESSION_START_ENDPOINT_TIMEOUT:-10}
 case "$ENDPOINT_TIMEOUT" in ''|*[!0-9]*) ENDPOINT_TIMEOUT=10 ;; esac
 [ "$ENDPOINT_TIMEOUT" -gt 0 ] 2>/dev/null || ENDPOINT_TIMEOUT=10
@@ -1201,6 +1206,20 @@ fi
 # truncated tail must never take.
 stage fleet-state
 section "FLEET STATE"
+# The board goes first in this stage: it is the one view of what waits on the
+# captain, recomputed from stored state, so a truncated tail must not take it.
+subsection "Board (bin/fm-board.sh: what needs the captain, from stored state)"
+BOARD_RC=0
+BOARD_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+  fm_run_timed "$BOARD_TIMEOUT" "$SCRIPT_DIR/fm-board.sh" --skip-done 2>&1) || BOARD_RC=$?
+if [ "$BOARD_RC" -ne 0 ]; then
+  printf 'board unavailable (exit %s, bound %ss); run bin/fm-board.sh on demand: %s\n' \
+    "$BOARD_RC" "$BOARD_TIMEOUT" "$(printf '%s' "$BOARD_OUT" | tail -1)"
+elif [ "$SLIM" -eq 1 ]; then
+  printf '%s\n' "$BOARD_OUT" | slim_capped 2400 200 "bin/fm-board.sh"
+else
+  printf '%s\n' "$BOARD_OUT"
+fi
 [ "$SLIM" -eq 1 ] || print_backlog_compact "$DATA/backlog.md" "data/backlog.md"
 
 META_FOUND=0

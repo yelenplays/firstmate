@@ -1225,6 +1225,38 @@ EOF
   pass "status tail is bounded to the configured line count, with the full log path always printed"
 }
 
+# --- attention board ----------------------------------------------------------
+
+# The board is the digest's one view of what waits on the captain, recomputed
+# from stored state, so a ready PR whose done line nobody relayed shows up on the
+# next session start. It prints first in FLEET STATE so a truncated tail cannot
+# take it.
+test_board_prints_first_in_fleet_state() {
+  local rec root home fakebin out before
+  rec=$(new_world board)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  make_fake_tmux "$fakebin" "fm-sess:live"
+  printf '## In flight\n- [ ] missed-ready - Ship nobody relayed (repo: firstmate) (kind: ship) (since 2026-10-16)\n\n## Queued\n\n## Done\n' \
+    > "$home/data/backlog.md"
+  printf 'window=fm-sess:live\nkind=ship\nmode=no-mistakes\n' > "$home/state/missed-ready.meta"
+  printf 'done: PR https://github.com/acme/repo/pull/150 checks green\n' > "$home/state/missed-ready.status"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "Board (bin/fm-board.sh" "digest has no board subsection"
+  assert_contains "$out" "- missed-ready [approval] https://github.com/acme/repo/pull/150" "digest board misses the unrelayed ready PR"
+  before=${out%%Board (bin/fm-board.sh*}
+  assert_contains "$before" "FLEET STATE" "board printed outside FLEET STATE"
+  assert_not_contains "$before" "Work under way" "board printed after the work-under-way inventory"
+
+  out=$(FM_SESSION_START_BOARD_TIMEOUT=bogus run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "READY TO APPROVE (1)" "an invalid board bound did not fall back to the default"
+  pass "session start prints the attention board first in FLEET STATE"
+}
+
 # A crewmate writes its own status lines, so nothing upstream bounds their
 # length: an observed one ran 865 characters. The tail is a wake-EVENT view
 # whose full log path is printed beside it, so a long line is cut, marked, and
@@ -3690,6 +3722,7 @@ test_session_start_preserves_transiently_unreadable_tmux
 test_session_start_preserves_proven_bare_shell_recovery
 test_session_start_relaunches_herdr_husk_secondmate
 test_status_tail_bounding
+test_board_prints_first_in_fleet_state
 test_status_tail_line_cap
 test_orphan_status_logs_are_printed
 test_endpoint_liveness_tmux
