@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# fm-main-sync.sh - keep pull requests that wait for approval current with main.
+# fm-main-sync.sh - keep ready branches current while approval waits.
 #
 # Usage: fm-main-sync.sh [<task-id>...]
 #
-# A ready pull request that waits for the captain's approval goes stale as the
-# PR's base branch moves, and a stale one can grow a conflict nobody sees until
-# the merge. This command walks every waiting task (or the named ones) and, for
-# each, takes at most one conservative step:
-#   - only a task the board (bin/fm-board-lib.sh) lists as ready to approve
-#     or as a main-sync conflict is considered; it needs recorded pr= and
-#     pr_head= metadata, not just a PR URL in its done event;
+# A ready branch that waits for the captain's approval goes stale as its base
+# branch moves. This command walks every waiting task (or the named ones) that
+# the board (bin/fm-board-lib.sh) lists as ready to approve or with reason
+# conflict or sync-blocked, re-evaluating those rows each run.
+# For a pull request, it takes at most one conservative update step:
+#   - it needs recorded pr= and pr_head= metadata, not just a PR URL in its
+#     done event;
 #   - only an open, non-draft GitHub pull request whose head branch lives in the
 #     base repository is considered; a fork branch is never pushed to;
 #   - the live head must equal the recorded pr_head=. The sole exception is
@@ -40,7 +40,8 @@
 #     branch) is created with commit-tree and the branch moves to it as a
 #     fast-forward: git merge --ff-only in the worktree that has it checked
 #     out, or update-ref pinned to the old head when none does. The project's
-#     main checkout and its default branch are never touched.
+#     main checkout and its default branch are never touched. This local path
+#     makes no forge call.
 #
 # Completed comparisons and update attempts write state/<id>.main-sync, a private
 # key=value record: version=fm-main-sync-v1, task, spawn_gen, pr, head (the
@@ -52,7 +53,7 @@
 # the task's current incarnation shows under NEEDS YOU until a later run
 # records something else. Teardown removes it with the task.
 # The watcher runs this command detached every FM_MAIN_SYNC_INTERVAL seconds
-# (default 900); it never lands a PR, approves it, or changes merge authority.
+# (default 900); it never lands work or changes merge authority.
 # Result lines are <id> <result>: <detail>; live eligibility or read refusals
 # print <id> skipped: <reason> without replacing an existing result record.
 # If re-recording a verified sync merge fails, it also prints skipped and leaves
