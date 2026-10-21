@@ -4,11 +4,12 @@
 # Usage: fm-main-sync.sh [<task-id>...]
 #
 # A ready pull request that waits for the captain's approval goes stale as the
-# default branch moves, and a stale one can grow a conflict nobody sees until
+# PR's base branch moves, and a stale one can grow a conflict nobody sees until
 # the merge. This command walks every waiting task (or the named ones) and, for
 # each, takes at most one conservative step:
-#   - a task the board (bin/fm-board-lib.sh) does not list as ready to approve
-#     is left alone;
+#   - only a task the board (bin/fm-board-lib.sh) lists as ready to approve
+#     or as a main-sync conflict is considered; it needs recorded pr= and
+#     pr_head= metadata, not just a PR URL in its done event;
 #   - only an open, non-draft GitHub pull request whose head branch lives in the
 #     base repository is considered; a fork branch is never pushed to;
 #   - the live head must equal the recorded pr_head=, so a branch someone else
@@ -20,20 +21,24 @@
 #   - otherwise GitHub's update-branch merges the base into the head
 #     server-side, pinned to the recorded head with expected_head_sha. GitHub
 #     refuses rather than merging anything that conflicts, so nothing is
-#     forced, rebased, or rewritten; a refusal is recorded conflict.
+#     forced, rebased, or rewritten; a conflict refusal is recorded conflict,
+#     while other update failures are recorded error.
 # Local-only ready branches are not moved: bin/fm-merge-local.sh lands them
 # only as a clean fast-forward and refuses a diverged branch itself.
 #
-# The result for each considered task is state/<id>.main-sync, a private
+# Completed comparisons and update attempts write state/<id>.main-sync, a private
 # key=value record: version=fm-main-sync-v1, task, spawn_gen, pr, head (the
 # pull request head the result applies to), base, result
 # (current|synced|conflict|error), detail, and at. The board reads it: a
 # conflict at the current recorded head shows the task under NEEDS YOU instead
-# of READY TO APPROVE, and a later push or re-recorded head makes the record
+# of READY TO APPROVE; re-recording a different pr_head makes that conflict
 # stale without anyone clearing it. Teardown removes it with the task.
 # The watcher runs this command detached every FM_MAIN_SYNC_INTERVAL seconds
-# (default 900); it never merges, approves, or changes merge authority.
-# Prints one line per considered task: <id> <result>: <detail>.
+# (default 900); it never lands a PR, approves it, or changes merge authority.
+# Result lines are <id> <result>: <detail>; live eligibility or read refusals
+# print <id> skipped: <reason> without replacing an existing result record.
+# Tasks lacking recorded PR metadata, unsupported forges, and local-only tasks
+# are skipped silently.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

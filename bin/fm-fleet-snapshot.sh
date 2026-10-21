@@ -114,7 +114,9 @@
 # --contribution-input prints only the canonical backlog/tasks ownership pair,
 # without worker observations or cross-home collection, for the home-local poll.
 # Compatibility: JSON is the primary machine-readable surface.
-# Human views must render this output instead of parsing state files again.
+# Human views of this snapshot must render its JSON instead of parsing state
+# files again. The separate attention board uses bin/fm-board-lib.sh's stored-
+# record derivation, shared with this snapshot's home-summary publisher.
 set -u
 
 JSON_TRANSPORT_DIR=

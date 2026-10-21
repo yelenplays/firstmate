@@ -15,18 +15,21 @@
 # in the totals and print as a PARTIAL line.
 # A secondmate ledger written before boards were published contributes its
 # open decisions, active children, queued rows, and landed rows instead.
-# It makes no network call, probes no pane, takes no lock, and writes nothing,
-# so the session-start digest can print it and any session can run it on demand.
+# It makes no network call, probes no pane, takes no session lock, and changes
+# no task state. It uses temporary files, and the snapshot reader may create
+# its cache directory. The session-start digest can print it and any session
+# can run it on demand.
 #
 # Groups print in the order they need the captain: NEEDS YOU, READY TO
 # APPROVE, WORKING, QUEUED, then the after-merge columns MERGED (NOT LIVE YET)
 # and LIVE CONFIRMED, then DONE. Secondmate rows are named <home>/<task-id>.
 # Text output shows every needs-you, ready, and merged row and bounds the rest
 # (FM_BOARD_SHOW, default 8 per group), naming how many rows it left out; --all
-# shows every row.
+# shows every available row, but cannot recover rows omitted by a secondmate's
+# publisher. Run the board in that home to see those rows.
 #
 #   --json       print the fm-board.v1 object instead of text
-#   --all        show every row in every group
+#   --all        show every available row in every group
 #   --home-only  skip secondmate homes
 #   --skip-done  leave DONE rows out of the text (the header still counts
 #                them); the session-start digest omits done rows everywhere
