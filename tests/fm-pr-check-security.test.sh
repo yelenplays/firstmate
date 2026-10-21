@@ -295,6 +295,25 @@ write_task_meta() {
     "mode=no-mistakes"
 }
 
+# Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
+# each given as <branch>|<step>|<purpose>|<model>. 1 when sqlite3 is absent.
+record_nm_invocations() {  # <nm-home> <invocation>...
+  local nm=$1 inv branch step purpose model n=0 sql=
+  command -v sqlite3 >/dev/null 2>&1 || return 1
+  mkdir -p "$nm"
+  shift
+  for inv in "$@"; do
+    IFS='|' read -r branch step purpose model <<<"$inv"
+    n=$((n + 1))
+    sql="$sql insert into runs values ('r$n', '$branch');
+      insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
+  done
+  sqlite3 "$nm/state.sqlite" "create table if not exists runs (id text primary key, branch text not null);
+    create table if not exists agent_invocations (id text primary key, run_id text not null,
+      step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
+    $sql"
+}
+
 # Extra "field=value" arguments are written before pr=, because
 # fm_pr_metadata_identity_parse rejects an unrecognised line after it.
 write_poll_meta() {
@@ -822,8 +841,8 @@ test_test_ban_covers_pipeline_fixer_commits() {
   pass "fm-pr-check refuses a test file a pipeline fixer commit adds on a banned task"
 }
 
-# The pipeline fixer's own model decides, not the worker's lane: on an Opus
-# task a Sonnet review fixer's test refuses the PR record, while a test the
+# The pipeline fixer's recorded model decides, not the worker's lane: on an
+# Opus task a Sonnet review fixer's test refuses the PR record, while a test the
 # Sol-run test step commits registers it.
 test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
   local dir head step
@@ -833,9 +852,9 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
     fm_write_meta "$dir/home/state/task-a.meta" \
       "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
       "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
-    mkdir -p "$dir/nm-home"
-    printf '%s\n' 'agent: [pi]' 'agent_args_override:' '  pi:' '    - --model' '    - openai-codex/gpt-6.1-sol' \
-      'review_agents:' '  fixer:' '    agent: claude' '    model: claude-sonnet-5-5' > "$dir/nm-home/config.yaml"
+    printf 'branch=fm/task-a\n' >> "$dir/home/state/task-a.meta"
+    record_nm_invocations "$dir/nm-home" 'fm/task-a|review|review-fix|claude-sonnet-5-5' \
+      'fm/task-a|test|test|openai-codex/gpt-6.1-sol' || fail "cannot record the fixture invocations"
     printf 'impl\n' > "$dir/wt/impl.sh"
     git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'Opus implements without tests'
     mkdir -p "$dir/wt/tests"
@@ -921,8 +940,8 @@ test_test_ban_binds_to_the_published_head() {
     else
       printf '%s\n' model=claude-opus-5-5 >> "$dir/home/state/task-a.meta"
     fi
-    mkdir -p "$dir/nm-home"
-    printf '%s\n' 'review_agents:' '  fixer:' '    agent: claude' "    model: $fixer" > "$dir/nm-home/config.yaml"
+    record_nm_invocations "$dir/nm-home" "fm/task-a|review|review-fix|$fixer" \
+      || fail "cannot record the fixture invocation"
     local_head=$(git -C "$dir/wt" rev-parse HEAD)
     mkdir -p "$dir/wt/tests"
     printf 'unapproved test\n' > "$dir/wt/tests/fixer.test.sh"
@@ -951,84 +970,79 @@ test_test_ban_binds_to_the_published_head() {
   pass "fm-pr-check inspects the published head, not an older worker HEAD"
 }
 
-# A native --model pin is the model no-mistakes runs, so Opus defaults that it
-# overrides cannot let a Sonnet review fixer's test register.
-test_test_ban_native_model_pin_registration() {
-  local dir head
-  dir=$(make_case test-ban-native-pin)
-  write_task_meta "$dir"
-  fm_write_meta "$dir/home/state/task-a.meta" \
-    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
-    "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
-  mkdir -p "$dir/nm-home"
-  printf '%s\n' 'agent: [claude]' 'agent_config:' '  claude:' '    model: claude-opus-5-5' \
-    'agent_args_override:' '  claude:' '    - --model' '    - claude-sonnet-5-5' \
-    'review_agents:' '  fixer:' '    agent: claude' '    model: claude-opus-5-5' > "$dir/nm-home/config.yaml"
-  mkdir -p "$dir/wt/tests"
-  printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
-  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(review): cover finding'
-  head=$(git -C "$dir/wt" rev-parse HEAD)
-  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
-    > "$dir/stdout" 2> "$dir/stderr" && fail "Opus defaults hid a native Sonnet pin at registration"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
-    || fail "native-pin refusal did not name Sonnet: $(cat "$dir/stderr")"
-  ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a natively pinned Sonnet fixer's test recorded the PR"
-  pass "fm-pr-check attributes a fixer to its native model pin"
-}
-
-# One registration whose no-mistakes config runs opencode on an Opus
-# agent_config with <override-items> as its native arguments; prints the exit
-# status and stderr.
-native_pin_registration() {  # <case-name> <override-item>...
-  local dir head item rc=0
+# One registration of an Opus task whose no-mistakes(test) commit adds a test,
+# with <config-line>s as the no-mistakes config.yaml and the invocations
+# record_nm_invocations takes after a `--` separator; prints the exit status,
+# then stderr.
+fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
+  local dir head rc=0
   dir=$(make_case "$1")
   shift
   write_task_meta "$dir"
-  fm_write_meta "$dir/home/state/task-a.meta" \
-    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
-    "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
+  printf '%s\n' model=claude-opus-5-5 branch=fm/task-a >> "$dir/home/state/task-a.meta"
   mkdir -p "$dir/nm-home"
-  {
-    printf '%s\n' 'agent: [opencode]' 'agent_config:' '  opencode:' '    model: anthropic/claude-opus-5-5' \
-      'agent_args_override:' '  opencode:'
-    for item in "$@"; do printf '    - %s\n' "$item"; done
-  } > "$dir/nm-home/config.yaml"
+  while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+    printf '%s\n' "$1" >> "$dir/nm-home/config.yaml"
+    shift
+  done
+  shift
+  [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$@" || rc=no-sqlite3
   mkdir -p "$dir/wt/tests"
   printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
   git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(test): add a test'
   head=$(git -C "$dir/wt" rev-parse HEAD)
-  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
-    > "$dir/stdout" 2> "$dir/stderr" || rc=$?
-  if [ "$rc" = 0 ] && ! grep -q '^pr=' "$dir/home/state/task-a.meta"; then rc=registered-without-pr; fi
+  if [ "$rc" = 0 ]; then
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+      > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+    if [ "$rc" = 0 ] && ! grep -q '^pr=' "$dir/home/state/task-a.meta"; then rc=registered-without-pr; fi
+  fi
   printf '%s\n' "$rc"
-  cat "$dir/stderr"
+  cat "$dir/stderr" 2>/dev/null
 }
 
-test_test_ban_native_model_flags_fail_closed() {
-  local out spelling n=0
-  for spelling in '--model opencode-go/deepseek-v4.1-flash' '-m opencode-go/deepseek-v4.1-flash' \
-    '--model=opencode-go/deepseek-v4.1-flash'; do
+# A pipeline fixer's test registers only when every recorded invocation of its
+# step names an allowlisted model. The config never stands in for a record,
+# however its native overrides spell the model, and a record that names no
+# allowlisted model refuses.
+test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model() {
+  local out codex n=0 expect config inv
+  codex=("agent: [codex]" "agent_config:" "  codex:" "    model: gpt-6.1-sol" "agent_args_override:" "  codex:")
+  for config in "-c|'model=\"gpt-6-luna\"'" "--config|'model=\"gpt-6-luna\"'" "--model|gpt-6.1-sol"; do
     n=$((n + 1))
-    # shellcheck disable=SC2086  # Each spelling splits into its native argument items.
-    out=$(native_pin_registration "test-ban-flag-$n" $spelling)
-    [ "${out%%$'\n'*}" != 0 ] || fail "a DeepSeek pin spelled '$spelling' registered behind an Opus default"
-    grep -Fq 'no test authoring on opencode-go/deepseek-v4.1-flash' <<<"$out" \
-      || fail "the '$spelling' refusal did not name DeepSeek: $out"
+    out=$(fixer_registration "test-ban-unrecorded-$n" "${codex[@]}" "    - ${config%%|*}" "    - ${config#*|}" --)
+    [ "${out%%$'\n'*}" != 0 ] || fail "an unrecorded fixer registered on config '$config'"
+    grep -Fq 'no test authoring on an unrecorded model' <<<"$out" \
+      || fail "the unrecorded fixer refusal for '$config' did not say so: $out"
+    grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "the unrecorded fixer refusal did not name the test: $out"
   done
-  for spelling in '-qm opencode-go/deepseek-v4.1-flash' '-mopencode-go/deepseek-v4.1-flash' \
-    '--model-id opencode-go/deepseek-v4.1-flash' '--model=' '--model'; do
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    pass "fm-pr-check refuses an unrecorded pipeline fixer (sqlite3 absent, recorded invocations not exercised)"
+    return
+  fi
+  for inv in 'fm/task-a|test|test|gpt-6-luna=gpt-6-luna' 'fm/task-a|test|test|default=default' \
+    'fm/task-a|test|test|=an unrecorded model' 'fm/other|test|test|gpt-6-luna=accept' \
+    'fm/task-a|test|test-fix|claude-sonnet-5-5=claude-sonnet-5-5' 'fm/task-a|review|review-fix|gpt-6-luna=accept'; do
     n=$((n + 1))
-    # shellcheck disable=SC2086  # Each spelling splits into its native argument items.
-    out=$(native_pin_registration "test-ban-flag-$n" $spelling)
-    [ "${out%%$'\n'*}" != 0 ] || fail "an unparseable model flag '$spelling' fell back to the Opus default"
-    grep -Fq 'no test authoring on unparsed-native-model-pin' <<<"$out" \
-      || fail "the '$spelling' refusal did not name an unparsed pin: $out"
+    expect=${inv#*=}
+    out=$(fixer_registration "test-ban-recorded-$n" "${codex[@]}" "    - --model" "    - gpt-6.1-sol" -- \
+      'fm/task-a|test|test|claude-opus-5-5' "${inv%%=*}")
+    if [ "$expect" = accept ]; then
+      # Another branch's or step's record leaves only the Opus record for this step.
+      [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated record '${inv%%=*}' displaced the Opus record: $out"
+      continue
+    fi
+    [ "${out%%$'\n'*}" != 0 ] || fail "a fixer step recorded on '$expect' registered beside Opus"
+    grep -Fq "no test authoring on $expect" <<<"$out" || fail "the '$expect' refusal did not name it: $out"
   done
-  out=$(native_pin_registration test-ban-flag-opus-control -m anthropic/claude-opus-5-5)
-  [ "${out%%$'\n'*}" = 0 ] || fail "an Opus pin spelled -m refused registration: $out"
-  out=$(native_pin_registration test-ban-flag-unrelated-control --print-logs)
-  [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated native flag displaced the Opus default: $out"
-  pass "fm-pr-check refuses every native model flag spelling it cannot attribute to an allowlisted model"
+  for inv in 'fm/task-a|test|test|default' 'fm/task-a|test|test|'; do
+    n=$((n + 1))
+    out=$(fixer_registration "test-ban-recorded-$n" -- "$inv")
+    [ "${out%%$'\n'*}" != 0 ] || fail "a fixer recorded only as '${inv##*|}' registered"
+  done
+  out=$(fixer_registration test-ban-recorded-sol "${codex[@]}" "    - -c" "    - 'model=\"gpt-6-luna\"'" -- \
+    'fm/task-a|test|test|openai-codex/gpt-6.1-sol' 'fm/task-a|test|test-fix|claude-opus-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "recorded Sol and Opus fixers were refused because of the config: $out"
+  pass "fm-pr-check registers a pipeline fixer's test only on a recorded allowlisted model"
 }
 
 test_valid_recording_and_merge_derivation() {
@@ -3915,8 +3929,7 @@ test_test_ban_covers_pipeline_fixer_commits
 test_test_ban_covers_banned_fixers_on_allowlisted_tasks
 test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
-test_test_ban_native_model_pin_registration
-test_test_ban_native_model_flags_fail_closed
+test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert

@@ -742,33 +742,24 @@ test_test_ban_handoff_ignores_test_changes_from_the_base() {
   pass "test-ban gate ignores test changes the base brings in after a handoff"
 }
 
-# A no-mistakes home whose review fixer is Sonnet and whose agent chain is
-# Sol then Opus, the shape the pre-PR check reads when no run is recorded.
-write_nm_config() {  # <nm-home> [<extra agent>]
-  mkdir -p "$1"
-  cat > "$1/config.yaml" <<YAML
-# fixture
-agent: [pi, claude${2:+, $2}]
-agent_config:
-  claude:
-    model: claude-opus-5-5
-    effort: medium
-  opencode:
-    model: opencode-go/deepseek-v4.1-flash
-agent_args_override:
-  pi:
-    - --provider
-    - openai-codex
-    - --model
-    - openai-codex/gpt-6.1-sol
-review_agents:
-  reviewer:
-    agent: claude
-    model: claude-sonnet-5-5
-  fixer:
-    agent: claude
-    model: claude-sonnet-5-5 # the cheap fixer
-YAML
+# Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
+# each given as <branch>|<step>|<purpose>|<model>. 1 when sqlite3 is absent.
+record_nm_invocations() {  # <nm-home> <invocation>...
+  local nm=$1 inv branch step purpose model n sql=
+  command -v sqlite3 >/dev/null 2>&1 || return 1
+  mkdir -p "$nm"
+  shift
+  n=$(sqlite3 "$nm/state.sqlite" "create table if not exists runs (id text primary key, branch text not null);
+    create table if not exists agent_invocations (id text primary key, run_id text not null,
+      step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
+    select count(*) from agent_invocations;") || return 1
+  for inv in "$@"; do
+    IFS='|' read -r branch step purpose model <<<"$inv"
+    n=$((n + 1))
+    sql="$sql insert into runs values ('r$n', '$branch');
+      insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
+  done
+  sqlite3 "$nm/state.sqlite" "$sql"
 }
 
 pipeline_commit() {  # <worktree> <step> <path>
@@ -788,7 +779,11 @@ test_test_ban_pipeline_fixer_on_an_allowlisted_task() {
   nm="$TMP_ROOT/fixer-nm"
   fm_git_worktree "$repo" "$wt" fm/fixer
   git -C "$wt" fetch -q origin
-  write_nm_config "$nm"
+  if ! record_nm_invocations "$nm" 'fm/fixer|test|test|openai-codex/gpt-6.1-sol' \
+    'fm/fixer|review|review|claude-opus-5-5' 'fm/fixer|review|review-fix|claude-sonnet-5-5'; then
+    pass "pre-PR check bans a banned pipeline fixer's tests on an allowlisted task (sqlite3 absent, skipped)"
+    return
+  fi
   printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/fixer\n' > "$meta"
   printf 'impl\n' > "$wt/impl.sh"
   git -C "$wt" add impl.sh && git -C "$wt" commit -q -m 'Opus implements'
@@ -811,8 +806,11 @@ test_test_ban_pipeline_fixer_on_an_allowlisted_task() {
 
   NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: implemented' "$meta" \
     || fail "the worker's handoff done was checked against pipeline commits"
-  NM_HOME="$TMP_ROOT/no-nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
-    || fail "a pipeline step with no known model was banned"
+  reason=$(NM_HOME="$TMP_ROOT/no-nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1)
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "pipeline steps with no recorded model were accepted"
+  assert_contains "$reason" "no test authoring on an unrecorded model" "refusal did not name the missing record"
+  assert_contains "$reason" "tests/sol.test.sh" "refusal did not name the unrecorded step's test"
   printf 'test_ban_allowed=tests/fixer.test.sh\n' >> "$meta"
   NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
     || fail "the captain-authorized test path was refused for a pipeline fixer"
@@ -870,118 +868,41 @@ test_test_ban_unreadable_pipeline_history() {
   pass "unreadable pipeline history accepts Opus silently and still refuses banned workers"
 }
 
-# A step whose fallback chain can run a banned model is banned, and a run's
-# recorded fixer model wins over the config.
+# A step's candidates are its recorded successful writing invocations on the
+# task's branch, and only a record that names an allowlisted model accepts.
 test_test_ban_pipeline_fixer_model_resolution() {
-  local nm db models
+  local nm models
   nm="$TMP_ROOT/resolve-nm"
-  write_nm_config "$nm" opencode
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
-  [ "$models" = claude-sonnet-5-5 ] || fail "review step resolved to '$models', not the configured fixer"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models lint fm/x | tr '\n' ' ')
-  [ "$models" = "openai-codex/gpt-6.1-sol claude-opus-5-5 opencode-go/deepseek-v4.1-flash " ] \
-    || fail "lint step did not resolve to the whole agent chain: '$models'"
-  if ! command -v sqlite3 >/dev/null 2>&1; then
-    pass "pipeline fixer models resolve from the config (sqlite3 absent, recorded runs not exercised)"
+  mkdir -p "$nm"
+  printf '%s\n' 'agent: [codex]' 'agent_config:' '  codex:' '    model: gpt-6.1-sol' > "$nm/config.yaml"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+  [ -z "$models" ] || fail "the config stood in for a missing record: '$models'"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x)" = 'an unrecorded model' ] \
+    || fail "a step with no record was not refused as unrecorded"
+  if ! record_nm_invocations "$nm" 'fm/x|review|review|claude-haiku-5-5' 'fm/x|review|review-fix|claude-opus-5-5' \
+    'fm/other|review|review-fix|claude-sonnet-5-5' 'fm/x|lint|lint|gpt-6.1-sol' 'fm/x|lint|lint-fix|default' \
+    'fm/x|test|test|' 'fm/x|document|document|anthropic/claude-fable-5-1'; then
+    pass "pipeline fixer models come only from records (sqlite3 absent, recorded runs not exercised)"
     return
   fi
-  db="$nm/state.sqlite"
-  sqlite3 "$db" "create table runs (id text primary key, branch text not null);
-    create table agent_invocations (id text primary key, run_id text not null, step_name text not null,
-      purpose text not null, model text, exit_status text not null, started_at integer not null);
-    insert into runs values ('r1', 'fm/x'), ('r2', 'fm/other');
-    insert into agent_invocations values
-      ('a', 'r1', 'review', 'review', 'claude-haiku-5-5', 'ok', 1),
-      ('b', 'r1', 'review', 'review-fix', 'claude-opus-5-5', 'ok', 2),
-      ('c', 'r2', 'review', 'review-fix', 'claude-sonnet-5-5', 'ok', 3),
-      ('d', 'r1', 'review', 'review-fix', 'deepseek-v4', 'failed', 4);" \
-    || fail "cannot write the fixture state database"
+  sqlite3 "$nm/state.sqlite" "insert into runs values ('rf', 'fm/x');
+    insert into agent_invocations values ('if', 'rf', 'review', 'review-fix', 'deepseek-v4', 'failed', 99);" \
+    || fail "cannot record the failed fixture invocation"
   models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
-  [ "$models" = claude-opus-5-5 ] || fail "the recorded review fixer did not win: '$models'"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/none)
-  [ "$models" = claude-sonnet-5-5 ] || fail "a branch with no recorded run did not fall back to the config: '$models'"
-  pass "pipeline fixer models resolve from recorded runs, then the config"
-}
-
-# A native --model pin in agent_args_override is the model no-mistakes runs,
-# so it wins over the review role's model and agent_config, in both directions.
-test_test_ban_pipeline_fixer_native_pin_wins() {
-  local nm models
-  nm="$TMP_ROOT/native-nm"
-  mkdir -p "$nm"
-  cat > "$nm/config.yaml" <<'YAML'
-agent: [claude]
-agent_config:
-  claude:
-    model: claude-opus-5-5
-agent_args_override:
-  claude:
-    - --model
-    - claude-sonnet-5-5
-review_agents:
-  fixer:
-    agent: claude
-    model: claude-opus-5-5
-YAML
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
-  [ "$models" = claude-sonnet-5-5 ] || fail "review hid a native Sonnet pin behind Opus defaults: '$models'"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models lint fm/x)
-  [ "$models" = claude-sonnet-5-5 ] || fail "lint hid a native Sonnet pin behind agent_config: '$models'"
-
-  cat > "$nm/config.yaml" <<'YAML'
-agent: [claude]
-agent_config:
-  claude:
-    model: claude-haiku-5-5
-agent_args_override:
-  claude: ["--model=claude-opus-5-5"]
-review_agents:
-  fixer:
-    model: claude-sonnet-5-5
-YAML
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
-  [ "$models" = claude-opus-5-5 ] || fail "review ignored a native Opus pin over a Sonnet role model: '$models'"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
-  [ "$models" = claude-opus-5-5 ] || fail "test ignored a native Opus pin over a Haiku agent_config: '$models'"
-
-  printf '%s\n' 'review_agents:' '  fixer:' '    model: claude-sonnet-5-5' > "$nm/config.yaml"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
-  [ "$models" = claude-sonnet-5-5 ] || fail "a fixer role model with no agent chain was lost: '$models'"
-  pass "a native model pin wins over role and agent_config models, in both directions"
-}
-
-# A no-mistakes config that runs opencode on an Opus agent_config with
-# <override-item>s as its native arguments.
-nm_override_config() {  # <override-item>...
-  printf '%s\n' 'agent: [opencode]' 'agent_config:' '  opencode:' '    model: anthropic/claude-opus-5-5' \
-    'agent_args_override:' '  opencode:'
-  printf '    - %s\n' "$@"
-}
-
-test_test_ban_pipeline_fixer_native_flags_fail_closed() {
-  local nm models spelling
-  nm="$TMP_ROOT/native-flags-nm"
-  mkdir -p "$nm"
-  nm_override_config -m opencode-go/deepseek-v4.1-flash > "$nm/config.yaml"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
-  [ "$models" = opencode-go/deepseek-v4.1-flash ] || fail "-m lost the native DeepSeek pin: '$models'"
-  nm_override_config --print-logs -m anthropic/claude-opus-5-5 > "$nm/config.yaml"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
-  [ "$models" = anthropic/claude-opus-5-5 ] || fail "-m lost the native Opus pin: '$models'"
-  nm_override_config --model anthropic/claude-opus-5-5 -m opencode-go/deepseek-v4.1-flash > "$nm/config.yaml"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
-  [ "$models" = $'anthropic/claude-opus-5-5\nopencode-go/deepseek-v4.1-flash' ] \
-    || fail "two native pins did not both stay candidates: '$models'"
-  for spelling in '-qm opencode-go/deepseek-v4.1-flash' '-m=opencode-go/deepseek-v4.1-flash' \
-    '-mopencode-go/deepseek-v4.1-flash' '--model-id opencode-go/deepseek-v4.1-flash' \
-    '--model -q' '--model=' '--model'; do
-    # shellcheck disable=SC2086  # Each spelling splits into its native argument items.
-    nm_override_config $spelling > "$nm/config.yaml"
-    models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
-    [ "$models" = unparsed-native-model-pin ] || fail "'$spelling' did not name an unparsed pin: '$models'"
-    fm_test_ban_model_applies "$models" || fail "an unparsed pin from '$spelling' was not banned"
-  done
-  pass "a native model flag that does not parse names a banned unknown model, never the configured one"
+  [ "$models" = claude-opus-5-5 ] || fail "review did not resolve to its recorded writing fixer: '$models'"
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/x)" ] \
+    || fail "a recorded Opus review fixer was refused"
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal document fm/x)" ] \
+    || fail "a recorded Fable document step was refused"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal lint fm/x)" = default ] \
+    || fail "a recorded default lint fixer was not refused"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x)" = 'an unrecorded model' ] \
+    || fail "a recorded invocation with no model was not refused as unrecorded"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/none)" = 'an unrecorded model' ] \
+    || fail "another branch's record stood in for this branch"
+  [ "$(NM_HOME="$TMP_ROOT/resolve-nm-missing" fm_test_ban_nm_step_author_refusal review fm/x)" = 'an unrecorded model' ] \
+    || fail "a missing state database was not refused as unrecorded"
+  pass "pipeline fixer models come only from recorded runs, and only allowlisted records accept"
 }
 
 test_test_ban_model_list
@@ -993,8 +914,6 @@ test_test_ban_gate_measures_from_the_tests_first_handoff
 test_test_ban_handoff_ignores_test_changes_from_the_base
 test_test_ban_pipeline_fixer_on_an_allowlisted_task
 test_test_ban_pipeline_fixer_model_resolution
-test_test_ban_pipeline_fixer_native_pin_wins
-test_test_ban_pipeline_fixer_native_flags_fail_closed
 test_test_ban_unreadable_pipeline_history
 
 echo "all fm-dod-lib tests passed"

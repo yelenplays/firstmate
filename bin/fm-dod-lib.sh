@@ -987,131 +987,68 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 
 # Pipeline-fixer contract: the forced pre-PR check inspects non-merge commits
 # since the base named `no-mistakes(<step>): ...`, independently of the worker's
-# lane. Attribution is conservative and step-wide, not per commit: any banned
-# candidate model for a step makes its added or modified test files refuse the
-# PR record, except captain-authorized paths and paths restored at the checked
-# head to their state before that commit. Deletions alone are not checked here.
-# Candidates come from successful writing invocations across runs on the task's
-# branch in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite: <step>-fix, and <step>
-# itself except for the read-only review. Without known recorded models, or
-# when sqlite3 or the database is unavailable, config.yaml in that same home
-# supplies the models with no-mistakes' own precedence: an agent's native
-# model pin in agent_args_override (--model or -m) wins over
-# review_agents.fixer.model for review and over agent_config.<agent>.model
-# everywhere. A model-selecting flag there that does not parse as exactly one of
-# `--model VALUE`, `--model=VALUE`, or `-m VALUE` (a combined short flag, an
-# attached or missing value, `--model` with a suffix) names the unknown model
-# `unparsed-native-model-pin`, which is banned, rather than letting the
-# configured model stand in for what the native command selects. Review uses
-# review_agents.fixer.agent, else every agent in the `agent:` fallback chain,
-# which every other step uses. A step with no known candidate model is not banned,
-# like an unset worker model. If the worker copy, checked head, origin base, or
-# merge-base cannot be read, this pipeline-fixer check accepts without output:
-# no pipeline commit can then be attributed. The banned-worker check still
-# refuses unreadable history before this check runs.
+# lane. Their added or modified test files are accepted only when the step's
+# author is positively recorded as allowlisted: every successful writing
+# invocation of <step> across runs on the task's branch in
+# ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite (<step>-fix, and <step> itself
+# except for the read-only review) names a model that matches
+# FM_TEST_AUTHOR_MODEL_PATTERNS. Every other case refuses, naming the first such
+# model or `an unrecorded model`: a banned or empty model, `default`, no recorded
+# invocation, or sqlite3 or the database unavailable. The no-mistakes config is
+# never consulted, because native overrides there can select any model.
+# Attribution is step-wide, not per commit. Captain-authorized paths and paths
+# restored at the checked head to their state before that commit are exempt;
+# deletions alone are not checked here. If the worker copy, checked head, origin
+# base, or merge-base cannot be read, this check accepts without output: no
+# pipeline commit can then be seen. The banned-worker check still refuses
+# unreadable history before this check runs.
 # tests/fm-dod-lib.test.sh and tests/fm-pr-check-security.test.sh pin attribution,
 # unreadable-history handling, and pre-PR enforcement.
 
-# Prints the no-mistakes config's settings as `<dotted.path>\t<value>` lines;
-# each list item, block or inline, prints under its list's path.
-fm_test_ban_nm_config_flat() {  # <config.yaml>
-  [ -f "$1" ] && [ -r "$1" ] || return 0
-  awk '
-    function unquote(v) { gsub(/^["\x27]|["\x27]$/, "", v); return v }
-    function path(ind,   p, i) {
-      while (depth > 0 && at[depth] >= ind) depth--
-      p = ""
-      for (i = 1; i <= depth; i++) p = p (p == "" ? "" : ".") key[i]
-      return p
-    }
-    function items(p, v,   n, i, parts) {
-      gsub(/^\[|\]$/, "", v)
-      n = split(v, parts, ",")
-      for (i = 1; i <= n; i++) {
-        gsub(/^[ \t]+|[ \t]+$/, "", parts[i])
-        if (parts[i] != "") printf "%s\t%s\n", p, unquote(parts[i])
-      }
-    }
-    /^[ \t]*(#|$)/ { next }
-    {
-      line = $0
-      sub(/[ \t]+#.*$/, "", line); sub(/[ \t]+$/, "", line)
-      match(line, /^[ \t]*/); ind = RLENGTH
-      body = substr(line, ind + 1)
-      if (body ~ /^-([ \t]|$)/) {
-        sub(/^-[ \t]*/, "", body)
-        while (depth > 0 && at[depth] > ind) depth--
-        p = ""
-        for (i = 1; i <= depth; i++) p = p (p == "" ? "" : ".") key[i]
-        if (body != "") printf "%s\t%s\n", p, unquote(body)
-        next
-      }
-      if (!match(body, /^["\x27]?[A-Za-z0-9_.-]+["\x27]?[ \t]*:([ \t]|$)/)) next
-      k = substr(body, 1, RLENGTH); sub(/[ \t]*:[ \t]*$/, "", k); k = unquote(k)
-      v = substr(body, RLENGTH + 1); sub(/^[ \t]+/, "", v)
-      p = path(ind)
-      p = p (p == "" ? "" : ".") k
-      if (v == "") { depth++; at[depth] = ind; key[depth] = k; next }
-      if (v ~ /^\[/) items(p, v)
-      else printf "%s\t%s\n", p, unquote(v)
-    }
-  ' "$1"
+# 0 when <model> is positively an allowlisted test author: named, not
+# `default`, and matching FM_TEST_AUTHOR_MODEL_PATTERNS.
+fm_test_ban_model_allowlisted() {  # <model>
+  local model
+  model=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+  [ -n "$model" ] && [ "$model" != default ] && ! fm_test_ban_model_applies "$model"
 }
 
-# Prints the models the no-mistakes config runs <agent> on for a step whose role
-# names <role-model>: every native model pin in its agent_args_override list,
-# which wins over every configured model, else <role-model>, else its
-# agent_config.<agent>.model. Prints nothing when none names one.
-fm_test_ban_nm_agent_model() {  # <flat-config> <agent> [<role-model>]
-  local flat=$1 agent=$2 model
-  model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_args_override.$agent" -v u=unparsed-native-model-pin '
-    $1 != p { next }
-    want { print ($2 == "" || $2 ~ /^-/) ? u : $2; want = 0; next }
-    $2 == "--model" || $2 == "-m" { want = 1; next }
-    index($2, "--model=") == 1 { print (length($2) > 8) ? substr($2, 9) : u; next }
-    $2 ~ /^--model/ || $2 ~ /^-[A-Za-z0-9]*m/ { print u }
-    END { if (want) print u }')
-  [ -n "$model" ] || model=${3:-}
-  [ -n "$model" ] || model=$(printf '%s\n' "$flat" | awk -F'\t' -v p="agent_config.$agent.model" '$1 == p { print $2 }' | tail -1)
-  [ -z "$model" ] || printf '%s\n' "$model"
-}
-
-# Prints candidate models for <step> on <branch> under the pipeline-fixer
-# contract above; these are not attributed to individual commits.
+# Prints the models recorded for <step> on <branch> under the pipeline-fixer
+# contract above, `-` for an invocation with no model; these are not
+# attributed to individual commits. Prints nothing when none is readable.
 fm_test_ban_nm_step_models() {  # <step> [<branch>]
-  local step=$1 branch=${2:-} nm_home db models='' flat agent agents model role=
-  nm_home=${NM_HOME:-$HOME/.no-mistakes}
-  db="$nm_home/state.sqlite"
+  local step=$1 branch=${2:-} db
+  db="${NM_HOME:-$HOME/.no-mistakes}/state.sqlite"
   case "$step$branch" in *"'"*) return 0 ;; esac
-  if [ -n "$branch" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1; then
-    models=$(fm_run_timed 10 sqlite3 -readonly "$db" \
-      "select distinct coalesce(i.model, '') from agent_invocations i join runs r on r.id = i.run_id where r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
-      2>/dev/null) || models=
-  fi
+  [ -n "$branch" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 0
+  fm_run_timed 10 sqlite3 -readonly "$db" \
+    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id where r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
+    2>/dev/null || true
+}
+
+# Prints `an unrecorded model` when <step> on <branch> has no recorded writing
+# invocation, the first recorded model that is not an allowlisted test author,
+# or nothing when every recorded model is one.
+fm_test_ban_nm_step_author_refusal() {  # <step> [<branch>]
+  local models model
+  models=$(fm_test_ban_nm_step_models "$1" "${2:-}")
   if [ -z "$models" ]; then
-    flat=$(fm_test_ban_nm_config_flat "$nm_home/config.yaml")
-    agents=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "agent" { print $2 }')
-    if [ "$step" = review ]; then
-      role=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "review_agents.fixer.model" { print $2 }' | tail -1)
-      agent=$(printf '%s\n' "$flat" | awk -F'\t' '$1 == "review_agents.fixer.agent" { print $2 }' | tail -1)
-      [ -z "$agent" ] || agents=$agent
-      # A role model with no agent to run it still names the fixer's model.
-      [ -n "$agents" ] || models=$role
-    fi
-    while IFS= read -r agent; do
-      [ -n "$agent" ] || continue
-      model=$(fm_test_ban_nm_agent_model "$flat" "$agent" "$role")
-      [ -z "$model" ] || models="$models$model"$'\n'
-    done <<<"$agents"
+    printf '%s\n' 'an unrecorded model'
+    return 0
   fi
-  printf '%s\n' "$models" | sed '/^$/d'
+  while IFS= read -r model; do
+    fm_test_ban_model_allowlisted "$model" && continue
+    [ "$model" != - ] || model='an unrecorded model'
+    printf '%s\n' "$model"
+    return 0
+  done <<<"$models"
 }
 
 # Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
 # pipeline-fixer contract above, including its unreadable-history policy, in
 # the commits up to <head> (default the worker copy's HEAD).
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
-  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step model banned path
+  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author authored path
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
   git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
   base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
@@ -1121,16 +1058,17 @@ fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
     step=${subject#no-mistakes(}
     step=${step%%)*}
     case "$step" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
-    banned=
-    while IFS= read -r model; do
-      if fm_test_ban_model_applies "$model"; then banned=$model; break; fi
-    done < <(fm_test_ban_nm_step_models "$step" "$(fm_dod_meta_value "$meta" branch)")
-    [ -n "$banned" ] || continue
+    authored=
     while IFS= read -r path; do
       fm_test_ban_path_is_test "$path" || continue
       fm_test_ban_path_allowed "$path" "$meta" && continue
       git -C "$wt" diff --quiet "$sha^" "$head" -- "$path" && continue
-      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$banned" "$path"
+      if [ -z "$authored" ]; then
+        authored=1
+        author=$(fm_test_ban_nm_step_author_refusal "$step" "$(fm_dod_meta_value "$meta" branch)")
+      fi
+      [ -n "$author" ] || break
+      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
     done < <(git -C "$wt" diff-tree --no-commit-id --no-renames --name-only --diff-filter=ACMR -r "$sha" 2>/dev/null)
   done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..$head" 2>/dev/null)
 }
@@ -1175,7 +1113,7 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force] [<
   [ -n "$files" ] || return 0
   rejected=$(printf '%s\n' "$files" | awk -F'\t' '{ print "no-mistakes(" $2 ") on " $3 " in " substr($1, 1, 12) ": " $4 }' | sed 's/$/;/' | tr '\n' ' ' | sed 's/; $//')
   fixer=$(printf '%s\n' "$files" | awk -F'\t' 'NR == 1 { print $3 }')
-  printf '%s\n' "no test authoring on $fixer: pipeline fixer commits add or modify unauthorized test files ($rejected); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again"
+  printf '%s\n' "no test authoring on $fixer: pipeline fixer commits add or modify unauthorized test files ($rejected); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again"
   return 1
 }
 
