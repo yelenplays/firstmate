@@ -1,0 +1,58 @@
+Before recovery:
+HOME_SUMMARY: this home has never published state/home-summary.json; 2 failed attempt(s) recorded in state/.home-summary-refresh.log, last: refresh exceeded its 2-second deadline
+
+After terminating the exact lock owner and calling fm-home-summary-refresh.sh --best-effort with FM_HOME_SUMMARY_IF_IDLE=1:
+{
+  "schema": "fm-secondmate-home-summary.v1",
+  "counts": {
+    "active_children": 0,
+    "decisions_open": 0,
+    "holds": 0,
+    "queued": 1,
+    "landed": 1,
+    "endpoints": 0
+  },
+  "board": {
+    "schema": "fm-board-home.v1",
+    "items": [
+      {
+        "group": "done",
+        "id": "board-choice",
+        "title": "Choose export format",
+        "kind": "captain",
+        "repo": "firstmate",
+        "since": "2026-10-21",
+        "at": null,
+        "url": null,
+        "reason": "done",
+        "detail": "closed"
+      },
+      {
+        "group": "done",
+        "id": "board-finished",
+        "title": "Completed lab preparation",
+        "kind": "docs",
+        "repo": "sample",
+        "since": "2026-10-21",
+        "at": null,
+        "url": null,
+        "reason": "done",
+        "detail": "closed"
+      },
+      {
+        "group": "queued",
+        "id": "board-work",
+        "title": "Review export behavior",
+        "kind": "ship",
+        "repo": "sample",
+        "since": "2026-10-21",
+        "at": null,
+        "url": null,
+        "reason": "queued",
+        "detail": null
+      }
+    ],
+    "omitted": {}
+  }
+}
+Bootstrap no longer emits HOME_SUMMARY diagnostics.

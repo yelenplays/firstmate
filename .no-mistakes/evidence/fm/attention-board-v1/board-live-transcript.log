@@ -1,0 +1,27 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F6QX9TE6QXV066J3EK4DEC/.attention-lab.fvhioq/main
+
+$ fm-tasks-axi.sh add queue-demo "Review the deployment plan" --kind docs --repo lab
+ok: added queue-demo (docs, repo lab) -> Queued
+task:
+  id: queue-demo
+  title: Review the deployment plan
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: docs
+  repo: lab
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start queue-demo` to move it to in flight
+  - Run `tasks-axi block queue-demo --by <other>` to record a dependency
+
+$ fm-captain-hold.sh hold approval-demo --title "Choose a rollout window" --reason "Approve the rollout window" --repo lab

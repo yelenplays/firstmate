@@ -1,0 +1,13 @@
+Capability checks:
+/etc/profiles/per-user/yelen/bin/jq
+/opt/homebrew/bin/gh
+/opt/homebrew/bin/gh-axi
+/opt/homebrew/bin/tasks-axi
+tmux: not on PATH
+/opt/homebrew/bin/herdr
+/Users/yelen/.local/bin/claude
+/opt/homebrew/bin/python3
+15:03  up 4 days,  3:21, 3 users, load averages: 31.34 39.67 36.85
+
+Isolated product drive retry: timed out during captain-hold after 150s.
+Targeted summary final retry: timed out after 240s before first result.

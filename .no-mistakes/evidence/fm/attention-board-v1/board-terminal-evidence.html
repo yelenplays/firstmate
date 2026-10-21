@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Attention board: real CLI outputs</title><style>body{background:#111;color:#ddd;font:16px system-ui;padding:32px;max-width:1200px}h1{font-size:24px}h2{font-size:18px;color:#9bd}pre{background:#202124;padding:20px;white-space:pre-wrap;line-height:1.6;border:1px solid #444}section{margin:32px 0}p{line-height:1.6}</style><h1>Attention board — real CLI outputs</h1><p>Captured from disposable in-worktree homes using real tasks-axi, captain-hold and board commands, without tool stubs. This HTML presents captured terminal text; it is not a screenshot. Ready PRs, remote update-branch and post-merge witness confirmation were not exercised live. Child aggregation was refused because the workspace boundary requires its home to remain inside the repository.</p><section><h2>First read: queued work and an outstanding decision</h2><pre>BOARD 2026-10-21T12:52:37Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- approval-demo [decision] Choose a rollout window - Approve the rollout window
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+</pre></section><section><h2>Second read: no new signal required</h2><pre>BOARD 2026-10-21T12:52:38Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- approval-demo [decision] Choose a rollout window - Approve the rollout window
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+</pre></section><section><h2>After answering: DONE row omitted, header still counts it</h2><pre>BOARD 2026-10-21T12:52:42Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+</pre></section><section><h2>Parent aggregation attempt: prohibited nested home is disclosed</h2><pre>BOARD 2026-10-21T12:52:49Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+DONE (1)
+- approval-demo [done] Choose a rollout window - closed
+UNAVAILABLE: routed - invalid home: secondmate home cannot be inside the firstmate repo
+</pre></section></html>

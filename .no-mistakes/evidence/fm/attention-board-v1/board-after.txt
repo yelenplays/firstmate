@@ -1,0 +1,6 @@
+BOARD 2026-10-21T14:42:03Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+QUEUED (1)
+- board-work [queued] Review export behavior
+DONE (2)
+- board-choice [done] Choose export format - closed
+- board-finished [done] Completed lab preparation - closed

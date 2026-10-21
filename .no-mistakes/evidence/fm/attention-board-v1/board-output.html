@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8"><title>Firstmate live CLI board</title><style>body{background:#16191e;color:#e7ecf1;font:16px/1.65 monospace;padding:32px}pre{white-space:pre-wrap}h1,h2{font:inherit;color:#adc4dd}</style><h1>Actual Firstmate CLI output</h1><h2>Before answering</h2><pre>BOARD 2026-10-21T14:42:00Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+NEEDS YOU (1)
+- board-choice [decision] Choose export format - Choose JSON or CSV
+QUEUED (1)
+- board-work [queued] Review export behavior
+DONE (1)
+- board-finished [done] Completed lab preparation - closed
+</pre><h2>After answering through fm-captain-hold.sh</h2><pre>BOARD 2026-10-21T14:42:03Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+QUEUED (1)
+- board-work [queued] Review export behavior
+DONE (2)
+- board-choice [done] Choose export format - closed
+- board-finished [done] Completed lab preparation - closed
+</pre><h2>Startup digest board (DONE rows omitted)</h2><pre>Board (bin/fm-board.sh: what needs the captain, from stored state)
+--------------------------------------------------------------------------------
+BOARD 2026-10-21T14:42:05Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+QUEUED (1)
+- board-work [queued] Review export behavior
+
+data/backlog.md
+--------------------------------------------------------------------------------
+compact backlog listing (tasks-axi; done rows omitted; every in-flight, held, and blocked row shown in full; ready queued bounded to 20; task bodies omitted)
+
+in flight:
+count: 0
+tasks: 0 in_flight tasks in this backlog
+
+held (captain- or time-gated; an in-flight item that is also held appears in both groups):
+count: 0
+tasks: 0 held tasks in this backlog
+
+blocked queued:
+count: 0
+tasks: 0 blocked queued tasks in this backlog
+
+ready queued (dispatchable now):
+count: 1
+ready[1]{id,state,kind,repo,title}:
+  board-work,queued,ship,sample,Review export behavior
+ready_public_followups: 0 delivery-ready obligations
+(shown 1 of 1 ready queued item(s))
+Full task bodies remain available on demand: bin/fm-tasks-axi.sh show &lt;id&gt; --full when compatible tasks-axi is available, or data/backlog.md.
+
+</pre>

@@ -1,0 +1,66 @@
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F6QX9TE6QXV066J3EK4DEC/.attention-lab.LrSWps/main
+
+$ fm-tasks-axi.sh add queue-demo "Review the deployment plan" --kind docs --repo lab
+ok: added queue-demo (docs, repo lab) -> Queued
+task:
+  id: queue-demo
+  title: Review the deployment plan
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: docs
+  repo: lab
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start queue-demo` to move it to in flight
+  - Run `tasks-axi block queue-demo --by <other>` to record a dependency
+
+$ fm-captain-hold.sh hold approval-demo --title "Choose a rollout window" --reason "Approve the rollout window" --repo lab
+approval-demo
+
+$ fm-board.sh (first read)
+BOARD 2026-10-21T12:52:37Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- approval-demo [decision] Choose a rollout window - Approve the rollout window
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+
+$ fm-board.sh (second read; no new event)
+BOARD 2026-10-21T12:52:38Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+NEEDS YOU (1)
+- approval-demo [decision] Choose a rollout window - Approve the rollout window
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+true
+
+$ fm-captain-hold.sh answer approval-demo --decision-file <decision>
+answered: approval-demo
+
+$ fm-board.sh --skip-done (answered decision omitted; count retained)
+BOARD 2026-10-21T12:52:42Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+true
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F6QX9TE6QXV066J3EK4DEC/.attention-lab.LrSWps/routed
+actionable: task routed-call is held for the captain in this home but that did not reach the parent channel (rc=3)
+routed-call
+
+$ FM_HOME=<routed> FM_SNAPSHOT_SECONDMATE_QUEUED_PER_HOME=3 fm-home-summary-refresh.sh
+
+$ fm-board.sh --all (parent consumes published child board)
+BOARD 2026-10-21T12:52:49Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+QUEUED (1)
+- queue-demo [queued] Review the deployment plan
+DONE (1)
+- approval-demo [done] Choose a rollout window - closed
+UNAVAILABLE: routed - invalid home: secondmate home cannot be inside the firstmate repo
+false
