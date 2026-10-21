@@ -12,12 +12,17 @@
 # Inputs, all read from this home (FM_HOME, default this checkout):
 #   state/<task>.status   the open needs-decision line for <decision-key>, whose
 #                         note carries `findings=<id,...> file=<snapshot>`
-#   the snapshot          the worker's verbatim findings file, which must lie
-#                         under data/<task>/ and list at least those ids (it
-#                         may list more, such as no-op findings, in the `id:`
-#                         line, TOON row, or JSON `findings` array format; those
-#                         stay as context. JSON is rewritten to `id:` lines).
-#                         Repeated ids or missing asked ids are refused.
+#   the snapshot          the worker's findings file under data/<task>/, in
+#                         `id:` lines, TOON rows, a JSON object with a `findings`
+#                         array, or a bare JSON array. It must list every asked
+#                         id; additional findings stay as context. Repeated ids
+#                         or missing asked ids are refused.
+#                         JSON is normalized in memory to `id:` lines before
+#                         screening: object rows with string ids retain scalar
+#                         fields, `action` becomes `authority/action`, CR/LF
+#                         runs become spaces, and nulls become empty values.
+#                         Nested objects and arrays are omitted; an object-level
+#                         string `step` is retained.
 #   data/<task>/brief.md  its `## Captain's intent` and `## Firstmate spec`
 #   state/<task>.inbox    every steering record, handled or pending, in order
 #   state/<task>.meta     project= for the outbound privacy check
@@ -28,10 +33,13 @@
 # _meta/pruefe.sh or _meta/einstieg-manifest.json marker, or a path under the
 # wikis root: FM_WIKIS_ROOT, else config/wikis-root, else ~/Documents/Wikis),
 # an unreadable project path, no Jev key, a contract carrying a secret, or
-# contract and findings over 32 KiB (JEV_STATE_MAX_BYTES overrides this cap).
+# assembled state over 32 KiB, including its headings (the environment's
+# JEV_STATE_MAX_BYTES overrides this caller-specific cap).
 # Intent, spec, and steers are never truncated: omitted text could restrict
 # scope. Other findings also escalate if their typed risk screen returns
 # p_yes > 0.2 or is malformed.
+# tests/fm-jev-ask-user.test.sh covers JSON intake and complete-contract
+# preservation or escalation before transport.
 #
 # Otherwise one typed Jev call through bin/fm-jev-lib.sh sends the contract
 # and snapshot as state and asks a scope choice plus a separate yes/no risk
@@ -148,9 +156,7 @@ DATA_REAL=$(cd "$FM_HOME/data/$TASK" 2>/dev/null && pwd -P) || die "no data dire
 FILE_REAL="$(cd "$(dirname "$FINDINGS_FILE")" && pwd -P)/$(basename "$FINDINGS_FILE")"
 case "$FILE_REAL" in "$DATA_REAL"/*) ;; *) die "findings snapshot is outside data/$TASK: $FINDINGS_FILE" ;; esac
 FINDINGS=$(cat "$FINDINGS_FILE") || die "could not read $FINDINGS_FILE"
-# The gate's JSON form (`{"findings":[{"id":...}]}` or a bare array) is
-# rewritten to the `id:` line format, one `key: value` line per field and the
-# `action` field as `authority/action:`, so every later screen reads one shape.
+# Normalize JSON before the existing id, authority, and risk screens.
 if printf '%s' "$FINDINGS" | jq -e '(type == "object" and (.findings | type) == "array") or type == "array"' >/dev/null 2>&1; then
   FINDINGS=$(printf '%s' "$FINDINGS" | jq -r '
     def flat: if type == "string" then gsub("[\r\n]+"; " ") elif type == "null" then "" else tojson end;
@@ -164,9 +170,7 @@ if printf '%s' "$FINDINGS" | jq -e '(type == "object" and (.findings | type) == 
 fi
 WANT_IDS=$(printf '%s\n' "$IDS" | tr ',' '\n' | LC_ALL=C sort)
 [ "$WANT_IDS" = "$(printf '%s\n' "$WANT_IDS" | LC_ALL=C sort -u)" ] || die "finding ids repeat in $KEY"
-# The snapshot lists every gate finding, no-op ones included, in either the
-# `id:` line format or the TOON `findings[N]{id,...}:` rows; the asked ids
-# must all appear in it (the rest stay as context for Jev).
+# Validate ids after JSON normalization; the header owns snapshot formats.
 HAVE_IDS=$(printf '%s\n' "$FINDINGS" | awk '
   /^id:[[:space:]]*/ { v = $0; sub(/^id:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v); print v; toon = 0; next }
   /^[[:space:]]*findings\[[0-9]+\]\{id[,}]/ { toon = 1; next }
