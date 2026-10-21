@@ -31,7 +31,8 @@ The new `tests/fm-qos.test.sh` serial hint uses its successful Ubuntu sample of 
 This single sample is a packing input, not a runtime upper bound.
 The new `tests/fm-escalate.test.sh` and `tests/fm-tdd-split.test.sh` serial hints use successful Ubuntu samples of 1526 ms and 6662 ms from [run 39672548369](https://github.com/yelenplays/firstmate/actions/runs/39672548369), respectively.
 Both completed without capability skips in successful serial lanes 7 and 8; the aggregate timing artifact matches their `FM_TEST_END` markers.
-The overall run failed in the coverage guard and its runner regression, not these suites. These single samples are packing inputs, not runtime upper bounds.
+The overall run failed in the coverage guard and its runner regression, not these suites.
+These single samples are packing inputs, not runtime upper bounds.
 The fork's parallel-lane samples follow.
 The previous two-lane split ran close to its ten-minute job timeout.
 These recent artifact `summary.duration_ms` values measure the lane invocation itself, before job setup and tool installation are included:
