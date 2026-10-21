@@ -61,8 +61,8 @@
 #   Ship/scout test-authoring eligibility, test_ban_* metadata, launch sections,
 #   and relaunch baselines follow bin/fm-dod-lib.sh's test-authoring block.
 #   --tdd-split launches a fresh ship as a tdd-split ship: its --harness,
-#   --model, and --effort, all three required and the model outside that
-#   allowlist, name the implementer, while the launch goes to the test seat
+#   --model, and --effort, all three required and the model outside the
+#   test-author allowlist, name the implementer, while the launch goes to the test seat
 #   (Opus at medium effort) with the Tests-first seat section, and the record
 #   keeps tdd_split=tests plus the implementer as tdd_split_impl_harness=,
 #   tdd_split_impl_model=, and tdd_split_impl_effort=. The brief must declare

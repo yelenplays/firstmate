@@ -895,8 +895,8 @@ fm_test_ban_path_allowed() {  # <path> <meta>
 
 # 0 when <path> is a test file the ban covers: anything under a tests/, test/,
 # __tests__/, spec/, or __snapshots__/ directory, or a file named *.test.*,
-# *_test.*, *.spec.*, test_*.py, or *.snap. A path or name containing e2e or
-# end-to-end is an end-to-end test and stays allowed.
+# *_test.*, *.spec.*, test_*.py, or *.snap. End-to-end paths are excluded here;
+# the test-authoring block above owns their handoff-lock exception.
 fm_test_ban_path_is_test() {  # <path>
   local path lower
   path=/$1

@@ -30,8 +30,7 @@
 #      red-run procedure and its limits, including after a return to the seat.
 #   4. The handoff records test_ban_since=<seat HEAD>. From here the task is an
 #      ordinary banned ship on the implementer; bin/fm-dod-lib.sh's
-#      test-authoring block owns lock enforcement and its scope, including
-#      after an allowlisted takeover.
+#      test-authoring block owns lock enforcement and its model-dependent scope.
 #   5. Two ways lead back to the seat, both through bin/fm-tdd-split.sh. The
 #      implementer that finds a handed-over test wrong reports
 #      `blocked [key=test-dispute]: <test>: <reason>`; firstmate either answers
