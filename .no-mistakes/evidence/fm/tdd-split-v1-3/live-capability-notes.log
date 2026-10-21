@@ -1,0 +1,5 @@
+Claude binary: /Users/yelen/.local/bin/claude
+tmux binary: not on PATH
+Effective Claude trust-store directory: /Users/yelen
+Full live spawn withheld: fm-spawn.sh:5299 unconditionally pre-registers Claude workspace trust via fm-claude-trust.sh; that helper writes ${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json. User-level configuration writes outside this worktree are not authorized. No login check was performed and no claim is made that normal login is unavailable.
+Herdr named-session provisioning and teardown succeeded after correcting prepare/provision usage; no default-session mutation or real agent launch was performed.

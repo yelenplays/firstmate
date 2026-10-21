@@ -1,0 +1,3 @@
+expected=new actual=old
+
+fm-tdd-split: head=af91b95d9cf617b59cf11b72398b47d0feea3003 exit=1 command=bash tests/greet.test.sh

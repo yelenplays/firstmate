@@ -1,0 +1,94 @@
+SCENARIO: already-green tests cannot trigger a handoff
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh handoff demo
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/.test-phase-tmp/fm-lab.DqPlBo/data/demo/tdd-split-red.log
+exit=1 (expected 1)
+Persisted phase remains tests
+
+SCENARIO: missing executable and timeout cannot count as red
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh handoff demo
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/.test-phase-tmp/fm-lab.DqPlBo/data/demo/tdd-split-red.log
+exit=1 (expected 1)
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh handoff demo --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/.test-phase-tmp/fm-lab.DqPlBo/data/demo/tdd-split-red.log
+exit=1 (expected 1)
+
+SCENARIO: test seat cannot add production code
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh handoff demo
+error: tdd-split test seat changed files that are not tests: greet.sh; the seat writes tests only, so revert those changes and report tests-ready again
+exit=1 (expected 1)
+
+SCENARIO: meaningful failing assertion runs without implementation
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh handoff demo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/.test-phase-tmp/fm-lab.DqPlBo
+REFUSED: task demo has a missing, empty, or ambiguous window endpoint; preserving task state.
+error: relaunch onto claude-sonnet-5-5 failed; the task stays on its test seat and the handoff can be run again
+exit=1 (expected 1)
+Red assertion log:
+expected=new actual=old
+
+fm-tdd-split: head=af91b95d9cf617b59cf11b72398b47d0feea3003 exit=1 command=bash tests/greet.test.sh
+
+SCENARIO: DeepSeek and GLM cannot weaken handed-over tests
+Implementer: deepseek/deepseek-v4.1
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh dispute demo
+error: no test authoring on deepseek/deepseek-v4.1: the branch adds, modifies, or deletes unauthorized test files tests/greet.test.sh; revert those changes and report done again
+exit=1 (expected 1)
+Implementer: zhipu/glm-5.2
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh dispute demo
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/greet.test.sh; revert those changes and report done again
+exit=1 (expected 1)
+
+SCENARIO: optional mutation command passes on a working implementation
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-tdd-split.sh mutation demo
+tdd-split: demo mutation gate passed at e4c691f79e37563e90ce2d68a1dedb8f1ae3b608
+exit=0 (expected 0)
+
+SCENARIO: two distinct Sonnet failures recommend Opus; repeated head counts once
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-escalate.sh record-failure demo --reason first review refusal
+task=demo
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=e4c691f79e37563e90ce2d68a1dedb8f1ae3b608
+action=none
+exit=0 (expected 0)
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-escalate.sh record-failure demo --reason same head must not count twice
+task=demo
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=e4c691f79e37563e90ce2d68a1dedb8f1ae3b608
+action=none
+exit=0 (expected 0)
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-escalate.sh record-failure demo --reason second review refusal
+task=demo
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=2
+heads=e4c691f79e37563e90ce2d68a1dedb8f1ae3b608,ba8d5061eb8cfe2105256a821a41f5ed9839c6db
+action=relaunch
+next_harness=claude
+next_model=claude-opus-5-5
+next_effort=medium
+exit=0 (expected 0)
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G1PSQAN8YZS9NJ9PNZGMTB/bin/fm-escalate.sh check demo
+task=demo
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=2
+heads=e4c691f79e37563e90ce2d68a1dedb8f1ae3b608,ba8d5061eb8cfe2105256a821a41f5ed9839c6db
+action=relaunch
+next_harness=claude
+next_model=claude-opus-5-5
+next_effort=medium
+exit=0 (expected 0)
+
+Disposable lab removed on exit. No model, PR, pipeline, or fleet process was launched.

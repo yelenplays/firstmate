@@ -1,0 +1,2 @@
+ok - --tdd-split launches the Opus test seat and records the implementer
+ok - --tdd-split refuses a spawn it cannot hand over

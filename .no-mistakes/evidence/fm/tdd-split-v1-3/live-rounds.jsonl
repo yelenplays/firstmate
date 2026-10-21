@@ -1,0 +1,3 @@
+{"at":"2026-10-21T20:33:53Z","head":"e4c691f79e37563e90ce2d68a1dedb8f1ae3b608","reason":"first review refusal","spawn_gen":"s1792614832.1.live"}
+{"at":"2026-10-21T20:33:53Z","head":"e4c691f79e37563e90ce2d68a1dedb8f1ae3b608","reason":"same head must not count twice","spawn_gen":"s1792614832.1.live"}
+{"at":"2026-10-21T20:33:53Z","head":"ba8d5061eb8cfe2105256a821a41f5ed9839c6db","reason":"second review refusal","spawn_gen":"s1792614832.1.live"}

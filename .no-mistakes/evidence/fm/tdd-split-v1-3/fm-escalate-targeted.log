@@ -1,0 +1,5 @@
+ok - two failed rounds on a cheap model relaunch it onto Sonnet medium
+ok - Sonnet escalates to Opus medium, and Opus goes to the captain
+ok - only accepted failures and recorded failures since the incarnation began count
+ok - malformed calls are refused
+all fm-escalate tests passed
