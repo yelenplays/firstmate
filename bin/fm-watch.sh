@@ -3059,11 +3059,13 @@ pr_poll_publish_release() {
 
 watcher_cleanup() {
   local exit_status=$?
-  local cleanup_status=0 owns_lock=0 transition=release-lock
+  local cleanup_status=0 owns_lock=0 transition=release-lock lock_pid=
   signal_publish_release || cleanup_status=1
   pr_poll_publish_release || cleanup_status=1
   pr_poll_control_release || cleanup_status=1
-  if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${WATCHER_PID:-}" ]; then
+  # Keep ownership proof in-process even when a stop interrupts a child read.
+  IFS= read -r -d '' lock_pid 2>/dev/null < "$WATCH_LOCK/pid" || true
+  if [ "${lock_pid%$'\n'}" = "${WATCHER_PID:-}" ]; then
     owns_lock=1
     if [ "${WATCHER_RECOVERY_PENDING:-0}" -eq 1 ] \
       && [ "${FM_WATCH_DELIVERED_REASON:-}" = "check: rearm-resurface" ]; then
@@ -3232,7 +3234,9 @@ while :; do
   # no-ops because the lock pid is not ours, so the survivor's lock is untouched.
   # This makes any duplicate self-resolve within one poll instead of persisting
   # and doubling every wake.
-  if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" != "$WATCHER_PID" ]; then
+  lock_pid=
+  IFS= read -r -d '' lock_pid 2>/dev/null < "$WATCH_LOCK/pid" || true
+  if [ "${lock_pid%$'\n'}" != "$WATCHER_PID" ]; then
     exit 0
   fi
 

@@ -5857,7 +5857,7 @@ test_wedge_escalation_resets_when_pane_becomes_active() {
 # watcher inside the bound; the released lock and acknowledgeable stop record
 # prove its cleanup still ran.
 test_term_stops_a_watcher_blocked_inside_a_poll() {
-  local dir state fakebin out fifo window sig pid holder i rc
+  local dir state fakebin out fifo window sig pid holder i rc real_cat
   dir=$(make_case term-blocked-poll); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; fifo="$dir/pane.fifo"; window="test:fm-blocked-capture"
   mkfifo "$fifo"
@@ -5881,6 +5881,18 @@ test_term_stops_a_watcher_blocked_inside_a_poll() {
     kill "$holder" 2>/dev/null || true; reap "$pid"
     fail "the watcher never blocked inside its pane capture: $(cat "$out")"
   fi
+  # Ownership must survive a failed external PID read during signal cleanup.
+  # Install only after capture blocks, so this targets EXIT rather than startup.
+  real_cat=$(command -v cat)
+  {
+    printf '#!/usr/bin/env bash\n'
+    # shellcheck disable=SC2016 # Expand in the fault-injection child, not here.
+    printf 'if [ "${1:-}" = "$FM_STATE_OVERRIDE/.watch.lock/pid" ]; then exit 1; fi\n'
+    printf 'exec %q "$@"\n' "$real_cat"
+  } > "$fakebin/cat"
+  chmod +x "$fakebin/cat"
+  # Legacy lock records may omit the terminating newline.
+  printf '%s' "$pid" > "$state/.watch.lock/pid"
   kill "$pid" 2>/dev/null || true
   wait_for_exit "$pid" 100
   rc=$?
