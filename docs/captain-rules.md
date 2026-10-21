@@ -45,7 +45,7 @@ Successful delivery does not confirm that the receiving agent has read or applie
 
 Additions, changed texts, revocations, and linked checks are delivered alike, in write order; an unchanged repeat sends nothing.
 When a consumer cannot be reached, the change stays saved, the command names that consumer and exits 5, and `bin/fm-rules.sh deliver` retries.
-A secondmate whose home cannot be found, whose route fails, or whose copy is still the older set counts as not reached.
+A secondmate whose home cannot be found, whose local home fails the same safety validation the config push applies, whose route fails, or whose copy is still the older set counts as not reached.
 Until delivery is retried successfully, that home's workers can retain or receive older rules.
 The [`fm-rules.sh` header](../bin/fm-rules.sh) owns generation-check ordering, record wording, and exit codes; resolve any config-push failure before retrying.
 Secondmate charters carry no rules section because the secondmate session loads them itself.

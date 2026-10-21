@@ -63,7 +63,9 @@
 # deliveries arrive in write order: bin/fm-config-push.sh for every live
 # secondmate (it copies config/captain-rules.md and sends that home's reread
 # instruction), then `deliver` inside each secondmate home, found from its meta
-# home= or the data/secondmates.md registry and reached directly when local or
+# home= or the data/secondmates.md registry and reached directly when local
+# (only after validate_secondmate_home in bin/fm-ff-lib.sh accepts it, the check
+# the config push applies; a rejected home is not reached and never entered) or
 # through bin/fm-on.sh when remote, then one "CAPTAIN RULES UPDATE
 # <generation>" record through bin/fm-send.sh into the steering inbox of every
 # ship or scout task recorded in this home's state/*.meta. `deliver` in a
@@ -445,10 +447,21 @@ deliver_rules() {  # [report]
       failed=$((failed + 1))
       continue
     fi
-    if [ -z "$(meta_value "$meta" remote_host)" ] && [ ! -d "$home/state" ]; then
-      printf 'fm-rules: not delivered: secondmate %s home %s has no state directory\n' "$id" "$home" >&2
-      failed=$((failed + 1))
-      continue
+    # A local home is entered only after the same validation the config push
+    # applies; the push skips an unsafe home with exit 0, so its exit status
+    # never vouches for a destination.
+    if [ -z "$(meta_value "$meta" remote_host)" ]; then
+      if ! validate_secondmate_home "$id" "$home"; then
+        printf 'fm-rules: not delivered: secondmate %s home %s is unsafe: %s\n' "$id" "$home" "$VALIDATION_ERROR" >&2
+        failed=$((failed + 1))
+        continue
+      fi
+      home=$VALIDATED_HOME
+      if [ ! -d "$home/state" ]; then
+        printf 'fm-rules: not delivered: secondmate %s home %s has no state directory\n' "$id" "$home" >&2
+        failed=$((failed + 1))
+        continue
+      fi
     fi
     out=$(deliver_in_secondmate "$id" "$home" "$meta")
     line=$(printf '%s\n' "$out" | grep -E '^delivered [0-9a-f]+: [0-9]+ running worker' | tail -n 1)

@@ -403,6 +403,42 @@ test_registry_and_remote_secondmates_reach_their_workers() {
   pass 'registry-only and remote secondmate homes hand each saved change to their own running workers, and failures are retried'
 }
 
+test_unsafe_secondmate_homes_are_never_entered() {
+  local fb dir state out rc case
+  fresh_home
+  fb=$(make_tmux_stub "$TMP_ROOT")
+  # Each case: a live secondmate record whose home= fails the shared home
+  # validation, with a running worker recorded under the state it would read.
+  for case in unseeded mismatched forbidden escaping; do
+    dir="$TMP_ROOT/unsafe-$case"
+    [ "$case" != forbidden ] || dir="$HOME_DIR/nested-mate"
+    rm -rf "$dir" "$TMP_ROOT/escaped-state"
+    mkdir -p "$dir/bin" "$dir/config" "$dir/data"
+    : > "$dir/AGENTS.md"
+    case "$case" in
+      unseeded) ;;
+      mismatched) printf 'other\n' > "$dir/.fm-secondmate-home" ;;
+      *) printf 'bad\n' > "$dir/.fm-secondmate-home" ;;
+    esac
+    state="$dir/state"
+    if [ "$case" = escaping ]; then
+      mkdir -p "$TMP_ROOT/escaped-state"
+      ln -s "$TMP_ROOT/escaped-state" "$state"
+      state="$TMP_ROOT/escaped-state"
+    else
+      mkdir -p "$state"
+    fi
+    fm_write_meta "$state/foreign.meta" 'window=sess:fm-foreign' 'kind=ship' 'harness=claude'
+    fm_write_meta "$HOME_DIR/state/bad.meta" 'window=sess:fm-bad' 'kind=secondmate' 'harness=claude' "home=$dir"
+    out=$(run_env env PATH="$fb:$PATH" FM_SEND_SETTLE=0 "$RULES" deliver 2>&1); rc=$?
+    expect_code 5 "$rc" "a $case secondmate home must count as not reached"
+    assert_contains "$out" 'not delivered: secondmate bad home' "the $case home was not named as unsafe"
+    assert_absent "$state/foreign.inbox" "delivery entered the $case home and wrote to its worker"
+    rm -rf "$dir"
+  done
+  pass 'secondmate homes that fail the shared home validation are reported and never entered'
+}
+
 test_writes_refuse_in_a_secondmate_home() {
   local out rc
   fresh_home
@@ -574,6 +610,7 @@ test_concurrent_writes_keep_every_rule
 test_tabs_survive_and_control_characters_are_refused
 test_saved_changes_reach_running_consumers
 test_registry_and_remote_secondmates_reach_their_workers
+test_unsafe_secondmate_homes_are_never_entered
 test_writes_refuse_in_a_secondmate_home
 test_prompt_hook_captures_and_confirms
 test_hooks_stand_down_outside_their_scope
