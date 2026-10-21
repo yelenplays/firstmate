@@ -1,0 +1,173 @@
+{
+  "note": "Real fm-pr-check CLI, fixture forge and invocation records; NOT live forge validation.",
+  "cases": [
+    {
+      "fixture": "test-ban-allowlisted-builder-review",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-allowlisted-builder-review/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-allowlisted-builder-review/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\npr=https://github.com/o/r/pull/82\npr_head=61342ad6f242265f28f646c793eb45556d20d466\n"
+      }
+    },
+    {
+      "fixture": "test-ban-allowlisted-builder-test",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-allowlisted-builder-test/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-allowlisted-builder-test/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\npr=https://github.com/o/r/pull/82\npr_head=28ecdb763a1e7026baa181378f800e7152c6a057\n"
+      }
+    },
+    {
+      "fixture": "test-ban-no-origin-opus",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-no-origin-opus/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-no-origin-opus/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\npr=https://github.com/o/r/pull/83\npr_head=cf48b3482b514930dd84bf390400fba0d4b5bf8b\n"
+      }
+    },
+    {
+      "fixture": "test-ban-no-origin-sonnet",
+      "files": {
+        "stdout": "",
+        "stderr": "error: test-file check cannot resolve the base branch in the worker copy\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-no-origin-sonnet/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-no-origin-sonnet/project\nkind=ship\nmode=no-mistakes\nmodel=claude-sonnet-5-5\ntest_ban_model=claude-sonnet-5-5\n"
+      }
+    },
+    {
+      "fixture": "test-ban-pipeline-fixer",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/fixer.test.sh; revert those changes and report done again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-pipeline-fixer/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-pipeline-fixer/project\nkind=ship\nmode=no-mistakes\ntest_ban_model=opencode-go/deepseek-v4.1-flash\n"
+      }
+    },
+    {
+      "fixture": "test-ban-published-head-allowed-fixer",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-published-head-allowed-fixer/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-published-head-allowed-fixer/project\nkind=ship\nmode=no-mistakes\nbranch=fm/task-a\nmodel=claude-opus-5-5\npr=https://github.com/o/r/pull/82\npr_head=1f3f791b412628923ba7a757115727f268267836\n"
+      }
+    },
+    {
+      "fixture": "test-ban-published-head-banned-fixer",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in a86f6b7e3193: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-published-head-banned-fixer/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-published-head-banned-fixer/project\nkind=ship\nmode=no-mistakes\nbranch=fm/task-a\nmodel=claude-opus-5-5\n"
+      }
+    },
+    {
+      "fixture": "test-ban-published-head-banned-worker",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/fixer.test.sh; revert those changes and report done again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-published-head-banned-worker/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-published-head-banned-worker/project\nkind=ship\nmode=no-mistakes\nbranch=fm/task-a\nmodel=claude-sonnet-5-5\ntest_ban_model=claude-sonnet-5-5\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-10",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on default: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on default in e96b9f881576: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-10/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-10/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-11",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in 0eedbf20d653: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-11/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-11/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-4",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on gpt-6-luna: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on gpt-6-luna in f9ee5a165ce2: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-4/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-4/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-5",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on default: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on default in a0dfb1344879: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-5/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-5/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-6",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in 0098b312c398: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-6/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-6/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-7",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-7/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-7/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\npr=https://github.com/o/r/pull/82\npr_head=a2816e63df41a09dd5cc8db51eb99db9b0a96cb6\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-8",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on claude-sonnet-5-5 in 9d15a3df4797: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-8/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-8/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-9",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-9/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-9/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\npr=https://github.com/o/r/pull/82\npr_head=c2b6f4f06d7b71711d2ce95b5072b891f6466149\n"
+      }
+    },
+    {
+      "fixture": "test-ban-recorded-sol",
+      "files": {
+        "stdout": "armed: state/task-a.check.sh\n",
+        "stderr": "",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-sol/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-recorded-sol/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\npr=https://github.com/o/r/pull/82\npr_head=d29be4612199eef8e78ecbc3da5a97370ec7e3eb\n"
+      }
+    },
+    {
+      "fixture": "test-ban-unrecorded-1",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in ae6336f6a6f1: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-unrecorded-1/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-unrecorded-1/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-unrecorded-2",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in e8ccf67ca3f3: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-unrecorded-2/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-unrecorded-2/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-unrecorded-3",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in 444f497c6573: tests/fixer.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-unrecorded-3/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-unrecorded-3/project\nkind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/task-a\n"
+      }
+    },
+    {
+      "fixture": "test-ban-with-pr-head",
+      "files": {
+        "stdout": "",
+        "stderr": "error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/parser.test.sh; revert those changes and report done again\n",
+        "home/state/task-a.meta": "window=firstmate:fm-task-a\nendpoint_task_id=task-a\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-with-pr-head/wt\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/tmp/fm-pr-check-security.jdpqnv/test-ban-with-pr-head/project\nkind=ship\nmode=no-mistakes\ntest_ban_model=claude-sonnet-5-5\n"
+      }
+    }
+  ]
+}

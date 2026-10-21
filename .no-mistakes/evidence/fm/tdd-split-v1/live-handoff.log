@@ -1,0 +1,94 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/live/parent
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/live/parent
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/live/mate
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FKT8FRK3Z5ZXJGQVFPBGPD/.test-phase/live/mate
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report deepseek
+head=8ee96401e54540217d346f1041ee72fe9d66adc6; declaration=done: deepseek unit-test
+branch changes: A	tests/unit.test.py
+Parent channel append: <none>
+Observed: completion withheld
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report deepseek
+head=d9b8ddc3bcf5a92c30a3ed03441641b735d27f8c; declaration=done: deepseek code-and-e2e
+branch changes: A	e2e/smoke.spec.py
+M	impl.py
+Parent channel append: done [key=child-outcome-deepseek-done-23307a24] [at=1792599497]: child deepseek done: deepseek code-and-e2e mode=no-mistakes yolo=off
+Observed: completion delivered
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report glm
+head=dc63f85ea9735c7cdc4cc4309e35f90d78bab1d7; declaration=done: glm unit-test
+branch changes: A	tests/unit.test.py
+Parent channel append: <none>
+Observed: completion withheld
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report glm
+head=d9f58ea9b4cb532fcde479ace3bb9b0723394f49; declaration=done: glm code-and-e2e
+branch changes: A	e2e/smoke.spec.py
+M	impl.py
+Parent channel append: done [key=child-outcome-glm-done-add29746] [at=1792599498]: child glm done: glm code-and-e2e mode=no-mistakes yolo=off
+Observed: completion delivered
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report handoff
+head=a0e980dda16d5208ec9758d5e849d2a4b8ae007e; declaration=done: handoff implementation-only
+branch changes: M	impl.py
+A	tests/locked.test.py
+Parent channel append: done [key=child-outcome-handoff-done-72d98759] [at=1792599499]: child handoff done: handoff implementation-only mode=no-mistakes yolo=off
+Observed: completion delivered
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report handoff
+head=83020db4a97a7964203b8f531e225d99f1cfa2be; declaration=done: handoff modify
+branch changes: M	impl.py
+A	tests/locked.test.py
+Parent channel append: <none>
+Observed: completion withheld
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report handoff
+head=a1ab6491c7728cd0becfbd6552f37b588d7ccfbe; declaration=done: handoff delete
+branch changes: M	impl.py
+Parent channel append: <none>
+Observed: completion withheld
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report handoff
+head=0ee78124931e91d78e233d1e857cf82fb2f91870; declaration=done: handoff rename
+branch changes: A	impl-test-disguised.py
+M	impl.py
+Parent channel append: <none>
+Observed: completion withheld
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report handoff
+head=52ba4fd257e572cbfff070cd9a635c5ff2337f2d; declaration=done: handoff restored
+branch changes: M	impl.py
+A	tests/locked.test.py
+Parent channel append: done [key=child-outcome-handoff-done-2b5929b7] [at=1792599501]: child handoff done: handoff restored mode=no-mistakes yolo=off
+Observed: completion delivered
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report captain-exception
+head=b14c6976b30ea53a50b1500242544d9f0de3da0a; declaration=done: captain-exception authorized
+branch changes: A	tests/approved.test.py
+Parent channel append: done [key=child-outcome-captain-exception-done-5ada9dc6] [at=1792599502]: child captain-exception done: captain-exception authorized mode=no-mistakes yolo=off
+Observed: completion delivered
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report captain-exception
+head=6c3c6d7c9d430a4b7de134d6f751e697ac3d1fcf; declaration=done: captain-exception unauthorized-sibling
+branch changes: A	tests/approved.test.py
+A	tests/other.test.py
+Parent channel append: <none>
+Observed: completion withheld
+
+$ FM_HOME=<isolated-mate> bin/fm-inactive-reconcile.sh report opus
+head=e7f4afdd18138acb4aa062e2fefacda41e5867c8; declaration=done: opus own-tests
+branch changes: A	tests/opus.test.py
+Parent channel append: done [key=child-outcome-opus-done-87e5d0ba] [at=1792599503]: child opus done: opus own-tests mode=no-mistakes yolo=off
+Observed: completion delivered
+
+RESULTS [{"scenario": "deepseek-unit-ban-and-e2e-exemption", "result": "pass"}, {"scenario": "glm-unit-ban-and-e2e-exemption", "result": "pass"}, {"scenario": "inherited-test-lock-modify-delete-rename-and-restore", "result": "pass"}, {"scenario": "exact-path-exception-does-not-authorize-sibling", "result": "pass"}, {"scenario": "opus-test-authorship-accepted", "result": "pass"}]
+
+Persisted parent channel:
+done [key=child-outcome-deepseek-done-23307a24] [at=1792599497]: child deepseek done: deepseek code-and-e2e mode=no-mistakes yolo=off
+done [key=child-outcome-glm-done-add29746] [at=1792599498]: child glm done: glm code-and-e2e mode=no-mistakes yolo=off
+done [key=child-outcome-handoff-done-72d98759] [at=1792599499]: child handoff done: handoff implementation-only mode=no-mistakes yolo=off
+done [key=child-outcome-handoff-done-2b5929b7] [at=1792599501]: child handoff done: handoff restored mode=no-mistakes yolo=off
+done [key=child-outcome-captain-exception-done-5ada9dc6] [at=1792599502]: child captain-exception done: captain-exception authorized mode=no-mistakes yolo=off
+done [key=child-outcome-opus-done-87e5d0ba] [at=1792599503]: child opus done: opus own-tests mode=no-mistakes yolo=off
+
