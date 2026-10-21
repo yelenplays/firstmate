@@ -29,6 +29,9 @@ The session-start hint retains its pre-optimization maximum until CI measures th
 This fork merges that upstream baseline with its own CI samples: a script both sets measured keeps the slower value, and a script only one set measured keeps that sample.
 The new `tests/fm-qos.test.sh` serial hint uses its successful Ubuntu sample of 9772 ms from [run 37925576139](https://github.com/yelenplays/firstmate/actions/runs/37925576139), replacing the unmeasured default.
 This single sample is a packing input, not a runtime upper bound.
+The new board and main-sync serial hints use successful Ubuntu samples of 6399 ms and 4809 ms from [run 39639539641](https://github.com/yelenplays/firstmate/actions/runs/39639539641), respectively.
+Both scripts exited 0 in completed serial shards, as recorded in `fm-test-timing-aggregate`; the run's parallel runner test and coverage guard failed because these new scripts lacked hints.
+These single samples are packing inputs, not runtime upper bounds or evidence of a fully green run.
 The fork's parallel-lane samples follow.
 The previous two-lane split ran close to its ten-minute job timeout.
 These recent artifact `summary.duration_ms` values measure the lane invocation itself, before job setup and tool installation are included:
