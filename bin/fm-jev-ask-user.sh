@@ -12,11 +12,17 @@
 # Inputs, all read from this home (FM_HOME, default this checkout):
 #   state/<task>.status   the open needs-decision line for <decision-key>, whose
 #                         note carries `findings=<id,...> file=<snapshot>`
-#   the snapshot          the worker's verbatim findings file, which must lie
-#                         under data/<task>/ and list at least those ids (it
-#                         may list more, such as no-op findings, in the `id:`
-#                         line or TOON row format; those stay as context).
-#                         Repeated ids or missing asked ids are refused.
+#   the snapshot          the worker's findings file under data/<task>/, in
+#                         `id:` lines, TOON rows, a JSON object with a `findings`
+#                         array, or a bare JSON array. It must list every asked
+#                         id; additional findings stay as context. Repeated ids
+#                         or missing asked ids are refused.
+#                         JSON is normalized in memory to `id:` lines before
+#                         screening: object rows with string ids retain scalar
+#                         fields, `action` becomes `authority/action`, CR/LF
+#                         runs become spaces, and nulls become empty values.
+#                         Nested objects and arrays are omitted; an object-level
+#                         string `step` is retained.
 #   data/<task>/brief.md  its `## Captain's intent` and `## Firstmate spec`
 #   state/<task>.inbox    every steering record, handled or pending, in order
 #   state/<task>.meta     project= for the outbound privacy check
@@ -26,9 +32,14 @@
 # or data-loss concern; a wiki vault project (an _meta/einstieg.sh,
 # _meta/pruefe.sh or _meta/einstieg-manifest.json marker, or a path under the
 # wikis root: FM_WIKIS_ROOT, else config/wikis-root, else ~/Documents/Wikis),
-# an unreadable project path, no Jev key, or a contract over the library's
-# state cap or one carrying a secret. Other findings also escalate if their
-# typed risk screen returns p_yes > 0.2 or is malformed.
+# an unreadable project path, no Jev key, a contract carrying a secret, or
+# assembled state over 32 KiB, including its headings (the environment's
+# JEV_STATE_MAX_BYTES overrides this caller-specific cap).
+# Intent, spec, and steers are never truncated: omitted text could restrict
+# scope. Other findings also escalate if their typed risk screen returns
+# p_yes > 0.2 or is malformed.
+# tests/fm-jev-ask-user.test.sh covers JSON intake and complete-contract
+# preservation or escalation before transport.
 #
 # Otherwise one typed Jev call through bin/fm-jev-lib.sh sends the contract
 # and snapshot as state and asks a scope choice plus a separate yes/no risk
@@ -145,18 +156,28 @@ DATA_REAL=$(cd "$FM_HOME/data/$TASK" 2>/dev/null && pwd -P) || die "no data dire
 FILE_REAL="$(cd "$(dirname "$FINDINGS_FILE")" && pwd -P)/$(basename "$FINDINGS_FILE")"
 case "$FILE_REAL" in "$DATA_REAL"/*) ;; *) die "findings snapshot is outside data/$TASK: $FINDINGS_FILE" ;; esac
 FINDINGS=$(cat "$FINDINGS_FILE") || die "could not read $FINDINGS_FILE"
+# Normalize JSON before the existing id, authority, and risk screens.
+if printf '%s' "$FINDINGS" | jq -e '(type == "object" and (.findings | type) == "array") or type == "array"' >/dev/null 2>&1; then
+  FINDINGS=$(printf '%s' "$FINDINGS" | jq -r '
+    def flat: if type == "string" then gsub("[\r\n]+"; " ") elif type == "null" then "" else tojson end;
+    (if type == "array" then . else .findings end) as $rows
+    | (if type == "object" and (.step | type) == "string" then "step: \(.step | flat)\n" else "" end),
+      ($rows[] | select(type == "object" and (.id | type) == "string")
+       | "id: \(.id | flat)\n"
+         + ([to_entries[] | select(.key != "id" and (.value | type) != "object" and (.value | type) != "array")
+             | "\(if .key == "action" then "authority/action" else .key end): \(.value | flat)"] | join("\n")) + "\n")
+  ' 2>/dev/null) || die "could not read the JSON findings snapshot $FINDINGS_FILE"
+fi
 WANT_IDS=$(printf '%s\n' "$IDS" | tr ',' '\n' | LC_ALL=C sort)
 [ "$WANT_IDS" = "$(printf '%s\n' "$WANT_IDS" | LC_ALL=C sort -u)" ] || die "finding ids repeat in $KEY"
-# The snapshot lists every gate finding, no-op ones included, in either the
-# `id:` line format or the TOON `findings[N]{id,...}:` rows; the asked ids
-# must all appear in it (the rest stay as context for Jev).
+# Validate ids after JSON normalization; the header owns snapshot formats.
 HAVE_IDS=$(printf '%s\n' "$FINDINGS" | awk '
   /^id:[[:space:]]*/ { v = $0; sub(/^id:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v); print v; toon = 0; next }
   /^[[:space:]]*findings\[[0-9]+\]\{id[,}]/ { toon = 1; next }
   toon && /^[[:space:]]+[A-Za-z0-9._-]+,/ { v = $0; sub(/^[[:space:]]+/, "", v); sub(/,.*/, "", v); print v; next }
   toon && !/^[[:space:]]/ { toon = 0 }
 ' | LC_ALL=C sort)
-[ -n "$HAVE_IDS" ] || die "the snapshot lists no findings (want id: lines or findings[N]{id,...} rows)"
+[ -n "$HAVE_IDS" ] || die "the snapshot lists no findings (want id: lines, findings[N]{id,...} rows, or a JSON findings array)"
 [ "$HAVE_IDS" = "$(printf '%s\n' "$HAVE_IDS" | LC_ALL=C sort -u)" ] || die "the snapshot repeats a finding id"
 MISSING=$(comm -23 <(printf '%s\n' "$WANT_IDS") <(printf '%s\n' "$HAVE_IDS") | paste -sd, -)
 [ -z "$MISSING" ] || die "the snapshot's ids do not match findings=$IDS (it does not list: $MISSING)"
@@ -267,25 +288,29 @@ while IFS=$'\t' read -r seq kind record; do
 done < <(inbox_records)
 [ -n "$STEERS" ] || STEERS='(none)'
 
-JEV_STATE="Accepted contract of one Firstmate task, then the ask-user findings a no-mistakes reviewer raised at its ${STEP:-unnamed} gate in review round $ROUND.
+build_state() { # <intent> <spec> <steers>
+  printf '%s' "Accepted contract of one Firstmate task, then the ask-user findings a no-mistakes reviewer raised at its ${STEP:-unnamed} gate in review round $ROUND.
 
 ## Captain's intent
-${INTENT:-(none)}
+${1:-(none)}
 
 ## Firstmate spec
-${SPEC:-(none)}
+${2:-(none)}
 
 ## Firstmate steers to the worker, oldest first
-$STEERS
+$3
 ## Gate findings, verbatim (judge only the ask-user ids: $IDS; the rest is context)
 $FINDINGS"
+}
+JEV_STATE=$(build_state "$INTENT" "$SPEC" "$STEERS")
 
 if fm_jev_has_sensitive_key "$JEV_STATE"; then
   escalate privacy "the contract or findings carry a secret-shaped value; nothing was sent"
 fi
-# fm_jev_compact_state owns the state size cap and sensitive-data stripping;
-# any refusal or change means this contract cannot go to Jev as it stands.
-if ! COMPACT=$(fm_jev_compact_state "$JEV_STATE" 2>&1); then
+# Full accepted contracts need more room than the library's 8 KiB default.
+# Keep a bounded 32 KiB allowance for this caller rather than dropping scope;
+# explicit operator caps still win, and privacy screening stays unchanged.
+if ! COMPACT=$(JEV_STATE_MAX_BYTES=${JEV_STATE_MAX_BYTES:-32768} fm_jev_compact_state "$JEV_STATE" 2>&1); then
   case "$COMPACT" in
     *"state exceeds"*) escalate contract-too-large "the contract and findings are over the Jev state cap (${COMPACT#jev: })" ;;
     *) escalate privacy "the contract could not be screened for secrets; nothing was sent" ;;

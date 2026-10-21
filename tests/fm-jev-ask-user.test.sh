@@ -438,12 +438,20 @@ test_escalates_oversized_or_secret_contract() {
   local code out
   world
   answer in-scope-fix 0.99 in-scope-fix 0.99
-  head -c 9000 /dev/zero | tr '\0' 'a' >> "$HOME_DIR/data/t1/brief.md"
-  sed -i.bak "s/^Make the parser/$(head -c 9000 /dev/zero | tr '\0' 'b') Make the parser/" "$HOME_DIR/data/t1/brief.md"
+  sed -i.bak "s/^Make the parser/$(head -c 32769 /dev/zero | tr '\0' 'b') Make the parser/" "$HOME_DIR/data/t1/brief.md"
   run code out t1 "$GATE" --round 1
-  assert_equals "$code" 2 "a contract over the state cap escalates"
+  assert_equals "$code" 2 "a contract over the state cap escalates without losing scope"
+  assert_contains "$out" "contract-too-large" "the contract size refusal is named"
+  assert_equals "$(calls)" 0 "an oversized contract never reaches Jev"
+  assert_absent "$LOG/send-args" "an oversized contract never answers the gate"
+
+  world
+  answer in-scope-fix 0.99 in-scope-fix 0.99
+  sed -i.bak "s/^description: No test covers/description: $(head -c 32769 /dev/zero | tr '\0' 'c') No test covers/" "$FINDINGS"
+  run code out t1 "$GATE" --round 1
+  assert_equals "$code" 2 "findings over the state cap escalate"
   assert_contains "$out" "contract-too-large" "the size cap is named"
-  assert_equals "$(calls)" 0 "an oversized contract is never truncated and sent"
+  assert_equals "$(calls)" 0 "oversized findings are never truncated and sent"
 
   world
   answer in-scope-fix 0.99 in-scope-fix 0.99
@@ -453,7 +461,99 @@ test_escalates_oversized_or_secret_contract() {
   assert_equals "$code" 2 "a secret-shaped steer escalates"
   assert_contains "$out" "privacy" "the privacy refusal is named"
   assert_equals "$(calls)" 0 "a secret never leaves the machine"
-  pass "fm-jev-ask-user: oversized or secret-bearing contracts escalate unsent"
+  pass "fm-jev-ask-user: oversized contracts, findings, or secrets escalate unsent"
+}
+
+test_compaction_keeps_scope_or_escalates() {
+  local section code out contract state
+  for section in intent spec steer; do
+    world
+    contract="$(printf 'The parser must preserve every field.\n%.0s' {1..300})
+MANDATORY SCOPE LIMIT: documentation-only; do not edit production code."
+    case "$section" in
+      intent)
+        printf "# Task\n## Captain's intent\n%s\n\n## Firstmate spec\nDocument the parser bug.\n" "$contract" > "$HOME_DIR/data/t1/brief.md"
+        ;;
+      spec)
+        printf "# Task\n## Captain's intent\nDocument the parser bug.\n\n## Firstmate spec\n%s\n" "$contract" > "$HOME_DIR/data/t1/brief.md"
+        ;;
+      steer)
+        printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' "$contract" > "$HOME_DIR/state/t1.inbox/002.msg"
+        ;;
+    esac
+    answer in-scope-fix 0.99 in-scope-fix 0.99
+    run code out t1 "$GATE" --round 1
+    if [ "$code" = 0 ]; then
+      state=$(jq -r .state "$LOG/body")
+      [[ "$state" == *"$contract"* ]] || fail "an autonomous decision lost the complete $section contract"
+    else
+      assert_equals 2 "$code" "an oversized $section contract escalates"
+      assert_contains "$out" "contract-too-large" "the incomplete $section contract is refused for size"
+      assert_equals 0 "$(calls)" "an incomplete $section contract never reaches Jev"
+      assert_absent "$LOG/send-args" "an incomplete $section contract never answers the gate"
+    fi
+  done
+  pass "fm-jev-ask-user: late scope limits survive or escalate without transport"
+}
+
+test_json_ci_gate_with_long_setup_is_decided() {
+  local code out state line
+  world
+  FINDINGS="$HOME_DIR/data/t1/nm-01M4TEST0000000000000000AB-ci-findings.txt"
+  printf '%s\n' '{"findings":[{"id":"ci-1","severity":"error","file":"","line":null,"action":"ask-user","description":"The first CI run failed on a flaky network fetch; the replacement run is green."}]}' > "$FINDINGS"
+  printf 'needs-decision [at=1791145829] [key=nm-01M4TEST0000000000000000AB-ci]: ask-user findings=ci-1 file=%s\n' "$FINDINGS" \
+    > "$HOME_DIR/state/t1.status"
+  {
+    printf '# Task\n## Captain'"'"'s intent\nMake the parser keep every field.\n'
+    printf '\n## Firstmate spec\nFix bin/parse.sh and keep the regression test.\n'
+    printf '\n# Setup\n'
+    for line in $(seq 1 240); do printf 'Setup detail %03d: boilerplate that never reaches Jev.\n' "$line"; done
+  } > "$HOME_DIR/data/t1/brief.md"
+  answer in-scope-fix 0.95
+  run code out t1 nm-01M4TEST0000000000000000AB-ci --round 1
+  assert_equals "$code" 0 "a one-finding JSON CI gate under a long brief is decided"
+  assert_contains "$out" "ACT nm-01M4TEST0000000000000000AB-ci: Jev decided fix ci-1" "the JSON id is judged"
+  state=$(jq -r .state "$LOG/body")
+  assert_contains "$state" "id: ci-1" "the JSON finding reaches Jev as an id line"
+  assert_contains "$state" "authority/action: ask-user" "the JSON action is read as the finding's authority"
+  assert_contains "$state" "the replacement run is green" "the JSON description reaches Jev verbatim"
+  assert_contains "$state" "Make the parser keep every field." "the complete intent reaches Jev"
+  assert_contains "$state" "Fix bin/parse.sh and keep the regression test." "the complete spec reaches Jev"
+  assert_not_contains "$state" "Setup detail" "non-contract setup is excluded"
+  assert_equals "$([ "$(printf '%s' "$state" | wc -c)" -le 8192 ] && echo under)" under "the complete contract fits the cap"
+  assert_equals "$(jq -c '.questions | keys' "$LOG/body")" '["f1","s1"]' "only the asked JSON id is a question"
+  pass "fm-jev-ask-user: a JSON CI gate under an over-cap brief retains the entire accepted contract"
+}
+
+test_ci_gate_with_oversized_accepted_contract_is_decided() {
+  local shape code out state intent spec steer gate=${GATE%-review}-ci
+  intent=$(printf 'Preserve every field, including the final record without a newline.\n%.0s' {1..140})
+  spec=$(printf 'Keep field ordering stable and test empty trailing fields.\n%.0s' {1..160})
+  steer=$(printf 'Keep existing parser behavior for records ending with a newline.\n%.0s' {1..140})
+  for shape in json toon; do
+    world
+    if [ "$shape" = json ]; then
+      printf '%s\n' '{"findings":[{"id":"ci-1","severity":"error","action":"ask-user","description":"The first CI run failed on a flaky network fetch; the replacement run is green."}]}' > "$FINDINGS"
+    else
+      printf 'gate:\n  findings[1]{id,severity,action,description}:\n    ci-1,error,ask-user,"The first CI run failed on a flaky network fetch; the replacement run is green."\n' > "$FINDINGS"
+    fi
+    printf 'needs-decision [at=1791145829] [key=%s]: ask-user findings=ci-1 file=%s\n' "$gate" "$FINDINGS" > "$HOME_DIR/state/t1.status"
+    printf "# Task\n## Captain's intent\n%s\n\n## Firstmate spec\n%s\n" "$intent" "$spec" > "$HOME_DIR/data/t1/brief.md"
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-04T20:02:00Z\n--\n%s\n' "$steer" > "$HOME_DIR/state/t1.inbox/002.msg"
+    answer in-scope-fix 0.95
+    run code out t1 "$gate" --round 1
+    assert_equals 0 "$code" "a $shape CI gate with an over-26-KiB accepted contract is decided: $out"
+    assert_equals 1 "$(calls)" "the full $shape contract reaches Jev once"
+    state=$(jq -r .state "$LOG/body")
+    [ "$(printf '%s' "$state" | wc -c)" -gt 26477 ] || fail "the $shape regression must exceed the reported contract size"
+    assert_contains "$state" "$intent" "the entire $shape intent reaches Jev"
+    assert_contains "$state" "$spec" "the entire $shape spec reaches Jev"
+    assert_contains "$state" "$steer" "the entire $shape steer reaches Jev"
+    assert_contains "$state" '[1] Also keep empty trailing fields.' "the handled $shape steer is retained"
+    assert_contains "$state" 'the replacement run is green' "the $shape finding is retained"
+    assert_contains "$(sed -n 4p "$LOG/send-args")" '--step ci --action fix --findings ci-1' "the $shape decision is delivered"
+  done
+  pass "fm-jev-ask-user: oversized JSON and TOON CI contracts reach Jev without scope loss"
 }
 
 test_record_errors_refuse() {
@@ -502,7 +602,7 @@ TGATE=nm-01M4TEST0000000000000000AB-test
 INCONCLUSIVE='live validation verdict: inconclusive (2 of 5 scenarios were driven live against the product); untested: Parse a live upstream feed that ends without a newline, Resume parsing after an interrupted download'
 NOOP_CONTEXT='The regression tests passed, but this step cannot reach the live upstream feed by design. Validate those outcomes outside the gate.'
 
-# test_world [lines|toon] [context-action] [asked-ids] [gate-key]: a test-step
+# test_world [lines|toon|json] [context-action] [asked-ids] [gate-key]: a test-step
 # gate whose snapshot holds a context finding T1 next to the asked inconclusive verdict T2.
 test_world() {
   local shape=${1:-lines} context=${2-no-op} asked=${3:-T2} gate=${4:-$TGATE}
@@ -516,6 +616,11 @@ gate:
     T1,warning,"",$context,"$NOOP_CONTEXT"
     T2,warning,"",ask-user,"$INCONCLUSIVE"
 TOON
+  elif [ "$shape" = json ]; then
+    jq -n --arg context "$context" --arg noop "$NOOP_CONTEXT" --arg inconclusive "$INCONCLUSIVE" '
+      {step: "test", findings: [
+        {id: "T1", severity: "warning", file: "", line: null, action: $context, description: $noop},
+        {id: "T2", severity: "warning", file: "", line: null, action: "ask-user", description: $inconclusive}]}' > "$FINDINGS"
   else
     {
       printf 'id: T1\nseverity: warning\nfile: ""\nline: ""\n'
@@ -535,7 +640,7 @@ approve_offered() {
 
 test_subset_snapshot_with_noop_context_approves() {
   local code out shape msg
-  for shape in lines toon; do
+  for shape in lines toon json; do
     test_world "$shape"
     ANSWER_APPROVE=1 answer approve-followup 0.9
     run code out t1 "$TGATE" --round 1
@@ -558,7 +663,7 @@ test_subset_snapshot_with_noop_context_approves() {
     assert_equals "$(last_log | jq -c '[.outcome, .code, .sent, .findings, .answers[0].choice]')" \
       '["act","decided",true,["T2"],"approve-followup"]' "the $shape approval is logged as Jev's"
   done
-  pass "fm-jev-ask-user: id-line and TOON subset snapshots with no-op context approve an inconclusive test gate"
+  pass "fm-jev-ask-user: id-line, TOON, and JSON subset snapshots with no-op context approve an inconclusive test gate"
 }
 
 test_snapshot_ids_must_cover_the_asked_ids() {
@@ -572,6 +677,11 @@ test_snapshot_ids_must_cover_the_asked_ids() {
   run code out t1 "$TGATE" --round 1
   assert_equals "$code" 1 "an asked id missing from a TOON snapshot is refused"
   assert_contains "$out" "does not list: T9" "the TOON missing id is named"
+
+  test_world json no-op T2,T9
+  run code out t1 "$TGATE" --round 1
+  assert_equals "$code" 1 "an asked id missing from a JSON snapshot is refused"
+  assert_contains "$out" "does not list: T9" "the JSON missing id is named"
 
   test_world lines no-op T2,T2
   run code out t1 "$TGATE" --round 1
@@ -701,6 +811,13 @@ test_screens_win_over_approve() {
   pass "fm-jev-ask-user: security, round-cap, always-escalate, and privacy screens win over approve"
 }
 
+# Optional function names keep failure reproduction focused on one behavior.
+if [ "$#" -gt 0 ]; then
+  for test_case in "$@"; do "$test_case" || exit "$?"; done
+  exit
+fi
+
+test_compaction_keeps_scope_or_escalates
 test_toon_quoted_commas_preserve_context_action
 test_privacy_corpus_before_transport
 test_real_dispatch_finding_before_transport
@@ -716,6 +833,8 @@ test_escalates_jev_errors
 test_escalates_wrong_or_missing_answer_type
 test_always_escalate_classes_skip_jev
 test_escalates_oversized_or_secret_contract
+test_json_ci_gate_with_long_setup_is_decided
+test_ci_gate_with_oversized_accepted_contract_is_decided
 test_record_errors_refuse
 test_send_failure_reports_error
 test_subset_snapshot_with_noop_context_approves
