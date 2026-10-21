@@ -244,6 +244,8 @@ PATH="$FAKEBIN:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$LARGE_CHILD_HOME" \
 large_child_bytes=$(wc -c < "$LARGE_CHILD_HOME/state/home-summary.json")
 [ "$large_child_bytes" -gt 131072 ] && [ "$large_child_bytes" -le 262144 ] \
   || fail "large child ledger did not cross only the per-argument limit: $large_child_bytes"
+jq -e '(.board.items | length) < 600 and .board.omitted.working > 0' "$LARGE_CHILD_HOME/state/home-summary.json" >/dev/null \
+  || fail "large child ledger did not bound its published board"
 mkdir -p "$LARGE_PARENT_HOME/state" "$LARGE_PARENT_HOME/data" \
   "$LARGE_PARENT_HOME/config" "$LARGE_PARENT_HOME/projects"
 printf -- '- large-child - fixture domain (home: %s; scope: fixture work; projects: firstmate; added 2026-08-28)\n' \

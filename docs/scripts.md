@@ -29,6 +29,9 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-fleet-view.sh`       | Render the fleet snapshot as a human Markdown view                                   |
 | `fm-theme.sh`            | Resolve the selected theme pack and render its chat voice, banner, and display-only status words |
 | `fm-bearings-snapshot.sh` | Project the bounded remote-ledger fleet snapshot to compact TOON; `--include-prs` adds live GitHub enrichment |
+| `fm-board.sh`            | Print the captain's attention board (needs you, ready to approve, working, queued, merged not live, live confirmed, done) recomputed from stored state, including secondmate homes |
+| `fm-board-lib.sh`        | Own the board's grouping rules and the stored records each home's board is derived from |
+| `fm-main-sync.sh`        | Keep pull requests that wait for approval current with main through GitHub's conflict-refusing update-branch, recording conflicts instead of forcing |
 | `fm-bearings-board.sh`   | Build and arm the stable interactive `/bearings lavish` fleet board, and keep it live from the snapshot while it is open |
 | `fm-secondmate-reconcile.sh` | Queue Bearings reconcile requests for later supervision delivery and ask each mismatched home through its durable inbox with a per-home cooldown |
 | `fm-update.sh`           | Guarded self-update of firstmate and local or remote secondmate homes, reconciling redundant divergence and classifying every live mate left on the target commit for restart or fallback nudge |

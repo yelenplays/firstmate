@@ -83,7 +83,8 @@
 #     observed status file's mtime instead: freshness is how fresh this snapshot's
 #     own observation is, never when a worker emitted the event.
 #     Each structured-home record carries active_children, decisions_open, holds,
-#     queued, landed, endpoints, counts, and omitted. provenance.summary_source
+#     queued, landed, endpoints, counts, omitted, and board (the home's published
+#     attention board, null from older producers). provenance.summary_source
 #     distinguishes "local-ledger", "remote-ledger", and "remote-ledger-cache";
 #     freshness is "cached" only for the cache source, and observed_at/age_seconds
 #     come from the selected summary's generation. Every successfully sampled home also carries
@@ -222,11 +223,14 @@ validate_positive_bound FM_SNAPSHOT_REGISTRY_TIMEOUT "$FM_SNAPSHOT_REGISTRY_TIME
 . "$SCRIPT_DIR/fm-merge-authority-lib.sh"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# shellcheck source=bin/fm-board-lib.sh
+. "$SCRIPT_DIR/fm-board-lib.sh"  # fm_board_home_json: the published board items
 
 usage() {
   cat <<'EOF'
 usage: fm-fleet-snapshot.sh --json
        fm-fleet-snapshot.sh --secondmate-home-summary
+       fm-fleet-snapshot.sh --secondmate-current-cached
        fm-fleet-snapshot.sh --backlog-json [backlog-path]
 
 Print a structured snapshot of the firstmate fleet.
@@ -244,6 +248,15 @@ inventory contradictions or unavailable child state invalid.
 kind=secondmate meta records are not child inventory for unowned_current or
 terminal_in_flight; they never have backlog rows.
 Its invalidity object names the normalized failure kind and affected ids.
+Its board object is that home's attention board (bin/fm-board-lib.sh), so a
+parent renders a secondmate's routed items without recomputing them. Each group
+keeps the bound of its nearest ledger surface (needs you the decisions bound;
+ready, working, and merged the children bound; queued the queued bound; live and
+done the landed bound), and board.omitted counts the rows each group left out.
+
+--secondmate-current-cached emits only the secondmate_current object, selected
+from local ledgers and the remote-summary cache without any remote fetch,
+crew-state read, or parent evidence, for readers on a no-network path.
 Actionable tasks-axi captain holds appear as decisions_open and stay visible in
 queued with hold_reason, hold_kind, hold_until,
 hold_bucket, hold_age_days, and plural blocker fields for downstream
@@ -284,6 +297,7 @@ case "${1:---json}" in
   --json) ;;
   --backlog-json) OUTPUT_MODE='backlog-json' ;;
   --secondmate-home-summary) OUTPUT_MODE=secondmate-home-summary ;;
+  --secondmate-current-cached) OUTPUT_MODE=secondmate-current-cached ;;
   --contribution-input) OUTPUT_MODE=contribution-input ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
@@ -981,7 +995,8 @@ secondmate_home_summary_json() {  # <backlog-json-file> <tasks-json-file>
     --argjson decisions_n "$FM_SNAPSHOT_SECONDMATE_DECISIONS" \
     --argjson landed_n "$FM_SNAPSHOT_SECONDMATE_LANDED_PER_HOME" \
     --slurpfile backlog "$1" \
-    --slurpfile tasks "$2" --slurpfile contributions "$CONTRIBUTIONS_JSON_FILE" "$FM_LANDED_JQ_DEFS"'
+    --slurpfile tasks "$2" --slurpfile contributions "$CONTRIBUTIONS_JSON_FILE" \
+    --slurpfile board "$BOARD_JSON_FILE" "$FM_LANDED_JQ_DEFS"'
     ($backlog[0]) as $backlog
     | ($tasks[0]) as $tasks
     | def trunc($n):
@@ -1106,6 +1121,15 @@ secondmate_home_summary_json() {  # <backlog-json-file> <tasks-json-file>
         schema:"fm-secondmate-home-summary.v1",
         hold_classifier_schema:"fm-captain-hold-buckets.v1",
         contributions:$contributions[0],
+        board:($board[0]
+          | {needs_you:$decisions_n, ready:$child_n, working:$child_n, queued:$queued_n, merged:$child_n,
+             live:(if $landed_n == 0 then null else $landed_n end), done:(if $landed_n == 0 then null else $landed_n end)} as $caps
+          | (.items | group_by(.group)
+             | map(.[0].group as $g | ($caps[$g] // null) as $cap
+                   | {group:$g, kept:(if $cap == null then . else .[:$cap] end),
+                      cut:(if $cap == null or length <= $cap then 0 else length - $cap end)})) as $bounded
+          | .items = [$bounded[].kept[]]
+          | .omitted = (reduce ($bounded[] | select(.cut > 0)) as $b ({}; . + {($b.group):$b.cut}))),
         generated:$generated,
         generated_epoch:$generated_epoch,
         home:$home,
@@ -1413,6 +1437,8 @@ JQ
 $remote_rows
 EOF
   [ -s "$manifest" ] || return 0
+  # The cached-only mode selects from the cache below without fetching.
+  [ "$OUTPUT_MODE" != secondmate-current-cached ] || return 0
 
   collector="$SNAPSHOT_COLLECT_DIR/collect.sh"
   cat > "$collector" <<'BASH'
@@ -1894,6 +1920,7 @@ secondmate_current_json() {  # <parent-tasks-json-file> <output-file>
          decisions_open:$summary.decisions_open,holds:$summary.holds,queued:$summary.queued,
          contributions:($summary.contributions // null),
          landed:$summary.landed,endpoints:$summary.endpoints,counts:$summary.counts,omitted:$summary.omitted,
+         board:($summary.board // null),
          parent_event:{raw:$event_raw,note:$event_note,age_seconds:$event_age,open_activities:$activities,open_decisions:$decisions,activity_scan:$activity_scan,reconciliation:$reconciliation},
          terminal_evidence:$terminal,contradiction:$contradiction}' >> "$records_file" || return 1
     else
@@ -2002,6 +2029,16 @@ if [ "$OUTPUT_MODE" = contribution-input ]; then
   jq -n --slurpfile backlog "$contribution_input_dir/backlog.json" --slurpfile tasks "$contribution_input_dir/tasks.json" '{backlog:$backlog[0],tasks:$tasks[0]}'
   exit 0
 fi
+if [ "$OUTPUT_MODE" = secondmate-current-cached ]; then
+  JSON_TRANSPORT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/fm-fleet-snapshot.XXXXXX") \
+    || { echo "fm-fleet-snapshot: temporary transport directory creation failed" >&2; exit 1; }
+  printf '[]\n' > "$JSON_TRANSPORT_DIR/no-tasks.json" \
+    || { echo "fm-fleet-snapshot: temporary task file write failed" >&2; exit 1; }
+  secondmate_current_json "$JSON_TRANSPORT_DIR/no-tasks.json" "$JSON_TRANSPORT_DIR/secondmate-current.json" \
+    || { echo "fm-fleet-snapshot: registered secondmate aggregation failed" >&2; exit 1; }
+  cat "$JSON_TRANSPORT_DIR/secondmate-current.json"
+  exit $?
+fi
 prefetch_task_current_states || { echo "fm-fleet-snapshot: task observation failed" >&2; exit 1; }
 TASKS_JSON=$(task_json_lines) || { echo "fm-fleet-snapshot: task snapshot failed" >&2; exit 1; }
 
@@ -2030,6 +2067,9 @@ FM_CONTRIBUTIONS_NOW="$SNAPSHOT_NOW" "$SCRIPT_DIR/fm-contributions.sh" snapshot 
   || { echo "fm-fleet-snapshot: contribution coverage unavailable" >&2; exit 1; }
 
 if [ "$OUTPUT_MODE" = secondmate-home-summary ]; then
+  BOARD_JSON_FILE="$JSON_TRANSPORT_DIR/board.json"
+  fm_board_home_json "$STATE" "$BACKLOG_JSON_FILE" > "$BOARD_JSON_FILE" \
+    || { echo "fm-fleet-snapshot: board derivation failed" >&2; exit 1; }
   secondmate_home_summary_json "$BACKLOG_JSON_FILE" "$TASKS_JSON_FILE" \
     || { echo "fm-fleet-snapshot: secondmate home summary failed" >&2; exit 1; }
   exit 0
