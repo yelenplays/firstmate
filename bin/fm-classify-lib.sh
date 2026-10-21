@@ -304,6 +304,39 @@ _fm_status_line_is_event() {  # <line> <legacy-captain-re>
   _fm_classify_matches "$unstamped" "$2"
 }
 
+# The last status event that says where the work stands: last_status_line
+# without informational events (note:, and the resolved: and captain-held:
+# bookkeeping verbs), which annotate a state without changing it. Empty when
+# the log holds no such event. A resolved line is skipped here even though it
+# closes a decision, so a caller that needs open decisions folds them with
+# status_open_decisions rather than reading this line's verb.
+last_lifecycle_status_line() {  # <status-file>
+  local f=$1 scan=''
+  [ -f "$f" ] && [ -r "$f" ] || return 0
+  if ! scan=$(tail -n "$FM_CLASSIFY_EVENT_WINDOW_LINES" "$f" 2>/dev/null | _fm_status_lifecycle_scan); then
+    scan=$(_fm_status_lifecycle_scan < "$f") || :
+  fi
+  [ -z "$scan" ] || printf '%s\n' "$scan"
+}
+
+# Print the last lifecycle event on stdin; return 1 when there is none, so a
+# caller reading a bounded window knows to widen it.
+_fm_status_lifecycle_scan() {
+  local line last='' life_verb legacy_re resolve held
+  legacy_re="^[[:space:]]*(${FM_CAPTAIN_RE:-$FM_CLASSIFY_CAPTAIN_RE_DEFAULT})"
+  resolve=${FM_CLASSIFY_RESOLVE_VERB:-$FM_CLASSIFY_RESOLVE_VERB_DEFAULT}
+  held=${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in *[![:space:]]*) ;; *) continue ;; esac
+    _fm_status_line_is_event "$line" "$legacy_re" || continue
+    case "$line" in *:*) status_line_verb "$line" life_verb ;; *) life_verb='' ;; esac
+    case "$life_verb" in note|"$resolve"|"$held") continue ;; esac
+    last=$line
+  done
+  printf '%s' "$last"
+  [ -n "$last" ]
+}
+
 # 0 when <line> matches the extended regex <pattern> case-insensitively, leaving
 # the caller's nocasematch setting untouched.
 _fm_classify_matches() {  # <line> <pattern>

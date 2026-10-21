@@ -6,7 +6,8 @@
 # The board answers "what needs me" for one home by reading only durable
 # records, every time it is asked: the canonical backlog JSON
 # (bin/fm-fleet-snapshot.sh --backlog-json), each task's state/<id>.meta, the
-# open-decision fold and latest event of its state/<id>.status log
+# open-decision fold, latest event, and latest lifecycle event (note:,
+# resolved:, and captain-held: skipped) of its state/<id>.status log
 # (bin/fm-classify-lib.sh), the merge poll's merged marker (bin/fm-pr-lib.sh),
 # post-merge watch records (bin/fm-post-merge-lib.sh), and main-sync records
 # (bin/fm-main-sync.sh). It keeps no state of its own, never probes a pane, and
@@ -22,8 +23,9 @@
 #              failed task, a ready branch that conflicts with main, or a
 #              post-merge watch that is reverting or blocked
 #   ready      an unmerged ship with a recorded or reported PR and a latest
-#              done event (or no event), or a local-only ship with a done event,
-#              unless an earlier rule above requires attention
+#              lifecycle event of done (or none), or a local-only ship with a
+#              done one, unless an earlier rule above requires attention; a
+#              later note or unrelated resolution keeps it ready
 #   working    every other task with task metadata, including PR-less ship
 #              handoffs and in-flight backlog rows missing their task record
 #   queued     queued backlog work and non-live captain holds, with why
@@ -74,7 +76,7 @@ fm_board_pr_merged() {  # <state> <id> <url>
 # One JSON object per line for every task record (state/<id>.meta) except
 # secondmate seats, whose children come from their own home's board.
 fm_board_task_facts() {  # <state>
-  local state=$1 meta id kind mode spawn_gen pr pr_head status open last verb note at
+  local state=$1 meta id kind mode spawn_gen pr pr_head status open last verb note at life life_verb life_note
   local wait reported_pr merged sync sync_result sync_head sync_detail
   for meta in "$state"/*.meta; do
     [ -f "$meta" ] && [ ! -L "$meta" ] || continue
@@ -98,10 +100,19 @@ fm_board_task_facts() {  # <state>
       status_line_note "$last" note
       at=$(status_line_at_epoch "$last" 2>/dev/null) || at=
     fi
+    # Readiness follows the last lifecycle event, so a note after done keeps
+    # the ship waiting for approval and its reported PR URL.
+    life=$(last_lifecycle_status_line "$status")
+    life_verb=
+    life_note=
+    if [ -n "$life" ]; then
+      status_line_verb "$life" life_verb
+      status_line_note "$life" life_note
+    fi
     wait=$(status_declared_wait_line "$status")
     reported_pr=
-    if [ "$verb" = "done" ]; then
-      reported_pr=$(fm_board_first_pr_url "$note") || reported_pr=
+    if [ "$life_verb" = "done" ]; then
+      reported_pr=$(fm_board_first_pr_url "$life_note") || reported_pr=
     fi
     merged=false
     if [ -n "${pr:-$reported_pr}" ] && fm_board_pr_merged "$state" "$id" "${pr:-$reported_pr}"; then
@@ -114,6 +125,7 @@ fm_board_task_facts() {  # <state>
     jq -cn --arg id "$id" --arg kind "${kind:-ship}" --arg mode "$mode" \
       --arg spawn_gen "$spawn_gen" --arg pr "$pr" --arg pr_head "$pr_head" \
       --arg open "$open" --arg verb "$verb" --arg note "$note" --arg at "$at" \
+      --arg life_verb "$life_verb" --arg life_note "$life_note" \
       --arg wait "$wait" --arg reported_pr "$reported_pr" --argjson merged "$merged" \
       --arg sync_result "$sync_result" --arg sync_head "$sync_head" --arg sync_detail "$sync_detail" '
       def nonempty: if . == "" then null else . end;
@@ -123,6 +135,7 @@ fm_board_task_facts() {  # <state>
              | {key:.[0],verb:.[1],summary:(.[2] // "")}],
        last:{verb:($verb | nonempty),note:($note | nonempty),
              at:(if ($at | test("^[0-9]+$")) then ($at | tonumber) else null end)},
+       life:{verb:($life_verb | nonempty),note:($life_note | nonempty)},
        wait:($wait | nonempty),reported_pr:($reported_pr | nonempty),merged:$merged,
        sync:(if $sync_result == "" then null
              else {result:$sync_result,head:($sync_head | nonempty),detail:($sync_detail | nonempty)} end)}'
@@ -184,11 +197,11 @@ FM_BOARD_JQ_DEFS='
        elif (.open | length) > 0 then
          (.open[-1]) as $o
          | {group:"needs_you", reason:$o.verb, detail:(($o.summary // "") | trunc(160))}
-       elif .last.verb == "failed" then
-         {group:"needs_you", reason:"failed", detail:((.last.note // "") | trunc(160))}
+       elif .life.verb == "failed" then
+         {group:"needs_you", reason:"failed", detail:((.life.note // "") | trunc(160))}
        elif .merged then
          {group:"merged", reason:"merged", detail:"merged; landing not confirmed yet"}
-       elif .kind == "ship" and ready_url != null and (.last.verb == "done" or .last.verb == null) then
+       elif .kind == "ship" and ready_url != null and (.life.verb == "done" or .life.verb == null) then
          (if .sync != null and .sync.result == "conflict" and (.sync.head == null or .sync.head == .pr_head) then
             {group:"needs_you", reason:"conflict",
              detail:(("ready, but conflicts with main" + (if .sync.detail then ": " + .sync.detail else "" end)) | trunc(160))}
@@ -197,12 +210,12 @@ FM_BOARD_JQ_DEFS='
              detail:(if .sync != null and .sync.result == "synced" then "waiting for approval; kept current with main"
                      else "waiting for approval" end)}
           end)
-       elif .kind == "ship" and .mode == "local-only" and .last.verb == "done" then
+       elif .kind == "ship" and .mode == "local-only" and .life.verb == "done" then
          {group:"ready", reason:"approval", detail:"local ready branch waiting for approval"}
-       elif .last.verb == "done" and .kind == "ship" then
-         {group:"working", reason:"handoff", detail:(("finished; landing step not started: " + (.last.note // "")) | trunc(160))}
-       elif .last.verb == "done" then
-         {group:"done", reason:"reported", detail:((.last.note // "finished") | trunc(160))}
+       elif .life.verb == "done" and .kind == "ship" then
+         {group:"working", reason:"handoff", detail:(("finished; landing step not started: " + (.life.note // "")) | trunc(160))}
+       elif .life.verb == "done" then
+         {group:"done", reason:"reported", detail:((.life.note // "finished") | trunc(160))}
        else
          {group:"working", reason:(.last.verb // "working"),
           detail:((.wait // (if .last.verb then (.last.note // "") else "no status yet" end)) | trunc(160))}

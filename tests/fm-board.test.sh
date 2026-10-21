@@ -197,6 +197,36 @@ assert_contains "$(field_of "$OUT" recorded-ready detail)" "kept current with ma
 OUT=$(board_json "$H" "$FB" --home-only)
 assert_equals merged "$(group_of "$OUT" missed-ready)" "a PR the merge poll saw merged is no longer waiting for approval"
 
+# --- 2b. informational events after ready -----------------------------------
+# A note or an unrelated resolution annotates a state without changing it, so a
+# ready ship stays ready and keeps its reported URL; resumed work does not.
+N=$(new_home notes)
+cat > "$N/data/backlog.md" <<'EOF'
+## In flight
+- [ ] noted-recorded - Ready ship with a recorded PR, then a note (repo: firstmate) (kind: ship) (since 2026-10-19)
+- [ ] noted-reported - Ready ship whose PR was only reported, then a note (repo: firstmate) (kind: ship) (since 2026-10-19)
+- [ ] late-resolve - Ready ship, then an earlier decision resolved (repo: firstmate) (kind: ship) (since 2026-10-19)
+- [ ] resumed - Ready ship whose worker went back to work (repo: firstmate) (kind: ship) (since 2026-10-19)
+- [ ] broke-noted - Failed ship, then a note (repo: firstmate) (kind: ship) (since 2026-10-19)
+EOF
+write_ship "$N" noted-recorded "pr=https://github.com/acme/repo/pull/180" "pr_head=cccccccccccccccccccccccccccccccccccccccc"
+printf 'done [at=1792190000]: PR https://github.com/acme/repo/pull/180 checks green\nnote [at=1792190100]: review evidence collected\n' > "$N/state/noted-recorded.status"
+write_ship "$N" noted-reported
+printf 'done [at=1792190000]: PR https://github.com/acme/repo/pull/181 checks green\nnote [at=1792190100]: review evidence collected\n' > "$N/state/noted-reported.status"
+write_ship "$N" late-resolve
+printf 'needs-decision [key=api]: keep the flag?\ndone [at=1792190000]: PR https://github.com/acme/repo/pull/182 checks green\nresolved [key=api]: keep it\n' > "$N/state/late-resolve.status"
+write_ship "$N" resumed "pr=https://github.com/acme/repo/pull/183"
+printf 'done: PR https://github.com/acme/repo/pull/183 checks green\nworking: addressing review\nnote: halfway\n' > "$N/state/resumed.status"
+write_ship "$N" broke-noted
+printf 'failed: the build cannot run on this host\nnote: tried a second host\n' > "$N/state/broke-noted.status"
+OUT=$(board_json "$N" "$FB" --home-only) || fail "board --json exits zero with notes after ready"
+assert_equals ready "$(group_of "$OUT" noted-recorded)" "a note after a recorded ready PR keeps it ready to approve"
+assert_equals ready "$(group_of "$OUT" noted-reported)" "a note after a reported-only ready PR keeps it ready to approve"
+assert_equals https://github.com/acme/repo/pull/181 "$(field_of "$OUT" noted-reported url)" "a note does not erase the reported PR URL"
+assert_equals ready "$(group_of "$OUT" late-resolve)" "an unrelated resolution after ready keeps it ready"
+assert_equals working "$(group_of "$OUT" resumed)" "work resumed after ready is working, even under a later note"
+assert_equals needs_you "$(group_of "$OUT" broke-noted)" "a note after a failure keeps it needing the captain"
+
 # --- 3. secondmate homes ----------------------------------------------------
 mate_home() {  # <parent> <id> -> registered local secondmate home
   local parent=$1 id=$2 mate="$TMP_ROOT/$2-home"
@@ -254,4 +284,3 @@ if [ -s "$H/net.log" ] || [ -s "$P/net.log" ]; then
 else
   pass "board paths made no network call"
 fi
-

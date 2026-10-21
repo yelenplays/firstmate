@@ -7,7 +7,9 @@
 # else moved, a fork head, and a draft are left alone; a head this command moved
 # itself is re-recorded through fm-pr-check before the next step; a task that is
 # not ready, and a local-only ready branch, are never touched; named tasks
-# limit the walk.
+# limit the walk; an overlapping run skips while another holds the lock, and a
+# run that loses the expected-head race keeps the synced record so the next
+# run still adopts the sync merge.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -32,7 +34,8 @@ CHECKLOG="$TMP_ROOT/pr-check.log"
 
 # The fake gh answers from files under $GHFAKE: <n>.view for `pr view`,
 # compare/<base...head> for a comparison's behind_by, and <n>.update-fail as
-# the stderr of a refused update-branch.
+# the stderr of a refused update-branch. While <n>.update-gate exists an
+# update-branch call marks <n>.update-entered and waits for the gate to go.
 FB=$(fm_fakebin "$TMP_ROOT/fakebin")
 cat > "$FB/gh" <<'SH'
 #!/usr/bin/env bash
@@ -47,6 +50,10 @@ case "$1 $2" in
     path=$4
     n=${path%/update-branch}
     n=${n##*/}
+    if [ -f "$GHFAKE/$n.update-gate" ]; then
+      touch "$GHFAKE/$n.update-entered"
+      for _ in $(seq 300); do [ -f "$GHFAKE/$n.update-gate" ] || break; sleep 0.1; done
+    fi
     if [ -f "$GHFAKE/$n.update-fail" ]; then
       cat "$GHFAKE/$n.update-fail" >&2
       exit 1
@@ -112,7 +119,7 @@ run_sync() {
 
 {
   printf '## In flight\n'
-  for id in behind conflicting moved fork current refused own worker offbase retry draft local busy; do
+  for id in behind conflicting moved fork current refused own worker offbase retry draft local busy racer; do
     printf -- '- [ ] %s - Task %s (repo: firstmate) (kind: ship) (since 2026-10-19)\n' "$id" "$id"
   done
   printf '\n## Queued\n\n## Done\n'
@@ -231,4 +238,44 @@ sed -i.bak "s/^pr_head=.*/pr_head=$(sha 3 a)/" "$H/state/conflicting.meta"
 BOARD=$(PATH="$FB:$PATH" GHLOG="$GHLOG" FM_HOME="$H" "$ROOT/bin/fm-board.sh" --json --home-only)
 assert_equals conflicting "$(printf '%s' "$BOARD" | jq -r '.groups.ready[] | select(.id == "conflicting") | .id')" \
   "a conflict at an older head no longer holds the PR under needs you"
+
+# --- overlapping runs keep the synced receipt ---------------------------------
+H13=$(sha 5 a); H13B=$(sha 5 b); BASE13=$(sha 5 c)
+ready_ship racer 13 "$H13"; view 13 OPEN false false "$H13" MERGEABLE
+echo 2 > "$GHFAKE/compare/main...$H13"
+: > "$GHLOG"
+touch "$GHFAKE/13.update-gate"
+run_sync racer > "$TMP_ROOT/first-run.out" 2>&1 &
+FIRST=$!
+for _ in $(seq 300); do [ -f "$GHFAKE/13.update-entered" ] && break; sleep 0.1; done
+assert_present "$GHFAKE/13.update-entered" "the first run reached its update"
+OUT=$(run_sync racer 2>&1) || fail "an overlapping run exits zero: $OUT"
+assert_contains "$OUT" "fm-main-sync skipped: another run holds" "an overlapping run skips while the first holds the lock"
+assert_absent "$H/state/racer.main-sync" "the overlapping run writes no record"
+rm -f "$GHFAKE/13.update-gate"
+wait "$FIRST" || fail "the first run exits zero: $(cat "$TMP_ROOT/first-run.out")"
+assert_equals synced "$(sync_field racer result)" "the first run records its sync"
+assert_equals 1 "$(grep -c 'pulls/13/update-branch' "$GHLOG")" "only the lock holder called update-branch"
+
+# A run that read the old head before the forge moved it loses the
+# expected-head race; it must keep the synced record adoption depends on.
+echo 'gh: head SHA does not match expected_head_sha (HTTP 422)' > "$GHFAKE/13.update-fail"
+OUT=$(run_sync racer 2>&1) || fail "the race-losing run exits zero: $OUT"
+assert_contains "$OUT" "racer skipped: update-branch failed after an earlier sync" "the lost race is reported"
+assert_equals synced "$(sync_field racer result)" "a lost expected-head race keeps the synced record"
+assert_equals "$H13" "$(sync_field racer head)" "the kept record still names the head the sync applied to"
+
+# The next run sees the sync merge, adopts it, and keeps the branch current.
+rm -f "$GHFAKE/13.update-fail"
+view 13 OPEN false false "$H13B" MERGEABLE
+echo "$H13 $BASE13" > "$GHFAKE/commits/$H13B"
+echo 0 > "$GHFAKE/compare/$H13...$H13B"
+echo 0 > "$GHFAKE/compare/$BASE13...main"
+echo 1 > "$GHFAKE/compare/main...$H13B"
+echo "$H13B" > "$GHFAKE/new-head"
+OUT=$(run_sync racer 2>&1) || fail "the adopting run exits zero: $OUT"
+assert_grep 'racer https://github.com/acme/repo/pull/13' "$CHECKLOG" "the next run re-records the sync merge"
+assert_equals synced "$(sync_field racer result)" "the adopted head is synced again"
+assert_equals "$H13B" "$(sync_field racer head)" "the new record follows the adopted head"
+assert_grep "pulls/13/update-branch -f expected_head_sha=$H13B" "$GHLOG" "the next update is pinned to the adopted head"
 pass "fm-main-sync keeps waiting pull requests current without forcing anything"

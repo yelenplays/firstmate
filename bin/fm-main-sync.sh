@@ -43,6 +43,10 @@
 # If re-recording a verified sync merge fails, it also prints skipped and leaves
 # the synced record at the old head untouched, so the next run retries adoption
 # instead of refusing that merge as an unrelated head move.
+# One run at a time per home holds state/.main-sync.lock and reads its tasks
+# only once it holds it; a run that finds the lock held by a live process prints
+# a skip and exits zero. A failed update never replaces a synced record for the
+# same head, since that record is the evidence adoption needs.
 # Tasks lacking recorded PR metadata, unsupported forges, and local-only tasks
 # are skipped silently.
 set -u
@@ -61,9 +65,17 @@ command -v gh >/dev/null 2>&1 || { echo "fm-main-sync: gh not found" >&2; exit 1
 
 # shellcheck source=bin/fm-board-lib.sh
 . "$SCRIPT_DIR/fm-board-lib.sh"
+# shellcheck source=bin/fm-wake-lib.sh
+. "$SCRIPT_DIR/fm-wake-lib.sh"
 
+LOCK="$STATE/.main-sync.lock"
+LOCK_HELD=0
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-main-sync.XXXXXX") || exit 1
-trap 'rm -rf -- "$TMP"' EXIT
+cleanup() {
+  [ "$LOCK_HELD" = 0 ] || fm_lock_release "$LOCK" || true
+  rm -rf -- "$TMP"
+}
+trap cleanup EXIT
 
 record() {  # <id> <spawn_gen> <pr> <head> <base> <result> <detail>
   local tmp
@@ -161,10 +173,22 @@ sync_one() {  # <facts-json-line>
     record "$id" "$spawn_gen" "$url" "$head" "$base" synced "merged $behind new $base commits into the branch"
   elif grep -qi 'conflict' "$TMP/err"; then
     record "$id" "$spawn_gen" "$url" "$head" "$base" conflict "GitHub refused to merge $base: $(head -c 120 "$TMP/err")"
+  elif [ "$(fm_board_record_get "$STATE/$id.main-sync" result)" = synced ] \
+      && [ "$(fm_board_record_get "$STATE/$id.main-sync" head)" = "$head" ]; then
+    echo "$id skipped: update-branch failed after an earlier sync of this head, keeping its record: $(head -c 160 "$TMP/err")"
   else
     record "$id" "$spawn_gen" "$url" "$head" "$base" error "update-branch failed: $(head -c 160 "$TMP/err")"
   fi
 }
+
+# Two overlapping runs would race the same recorded head, and the loser's
+# refusal would replace the winner's synced record. The holder's pid lives in
+# the lock, so a run started by a replacement watcher still waits its turn.
+if ! fm_lock_try_acquire "$LOCK"; then
+  echo "fm-main-sync skipped: another run holds $LOCK${FM_LOCK_HELD_PID:+ (pid $FM_LOCK_HELD_PID)}"
+  exit 0
+fi
+LOCK_HELD=1
 
 "$SCRIPT_DIR/fm-fleet-snapshot.sh" --backlog-json > "$TMP/backlog.json" \
   || { echo "fm-main-sync: backlog read failed" >&2; exit 1; }
