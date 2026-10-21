@@ -83,6 +83,7 @@ scan_text() {
     while ($line =~ /(?:^|[\s`"\x27(>*])!\s+(?=[^\n]*?(?:\bsudo\b|\bdarwin-rebuild\b|\bnixos-rebuild\b|\brebuild\.sh\b|\blogin\b|\bauth\s+refresh\b|\bpasswd\b|\badd-generic-password\b|\bop\s+signin\b))/g) {
       my $before = lc substr($line, 0, $-[0]);
       $before =~ s/^.*(?:[,;:.?!]|\s[-\x{2013}\x{2014}]\s)//;
+      $before =~ s/^.*\s[-\x{2013}\x{2014}]\s*$//;
       # Preserve the longer rule quotation without allowing distant negation.
       next if $before =~ /\bnever\s+hand\s+the\s+captain\s+a\s*$/;
       my @words = $before =~ /[\w\x27]+/g;

@@ -54,7 +54,7 @@ test_scan_flags_handed_over_interactive_lines() {
     'Kein Problem: `! sudo -v`' 'No problem, run `! gh auth login`' \
     'Never use the old command; run `! sudo -v` instead.' 'keine Sorge einfach ! sudo -v' \
     'nicht vergessen ! sudo -v' "don't forget ! sudo -v" 'vergiss nicht ! sudo -v' \
-    'No worries - run ! sudo -v' 'Not sure? run ! sudo -v' \
+    'No worries - run ! sudo -v' 'Not sure? run ! sudo -v' 'never again - ! sudo -v' \
     'Not only run ! sudo darwin-rebuild switch' 'Nicht nur ! sudo darwin-rebuild switch' \
     'Not just ! sudo -v' 'not merely run ! sudo -v' 'Nicht bloß ! sudo -v' 'nicht lediglich ! sudo -v'; do
     out=$(printf '%s\n' "$text" | "$GUARD" scan); rc=$?
