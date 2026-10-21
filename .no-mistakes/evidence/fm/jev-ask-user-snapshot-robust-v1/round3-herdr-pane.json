@@ -1,0 +1,22 @@
+{
+  "id": "cli:pane:get",
+  "result": {
+    "pane": {
+      "agent_status": "unknown",
+      "cwd": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG",
+      "focused": true,
+      "foreground_cwd": "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG",
+      "pane_id": "w1:p1",
+      "revision": 0,
+      "scroll": {
+        "max_offset_from_bottom": 0,
+        "offset_from_bottom": 0,
+        "viewport_rows": 40
+      },
+      "tab_id": "w1:t1",
+      "terminal_id": "term_65e567c5be6be1",
+      "workspace_id": "w1"
+    },
+    "type": "pane_info"
+  }
+}

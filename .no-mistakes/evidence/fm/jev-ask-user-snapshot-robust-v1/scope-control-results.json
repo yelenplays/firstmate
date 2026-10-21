@@ -1,0 +1,149 @@
+[
+  {
+    "name": "base-json-repro",
+    "exit": 1,
+    "output": "fm-jev-ask-user: the snapshot lists no findings (want id: lines or findings[N]{id,...} rows)\n"
+  },
+  {
+    "name": "base-overcap-repro",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVECONTROL-review contract-too-large: the contract and findings are over the Jev state cap (state exceeds 8192 bytes)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:15:30Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVECONTROL-review",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "escalate",
+        "code": "contract-too-large",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null,
+        "caller": "ask-user-gate"
+      }
+    ]
+  },
+  {
+    "name": "full-scope-control",
+    "exit": 2,
+    "output": "ESCALATE nm-LIVECONTROL-review jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=expands-contract@0.47)\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:15:31Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVECONTROL-review",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "escalate",
+        "code": "jev-class",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "F1",
+            "choice": "expands-contract",
+            "confidence": 0.47,
+            "meets_floor": false,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 640,
+        "sent": null,
+        "caller": "ask-user-gate"
+      }
+    ],
+    "request_state_bytes": 14025,
+    "contains_scope_limit": true
+  },
+  {
+    "name": "latest-steer-trimmed",
+    "exit": 1,
+    "output": "ACT nm-LIVECONTROL-review: Jev decided fix F1 (F1=in-scope-fix@0.97)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVECONTROL-review, step review, round 1; F1=in-scope-fix@0.97). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nerror: no-mistakes gate agent must not drive the fleet (NO_MISTAKES_GATE set)\nfm-jev-ask-user: Jev decided, but the answer did not reach the worker; resend the message above with fm-send --resolve-key nm-LIVECONTROL-review\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:15:33Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVECONTROL-review",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "act",
+        "code": "send-failed",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "F1",
+            "choice": "in-scope-fix",
+            "confidence": 0.97,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 395,
+        "sent": false,
+        "caller": "ask-user-gate"
+      }
+    ],
+    "request_state_bytes": 8079,
+    "contains_scope_limit": false
+  },
+  {
+    "name": "latest-steer-full-control",
+    "exit": 1,
+    "output": "ACT nm-LIVECONTROL-review: Jev decided fix F1 (F1=in-scope-fix@0.92)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVECONTROL-review, step review, round 1; F1=in-scope-fix@0.92). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nerror: no-mistakes gate agent must not drive the fleet (NO_MISTAKES_GATE set)\nfm-jev-ask-user: Jev decided, but the answer did not reach the worker; resend the message above with fm-send --resolve-key nm-LIVECONTROL-review\n",
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:15:34Z",
+        "purpose": "ask-user-gate",
+        "task": "t1",
+        "key": "nm-LIVECONTROL-review",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "act",
+        "code": "send-failed",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "F1",
+            "choice": "in-scope-fix",
+            "confidence": 0.92,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 386,
+        "sent": false,
+        "caller": "ask-user-gate"
+      }
+    ],
+    "request_state_bytes": 14033,
+    "contains_scope_limit": true
+  }
+]

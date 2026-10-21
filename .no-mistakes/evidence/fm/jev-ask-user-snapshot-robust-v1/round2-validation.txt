@@ -1,0 +1,25 @@
+Target: 6f05c00619bacf39e10f45c6debaadc081efda3c
+Base: 77517e0de3c83c5249361cb8caaf175d9ddd240a
+Verdict: NO-GO — the original over-cap accepted-contract failure remains.
+
+Real executable checks
+- JSON object and bare-array snapshots reached real TypeSafe Jev 1.13.0. Both produced confident in-scope-fix decisions. Production fm-send wrote durable inbox messages and resolved the named decisions.
+- An over-cap non-contract Setup section did not block JSON CI or TOON review evaluation. TOON review acted. The JSON CI finding reached real Jev (HTTP 200), but confidence was 0.59; the confidence floor correctly kept the decision open without sending. The first driver asserted autonomous action for that underspecified finding, so its raw result says FAIL. That is conservative semantic uncertainty, not a reproduced mechanical refusal. It is not presented as autonomous CI approval.
+- Late documentation-only restrictions in intent, spec, and an already-handled steer each caused contract-too-large with jev_called=false and no outbound instruction. This fixes the previous unsafe authority-loss failure.
+- Missing and duplicate JSON ids were rejected. JSON security concerns and round 4 escalated before transport.
+
+Remaining required failure (remaining-cap-regression.json)
+- Base short JSON snapshot: exit 1, snapshot lists no findings.
+- Base long TOON contract: exit 2, contract-too-large.
+- Target same one-finding green CI gate, JSON and TOON, with 26,477-byte accepted intent/spec: exit 2, contract-too-large; jev_called=false; decision remains open.
+- This is not an oversized finding: its description is a short request to refresh delivery evidence to the passing replacement run. The size comes from repeated accepted requirements. Copies of the exact brief and JSON finding are attached.
+- The new test test_json_ci_gate_with_long_setup_is_decided only enlarges excluded Setup text, so it does not demonstrate removal of the reported accepted-contract size failure.
+
+Focused deterministic checks
+bash tests/fm-jev-ask-user.test.sh test_json_ci_gate_with_long_setup_is_decided test_compaction_keeps_scope_or_escalates test_subset_snapshot_with_noop_context_approves test_snapshot_ids_must_cover_the_asked_ids test_escalates_oversized_or_secret_contract test_screens_win_over_approve
+All selected checks completed successfully. Their canned transport is not claimed as live evidence.
+
+Isolation and evidence scope
+Named Herdr session fm-lab-jev-snapshot-3587-22397 only. fm-herdr-lab provision internally performs prepare; an initial separate prepare caused a tripwire refusal, corrected by guarded teardown then provision. Production Herdr calls were session-restricted through the lab helper. Receiver: real /bin/cat in pane w1:p1, deliberately not a worker harness and never executing suggested pipeline commands. Live proof ends at real durable delivery and decision closure, not worker consumption. No no-mistakes control command, broad suite, linter, formatter, push, PR, or CI phase was run.
+Guarded teardown succeeded and verified the default-session tripwire. Final session-list check: lab_present=false, default_running=true. Transient worktree files and the temporary base executable were removed; git status is clean.
+No screenshot was captured: this change has CLI/API and durable-record surfaces, not a rendered UI change.

@@ -1,0 +1,46 @@
+[
+  {
+    "name": "json-review",
+    "pass": true
+  },
+  {
+    "name": "bare-array",
+    "pass": true
+  },
+  {
+    "name": "json-ci-long-setup",
+    "pass": false
+  },
+  {
+    "name": "toon-long-setup",
+    "pass": true
+  },
+  {
+    "name": "late-scope-intent",
+    "pass": true
+  },
+  {
+    "name": "late-scope-spec",
+    "pass": true
+  },
+  {
+    "name": "late-scope-steer",
+    "pass": true
+  },
+  {
+    "name": "missing-id",
+    "pass": true
+  },
+  {
+    "name": "duplicate-id",
+    "pass": true
+  },
+  {
+    "name": "json-risk",
+    "pass": true
+  },
+  {
+    "name": "json-round-cap",
+    "pass": true
+  }
+]

@@ -1,0 +1,1 @@
+{"findings": [{"id": "ci-1", "severity": "error", "action": "ask-user", "description": "The first CI run failed on a flaky network fetch; the replacement run is green. Refresh the delivery evidence to refer to the passing replacement run."}]}

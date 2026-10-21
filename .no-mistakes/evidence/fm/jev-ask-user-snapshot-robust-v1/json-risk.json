@@ -1,0 +1,29 @@
+{
+  "name": "json-risk",
+  "exit": 2,
+  "output": "ESCALATE nm-01M4TEST0000000000000000AB-review always-escalate: a finding names a security, credential, destructive, irreversible, or data-loss concern\n",
+  "status": "needs-decision [at=1791145829] [key=nm-01M4TEST0000000000000000AB-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/json-risk/findings.txt\n",
+  "inbox": {},
+  "metadata_log": {
+    "ts": "2026-10-21T09:27:06Z",
+    "purpose": "ask-user-gate",
+    "task": "json-risk",
+    "key": "nm-01M4TEST0000000000000000AB-review",
+    "round": 1,
+    "findings": [
+      "F1"
+    ],
+    "outcome": "escalate",
+    "code": "always-escalate",
+    "jev_called": false,
+    "answers": [],
+    "route": null,
+    "model": null,
+    "response_model": null,
+    "http": null,
+    "latency_ms": null,
+    "sent": null,
+    "caller": "ask-user-gate"
+  },
+  "pass": true
+}

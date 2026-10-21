@@ -1,0 +1,9 @@
+{
+  "name": "missing-id",
+  "exit": 1,
+  "output": "fm-jev-ask-user: the snapshot's ids do not match findings=F1,F9 (it does not list: F9)\n",
+  "status": "needs-decision [at=1791145829] [key=nm-01M4TEST0000000000000000AB-review]: ask-user findings=F1,F9 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/missing-id/findings.txt\n",
+  "inbox": {},
+  "metadata_log": null,
+  "pass": true
+}

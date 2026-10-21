@@ -1,0 +1,37 @@
+{
+  "name": "json-ci-long-setup",
+  "exit": 2,
+  "output": "ESCALATE nm-01M4TEST0000000000000000AB-ci jev-low-confidence: Jev was below the 0.75 confidence floor (ci-1=in-scope-fix@0.59)\n",
+  "status": "needs-decision [at=1791145829] [key=nm-01M4TEST0000000000000000AB-ci]: ask-user findings=ci-1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/json-ci-long-setup/findings.txt\n",
+  "inbox": {},
+  "metadata_log": {
+    "ts": "2026-10-21T09:27:00Z",
+    "purpose": "ask-user-gate",
+    "task": "json-ci-long-setup",
+    "key": "nm-01M4TEST0000000000000000AB-ci",
+    "round": 1,
+    "findings": [
+      "ci-1"
+    ],
+    "outcome": "escalate",
+    "code": "jev-low-confidence",
+    "jev_called": true,
+    "answers": [
+      {
+        "id": "ci-1",
+        "choice": "in-scope-fix",
+        "confidence": 0.59,
+        "meets_floor": false,
+        "valid": true
+      }
+    ],
+    "route": "typesafe",
+    "model": "jev-1.13.0",
+    "response_model": "jev-1.13.0",
+    "http": "200",
+    "latency_ms": 390,
+    "sent": null,
+    "caller": "ask-user-gate"
+  },
+  "pass": false
+}

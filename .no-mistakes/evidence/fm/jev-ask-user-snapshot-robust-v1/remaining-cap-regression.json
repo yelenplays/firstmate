@@ -1,0 +1,136 @@
+[
+  {
+    "name": "base-json",
+    "version": "base",
+    "snapshot_format": "json",
+    "brief_bytes": 197,
+    "finding": {
+      "id": "ci-1",
+      "severity": "error",
+      "action": "ask-user",
+      "description": "The first CI run failed on a flaky network fetch; the replacement run is green. Refresh the delivery evidence to refer to the passing replacement run."
+    },
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-jev-ask-user: the snapshot lists no findings (want id: lines or findings[N]{id,...} rows)\n",
+    "new_metadata": [],
+    "decision_status": "needs-decision [key=nm-01M4TEST0000000000000000AB-ci]: ask-user findings=ci-1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/base-json/findings.txt\n"
+  },
+  {
+    "name": "base-toon-overcap",
+    "version": "base",
+    "snapshot_format": "toon",
+    "brief_bytes": 26477,
+    "finding": {
+      "id": "ci-1",
+      "severity": "error",
+      "action": "ask-user",
+      "description": "The first CI run failed on a flaky network fetch; the replacement run is green. Refresh the delivery evidence to refer to the passing replacement run."
+    },
+    "exit": 2,
+    "stdout": "ESCALATE nm-01M4TEST0000000000000000AB-ci contract-too-large: the contract and findings are over the Jev state cap (state exceeds 8192 bytes)\n",
+    "stderr": "",
+    "new_metadata": [
+      {
+        "ts": "2026-10-21T09:28:31Z",
+        "purpose": "ask-user-gate",
+        "task": "base-toon-overcap",
+        "key": "nm-01M4TEST0000000000000000AB-ci",
+        "round": 1,
+        "findings": [
+          "ci-1"
+        ],
+        "outcome": "escalate",
+        "code": "contract-too-large",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null,
+        "caller": "ask-user-gate"
+      }
+    ],
+    "decision_status": "needs-decision [key=nm-01M4TEST0000000000000000AB-ci]: ask-user findings=ci-1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/base-toon-overcap/findings.txt\n"
+  },
+  {
+    "name": "target-json-overcap",
+    "version": "target",
+    "snapshot_format": "json",
+    "brief_bytes": 26477,
+    "finding": {
+      "id": "ci-1",
+      "severity": "error",
+      "action": "ask-user",
+      "description": "The first CI run failed on a flaky network fetch; the replacement run is green. Refresh the delivery evidence to refer to the passing replacement run."
+    },
+    "exit": 2,
+    "stdout": "ESCALATE nm-01M4TEST0000000000000000AB-ci contract-too-large: the contract and findings are over the Jev state cap (state exceeds 8192 bytes)\n",
+    "stderr": "",
+    "new_metadata": [
+      {
+        "ts": "2026-10-21T09:28:32Z",
+        "purpose": "ask-user-gate",
+        "task": "target-json-overcap",
+        "key": "nm-01M4TEST0000000000000000AB-ci",
+        "round": 1,
+        "findings": [
+          "ci-1"
+        ],
+        "outcome": "escalate",
+        "code": "contract-too-large",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null,
+        "caller": "ask-user-gate"
+      }
+    ],
+    "decision_status": "needs-decision [key=nm-01M4TEST0000000000000000AB-ci]: ask-user findings=ci-1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/target-json-overcap/findings.txt\n"
+  },
+  {
+    "name": "target-toon-overcap",
+    "version": "target",
+    "snapshot_format": "toon",
+    "brief_bytes": 26477,
+    "finding": {
+      "id": "ci-1",
+      "severity": "error",
+      "action": "ask-user",
+      "description": "The first CI run failed on a flaky network fetch; the replacement run is green. Refresh the delivery evidence to refer to the passing replacement run."
+    },
+    "exit": 2,
+    "stdout": "ESCALATE nm-01M4TEST0000000000000000AB-ci contract-too-large: the contract and findings are over the Jev state cap (state exceeds 8192 bytes)\n",
+    "stderr": "",
+    "new_metadata": [
+      {
+        "ts": "2026-10-21T09:28:32Z",
+        "purpose": "ask-user-gate",
+        "task": "target-toon-overcap",
+        "key": "nm-01M4TEST0000000000000000AB-ci",
+        "round": 1,
+        "findings": [
+          "ci-1"
+        ],
+        "outcome": "escalate",
+        "code": "contract-too-large",
+        "jev_called": false,
+        "answers": [],
+        "route": null,
+        "model": null,
+        "response_model": null,
+        "http": null,
+        "latency_ms": null,
+        "sent": null,
+        "caller": "ask-user-gate"
+      }
+    ],
+    "decision_status": "needs-decision [key=nm-01M4TEST0000000000000000AB-ci]: ask-user findings=ci-1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.jev-validation.Cv3yFF/home/data/target-toon-overcap/findings.txt\n"
+  }
+]

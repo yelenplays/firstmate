@@ -1,0 +1,122 @@
+[
+  {
+    "name": "short-json",
+    "exit": 0,
+    "output": "ACT nm-LIVEDELIVERY-review: Jev decided fix F1 (F1=in-scope-fix@1)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-review, step review, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the requested message WILL still be sent.\n\u25cf  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nfm-send: doorbell not typed because the agent in fm-lab-ask-json-42081-3236:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home/state/short-json.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "status": "needs-decision [key=nm-LIVEDELIVERY-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home/data/short-json/findings.json\nresolved [key=nm-LIVEDELIVERY-review] [at=1792574288]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-review, step review, round 1; F1=in- [truncated]\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-21T09:18:08Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-review, step review, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:18:09Z",
+        "purpose": "ask-user-gate",
+        "task": "short-json",
+        "key": "nm-LIVEDELIVERY-review",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "F1",
+            "choice": "in-scope-fix",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 436,
+        "sent": true,
+        "caller": "ask-user-gate"
+      }
+    ]
+  },
+  {
+    "name": "long-json-ci",
+    "exit": 0,
+    "output": "ACT nm-LIVEDELIVERY-ci: Jev decided fix F1 (F1=in-scope-fix@0.75)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-ci, step ci, round 1; F1=in-scope-fix@0.75). Respond exactly: no-mistakes axi respond --step ci --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-ask-json-42081-3236:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home/state/long-json-ci.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "status": "needs-decision [key=nm-LIVEDELIVERY-ci]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home/data/long-json-ci/findings.json\nresolved [key=nm-LIVEDELIVERY-ci] [at=1792574291]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-ci, step ci, round 1; F1=in-scope-fix@0. [truncated]\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-21T09:18:11Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-ci, step ci, round 1; F1=in-scope-fix@0.75). Respond exactly: no-mistakes axi respond --step ci --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:18:12Z",
+        "purpose": "ask-user-gate",
+        "task": "long-json-ci",
+        "key": "nm-LIVEDELIVERY-ci",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "F1",
+            "choice": "in-scope-fix",
+            "confidence": 0.75,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 256,
+        "sent": true,
+        "caller": "ask-user-gate"
+      }
+    ]
+  },
+  {
+    "name": "scope-boundary",
+    "exit": 0,
+    "output": "ACT nm-LIVEDELIVERY-review: Jev decided fix F1 (F1=in-scope-fix@1)\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-review, step review, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome.\nfm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\nfm-send: doorbell not typed because the agent in fm-lab-ask-json-42081-3236:w1:p1 has exited; the steer is durably recorded at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home/state/scope-boundary.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane\n",
+    "status": "needs-decision [key=nm-LIVEDELIVERY-review]: ask-user findings=F1 file=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5EV9GH4T0RZM94ACQ6Y8XTG/.validate-delivery-zo4ooh4r/home/data/scope-boundary/findings.json\nresolved [key=nm-LIVEDELIVERY-review] [at=1792574295]: answered: Jev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-review, step review, round 1; F1=in- [truncated]\n",
+    "inbox": [
+      "schema=fm-task-inbox.v1\nat=2026-10-21T09:18:15Z\n--\nJev decided this gate under ask-user-authority: fix findings F1 as the gate proposes (gate nm-LIVEDELIVERY-review, step review, round 1; F1=in-scope-fix@1). Respond exactly: no-mistakes axi respond --step review --action fix --findings F1 - never pass --yes, and keep processing every return until the next gate or outcome."
+    ],
+    "decision_log": [
+      {
+        "ts": "2026-10-21T09:18:15Z",
+        "purpose": "ask-user-gate",
+        "task": "scope-boundary",
+        "key": "nm-LIVEDELIVERY-review",
+        "round": 1,
+        "findings": [
+          "F1"
+        ],
+        "outcome": "act",
+        "code": "decided",
+        "jev_called": true,
+        "answers": [
+          {
+            "id": "F1",
+            "choice": "in-scope-fix",
+            "confidence": 1,
+            "meets_floor": true,
+            "valid": true
+          }
+        ],
+        "route": "typesafe",
+        "model": "jev-1.13.0",
+        "response_model": "jev-1.13.0",
+        "http": "200",
+        "latency_ms": 314,
+        "sent": true,
+        "caller": "ask-user-gate"
+      }
+    ]
+  }
+]

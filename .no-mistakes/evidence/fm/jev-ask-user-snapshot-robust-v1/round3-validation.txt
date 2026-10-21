@@ -1,0 +1,30 @@
+Live ask-user validation, target f0ff245084b5258a749ba391e10a4647c8c90949
+
+Base reproductions: JSON rejected with snapshot-lists-no-findings; 26,475-byte TOON brief rejected at 8,192-byte state cap.
+
+Target observations:
+json-short: ACT nm-ROUND3LIVE-review: Jev decided fix F1 (F1=in-scope-fix@1)
+bare-json-array: ACT nm-ROUND3LIVE-review: Jev decided fix F1 (F1=in-scope-fix@1)
+json-ci-26477: ESCALATE nm-ROUND3LIVE-ci jev-low-confidence: Jev was below the 0.75 confidence floor (ci-1=in-scope-fix@0.71)
+toon-ci-26477: ESCALATE nm-ROUND3LIVE-ci jev-low-confidence: Jev was below the 0.75 confidence floor (ci-1=in-scope-fix@0.51)
+late-limit-intent: ESCALATE nm-ROUND3LIVE-review jev-class: Jev placed a finding outside a plain in-scope fix or an approve with follow-up, or split the gate (F1=expands-contract@0.57)
+late-limit-spec: ESCALATE nm-ROUND3LIVE-review jev-low-confidence: Jev was below the 0.75 confidence floor (F1=in-scope-fix@0.33)
+late-limit-steer: ESCALATE nm-ROUND3LIVE-review jev-low-confidence: Jev was below the 0.75 confidence floor (F1=in-scope-fix@0.65)
+over-32k: ESCALATE nm-ROUND3LIVE-review contract-too-large: the contract and findings are over the Jev state cap (state exceeds 32768 bytes)
+operator-8k-cap: ESCALATE nm-ROUND3LIVE-ci contract-too-large: the contract and findings are over the Jev state cap (state exceeds 8192 bytes)
+missing-json-id: fm-jev-ask-user: the snapshot's ids do not match findings=F9 (it does not list: F9)
+duplicate-json-id: fm-jev-ask-user: the snapshot repeats a finding id
+json-sensitive: ESCALATE nm-ROUND3LIVE-review always-escalate: a finding names a security, credential, destructive, irreversible, or data-loss concern
+secret-late-steer: ESCALATE nm-ROUND3LIVE-review privacy: the contract or findings carry a secret-shaped value; nothing was sent
+json-subset-noop: ACT nm-ROUND3LIVE-test: Jev decided approve T2 (T2=approve-followup@1)
+explicit-ci-short: ACT nm-EXPLICITLIVE-ci: Jev decided fix ci-1 (ci-1=in-scope-fix@1)
+explicit-ci-json-long: ACT nm-EXPLICITLIVE-ci: Jev decided fix ci-1 (ci-1=in-scope-fix@1)
+explicit-ci-toon-long: ACT nm-EXPLICITLIVE-ci: Jev decided fix ci-1 (ci-1=in-scope-fix@0.99)
+
+The first long CI probes specified parser behavior but did not explicitly require updating delivery receipts. Real Jev conservatively escalated at confidence 0.71 (JSON) and 0.51 (TOON); both requests reached the API intact at approximately 27 KiB. Those are model judgments, not the original mechanical size refusal.
+Follow-up probes made the accepted delivery requirement explicit. Both long formats then produced confident in-scope decisions, durable production fm-send inbox records, and resolved status lines. No threshold or product source was changed.
+
+Late scope restrictions in intent, specification, and steer all remained in the actual API requests; none authorized the prohibited production edit.
+The production sender recorded decisions durably. There was no registered harness in the lab shell pane, so its doorbell was correctly skipped; worker consumption/execution of those inbox commands was not exercised.
+Both named Herdr labs were provisioned and torn down through bin/fm-herdr-lab.sh; helper teardown confirmed the default-session tripwire. All fixture directories and temporary baseline script were removed.
+CLI-only change: executable CLI output, real API requests/responses, durable inbox bodies, and decision status records are the reviewer-visible evidence. No rendered-UI screenshot is applicable.
