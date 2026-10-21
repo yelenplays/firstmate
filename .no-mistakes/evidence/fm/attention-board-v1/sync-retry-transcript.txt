@@ -1,0 +1,25 @@
+
+--- Transient failure: product response and preserved sync receipt ---
+retry skipped: re-recording the new head failed, will retry: transient failure
+version=fm-main-sync-v1
+task=retry
+spawn_gen=s1.retry
+pr=https://github.com/acme/repo/pull/12
+head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb4
+base=main
+result=synced
+detail=merged
+at=1
+
+--- Next invocation: product response and adopted sync receipt ---
+retry current: up to date with main
+version=fm-main-sync-v1
+task=retry
+spawn_gen=s1.retry
+pr=https://github.com/acme/repo/pull/12
+head=ccccccccccccccccccccccccccccccccccccccc4
+base=main
+result=current
+detail=up to date with main
+at=1792601650
+ok - fm-main-sync keeps waiting pull requests current without forcing anything

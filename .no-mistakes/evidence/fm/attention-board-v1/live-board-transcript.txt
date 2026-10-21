@@ -1,0 +1,109 @@
+=== Create real queued tasks through the home-addressed CLI ===
+ok: added choose-route (captain, repo demo) -> Queued
+task:
+  id: choose-route
+  title: Choose the release route
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start choose-route` to move it to in flight
+  - Run `tasks-axi block choose-route --by <other>` to record a dependency
+ok: added build-next (ship, repo demo) -> Queued
+task:
+  id: build-next
+  title: Build the next release
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: demo
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start build-next` to move it to in flight
+  - Run `tasks-axi block build-next --by <other>` to record a dependency
+ok: added closed-work (docs, repo demo) -> Queued
+task:
+  id: closed-work
+  title: Previously completed work
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: docs
+  repo: demo
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start closed-work` to move it to in flight
+  - Run `tasks-axi block closed-work --by <other>` to record a dependency
+ok: done closed-work -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+choose-route
+
+=== Read the board twice without sending any notifications ===
+BOARD 2026-10-21T16:53:01Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+NEEDS YOU (1)
+- choose-route [decision] Choose the release route - Choose which release route to use
+QUEUED (1)
+- build-next [queued] Build the next release
+DONE (1)
+- closed-work [done] Previously completed work - closed
+true
+
+=== Answer the isolated release-route decision through the real interface ===
+answered: choose-route
+BOARD 2026-10-21T16:53:08Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+QUEUED (1)
+- build-next [queued] Build the next release
+DONE (2)
+- choose-route [done] Choose the release route - closed
+- closed-work [done] Previously completed work - closed
+true
+
+=== Digest board mode omits completed rows but retains their count ===
+BOARD 2026-10-21T16:53:09Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+QUEUED (1)
+- build-next [queued] Build the next release
+BOARD 2026-10-21T16:53:09Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+
+=== Actual session-start digest, same isolated home ===
+Board (bin/fm-board.sh: what needs the captain, from stored state)
+--------------------------------------------------------------------------------
+BOARD 2026-10-21T16:53:17Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+QUEUED (1)
+- build-next [queued] Build the next release
+
+data/backlog.md
+BOARD 2026-10-21T16:53:17Z: 0 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 2 done
+
+Isolated home removed by EXIT cleanup.

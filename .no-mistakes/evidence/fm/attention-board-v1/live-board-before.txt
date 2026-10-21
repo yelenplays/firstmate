@@ -1,0 +1,7 @@
+BOARD 2026-10-21T16:53:01Z: 1 need you · 0 ready to approve · 0 working · 1 queued · 0 merged, not live yet · 0 live confirmed · 1 done
+NEEDS YOU (1)
+- choose-route [decision] Choose the release route - Choose which release route to use
+QUEUED (1)
+- build-next [queued] Build the next release
+DONE (1)
+- closed-work [done] Previously completed work - closed
