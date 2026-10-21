@@ -12,10 +12,13 @@
 #     pr_head= metadata, not just a PR URL in its done event;
 #   - only an open, non-draft GitHub pull request whose head branch lives in the
 #     base repository is considered; a fork branch is never pushed to;
-#   - the live head must equal the recorded pr_head=, so a branch someone else
-#     moved is never touched; a head this command moved itself is first
-#     re-recorded through bin/fm-pr-check.sh once the forge shows it contains
-#     the recorded head;
+#   - the live head must equal the recorded pr_head=. The sole exception is
+#     adoption after a synced result whose head equals that recorded pr_head:
+#     fetch the live commit and require exactly two parents, the first equal
+#     to pr_head and the second contained in the current base branch. Only
+#     then re-record through bin/fm-pr-check.sh; every other moved head is
+#     skipped without calling it, including a worker commit on the synced head
+#     or a merge whose second parent is not on the base branch;
 #   - a pull request that is not behind its base is recorded current;
 #   - one GitHub reports conflicting is recorded conflict and never updated;
 #   - otherwise GitHub's update-branch merges the base into the head
@@ -78,7 +81,7 @@ gh_api() {  # <owner> <args...>
   fm_gh_owner_run "$owner" gh "$@"
 }
 
-# 0 when <new> contains <old> on <repo>, so a head this command moved is ours.
+# 0 when <new> contains <old> on <repo>; ancestry alone proves no sync ownership.
 head_contains() {  # <owner> <repo-path> <old> <new>
   local behind
   behind=$(gh_api "$1" api "repos/$2/compare/$3...$4" --jq '.behind_by' 2>/dev/null) || return 1

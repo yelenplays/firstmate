@@ -59,8 +59,9 @@
 #                       represented by the two digests below.
 #   6. fleet digest   - first the attention board (bin/fm-board.sh --skip-done), bounded
 #                       by FM_SESSION_START_BOARD_TIMEOUT (default 20s) and
-#                       byte-capped on a slim re-emit; then, on a full
-#                       digest, a compact data/backlog.md
+#                       reduced to byte-capped counts plus the full-board
+#                       command on a slim re-emit; then, on a full digest,
+#                       a compact data/backlog.md
 #                       identity/metadata listing, every state/*.meta, a
 #                       bounded state/*.status tail, the away posture
 #                       (state/.afk-contract and the legacy state/.afk daemon

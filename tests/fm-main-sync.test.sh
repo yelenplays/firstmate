@@ -191,8 +191,8 @@ assert_equals "$H7B" "$(sync_field own head)" "the record follows the re-recorde
 assert_no_grep 'pulls/7/update-branch' "$GHLOG" "the re-recorded head needed no further update"
 
 assert_equals "$H10" "$(sync_field worker head)" "a worker commit on top of the synced head is not adopted"
-assert_no_grep '^worker ' "$CHECKLOG" "a single-parent head never reaches fm-pr-check"
-assert_no_grep '^offbase ' "$CHECKLOG" "a merge whose second parent is off base never reaches fm-pr-check"
+assert_no_grep 'worker https://github.com/acme/repo/pull/10' "$CHECKLOG" "a single-parent head never reaches fm-pr-check"
+assert_no_grep 'offbase https://github.com/acme/repo/pull/11' "$CHECKLOG" "a merge whose second parent is off base never reaches fm-pr-check"
 assert_contains "$OUT" "worker skipped: live head" "the worker commit is reported as a moved head"
 assert_contains "$OUT" "offbase skipped: live head" "the off-base merge is reported as a moved head"
 
