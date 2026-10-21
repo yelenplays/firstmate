@@ -54,6 +54,10 @@
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
 # delivery proof on this plane, and a failed ring never fails the send.
+# On the local inbox plane, the one exception to a quiet stdout is a target
+# whose agent has exited: the send still exits 0 (recorded) and prints one line starting
+# "recorded-not-delivered:" so the caller knows nobody will read it until
+# recovery, while the watcher raises its single stale wake for that task.
 #
 # TYPED - the LOCAL text that must reach the terminal itself: a harness-native
 # invocation (a leading "/", or a leading "$" to a codex target) must reach
@@ -1124,7 +1128,12 @@ else
     case "$ring_rc" in
     1) echo "fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
     2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
-    3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
+    # A dead target is the one outcome the caller must not mistake for a
+    # delivery, so it is the one line fm-send prints on stdout: a stable
+    # prefix that a script can match and a human cannot miss in an empty
+    # stdout. The exit stays 0 because the record is durable and a resend
+    # would only stack a duplicate behind the same dead pane.
+    3) echo "recorded-not-delivered: $INBOX_TASK_ID agent in $T has exited; record $INBOX_RECORD waits for recovery (stuck-crewmate-recovery); the watcher raises one stale wake and will not re-ring; do not resend" ;;
     esac
     exit 0
   fi

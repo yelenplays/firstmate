@@ -51,7 +51,7 @@ Deeper decode-required obfuscation beyond the coupled marker set stays the class
 
 Malformed or empty stdin, invalid JSON, missing `jq` for stdin transport, missing Node, a missing classifier, or an invalid classifier response fail open with exit 0 and no output.
 This transport behavior prevents a broken hook from denying every shell tool call.
-Malformed or unsupported shell syntax that contains a protected command is a semantic classification result and fails closed.
+Malformed or unsupported shell syntax that references a protected script fails closed unless it meets the narrow compound read-only allowance under [Broad watcher kills](#broad-watcher-kills).
 
 ## Command-position classification
 
@@ -127,6 +127,13 @@ Unsupported compound grammar - a loop, `case`, `if`, or other construct the clas
 When the command carries such grammar and its raw bytes reference both a `fm-watch` target and a `pkill` or `kill` verb, the classifier cannot prove which command position the kill occupies, so it denies with `broad-watcher-kill` rather than allowing.
 This backstop mirrors the protected-execution fail-closed rule and covers forms like `while true; do pkill -f fm-watch; done`, `for x in 1; do pkill -f fm-watch; done`, `case x in x) pkill -f fm-watch ;; esac`, and `until false; do kill $(pgrep -f fm-watch); done`.
 It is gated on the grammar being unsupported: in grammar the classifier does model, command-position analysis is authoritative, so data mentions such as `echo 'pkill -f fm-watch'` and a loop that only names the watcher without a kill verb such as `for f in 1; do echo fm-watch; done` remain allowed.
+
+One narrow allowance sits before the `unclassifiable-protected-command` deny: a compound command that only reads protected scripts as data.
+`readOnlyProgram` admits it only when every executed command word, at every nesting depth including substitutions and groups, is a literal tool from a fixed read-only set (`cat`, `wc`, `grep`, `echo`, `ls`, `head`, `tail`, and similar) or exactly `git cat-file -s <object>`.
+Other Git modes stay outside this compound-command exception because they can invoke pagers, external diffs, filters, or hooks; `tests/fm-arm-git-execution.test.sh` covers that execution boundary.
+So `for f in bin/fm-watch.sh bin/fm-send.sh; do git cat-file -s HEAD:$f; done` and `while read -r f; do wc -l "$f"; done < bin/fm-watch.sh` are allowed.
+Everything else keeps failing closed: a dynamic or other command word (`"$f"`, `bash "$f"`, `sh` in a pipe), any wrapper, a prefix assignment, an output redirection other than to `/dev/null`, a heredoc, a background list, `case`, `git grep` (its `-O` runs a program), any `printf` (both `-v` and a `%n` conversion assign the variable they name, so `printf '%n' PATH` could repoint the next literal command), and setting any variable a tool or the shell may run as a program (`GIT_*`, `PAGER`, `EDITOR`, `PATH`, `BASH_ENV`, the `BASH_*` family, and similar) by assignment, `for`, or `read`.
+Expansions are allow-listed, not screened: an argument may only expand a plain `$name`, `${name}`, or special parameter, so operator forms that assign while they expand (`${BASH_CMDS[cat]:=$f}` repoints the next literal `cat`), indirect `${!f}`, and arithmetic substitution all fail closed; `tests/fm-arm-expansion-execution.test.sh` proves through the public guard that such a command never runs a watcher-named script.
 
 ## Stable reason codes
 

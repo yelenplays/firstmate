@@ -184,6 +184,21 @@ test_repair_lines() {
   pass "renderer repair-line mode is harness-aware and honors conditional state"
 }
 
+test_state_only_prints_current_state_and_the_whole_block_command() {
+  local home out full
+  home="$TMP_ROOT/state-only-home"
+  mkdir -p "$home/state" "$home/config"
+  out=$(FM_HOME="$home" "$RENDER" --harness codex --afk 1 --afk-mode quiet --state-only)
+  full=$(FM_HOME="$home" "$RENDER" --harness codex --afk 1 --afk-mode quiet)
+  assert_contains "$out" "primary harness: codex (current state" "state-only title missing"
+  assert_contains "$out" "- Lock:" "state-only lost the lock state line"
+  assert_contains "$full" "$(printf '%s\n' "$out" | grep -- '- Lock:')" "state-only lock line differs from the full block"
+  assert_contains "$out" "fm-supervision-instructions.sh --harness codex --read-only 0 --afk 1 --afk-mode quiet --x-mode 0" "state-only did not name the command for the whole block"
+  assert_not_contains "$out" "====" "state-only printed the full block rule"
+  [ "${#out}" -lt "${#full}" ] || fail "state-only output is not shorter than the full block"
+  pass "renderer state-only mode prints the current state and the command for the whole block"
+}
+
 test_cross_harness_ordinary_continuation_and_repair_matrix() {
   local ordinary out harness
 
@@ -316,6 +331,7 @@ test_unknown_fallback
 test_conditional_stanzas
 test_quiet_mode_stanzas
 test_repair_lines
+test_state_only_prints_current_state_and_the_whole_block_command
 test_cross_harness_ordinary_continuation_and_repair_matrix
 test_pi_signed_preserves_identity_with_pi_supervision_protocol
 test_grok_is_background_notify

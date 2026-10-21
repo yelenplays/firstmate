@@ -10,6 +10,9 @@
 # "{<harness>,...} " render only for the listed harnesses), and Grok's arm
 # command becomes the host; on a home that does not run it the output is
 # unchanged.
+# --state-only prints the title, the "Current state" lines, and the command that
+# prints the whole block, plus condensed operating rules, for the slim compact re-emit (bin/fm-session-start.sh),
+# which must stay under a harness's inline hook-output limit.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,14 +28,16 @@ AFK=0
 AFK_MODE=away
 X_MODE=0
 REPAIR_LINE=0
+STATE_ONLY=0
 QUEUE_PENDING=0
 
 usage() {
   cat <<'EOF'
-Usage: fm-supervision-instructions.sh [--harness <name>] [--read-only 0|1] [--afk 0|1] [--afk-mode away|quiet] [--x-mode 0|1] [--repair-line] [--queue-pending 0|1]
+Usage: fm-supervision-instructions.sh [--harness <name>] [--read-only 0|1] [--afk 0|1] [--afk-mode away|quiet] [--x-mode 0|1] [--repair-line | --state-only] [--queue-pending 0|1]
 
 Print the current primary harness's supervision operating instructions.
 With --repair-line, print one concise repair instruction for guard and hook messages.
+With --state-only, print the title, current-state lines, condensed operating rules, and command for the whole block.
 --afk-mode only matters when --afk 1 (present); it selects the away-mode vs
 quiet-mode (kunchenguid/firstmate#2356) wording, and defaults to away.
 EOF
@@ -82,6 +87,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --repair-line)
       REPAIR_LINE=1
+      shift
+      ;;
+    --state-only)
+      STATE_ONLY=1
       shift
       ;;
     -h|--help)
@@ -245,10 +254,14 @@ if [ "$REPAIR_LINE" -eq 1 ]; then
 fi
 
 RULE='================================================================================'
-printf '%s\n' "$RULE"
-printf 'SUPERVISION OPERATING INSTRUCTIONS - primary harness: %s\n' "$HARNESS"
-printf '%s\n' "$RULE"
-printf 'Current state:\n'
+if [ "$STATE_ONLY" -eq 1 ]; then
+  printf '\nSUPERVISION OPERATING INSTRUCTIONS - primary harness: %s (current state; the whole block is one command away)\n' "$HARNESS"
+else
+  printf '%s\n' "$RULE"
+  printf 'SUPERVISION OPERATING INSTRUCTIONS - primary harness: %s\n' "$HARNESS"
+  printf '%s\n' "$RULE"
+  printf 'Current state:\n'
+fi
 if [ "$READ_ONLY" -eq 1 ]; then
   printf '%s\n' '- Lock: read-only; do not drain, arm, spawn, steer, merge, or repair fleet state here.'
 else
@@ -272,6 +285,17 @@ if [ -n "$HOST_SNIPPET" ]; then
   printf '%s\n' '- Supervision host: on; it takes away-posture wakes and, where the dialog mirror is verified, eligible attended wakes itself, and hands the rest to you (protocol at the end of this block).'
 fi
 ordinary_wake_line
+if [ "$STATE_ONLY" -eq 1 ]; then
+  printf '%s\n' 'Condensed operating rules (the whole-block command at the end of this section prints the detail):'
+  printf '%s\n' '- Drain and triage first: for a wake without completed hook-side triage run bin/fm-wake-triage.sh (fallback bin/fm-wake-drain.sh); never invent a wake from an attach-status line.'
+  printf '%s\n' '- Handle every ACT NOW, NOTICES and STANDING entry, then run the printed WAKE_ACK_REQUIRED acknowledgement command exactly once; a banner that says the wake was absorbed only asks you to end the turn.'
+  printf '%s\n' '- Watcher ownership stays with the harness mechanism named above; never start a watcher with shell &, and never kill the watcher (pkill fm-watch) to restart it.'
+  printf '%s\n' '- If the automatic mechanism reports a failure, drain and inspect its registration and startup path; do not turn the notice into a manual-arm loop.'
+  printf '%s\n' '- The turn-end guard is the final backstop: never end a turn blind while watcher supervision is missing or unrecovered.'
+  printf -- '- Whole block (wake handling, arm ownership, turn-end guard%s): %s/fm-supervision-instructions.sh --harness %s --read-only %s --afk %s --afk-mode %s --x-mode %s\n' \
+    "${HOST_SNIPPET:+, supervision host}" "$SCRIPT_DIR" "$HARNESS" "$READ_ONLY" "$AFK" "$AFK_MODE" "$X_MODE"
+  exit 0
+fi
 printf '\n'
 render_snippet
 printf '\n'

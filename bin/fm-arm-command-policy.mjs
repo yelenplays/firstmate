@@ -912,11 +912,106 @@ function blessedProgram(analysis, context) {
   return true;
 }
 
+// Compound grammar (for/while/if) is otherwise unsupported, so a loop that only
+// names a watcher script as data - `for f in bin/fm-watch.sh; do wc -l "$f"; done`
+// - would fail closed. readOnlyProgram admits such a command only when every
+// executed command word, at every nesting depth, is a literal read-only tool
+// from READ_ONLY_COMMANDS, so no byte of the command can start or stop a
+// watcher. Wrappers, dynamic command words, prefix assignments, output
+// redirection other than to /dev/null, heredocs, background lists, and `case`
+// stay unsupported, and no variable a tool or the shell may run as a program
+// (EXEC_VARIABLE) can be set by an assignment, a for loop, or read. printf is
+// not in the set at all: besides -v, a %n conversion assigns the variable it
+// names (`printf '%n' PATH`), and the format can arrive through an expansion.
+// Expansions are allow-listed rather than screened: an argument may expand only
+// a plain `$name`, `${name}` or special parameter (simpleExpansions), because
+// operator forms such as `${BASH_CMDS[cat]:=path}` assign while they expand and
+// can repoint the next literal command word at a watcher script; arithmetic
+// substitution is refused for the same reason.
+const READ_ONLY_COMMANDS = new Set([
+  "basename", "cat", "cd", "cut", "dirname", "echo", "false", "grep", "head", "ls",
+  "pwd", "read", "realpath", "shasum", "stat", "tail", "test", "[", "tr", "true", "uniq", "wc",
+]);
+const EXEC_VARIABLE = /^(?:GIT_[A-Z_]*|PAGER|MANPAGER|EDITOR|VISUAL|LESS[A-Z_]*|BASH_ENV|ENV|PATH|CDPATH|IFS|PS4|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|LD_[A-Z_]*|DYLD_[A-Z_]*|BASH|BASH_[A-Z0-9_]*)$/;
+const LEADING_RESERVED = new Set(["if", "then", "else", "elif", "do", "while", "until", "!"]);
+const CLOSING_RESERVED = new Set(["done", "fi"]);
+
+function readOnlyRedirection(tokens, index) {
+  const token = tokens[index];
+  if (token.inlineTarget || token.value === "<" || token.value === "<<<") return true;
+  if (token.value !== ">" && token.value !== ">>") return false;
+  const target = tokens[index + 1];
+  return target?.type === "word" && target.literal && target.subs.length === 0 && target.value === "/dev/null";
+}
+
+// simpleExpansions <value>: every `$` in a non-literal word starts a plain
+// parameter reference, which reads a variable and cannot assign one.
+function simpleExpansions(value) {
+  for (let i = value.indexOf("$"); i !== -1; i = value.indexOf("$", i + 1)) {
+    const rest = value.slice(i + 1);
+    if (!/^(?:[A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\}|[0-9?#$!@*-])/.test(rest)) return false;
+  }
+  return true;
+}
+
+function readOnlyNode(tokens, depth) {
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (token.type === "redir" && !readOnlyRedirection(tokens, i)) return false;
+    if (token.type === "group" && !readOnlyProgram(token.content, depth + 1)) return false;
+    if (token.type !== "word") continue;
+    if (!token.literal && !simpleExpansions(token.value)) return false;
+    if (token.subs.some((sub) => sub.content.startsWith("(") || !readOnlyProgram(sub.content, depth + 1))) return false;
+  }
+  let start = 0;
+  while (tokens[start]?.type === "word" && tokens[start].literal && LEADING_RESERVED.has(tokens[start].value)) start += 1;
+  const rest = tokens.slice(start);
+  const words = wordsInNode(rest);
+  if (rest.some((token) => token.type === "group")) return words.length === 0;
+  if (words.length === 0) return true;
+  const first = words[0];
+  if (first.literal && CLOSING_RESERVED.has(first.value)) return words.length === 1;
+  if (first.literal && first.value === "for") {
+    return safeVariableName(words[1]?.value || "") && (words.length === 2 || words[2].value === "in");
+  }
+  const position = commandPosition(rest);
+  if (position.wrappers.length > 0 || position.unresolvedWrapperOption) return false;
+  const command = position.command;
+  if (!command) {
+    return position.words.every((word) => word.literal && safeVariableName(assignmentName(word) || ""));
+  }
+  if (position.prefixAssignments > 0 || !command.literal || command.subs.length > 0) return false;
+  const args = position.words.slice(position.index + 1);
+  if (command.value === "read" && !args.every((word) => word.value.startsWith("-") || safeVariableName(word.value))) return false;
+  if (command.value === "git") {
+    // Only the object-size probe needs this compound-command exception.
+    // Other Git modes can invoke pagers, external diffs, filters, or hooks.
+    return args.length === 3 && args[0].literal && args[0].value === "cat-file" &&
+      args[1].literal && args[1].value === "-s";
+  }
+  return READ_ONLY_COMMANDS.has(command.value);
+}
+
+function safeVariableName(name) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !EXEC_VARIABLE.test(name);
+}
+
+function readOnlyProgram(source, depth = 0) {
+  if (depth > 12) return false;
+  const lexed = new Lexer(source).tokenize();
+  if (lexed.error) return false;
+  const { nodes, separators } = splitProgram(lexed.tokens);
+  if (separators.includes("&")) return false;
+  return nodes.every((tokens) => readOnlyNode(tokens, depth));
+}
+
 function decision(command, root, home) {
   const context = { root: path.normalize(root), home: path.normalize(home), protectedVariables: new Set(), watcherPatterns: new Set(), watcherPids: new Set() };
   const analysis = analyzeProgram(command, context);
   if (analysis.broadKill) return deny("broad-watcher-kill");
-  if (analysis.error && analysis.protectedFound) return deny("unclassifiable-protected-command");
+  if (analysis.error && analysis.protectedFound) {
+    return readOnlyProgram(command) ? { decision: "allow" } : deny("unclassifiable-protected-command");
+  }
   if (!analysis.protectedFound) return { decision: "allow" };
   if (analysis.nodeInfos?.some((info) => info.protectedKind === "watch")) return deny("watcher-direct");
   if (analysis.nestedProtected) return deny("watcher-nested");

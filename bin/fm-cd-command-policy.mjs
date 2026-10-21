@@ -81,7 +81,27 @@ function hasCommandQueryPrefix(position) {
   return false;
 }
 
-function decision(source) {
+// A `cd` back into the guarded home itself cannot strand the shell in a
+// project clone; it is the move that undoes one. Only the plainest spelling
+// counts: plain `cd`, optionally followed by a literal `--`, with exactly one
+// literal absolute operand that resolves to the home. Anything expanded,
+// relative, option-bearing, or naming another directory stays denied.
+function targetsHome(command, operands, home) {
+  if (!home || command.value !== "cd") return false;
+  if (operands[0]?.literal && operands[0].subs.length === 0 && operands[0].value === "--") {
+    operands = operands.slice(1);
+  }
+  if (operands.length !== 1) return false;
+  const [target] = operands;
+  if (!target.literal || target.subs.length > 0 || !target.value.startsWith("/")) return false;
+  try {
+    return realpathSync(target.value) === realpathSync(home);
+  } catch {
+    return false;
+  }
+}
+
+function decision(source, home = "") {
   const lexed = new Lexer(source).tokenize();
   // Fail open on syntax this classifier cannot tokenize. The cd-guard's threat
   // model is agent mistakes - an accidental bare `cd projects/foo` always
@@ -107,19 +127,26 @@ function decision(source) {
     if (!command) continue;
     if (!CD_BUILTINS.has(command.value)) continue;
     if (position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper))) continue;
+    if (targetsHome(command, position.words.slice(wordIndex + 1), home)) continue;
     return deny("persistent-cd", nodes.length > 1 ? source : null);
   }
   return { decision: "allow" };
 }
 
 function parseArguments(argv) {
-  const result = { command: "", commandSet: false };
+  const result = { command: "", commandSet: false, home: "" };
   for (let i = 0; i < argv.length; i += 1) {
     const name = argv[i];
     if (name === "--command") {
       if (i + 1 >= argv.length) throw new Error("--command requires a value");
       result.command = argv[i + 1];
       result.commandSet = true;
+      i += 1;
+      continue;
+    }
+    if (name === "--home") {
+      if (i + 1 >= argv.length) throw new Error("--home requires a value");
+      result.home = argv[i + 1];
       i += 1;
       continue;
     }
@@ -150,7 +177,7 @@ if (invokedDirectly()) {
     if (!args.commandSet || !args.command) {
       process.stdout.write("allow\n");
     } else {
-      const result = decision(args.command);
+      const result = decision(args.command, args.home);
       if (result.decision === "allow") {
         process.stdout.write("allow\n");
       } else {

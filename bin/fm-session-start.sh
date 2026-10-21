@@ -48,7 +48,9 @@
 #                       (bin/fm-branch-outcome.sh seed-tail).
 #                       An optional ACT FIRST priority list follows it (note below).
 #   4. supervision-instructions - the one emitted operating block for the
-#                       detected primary harness.
+#                       detected primary harness. A slim compact re-emit moves
+#                       this immediately after the lock, using current state,
+#                       condensed rules, and a command for the full block.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
 #   6. fleet digest   - on a full digest, a compact data/backlog.md
@@ -58,8 +60,9 @@
 #                       flag), and a cheap per-task endpoint-liveness read.
 #                       A slim compact re-emit omits the backlog, meta bodies,
 #                       status tails, and orphan status logs, but keeps the
-#                       away posture and one identity/endpoint/last-status line
-#                       per live task. These local sections are read-only; the
+#                       away posture and a byte-capped list of live-task
+#                       identity/endpoint/last-status lines. These local sections
+#                       are read-only; the
 #                       per-task reads are bounded and crash-isolated so one
 #                       cannot abort the digest. They run serially, so with a
 #                       wedged backend the stage's ceiling is tasks x the
@@ -90,8 +93,8 @@
 # EVERY nonzero child exit, not only the bound: a child that dies or is killed
 # mid-stage must never truncate the digest silently.
 #
-# ACT FIRST: on the locked path, after the wake queue, the --local mode of
-# bin/fm-jev-act-first.sh prints a bounded priority view from the drain output
+# ACT FIRST: on the locked full-digest path, after the wake queue, the --local
+# mode of bin/fm-jev-act-first.sh prints a bounded priority view from the drain output
 # and current live-task status tails, without a model or network call. That
 # same drain output is handed to the deferred network stage, which ranks it
 # with Jev and current status tails in a separate publication and wake
@@ -135,8 +138,9 @@
 # contract that only arrives after the payload it governs is the first thing a
 # truncated digest loses, and it carries the truncation caveat that keeps it
 # honest when a stage below it never ran.
-# The LOCK/BOOTSTRAP/WAKE-QUEUE safety preamble keeps its order: it establishes
-# mutation authority and this turn's work queue before anything else is read.
+# A full digest keeps the LOCK/BOOTSTRAP/WAKE-QUEUE safety preamble in order.
+# A slim compact re-emit moves condensed supervision immediately after LOCK,
+# ahead of the bootstrap diagnostics pointer and byte-capped wake queue.
 #
 # On a Pi primary, the supervision-block step also checks whether Pi's two
 # tracked primary extensions are loaded and prints a PI_WATCH_EXTENSION
@@ -257,15 +261,23 @@
 #
 #   --full    Print the complete digest even for a compact re-emit. A compact
 #             re-emit (--reemit --source compact) prints a SLIM digest by
-#             default: the lock line, bootstrap diagnostics, the wake queue with
-#             its WAKE_ACK_REQUIRED line (and the OPEN DECISIONS, UNREAD STATUS,
-#             and UNFINISHED EXECUTION sections the drain adds), the emitted
-#             supervision block, one line per live task, the away posture,
-#             public commitments, network checks, and the recent captain words.
-#             It drops only what one command re-derives: the compact backlog,
-#             every state/*.meta body, status tails, orphan status logs, and the
-#             curated CONTEXT files. This flag prints all of them. Every other
-#             source, and a fresh start, is always the full digest.
+#             default, sized to stay under 9 KB (see SLIM SIZE BUDGET): the lock
+#             line, then the supervision block's current state, condensed
+#             operating rules, and command for the whole block, a pointer to
+#             bootstrap diagnostics, the wake queue (the drain's OPEN DECISIONS,
+#             UNREAD STATUS, UNFINISHED EXECUTION and
+#             BRANCH OUTCOMES sections ahead of its annotations and raw rows)
+#             with its WAKE_ACK_REQUIRED line whole, budgeted live-task lines, the
+#             orphan status ids, the away posture, public commitments, network
+#             checks, the theme's address and no-op lines, and the newest
+#             captain words. Bulky sections have byte budgets that disclose
+#             omitted lines. The lock-owning session keeps the uncut bootstrap
+#             and drain text in one file per re-emit under state/reemit-detail/;
+#             a read-only session writes none and points at --full. It drops only what one
+#             command re-derives: the compact backlog, every state/*.meta body,
+#             status tails, the ACT FIRST list, and the curated CONTEXT files.
+#             This flag prints all of them. Every other source, and a fresh
+#             start, is always the full digest.
 #
 #   --source  The native session-open source, supplied only by
 #             fm-sessionstart-run.sh. A genuine `startup` that owns the active
@@ -275,9 +287,10 @@
 #             creates or replaces it. Pi and pi-signed compaction are the only
 #             supported stale-cache rebuild pair: a missing baseline, a baseline
 #             for another harness pid, or a changed hash causes the complete
-#             current AGENTS.md to print before the bulky digest. The baseline
-#             remains immutable so every later drifted compaction refreshes
-#             again, while an equal baseline emits no instruction refresh.
+#             current AGENTS.md to be refreshed. A slim digest prints a required
+#             read command after supervision; --full inlines the whole file.
+#             The baseline remains immutable so every later drifted compaction
+#             refreshes again, while an equal baseline emits no refresh.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -457,6 +470,69 @@ SUBRULE='-----------------------------------------------------------------------
 
 section() { printf '\n%s\n%s\n%s\n' "$RULE" "$1" "$RULE"; }
 subsection() { printf '\n%s\n%s\n' "$1" "$SUBRULE"; }
+
+# SLIM SIZE BUDGET: the compact re-emit is delivered through a session-open hook,
+# and a harness replaces hook output over its inline limit (Claude: about 10 KB)
+# with a file path and a 2 KB preview, so a model that does not re-read the file
+# loses everything after the preview. The slim digest therefore stays under
+# 9 KB: one-line section titles, supervision state and condensed rules ahead of
+# the bulk, and byte budgets for bulky sections. Lines a budget drops
+# are named with a count, and the complete bootstrap and drain text is kept in
+# REEMIT_DETAIL, because the drain has already spent its one-shot presentation.
+# Each presentation gets its own file under REEMIT_DETAIL_DIR, so a later
+# re-emit never overwrites uncut text an earlier one pointed at; the newest
+# REEMIT_DETAIL_KEEP files are kept. Only the session that verified the lock
+# writes one: a read-only session leaves the directory alone, and its cut
+# notes point at REEMIT_REST, the --full re-emit, instead.
+REEMIT_DETAIL_DIR="$STATE/reemit-detail"
+REEMIT_DETAIL_KEEP=8
+REEMIT_DETAIL=""
+REEMIT_REST="$SCRIPT_DIR/fm-session-start.sh --reemit --source compact --full"
+if [ "$SLIM" -eq 1 ]; then
+  section() { printf '\n%s\n' "$1"; }
+  subsection() { printf '\n%s\n' "$1"; }
+fi
+
+# slim_capped <budget-bytes> <line-cap> <where-the-rest-is>: the byte budget
+# includes the omission notice and its absolute recovery path, not just payload.
+slim_capped() {
+  local budget=$1 cap=$2 rest=$3 used=0 more=0 line bytes count=0 notice
+  local -a lines=()
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$more" -eq 0 ]; then
+      fm_cap_line_var "$line" "$cap"
+      bytes=$(printf '%s\n' "$FM_LINE_CAP_LINE" | wc -c)
+      if [ $((used + bytes)) -le "$budget" ]; then
+        lines[count]=$FM_LINE_CAP_LINE
+        count=$((count + 1))
+        used=$((used + bytes))
+        continue
+      fi
+    fi
+    more=$((more + 1))
+  done
+  if [ "$more" -gt 0 ]; then
+    while :; do
+      printf -v notice '(%s more line(s) cut from the compact digest; full: %s)' "$more" "$rest"
+      bytes=$(printf '%s\n' "$notice" | wc -c)
+      [ $((used + bytes)) -gt "$budget" ] && [ "$count" -gt 0 ] || break
+      count=$((count - 1))
+      bytes=$(printf '%s\n' "${lines[count]}" | wc -c)
+      used=$((used - bytes))
+      more=$((more + 1))
+    done
+  fi
+  for ((bytes = 0; bytes < count; bytes++)); do
+    printf '%s\n' "${lines[bytes]}"
+  done
+  [ "$more" -eq 0 ] || printf '%s\n' "$notice"
+}
+
+# slim_detail <title> <text>: append one section of uncut text to REEMIT_DETAIL.
+slim_detail() {
+  [ -n "$REEMIT_DETAIL" ] || return 0
+  (umask 077; printf '== %s ==\n%s\n\n' "$1" "$2" >> "$REEMIT_DETAIL") 2>/dev/null || true
+}
 
 # print_file_or_absent <path> <label>: full contents under a labeled
 # subsection, or an explicit ABSENT marker. Absence is semantically
@@ -672,7 +748,7 @@ print_slim_task_line() {  # <id> <meta-file>
   else
     last='(no status yet)'
   fi
-  printf '%s: endpoint %s; last status (event history, not current state): %s\n' "$id" "$endpoint" "$last"
+  printf '%s: endpoint %s; last status: %s\n' "$id" "$endpoint" "$last"
 }
 
 hash_file_sha256() {
@@ -736,6 +812,11 @@ print_agents_refresh_if_required() {  # <rebuilding-session-pid>
   agents_refresh_required "$lock_pid" || return 0
   section "CURRENT AGENTS.md - INSTRUCTION REFRESH"
   if [ -f "$FM_ROOT/AGENTS.md" ]; then
+    if [ "$SLIM" -eq 1 ]; then
+      printf 'The cached instruction contract is stale or unverified. Before acting, read the complete current contract:\n'
+      printf 'INSTRUCTION_REFRESH_REQUIRED: cat -- %q\n' "$FM_ROOT/AGENTS.md"
+      return 0
+    fi
     cat <<'EOF'
 The complete on-disk AGENTS.md below supersedes the instruction copy this session
 started with. Apply it as the current Firstmate instruction contract.
@@ -768,10 +849,8 @@ if [ "$REEMIT" -eq 1 ]; then
 fi
 if [ "$SLIM" -eq 1 ]; then
   section "SESSION START (CONTEXT RE-EMIT, COMPACT) - $FM_HOME"
-  printf 'This session already holds the helm and only lost its context to a compaction.\n'
-  printf 'Lock ownership is re-verified and queued wakes are drained below; startup sweeps are\n'
-  printf 'not repeated. This is the SLIM digest: backlog, task metadata, status tails and curated\n'
-  printf 'context are omitted and print on demand (see READ-ONCE CONTRACT).\n'
+  printf 'This session holds the helm and lost only its context: the lock is re-verified and\n'
+  printf 'queued wakes are drained below; startup sweeps are not repeated (see READ-ONCE CONTRACT).\n'
 elif [ "$REEMIT" -eq 1 ]; then
   section "SESSION START (CONTEXT RE-EMIT) - $FM_HOME"
   printf 'This session already took the helm at its own startup and has only lost its\n'
@@ -784,6 +863,67 @@ elif [ "$REEMIT" -eq 1 ]; then
 else
   section "SESSION START - $FM_HOME"
 fi
+# print_supervision_stage: the supervision operating instructions, step 4 below.
+# Defined here because a slim compact re-emit calls it right after the lock.
+print_supervision_stage() {
+  stage supervision-instructions
+  AFK_PRESENT=0
+  [ -e "$STATE/.afk" ] && AFK_PRESENT=1
+  AFK_MODE=$(fm_afk_mode "$STATE")
+  X_MODE_PRESENT=0
+  [ -f "$CONFIG/x-mode.env" ] && X_MODE_PRESENT=1
+
+  if [ "$PRIMARY_HARNESS" = pi ] || [ "$PRIMARY_HARNESS" = pi-signed ]; then
+    PI_EXT="$FM_ROOT/.pi/extensions/fm-primary-pi-watch.ts"
+    PI_TURNEND_EXT="$FM_ROOT/.pi/extensions/fm-primary-turnend-guard.ts"
+    PI_WATCH_MARKER="$STATE/.pi-watch-extension-loaded"
+    PI_TURNEND_MARKER="$STATE/.pi-turnend-extension-loaded"
+    PI_LOCK="$STATE/.lock"
+    PI_RESTART_COMMAND=$PRIMARY_HARNESS
+    [ "$PRIMARY_HARNESS" != pi ] || PI_RESTART_COMMAND='plain pi'
+    PI_WATCH_VERSION=$(fm_pi_extension_version "$PI_EXT" || printf '')
+    PI_TURNEND_VERSION=$(fm_pi_extension_version "$PI_TURNEND_EXT" || printf '')
+    if ! fm_pi_extension_loaded "$PI_WATCH_MARKER" "$PI_WATCH_VERSION" "$PI_LOCK" active \
+      || ! fm_pi_extension_loaded "$PI_TURNEND_MARKER" "$PI_TURNEND_VERSION" "$PI_LOCK"; then
+      if [ "$SLIM" -eq 1 ]; then
+        printf 'PI_WATCH_EXTENSION: not loaded - approve Pi project trust, then restart %s in this home for turn-end guard and background wake coverage; --full prints explicit extension paths.\n' "$PI_RESTART_COMMAND"
+      else
+        printf 'PI_WATCH_EXTENSION: not loaded - approve Pi project trust once per clone, then restart %s so %s and %s auto-load for turn-end guard and background wake coverage; use -e %s -e %s only if project hooks are not trusted\n' "$PI_RESTART_COMMAND" "$PI_TURNEND_EXT" "$PI_EXT" "$PI_TURNEND_EXT" "$PI_EXT"
+      fi
+    fi
+  fi
+  # omp (Oh My Pi) has no project-trust gate: it auto-discovers <cwd>/.omp/extensions
+  # with no dialog, so the only ways both tracked primary extensions fail to load
+  # are a session started outside this home, an extension disabled in the omp
+  # config, or a build older than the tracked file. The markers carry the loaded
+  # build plus the loading pid, exactly as the Pi ones do (bin/fm-wake-lib.sh).
+  if [ "$PRIMARY_HARNESS" = omp ]; then
+    OMP_EXT="$FM_ROOT/.omp/extensions/fm-primary-omp-watch.ts"
+    OMP_TURNEND_EXT="$FM_ROOT/.omp/extensions/fm-primary-turnend-guard.ts"
+    OMP_WATCH_MARKER="$STATE/.omp-watch-extension-loaded"
+    OMP_TURNEND_MARKER="$STATE/.omp-turnend-extension-loaded"
+    OMP_LOCK="$STATE/.lock"
+    OMP_WATCH_VERSION=$(fm_pi_extension_version "$OMP_EXT" || printf '')
+    OMP_TURNEND_VERSION=$(fm_pi_extension_version "$OMP_TURNEND_EXT" || printf '')
+    if ! fm_pi_extension_loaded "$OMP_WATCH_MARKER" "$OMP_WATCH_VERSION" "$OMP_LOCK" \
+      || ! fm_pi_extension_loaded "$OMP_TURNEND_MARKER" "$OMP_TURNEND_VERSION" "$OMP_LOCK"; then
+      if [ "$SLIM" -eq 1 ]; then
+        printf 'OMP_WATCH_EXTENSION: not loaded - restart omp in this home for turn-end guard and background wake coverage; --full prints explicit extension paths (never combine -e with auto-discovery).\n'
+      else
+        printf 'OMP_WATCH_EXTENSION: not loaded - restart omp with this home as its working directory so %s and %s auto-load from .omp/extensions/ for turn-end guard and background wake coverage; pass -e %s -e %s only when omp must start from another directory, never together with auto-discovery (omp loads a file named both ways twice)\n' "$OMP_TURNEND_EXT" "$OMP_EXT" "$OMP_TURNEND_EXT" "$OMP_EXT"
+      fi
+    fi
+  fi
+  SUPERVISION_STATE_ONLY=
+  [ "$SLIM" -eq 0 ] || SUPERVISION_STATE_ONLY=--state-only
+  "$SCRIPT_DIR/fm-supervision-instructions.sh" \
+    --harness "$PRIMARY_HARNESS" \
+    --read-only "$READ_ONLY" \
+    --afk "$AFK_PRESENT" \
+    --afk-mode "$AFK_MODE" \
+    --x-mode "$X_MODE_PRESENT" $SUPERVISION_STATE_ONLY
+
+}
 # --- 1. lock -----------------------------------------------------------
 stage lock
 subsection "LOCK"
@@ -809,6 +949,16 @@ if [ "$LOCK_RC" -ne 0 ]; then
   }
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
+if [ "$SLIM" -eq 1 ]; then
+  if [ "$READ_ONLY" -eq 0 ] && (umask 077; mkdir -p "$REEMIT_DETAIL_DIR") 2>/dev/null; then
+    REEMIT_DETAIL="$REEMIT_DETAIL_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$$.txt"
+    REEMIT_REST=$REEMIT_DETAIL
+    # shellcheck disable=SC2012 # names are timestamp-pid, no odd characters
+    ls -1t "$REEMIT_DETAIL_DIR" 2>/dev/null | tail -n +"$REEMIT_DETAIL_KEEP" |
+      while IFS= read -r old; do rm -f "$REEMIT_DETAIL_DIR/$old"; done
+  fi
+  print_supervision_stage
+fi
 print_agents_refresh_if_required "$REBUILDING_SESSION_PID"
 
 # --- 1b. home role -------------------------------------------------------
@@ -865,10 +1015,13 @@ else
       "$SCRIPT_DIR/fm-bootstrap.sh" 2>&1
   )
 fi
-if [ -n "$BOOT_OUT" ]; then
-  printf '%s\n' "$BOOT_OUT"
-else
+if [ -z "$BOOT_OUT" ]; then
   printf '(silent - all good)\n'
+elif [ "$SLIM" -eq 1 ]; then
+  slim_detail BOOTSTRAP "$BOOT_OUT"
+  printf 'Diagnostics omitted; see the uncut wake queue and bootstrap text below.\n'
+else
+  printf '%s\n' "$BOOT_OUT"
 fi
 if [ "$READ_ONLY" -eq 0 ]; then
   DISPATCH_SELFTEST_ALERT="$STATE/dispatch-selftest/missing-samples.alerted"
@@ -926,17 +1079,35 @@ else
     FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-lease.sh" sweep 2>/dev/null || true
     BRANCH_REPLAY_OUT=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
       "$SCRIPT_DIR/fm-branch-outcome.sh" startup-replay 2>&1) || BRANCH_REPLAY_OUT=
-    if [ -n "$BRANCH_REPLAY_OUT" ]; then
+    if [ -n "$BRANCH_REPLAY_OUT" ] && [ "$SLIM" -eq 1 ]; then
+      slim_detail 'BRANCH OUTCOME REPLAY' "$BRANCH_REPLAY_OUT"
+      printf '%s\n' "$BRANCH_REPLAY_OUT" | slim_capped 400 160 "$REEMIT_REST"
+    elif [ -n "$BRANCH_REPLAY_OUT" ]; then
       printf '%s\n' "$BRANCH_REPLAY_OUT"
     fi
   fi
   # A fresh session has seen no earlier presentation, so it gets every open
   # decision rather than only the news since the last drain.
   DRAIN_OUT=$("$SCRIPT_DIR/fm-wake-drain.sh" --decisions 2>&1)
-  if [ -n "$DRAIN_OUT" ]; then
-    printf '%s\n' "$DRAIN_OUT"
-  else
+  if [ -z "$DRAIN_OUT" ]; then
     printf '(no queued wakes)\n'
+  elif [ "$SLIM" -eq 1 ]; then
+    # The acknowledgement line is the one drain line that must arrive whole;
+    # everything else is cut to the budget and kept uncut in REEMIT_DETAIL.
+    # The drain's sections (open decisions, unfinished execution, branch
+    # outcomes, warnings) go first, then the per-event annotations, then the
+    # raw queue rows, so the budget drops the most redundant lines first.
+    slim_detail 'WAKE QUEUE' "$DRAIN_OUT"
+    printf '%s\n' "$DRAIN_OUT" | awk '
+      /^WAKE_ACK_REQUIRED:/ { next }
+      /^[0-9][0-9]*\t[0-9][0-9]*\t/ { rows[++r] = $0; next }
+      /^wake annotation: / { notes[++n] = $0; next }
+      { print }
+      END { for (i = 1; i <= n; i++) print notes[i]; for (i = 1; i <= r; i++) print rows[i] }
+    ' | slim_capped 1200 140 "$REEMIT_REST"
+    printf '%s\n' "$DRAIN_OUT" | grep '^WAKE_ACK_REQUIRED:' | tail -n 1
+  else
+    printf '%s\n' "$DRAIN_OUT"
   fi
   # ACT FIRST: the local priority list of items already in this digest, plus
   # the hand-off of the same drain output to the deferred stage's Jev ranking
@@ -949,7 +1120,7 @@ else
     FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-startup-network.sh" act-first-input \
       < "$ACT_FIRST_INPUT" >/dev/null 2>&1 || true
     rm -f "$ACT_FIRST_INPUT"
-    if [ -n "$ACT_FIRST_OUT" ]; then
+    if [ -n "$ACT_FIRST_OUT" ] && [ "$SLIM" -eq 0 ]; then
       subsection "ACT FIRST (priority order: open decisions, unfinished execution, failures and blockers, then wakes; handle and acknowledge every item regardless)"
       printf '%s\n' "$ACT_FIRST_OUT" | head -n 5
     fi
@@ -957,52 +1128,11 @@ else
 fi
 
 # --- 4. supervision operating instructions ----------------------------------
-stage supervision-instructions
-AFK_PRESENT=0
-[ -e "$STATE/.afk" ] && AFK_PRESENT=1
-AFK_MODE=$(fm_afk_mode "$STATE")
-X_MODE_PRESENT=0
-[ -f "$CONFIG/x-mode.env" ] && X_MODE_PRESENT=1
-
-if [ "$PRIMARY_HARNESS" = pi ] || [ "$PRIMARY_HARNESS" = pi-signed ]; then
-  PI_EXT="$FM_ROOT/.pi/extensions/fm-primary-pi-watch.ts"
-  PI_TURNEND_EXT="$FM_ROOT/.pi/extensions/fm-primary-turnend-guard.ts"
-  PI_WATCH_MARKER="$STATE/.pi-watch-extension-loaded"
-  PI_TURNEND_MARKER="$STATE/.pi-turnend-extension-loaded"
-  PI_LOCK="$STATE/.lock"
-  PI_RESTART_COMMAND=$PRIMARY_HARNESS
-  [ "$PRIMARY_HARNESS" != pi ] || PI_RESTART_COMMAND='plain pi'
-  PI_WATCH_VERSION=$(fm_pi_extension_version "$PI_EXT" || printf '')
-  PI_TURNEND_VERSION=$(fm_pi_extension_version "$PI_TURNEND_EXT" || printf '')
-  if ! fm_pi_extension_loaded "$PI_WATCH_MARKER" "$PI_WATCH_VERSION" "$PI_LOCK" active \
-    || ! fm_pi_extension_loaded "$PI_TURNEND_MARKER" "$PI_TURNEND_VERSION" "$PI_LOCK"; then
-    printf 'PI_WATCH_EXTENSION: not loaded - approve Pi project trust once per clone, then restart %s so %s and %s auto-load for turn-end guard and background wake coverage; use -e %s -e %s only if project hooks are not trusted\n' "$PI_RESTART_COMMAND" "$PI_TURNEND_EXT" "$PI_EXT" "$PI_TURNEND_EXT" "$PI_EXT"
-  fi
-fi
-# omp (Oh My Pi) has no project-trust gate: it auto-discovers <cwd>/.omp/extensions
-# with no dialog, so the only ways both tracked primary extensions fail to load
-# are a session started outside this home, an extension disabled in the omp
-# config, or a build older than the tracked file. The markers carry the loaded
-# build plus the loading pid, exactly as the Pi ones do (bin/fm-wake-lib.sh).
-if [ "$PRIMARY_HARNESS" = omp ]; then
-  OMP_EXT="$FM_ROOT/.omp/extensions/fm-primary-omp-watch.ts"
-  OMP_TURNEND_EXT="$FM_ROOT/.omp/extensions/fm-primary-turnend-guard.ts"
-  OMP_WATCH_MARKER="$STATE/.omp-watch-extension-loaded"
-  OMP_TURNEND_MARKER="$STATE/.omp-turnend-extension-loaded"
-  OMP_LOCK="$STATE/.lock"
-  OMP_WATCH_VERSION=$(fm_pi_extension_version "$OMP_EXT" || printf '')
-  OMP_TURNEND_VERSION=$(fm_pi_extension_version "$OMP_TURNEND_EXT" || printf '')
-  if ! fm_pi_extension_loaded "$OMP_WATCH_MARKER" "$OMP_WATCH_VERSION" "$OMP_LOCK" \
-    || ! fm_pi_extension_loaded "$OMP_TURNEND_MARKER" "$OMP_TURNEND_VERSION" "$OMP_LOCK"; then
-    printf 'OMP_WATCH_EXTENSION: not loaded - restart omp with this home as its working directory so %s and %s auto-load from .omp/extensions/ for turn-end guard and background wake coverage; pass -e %s -e %s only when omp must start from another directory, never together with auto-discovery (omp loads a file named both ways twice)\n' "$OMP_TURNEND_EXT" "$OMP_EXT" "$OMP_TURNEND_EXT" "$OMP_EXT"
-  fi
-fi
-"$SCRIPT_DIR/fm-supervision-instructions.sh" \
-  --harness "$PRIMARY_HARNESS" \
-  --read-only "$READ_ONLY" \
-  --afk "$AFK_PRESENT" \
-  --afk-mode "$AFK_MODE" \
-  --x-mode "$X_MODE_PRESENT"
+# A slim compact re-emit prints this right after the lock, ahead of every
+# variable-size section, as current-state lines, condensed operating rules,
+# and the command for the whole block (see SLIM SIZE BUDGET); every other
+# digest prints the whole block here.
+[ "$SLIM" -eq 1 ] || print_supervision_stage
 
 # --- 5. read-once contract -------------------------------------------------
 # Ahead of the two digests it governs, not after them: a truncated tail is
@@ -1013,15 +1143,12 @@ fi
 stage read-once
 section "READ-ONCE CONTRACT"
 if [ "$SLIM" -eq 1 ]; then
+  printf 'Uncut wake queue and bootstrap text: %s\n' "$REEMIT_REST"
   cat <<EOF
-This compact digest carries only what needs action now: the lock line, bootstrap
-diagnostics, queued wakes with their acknowledgement line, the supervision block,
-one line per live task, the away posture, network checks, and the recent captain words.
-Nothing it omitted was lost; print the full report once, only if this turn needs it:
-  $SCRIPT_DIR/fm-session-start.sh --reemit --source compact --full
-Or read a single source: bin/fm-tasks-axi.sh list (backlog), state/<id>.meta and
-state/<id>.status (one task), data/captain.md, data/learnings.md, data/projects.md.
-A STARTUP TRUNCATED banner still names any stage that never ran.
+This compact digest is cut to fit inline: nothing it omitted or shortened was lost.
+Full report, once, only if this turn needs it: $SCRIPT_DIR/fm-session-start.sh --reemit --source compact --full
+One source: bin/fm-tasks-axi.sh list, state/<id>.meta, state/<id>.status, data/captain.md,
+data/learnings.md, data/projects.md. A STARTUP TRUNCATED banner names any stage that never ran.
 EOF
 else
 cat <<'EOF'
@@ -1057,16 +1184,26 @@ stage fleet-state
 section "FLEET STATE"
 [ "$SLIM" -eq 1 ] || print_backlog_compact "$DATA/backlog.md" "data/backlog.md"
 
-subsection "Work under way (state/*.meta)"
 META_FOUND=0
+if [ "$SLIM" -eq 1 ]; then
+  subsection "Work under way (state/*.meta; last status is event history, not current state)"
+  SLIM_TASKS=$(for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    print_slim_task_line "$(basename "$meta" .meta)" "$meta"
+  done)
+  if [ -n "$SLIM_TASKS" ]; then
+    META_FOUND=1
+    printf '%s\n' "$SLIM_TASKS" | slim_capped 1600 125 "state/<id>.meta and state/<id>.status"
+  fi
+else
+  subsection "Work under way (state/*.meta)"
+fi
 for meta in "$STATE"/*.meta; do
+  # The slim digest printed its one line per task above.
+  [ "$SLIM" -eq 0 ] || break
   [ -f "$meta" ] || continue
   META_FOUND=1
   id=$(basename "$meta" .meta)
-  if [ "$SLIM" -eq 1 ]; then
-    print_slim_task_line "$id" "$meta"
-    continue
-  fi
   printf '\n--- %s ---\n' "$id"
   cat "$meta"
 
@@ -1108,7 +1245,7 @@ for status in "$STATE"/*.status; do
   [ -f "$STATE/$id.meta" ] && continue
   if [ "$SLIM" -eq 1 ]; then
     ORPHAN_STATUS_FOUND=1
-    printf '%s: no .meta; last status: %s\n' "$id" "$(fm_cap_line "$(tail -n 1 "$status")")"
+    ORPHAN_IDS="${ORPHAN_IDS:+$ORPHAN_IDS }$id"
     continue
   fi
   ORPHAN_STATUS_FOUND=1
@@ -1116,6 +1253,9 @@ for status in "$STATE"/*.status; do
   print_status_tail "$status"
 done
 [ "$ORPHAN_STATUS_FOUND" -eq 1 ] || printf '(none)\n'
+if [ -n "${ORPHAN_IDS:-}" ]; then
+  fm_cap_line "no .meta, read state/<id>.status for the last line: $ORPHAN_IDS" 300
+fi
 
 subsection "AFK"
 # The away posture is the record (bin/fm-afk-contract.sh); the legacy flag
@@ -1159,11 +1299,18 @@ if fm_pf_relay_active "$FM_HOME" \
   PUBLIC_FOLLOWUP=$("$SCRIPT_DIR/fm-public-followup.sh" pending 2>/dev/null) || PUBLIC_FOLLOWUP=
   if [ -n "$PUBLIC_FOLLOWUP" ]; then
     subsection "Public commitments"
-    printf '%s\n' "$PUBLIC_FOLLOWUP"
-    printf '\nEach line is a public loop this home still holds: a reply still owed, or an open loop with nothing owed.\n'
-    printf 'Reconcile terminal results with %s/bin/fm-public-followup.sh consume, then deliver a ready one with\n' "$FM_ROOT"
-    printf '%s/bin/fm-public-followup.sh deliver <id>. Hand a delivered loop on with rechain, or close it with\n' "$FM_ROOT"
-    printf '%s/bin/fm-public-followup.sh retire <id> --reason "...". Load fmx-respond for the procedure.\n' "$FM_ROOT"
+    if [ "$SLIM" -eq 1 ]; then
+      # Keep both the rows and the procedure on demand: repeated absolute
+      # command paths consume the inline budget even when the rows are capped.
+      printf 'Open public loops remain. List: %s/fm-public-followup.sh pending\n' "$SCRIPT_DIR"
+      printf 'Load fmx-respond to reconcile, deliver, hand on or close each loop.\n'
+    else
+      printf '%s\n' "$PUBLIC_FOLLOWUP"
+      printf '\nEach line is a public loop this home still holds: a reply still owed, or an open loop with nothing owed.\n'
+      printf 'Reconcile terminal results with %s/bin/fm-public-followup.sh consume, then deliver a ready one with\n' "$FM_ROOT"
+      printf '%s/bin/fm-public-followup.sh deliver <id>. Hand a delivered loop on with rechain, or close it with\n' "$FM_ROOT"
+      printf '%s/bin/fm-public-followup.sh retire <id> --reason "...". Load fmx-respond for the procedure.\n' "$FM_ROOT"
+    fi
   fi
 fi
 
@@ -1182,6 +1329,9 @@ if [ "$READ_ONLY" -eq 1 ]; then
   printf 'secondmate liveness and convergence, and pending handoff delivery were not run.\n'
   printf 'They need the fleet lock, and this session must not spawn, steer, or merge, so it\n'
   printf 'has no action they would gate. The session holding the lock runs them.\n'
+elif [ "$SLIM" -eq 1 ]; then
+  "$SCRIPT_DIR/fm-startup-network.sh" harvest --pid $$ 2>&1 \
+    | slim_capped 500 160 "$SCRIPT_DIR/fm-startup-network.sh report" || true
 else
   "$SCRIPT_DIR/fm-startup-network.sh" harvest --pid $$ 2>&1 || true
 fi
@@ -1194,9 +1344,7 @@ fi
 stage context
 section "CONTEXT"
 if [ "$SLIM" -eq 1 ]; then
-  printf 'omitted from the compact digest: data/projects.md, data/secondmates.md, data/captain.md,\n'
-  printf 'data/captain-shared.md, data/learnings.md. Read one when this turn needs it, or print all\n'
-  printf 'of them with: %s/fm-session-start.sh --reemit --source compact --full\n' "$SCRIPT_DIR"
+  printf 'omitted: data/projects.md, data/secondmates.md, data/captain.md, data/captain-shared.md, data/learnings.md (--full prints them).\n'
 else
 print_file_or_absent "$DATA/projects.md" "data/projects.md"
 print_file_or_absent "$DATA/secondmates.md" "data/secondmates.md"
@@ -1211,7 +1359,12 @@ THEME_BANNER_ARG=
 [ "$REEMIT" -eq 1 ] || THEME_BANNER_ARG=--banner
 THEME_DIGEST=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" \
   "$SCRIPT_DIR/fm-theme.sh" digest $THEME_BANNER_ARG 2>/dev/null || true)
-if [ -n "$THEME_DIGEST" ]; then
+if [ -n "$THEME_DIGEST" ] && [ "$SLIM" -eq 1 ]; then
+  # The voice's identity and its two fixed phrases; the rules are one command away.
+  section "THEME"
+  printf '%s\n' "$THEME_DIGEST" | grep -E '^(Theme pack:|Address word|Exact no-op reply|fm-theme:)' | slim_capped 500 160 "$SCRIPT_DIR/fm-theme.sh show"
+  printf 'Register, names, floor and examples: %s/fm-theme.sh show\n' "$SCRIPT_DIR"
+elif [ -n "$THEME_DIGEST" ]; then
   section "THEME"
   printf '%s\n' "$THEME_DIGEST"
 fi
@@ -1231,7 +1384,15 @@ fi
 if [ "$REEMIT" -eq 1 ]; then
   section "RECENT CAPTAIN WORDS"
   if HISTORY_RECENT=$("$SCRIPT_DIR/fm-history.sh" recent --n 5 2>/dev/null); then
-    printf '%s\n' "$HISTORY_RECENT"
+    if [ "$SLIM" -eq 1 ]; then
+      # Newest words first into the budget: reverse, cut, and restore the order,
+      # so the budget drops the oldest turns and the note naming them leads.
+      printf '%s\n' "$HISTORY_RECENT" | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }' \
+        | slim_capped 1400 240 "$SCRIPT_DIR/fm-history.sh recent --n 5" \
+        | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }'
+    else
+      printf '%s\n' "$HISTORY_RECENT"
+    fi
   else
     printf 'History could not be read from %s/history; retrieve it with bin/fm-history.sh find <query>.\n' "$DATA"
   fi

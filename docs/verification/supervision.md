@@ -141,7 +141,7 @@ Pi and pi-signed load the same tracked extension bytes; pi-signed was not instal
 The isolated real-Pi instruction-refresh regression ran on 2026-08-11 with Pi 0.84.0.
 It used a scratch `FM_HOME`, a private tmux socket, and a disposable Firstmate checkout.
 The historical `origin/main` implementation first reproduced the stale original marker after a real compaction.
-The current implementation then recorded `source=startup`, changed and committed the lab's `AGENTS.md`, compacted the same real Pi session, and answered with the replacement marker.
+The implementation tested then recorded `source=startup`, changed and committed the lab's `AGENTS.md`, compacted the same real Pi session, and answered with the replacement marker.
 The fixed run also proved that the true-start baseline remained different from the updated file after compaction.
 
 ```sh
@@ -156,8 +156,9 @@ tests/fm-sessionstart-instruction-refresh-live-e2e.test.sh
 # ok - Pi 0.84.0 re-injects updated AGENTS.md after a real compact in an isolated session
 ```
 
-This is live coverage only for Pi compaction.
-The portable session-start tests cover continuation classification, baseline immutability, and source-routing behavior.
+This dated result covers only Pi compaction and predates the compact digest's required-read refresh; it does not certify the current read-command delivery path.
+The `bin/fm-session-start.sh` header owns the current refresh mechanism, and the live guard above is its refresh entry point.
+The portable session-start tests cover continuation classification, baseline immutability, source routing, and the compact output's byte budget, condensed-rules ordering, and complete instruction-read command.
 Pi compaction is the only supported stale-cache refresh pair.
 Codex exec exposes only startup and context-preserving resume through tracked registration; Codex interactive reset behavior remains uncovered rather than inferred from direct wrapper invocation.
 

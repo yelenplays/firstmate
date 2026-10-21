@@ -21,6 +21,12 @@
 # A branch actor delegates to the drain without absorption.
 # docs/watcher-continuity.md "Hook-side wake triage" owns eligibility,
 # away-mode exclusion, and presentation-delivery safety.
+#
+# FM_WAKE_TRIAGE_PROBE_JOBS (default 8) is the positive-integer batch launch
+# threshold for concurrent crew-state and captain-hold probes. Each eligible
+# task launches a pair; before the next pair, reaching the threshold waits for
+# the entire batch. An odd threshold therefore permits one extra probe.
+# Unset, empty, nonnumeric, and zero values use the default.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -79,7 +85,17 @@ chmod 0600 "$pending" || { cat "$pending"; exit 1; }
 
 work=$(mktemp -d "$STATE/.wake-triage.work.XXXXXX") || { cat "$pending"; exit 1; }
 chmod 0700 "$work" || { cat "$pending"; rm -rf "$work"; exit 1; }
-trap 'rm -rf "$work"' EXIT
+# A triage that exits early also stops its live probes (below) before their
+# results directory goes away.
+# shellcheck disable=SC2329 # invoked by the EXIT trap
+cleanup_work() {
+  local probe_jobs
+  probe_jobs=$(jobs -p)
+  # shellcheck disable=SC2086 # one word per job pid
+  [ -z "$probe_jobs" ] || kill $probe_jobs 2>/dev/null
+  rm -rf "$work"
+}
+trap cleanup_work EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -140,10 +156,30 @@ meta_for_stale() {
   printf '%s\n' "$match"
 }
 
+# The two live reads (crew state and captain hold) dominate a triage's wall
+# time, so every task that passes the cheap file clauses gets them as
+# background probes, batched under the launch threshold documented above.
+# Verdicts are folded afterwards in the original row order. A probe that left
+# no result reads as an empty crew line (C3) or an unavailable hold (C6), so
+# a lost probe can only keep a row ACT NOW.
+PROBE_JOBS=${FM_WAKE_TRIAGE_PROBE_JOBS:-8}
+case "$PROBE_JOBS" in ''|*[!0-9]*|0) PROBE_JOBS=8 ;; esac
+probe_running=0
+probe_task() {  # <id> <probe-number>
+  if [ "$probe_running" -ge "$PROBE_JOBS" ]; then wait; probe_running=0; fi
+  ( FM_STATE_OVERRIDE="$STATE" "$FM_CREW_STATE_BIN" "$1" < /dev/null > "$work/probe.$2.crew" 2>/dev/null ) &
+  ( hold_code=0
+    FM_STATE_OVERRIDE="$STATE" "${FM_CAPTAIN_HOLD_BIN:-$SCRIPT_DIR/fm-captain-hold.sh}" open "$1" --distinguish-absent < /dev/null >/dev/null 2>&1 || hold_code=$?
+    printf '%s\n' "$hold_code" > "$work/probe.$2.hold" ) &
+  probe_running=$((probe_running+2))
+}
+
 act_file="$work/act"
 routine_file="$work/routine"
-: > "$act_file"; : > "$routine_file"
+verdicts="$work/verdicts"
+: > "$act_file"; : > "$routine_file"; : > "$verdicts"
 task_count=0
+probe_count=0
 while IFS= read -r tagged; do
   [ -n "$tagged" ] || continue
   id=$tagged
@@ -188,21 +224,32 @@ while IFS= read -r tagged; do
     fi
   fi
   if [ -z "$reason" ]; then
-    crew=$(FM_STATE_OVERRIDE="$STATE" "$FM_CREW_STATE_BIN" "$id" 2>/dev/null || true)
-    class=$(crew_absorb_class "$id" "$crew" 1 2>/dev/null || true)
-    if [ "$class" != working ]; then reason='C3 crew not working'; fi
-    hold_code=0
-    FM_STATE_OVERRIDE="$STATE" "${FM_CAPTAIN_HOLD_BIN:-$SCRIPT_DIR/fm-captain-hold.sh}" open "$id" --distinguish-absent >/dev/null 2>&1 || hold_code=$?
-    if [ "$hold_code" -ne 1 ] && [ "$hold_code" -ne 3 ]; then reason='C6 captain hold or unavailable'; fi
+    probe_count=$((probe_count+1))
+    probe_task "$id" "$probe_count"
+    printf 'P\t%s\t%s\n' "$id" "$probe_count" >> "$verdicts"
   else
-    crew='not read (failed earlier clause)'
+    printf 'A\t%s\t%s\t%s\n' "$id" "$reason" 'not read (failed earlier clause)' >> "$verdicts"
   fi
+done < "$ids"
+wait
+while IFS="$(printf '\t')" read -r verdict id reason crew; do
+  if [ "$verdict" = A ]; then
+    printf '%s\t%s\t%s\n' "$id" "$reason" "$crew" >> "$act_file"
+    continue
+  fi
+  n=$reason
+  reason=''
+  crew=$(sed -n '1p' "$work/probe.$n.crew" 2>/dev/null || true)
+  class=$(crew_absorb_class "$id" "$crew" 1 2>/dev/null || true)
+  if [ "$class" != working ]; then reason='C3 crew not working'; fi
+  hold_code=$(sed -n '1p' "$work/probe.$n.hold" 2>/dev/null || true)
+  if [ "$hold_code" != 1 ] && [ "$hold_code" != 3 ]; then reason='C6 captain hold or unavailable'; fi
   if [ -n "$reason" ]; then
     printf '%s\t%s\t%s\n' "$id" "$reason" "${crew:-not read}" >> "$act_file"
   else
     printf '%s\t%s\n' "$id" "$crew" >> "$routine_file"
   fi
-done < "$ids"
+done < "$verdicts"
 
 # The drain scans open decisions fleet-wide, so it can list one whose task has
 # no queued row yet (its own signal can trail the status write). It lists a

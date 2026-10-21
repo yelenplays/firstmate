@@ -68,7 +68,13 @@ case "${1:-}" in
     fi
     exit 0 ;;
   display-message)
-    for a in "$@"; do case "$a" in *cursor_y*) printf '1\n'; exit 0 ;; esac; done
+    for a in "$@"; do
+      case "$a" in
+        *cursor_y*) printf '1\n'; exit 0 ;;
+        *pane_current_command*) [ -z "${FM_FAKE_TMUX_AGENT:-}" ] || { printf '%s\n' "$FM_FAKE_TMUX_AGENT"; exit 0; } ;;
+        *pane_tty*) [ -z "${FM_FAKE_TMUX_AGENT:-}" ] || { printf '\n'; exit 0; } ;;
+      esac
+    done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
     if [ "${FM_FAKE_TMUX_COMPOSER:-}" = pending ]; then
@@ -112,7 +118,7 @@ run_send() { # <case-dir> <err-file> [env...] -- <fm-send args...>
   env PATH="$dir/fakebin:$PATH" \
     FM_ROOT_OVERRIDE="$dir/home" FM_HOME="$dir/home" FM_SEND_LOG="$dir/send.log" \
     FM_SEND_SETTLE=0 ${envs[@]+"${envs[@]}"} \
-    "$SEND" "$@" >/dev/null 2>"$err"
+    "$SEND" "$@" >"$dir/send.out" 2>"$err"
 }
 
 record_body() { # <record>
@@ -245,6 +251,32 @@ test_failed_ring_is_still_sent() {
   assert_contains "$(cat "$err")" "watcher will re-ring" \
     "the failed-ring notice should point at the re-ring"
   pass "fm-send inbox: a failed doorbell is still a durably sent steer"
+}
+
+# A steer to a task whose agent has exited is recorded but read by nobody until
+# recovery, so it keeps exit 0 (a resend would only stack a duplicate) and
+# prints the one stable stdout line a caller can match instead of an empty
+# stdout that reads like a delivery.
+test_dead_agent_steer_says_recorded_not_delivered() {
+  local dir err rc out
+  dir=$(setup_case deadagent)
+  err="$dir/send.err"
+  run_send "$dir" "$err" FM_FAKE_TMUX_AGENT=zsh -- t1 "steer an exited agent"
+  rc=$?
+  expect_code 0 "$rc" "a steer to an exited agent is still durably recorded"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the steer was not recorded"
+  [ ! -s "$dir/send.log" ] || fail "an exited agent's pane was typed into:"$'\n'"$(cat "$dir/send.log")"
+  out=$(cat "$dir/send.out")
+  case "$out" in
+  "recorded-not-delivered: t1 "*) ;;
+  *) fail "a dead target should print one recorded-not-delivered line on stdout, got: $out" ;;
+  esac
+  [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "the dead-target signal should be exactly one line: $out"
+  assert_contains "$out" "$dir/home/state/t1.inbox/001.msg" "the signal should name the record path"
+  assert_contains "$out" "do not resend" "the signal should rule out a resend"
+  run_send "$dir" "$err" -- t1 "steer a live agent"
+  [ ! -s "$dir/send.out" ] || fail "a delivered steer should keep stdout empty, got: $(cat "$dir/send.out")"
+  pass "fm-send inbox: a steer to an exited agent exits 0 and prints one recorded-not-delivered line"
 }
 
 # Contract: a fire-and-forget record stays outside the re-ring ladder, so a
@@ -515,6 +547,7 @@ test_multiline_steer_is_legal
 test_resend_enqueues_new_sequence
 test_pending_composer_skips_ring_advisorily
 test_failed_ring_is_still_sent
+test_dead_agent_steer_says_recorded_not_delivered
 test_fire_and_forget_unlanded_ring_owes_one_retry
 test_fire_and_forget_retry_stays_off_without_the_flag
 test_harness_invocations_stay_typed
