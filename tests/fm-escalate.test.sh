@@ -113,6 +113,21 @@ test_sonnet_escalates_to_opus_and_opus_to_the_captain() {
   pass "Sonnet escalates to Opus medium, and Opus goes to the captain"
 }
 
+test_an_unlisted_model_escalates_to_opus_never_down() {
+  local model out
+  for model in gemini-3.5-pro gpt-6-luna; do
+    new_case "unlisted-$model" codex "$model" high
+    work_round 1
+    escalate record-failure "unlisted-$model" --reason one >/dev/null
+    work_round 2
+    out=$(escalate record-failure "unlisted-$model" --reason two)
+    [ "$(value action "$out")" = relaunch ] || fail "two failed rounds on $model asked for: $out"
+    [ "$(value next_model "$out")" = claude-opus-5-5 ] && [ "$(value next_effort "$out")" = medium ] \
+      || fail "$model, which may be stronger than Sonnet, stepped to: $out"
+  done
+  pass "a model the ladder does not list as cheap escalates to Opus medium, never down to Sonnet"
+}
+
 test_rounds_count_only_this_incarnations_failures() {
   local out head_a head_b
   new_case counted opencode zhipu/glm-5.2 medium
@@ -150,6 +165,7 @@ test_usage_errors() {
 
 test_two_failed_rounds_escalate_a_cheap_model_to_sonnet
 test_sonnet_escalates_to_opus_and_opus_to_the_captain
+test_an_unlisted_model_escalates_to_opus_never_down
 test_rounds_count_only_this_incarnations_failures
 test_usage_errors
 

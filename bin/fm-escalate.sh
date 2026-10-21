@@ -19,9 +19,11 @@
 # The ladder, by the task record's model=:
 #   - Claude Opus, Claude Fable, GPT Sol, and an unset or `default` model: top
 #     of the ladder; two failed rounds go to the captain.
-#   - Claude Sonnet: next step FM_ESCALATE_OPUS_* (Opus at medium effort).
-#   - every other model (DeepSeek, GLM, Haiku, ...): next step
-#     FM_ESCALATE_SONNET_* (Sonnet at medium effort).
+#   - a known cheap model (Haiku, DeepSeek, GLM, Kimi, Qwen, MiniMax): next
+#     step FM_ESCALATE_SONNET_* (Sonnet at medium effort).
+#   - Claude Sonnet and every other model: next step FM_ESCALATE_OPUS_* (Opus
+#     at medium effort), so a model the ladder does not know, which may be
+#     stronger than Sonnet, is never escalated down.
 #
 # record-failure
 #   Appends {at, head, reason, spawn_gen} to data/<id>/rounds.jsonl; <head>
@@ -128,10 +130,10 @@ next_step() {  # <model>
   fm_test_ban_model_applies "$1" || return 1
   lower=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$lower" in
-    *sonnet*)
-      NEXT_HARNESS=$FM_ESCALATE_OPUS_HARNESS NEXT_MODEL=$FM_ESCALATE_OPUS_MODEL NEXT_EFFORT=$FM_ESCALATE_OPUS_EFFORT ;;
-    *)
+    *haiku*|*deepseek*|*glm*|*kimi*|*qwen*|*minimax*)
       NEXT_HARNESS=$FM_ESCALATE_SONNET_HARNESS NEXT_MODEL=$FM_ESCALATE_SONNET_MODEL NEXT_EFFORT=$FM_ESCALATE_SONNET_EFFORT ;;
+    *)
+      NEXT_HARNESS=$FM_ESCALATE_OPUS_HARNESS NEXT_MODEL=$FM_ESCALATE_OPUS_MODEL NEXT_EFFORT=$FM_ESCALATE_OPUS_EFFORT ;;
   esac
 }
 
