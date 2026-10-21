@@ -40,6 +40,9 @@
 # (default 900); it never lands a PR, approves it, or changes merge authority.
 # Result lines are <id> <result>: <detail>; live eligibility or read refusals
 # print <id> skipped: <reason> without replacing an existing result record.
+# If re-recording a verified sync merge fails, it also prints skipped and leaves
+# the synced record at the old head untouched, so the next run retries adoption
+# instead of refusing that merge as an unrelated head move.
 # Tasks lacking recorded PR metadata, unsupported forges, and local-only tasks
 # are skipped silently.
 set -u

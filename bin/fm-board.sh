@@ -8,9 +8,10 @@
 # line nobody read is still ready to approve, and a merge whose live check is
 # pending is still visible after its worker is gone.
 # bin/fm-board-lib.sh owns the grouping rules and their sources for one home.
-# This command adds every registered secondmate home's board from its published
+# This command adds registered secondmate homes' boards from their published
 # state/home-summary.json (a local ledger or the parent's cached copy of a
 # remote one, read through `fm-fleet-snapshot.sh --secondmate-current-cached`).
+# That reader's header and help own the registry and home-count bounds.
 # A published board is bounded per group; the rows a home left out still count
 # in the totals and print as a PARTIAL line.
 # A secondmate ledger written before boards were published contributes its
