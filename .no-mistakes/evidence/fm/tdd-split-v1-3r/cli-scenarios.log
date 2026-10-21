@@ -1,0 +1,121 @@
+$ bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home
+[exit 0]
+
+$ git init -q -b main
+[exit 0]
+
+$ git add .
+[exit 0]
+
+$ git commit -qm Initial multiply CLI
+[exit 0]
+
+$ git clone -q /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home/base /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home/projects/multiply
+[exit 0]
+
+$ git checkout -qb fm/trial
+[exit 0]
+
+$ git add .
+[exit 0]
+
+$ git commit -qm Add CLI acceptance test
+[exit 0]
+
+SCENARIO: already-green tests must not hand over
+
+$ bin/fm-tdd-split.sh handoff trial --timeout 5
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home/data/trial/tdd-split-red.log
+[exit 1]
+
+$ git add .
+[exit 0]
+
+$ git commit -qm Require correct multiplication
+[exit 0]
+
+SCENARIO: a missing runner is not a red test
+
+$ bin/fm-tdd-split.sh handoff trial --timeout 5
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home/data/trial/tdd-split-red.log
+[exit 1]
+
+SCENARIO: a timeout is not a red test
+
+$ bin/fm-tdd-split.sh handoff trial --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GDHE6DD2YZRJJYS6EB2G00/.test-phase/cli-home/data/trial/tdd-split-red.log
+[exit 1]
+
+SCENARIO: uncommitted seat changes cannot hand over
+
+$ bin/fm-tdd-split.sh handoff trial --timeout 5
+error: tdd-split test seat has uncommitted changes; commit the tests and report tests-ready again
+[exit 1]
+
+SCENARIO: production code written on the test seat cannot hand over
+
+$ git add .
+[exit 0]
+
+$ git commit -qm Attempt production edit from test seat
+[exit 0]
+
+$ bin/fm-tdd-split.sh handoff trial --timeout 5
+error: tdd-split test seat changed files that are not tests: multiply.py; the seat writes tests only, so revert those changes and report tests-ready again
+[exit 1]
+
+All refusal cases retained tdd_split=tests: True
+
+SCENARIO: one distinct failed head does not escalate; duplicates do not count twice
+
+$ bin/fm-escalate.sh record-failure trial --reason Manual review rejected round one
+task=trial
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=cba52422846f997d71767b0b2c84edbe7b7fd2bc
+action=none
+[exit 0]
+
+$ bin/fm-escalate.sh record-failure trial --reason Repeated report for same head
+task=trial
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=cba52422846f997d71767b0b2c84edbe7b7fd2bc
+action=none
+[exit 0]
+
+$ git add .
+[exit 0]
+
+$ git commit -qm Second implementation round
+[exit 0]
+
+SCENARIO: two distinct failed Sonnet heads select Opus medium
+
+$ bin/fm-escalate.sh record-failure trial --reason Manual review rejected round two
+task=trial
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=2
+heads=cba52422846f997d71767b0b2c84edbe7b7fd2bc,51afd2324af9c9d7d05a85dbea033179833c68fd
+action=relaunch
+next_harness=claude
+next_model=claude-opus-5-5
+next_effort=medium
+[exit 0]
+
+SCENARIO: the strongest model requests a decision instead of relaunching
+
+$ bin/fm-escalate.sh run trial
+task=trial
+current=claude/claude-opus-5-5/medium
+failed_rounds=2
+heads=cba52422846f997d71767b0b2c84edbe7b7fd2bc,51afd2324af9c9d7d05a85dbea033179833c68fd
+action=captain
+reason=2 failed rounds on claude-opus-5-5, the top of the escalation ladder
+[exit 3]
+
+Persisted round records (owned CLI output contract):
+{"at":"2026-10-21T23:53:11Z","head":"cba52422846f997d71767b0b2c84edbe7b7fd2bc","reason":"Manual review rejected round one","spawn_gen":"s1.1.live-validation"}
+{"at":"2026-10-21T23:53:11Z","head":"cba52422846f997d71767b0b2c84edbe7b7fd2bc","reason":"Repeated report for same head","spawn_gen":"s1.1.live-validation"}
+{"at":"2026-10-21T23:53:11Z","head":"51afd2324af9c9d7d05a85dbea033179833c68fd","reason":"Manual review rejected round two","spawn_gen":"s1.1.live-validation"}

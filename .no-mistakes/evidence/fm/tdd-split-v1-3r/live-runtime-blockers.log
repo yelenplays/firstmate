@@ -1,0 +1,18 @@
+Runtime availability checked with command -v:
+claude: available
+claude auth status: loggedIn=true (normal existing login; no authentication changes)
+tmux: not on PATH; no repository-local binary was supplied. No installation or host search attempted.
+herdr: available
+treehouse: available
+jq: available
+
+bin/fm-herdr-lab.sh prepare with the existing Herdr configuration succeeded (read-only default-session tripwire; no session provisioned).
+
+Boundary-preserving alternate preflight:
+HERDR_CONFIG_PATH="$PWD/.test-phase/herdr-isolated/config.toml" XDG_CONFIG_HOME="$PWD/.test-phase/xdg-config" XDG_DATA_HOME="$PWD/.test-phase/xdg-data" XDG_STATE_HOME="$PWD/.test-phase/xdg-state" FM_HERDR_LAB_STATE_DIR="$PWD/.test-phase/herdr-isolated-state" bin/fm-herdr-lab.sh prepare <generated fm-lab-isolated-tdd-* name>
+fm-herdr-lab: fleet-state tripwire requires exactly one running default session
+isolated_prepare_exit=1
+
+No Herdr lab was provisioned. Using the existing Herdr configuration for a new persistent session would intentionally write session state outside the worktree; the workspace boundary does not authorize that. Starting a default session to satisfy the isolated tripwire is also forbidden. No default/fleet panes were touched.
+
+Needed for full live model-lifecycle proof: provide tmux on PATH (outside this agent's run), or explicitly authorize the named Herdr lab's out-of-worktree persistence. Then rerun the Opus-to-Sonnet real-task trial, locked-test rejection, dispute return, and actual Opus takeover. CLI policy/refusal evidence in cli-scenarios.log does not establish model behavior or successful native relaunch.
