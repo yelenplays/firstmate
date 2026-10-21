@@ -15,7 +15,8 @@
 #   the snapshot          the worker's verbatim findings file, which must lie
 #                         under data/<task>/ and list at least those ids (it
 #                         may list more, such as no-op findings, in the `id:`
-#                         line or TOON row format; those stay as context).
+#                         line, TOON row, or JSON `findings` array format; those
+#                         stay as context. JSON is rewritten to `id:` lines).
 #                         Repeated ids or missing asked ids are refused.
 #   data/<task>/brief.md  its `## Captain's intent` and `## Firstmate spec`
 #   state/<task>.inbox    every steering record, handled or pending, in order
@@ -26,8 +27,11 @@
 # or data-loss concern; a wiki vault project (an _meta/einstieg.sh,
 # _meta/pruefe.sh or _meta/einstieg-manifest.json marker, or a path under the
 # wikis root: FM_WIKIS_ROOT, else config/wikis-root, else ~/Documents/Wikis),
-# an unreadable project path, no Jev key, or a contract over the library's
-# state cap or one carrying a secret. Other findings also escalate if their
+# an unreadable project path, no Jev key, or a contract carrying a secret, or
+# findings alone over the library's state cap. A contract that only pushes the
+# state over the cap is trimmed deterministically: the captain's intent keeps up
+# to half the room the findings leave, the spec two thirds of the rest, the
+# steers the remainder, each cut at a line end with a trim marker. Other findings also escalate if their
 # typed risk screen returns p_yes > 0.2 or is malformed.
 #
 # Otherwise one typed Jev call through bin/fm-jev-lib.sh sends the contract
@@ -145,6 +149,20 @@ DATA_REAL=$(cd "$FM_HOME/data/$TASK" 2>/dev/null && pwd -P) || die "no data dire
 FILE_REAL="$(cd "$(dirname "$FINDINGS_FILE")" && pwd -P)/$(basename "$FINDINGS_FILE")"
 case "$FILE_REAL" in "$DATA_REAL"/*) ;; *) die "findings snapshot is outside data/$TASK: $FINDINGS_FILE" ;; esac
 FINDINGS=$(cat "$FINDINGS_FILE") || die "could not read $FINDINGS_FILE"
+# The gate's JSON form (`{"findings":[{"id":...}]}` or a bare array) is
+# rewritten to the `id:` line format, one `key: value` line per field and the
+# `action` field as `authority/action:`, so every later screen reads one shape.
+if printf '%s' "$FINDINGS" | jq -e '(type == "object" and (.findings | type) == "array") or type == "array"' >/dev/null 2>&1; then
+  FINDINGS=$(printf '%s' "$FINDINGS" | jq -r '
+    def flat: if type == "string" then gsub("[\r\n]+"; " ") elif type == "null" then "" else tojson end;
+    (if type == "array" then . else .findings end) as $rows
+    | (if type == "object" and (.step | type) == "string" then "step: \(.step | flat)\n" else "" end),
+      ($rows[] | select(type == "object" and (.id | type) == "string")
+       | "id: \(.id | flat)\n"
+         + ([to_entries[] | select(.key != "id" and (.value | type) != "object" and (.value | type) != "array")
+             | "\(if .key == "action" then "authority/action" else .key end): \(.value | flat)"] | join("\n")) + "\n")
+  ' 2>/dev/null) || die "could not read the JSON findings snapshot $FINDINGS_FILE"
+fi
 WANT_IDS=$(printf '%s\n' "$IDS" | tr ',' '\n' | LC_ALL=C sort)
 [ "$WANT_IDS" = "$(printf '%s\n' "$WANT_IDS" | LC_ALL=C sort -u)" ] || die "finding ids repeat in $KEY"
 # The snapshot lists every gate finding, no-op ones included, in either the
@@ -156,7 +174,7 @@ HAVE_IDS=$(printf '%s\n' "$FINDINGS" | awk '
   toon && /^[[:space:]]+[A-Za-z0-9._-]+,/ { v = $0; sub(/^[[:space:]]+/, "", v); sub(/,.*/, "", v); print v; next }
   toon && !/^[[:space:]]/ { toon = 0 }
 ' | LC_ALL=C sort)
-[ -n "$HAVE_IDS" ] || die "the snapshot lists no findings (want id: lines or findings[N]{id,...} rows)"
+[ -n "$HAVE_IDS" ] || die "the snapshot lists no findings (want id: lines, findings[N]{id,...} rows, or a JSON findings array)"
 [ "$HAVE_IDS" = "$(printf '%s\n' "$HAVE_IDS" | LC_ALL=C sort -u)" ] || die "the snapshot repeats a finding id"
 MISSING=$(comm -23 <(printf '%s\n' "$WANT_IDS") <(printf '%s\n' "$HAVE_IDS") | paste -sd, -)
 [ -z "$MISSING" ] || die "the snapshot's ids do not match findings=$IDS (it does not list: $MISSING)"
@@ -267,21 +285,51 @@ while IFS=$'\t' read -r seq kind record; do
 done < <(inbox_records)
 [ -n "$STEERS" ] || STEERS='(none)'
 
-JEV_STATE="Accepted contract of one Firstmate task, then the ask-user findings a no-mistakes reviewer raised at its ${STEP:-unnamed} gate in review round $ROUND.
+build_state() { # <intent> <spec> <steers>
+  printf '%s' "Accepted contract of one Firstmate task, then the ask-user findings a no-mistakes reviewer raised at its ${STEP:-unnamed} gate in review round $ROUND.
 
 ## Captain's intent
-${INTENT:-(none)}
+${1:-(none)}
 
 ## Firstmate spec
-${SPEC:-(none)}
+${2:-(none)}
 
 ## Firstmate steers to the worker, oldest first
-$STEERS
+$3
 ## Gate findings, verbatim (judge only the ask-user ids: $IDS; the rest is context)
 $FINDINGS"
+}
+JEV_STATE=$(build_state "$INTENT" "$SPEC" "$STEERS")
 
 if fm_jev_has_sensitive_key "$JEV_STATE"; then
   escalate privacy "the contract or findings carry a secret-shaped value; nothing was sent"
+fi
+# An over-cap contract is trimmed, never the findings: the captain's intent
+# keeps up to half of the room the findings leave, the spec two thirds of the
+# rest, the steers what remains, each cut at a line end with a marker. Only
+# findings that alone exceed the cap still escalate below.
+trim_to() { # <text> <bytes>
+  local text=$1 limit=$2 marker='[... trimmed to fit the Jev state cap ...]' cut
+  [ "$(printf '%s' "$text" | wc -c)" -gt "$limit" ] || { printf '%s' "$text"; return 0; }
+  [ "$limit" -gt "${#marker}" ] || { printf '%s' "$marker"; return 0; }
+  cut=$(printf '%s' "$text" | LC_ALL=C head -c $((limit - ${#marker} - 1)))
+  case "$cut" in *$'\n'*) cut=${cut%$'\n'*} ;; esac
+  printf '%s\n%s' "$cut" "$marker"
+}
+state_bytes() { printf '%s' "$1" | wc -c | tr -d ' '; }
+STATE_MAX=$(_fm_jev_state_max)
+if [ "$(state_bytes "$JEV_STATE")" -gt "$STATE_MAX" ]; then
+  ROOM=$((STATE_MAX - $(state_bytes "$(build_state "" "" "")") - 64))
+  if [ "$ROOM" -gt 0 ]; then
+    INTENT_ROOM=$((ROOM / 2))
+    INTENT=$(trim_to "$INTENT" "$INTENT_ROOM")
+    ROOM=$((ROOM - $(state_bytes "$INTENT")))
+    SPEC_ROOM=$((ROOM * 2 / 3))
+    SPEC=$(trim_to "$SPEC" "$SPEC_ROOM")
+    ROOM=$((ROOM - $(state_bytes "$SPEC")))
+    STEERS=$(trim_to "$STEERS" "$ROOM")$'\n'
+    JEV_STATE=$(build_state "$INTENT" "$SPEC" "$STEERS")
+  fi
 fi
 # fm_jev_compact_state owns the state size cap and sensitive-data stripping;
 # any refusal or change means this contract cannot go to Jev as it stands.
