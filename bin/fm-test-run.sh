@@ -820,6 +820,7 @@ tests/fm-search.test.sh 60000
 tests/fm-search-dates.test.sh 10000
 tests/fm-documentation-audiences.test.sh 1301
 tests/fm-dod-lib.test.sh 2035
+tests/fm-escalate.test.sh 1526
 tests/fm-extension-binding.test.sh 11105
 tests/fm-fleet-ledger.test.sh 19980
 tests/fm-fleet-snapshot-view.test.sh 23334
@@ -971,6 +972,7 @@ tests/fm-tangle-guard.test.sh 8501
 tests/fm-task-delivery.test.sh 32789
 tests/fm-task-inbox.test.sh 31965
 tests/fm-tasks-axi.test.sh 2293
+tests/fm-tdd-split.test.sh 6662
 tests/fm-teardown-endpoint-safety.test.sh 40851
 tests/fm-teardown.test.sh 202132
 tests/fm-test-fixture-cleanup.test.sh 866
