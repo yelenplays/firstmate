@@ -989,8 +989,8 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # since the base named `no-mistakes(<step>): ...`, independently of the worker's
 # lane. Attribution is conservative and step-wide, not per commit: any banned
 # candidate model for a step makes its added or modified test files refuse the
-# PR record, except captain-authorized paths and paths restored at HEAD to
-# their state before that commit. Deletions alone are not checked here.
+# PR record, except captain-authorized paths and paths restored at the checked
+# head to their state before that commit. Deletions alone are not checked here.
 # Candidates come from successful writing invocations across runs on the task's
 # branch in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite: <step>-fix, and <step>
 # itself except for the read-only review. Without known recorded models, or
