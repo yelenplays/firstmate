@@ -1,0 +1,8 @@
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FEG8P20S1TF90YMEC8GAVC/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FEG8P20S1TF90YMEC8GAVC/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again

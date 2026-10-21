@@ -1,61 +1,64 @@
-Product code: 885d904ee0b4e08cefd443fe97599976ec60b851
-Input PR: https://github.com/yelenplays/firstmate/pull/187
-Fetched PR head: 16ff368c43c3e5a8691c67d0cc03632cc371b1c2
-Older local HEAD: 7b19c659297c540778cca6cf9878b5cdae201cc5
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FEG8P20S1TF90YMEC8GAVC/.test-phase-tmp/fm-lab.VaIYKj
+Product code: 44b56739b44e0faf10545d8dc755a87a0833d81a
+Existing remote PR: https://github.com/yelenplays/firstmate/pull/187
+Published input head: 186ffb5024dfd6c93fbf3a5171da24eda5bc6c84
+Merge base: 7b19c659297c540778cca6cf9878b5cdae201cc5
+No upstream writes or pipeline commands performed.
 
-=== live-deepseek (expected refuse): exit 1 ===
-●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-●  WATCHER DOWN - SUPERVISION IS OFF
-●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
-●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
-●  This is a supervision warning only; the guarded operation WILL still run.
-●  repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.pi/extensions/fm-primary-turnend-guard.ts -e /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.pi/extensions/fm-primary-pi-watch.ts if the extensions are not loaded.
-●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+=== deepseek-forbidden: expected refuse ===
+exit=1
 error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
-Observed: no PR registration or merge poll created.
+Persisted result: no PR record and no merge poll.
 
-=== live-glm (expected refuse): exit 1 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on zai/glm-5.3-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
-Observed: no PR registration or merge poll created.
+=== glm-forbidden: expected refuse ===
+exit=1
+error: no test authoring on zai/glm-5: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
+Persisted result: no PR record and no merge poll.
 
-=== live-sonnet (expected refuse): exit 1 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
-Observed: no PR registration or merge poll created.
+=== native-deepseek-fixer: expected refuse ===
+exit=1
+error: no test authoring on opencode-go/deepseek-v4.1-flash: pipeline fixer commits add or modify unauthorized test files (no-mistakes(ci) on opencode-go/deepseek-v4.1-flash in 3d2f5dd61d4e: tests/fm-dod-lib.test.sh; no-mistakes(ci) on opencode-go/deepseek-v4.1-flash in 3d2f5dd61d4e: tests/fm-pr-check-security.test.sh; no-mistakes(test) on opencode-go/deepseek-v4.1-flash in 0353882f6fff: tests/fm-pr-check-security.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+Persisted result: no PR record and no merge poll.
 
-=== live-opus-no-base (expected accept): exit 0 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-armed: state/live-opus-no-base.check.sh
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
+=== unparsed-native-fixer: expected refuse ===
+exit=1
+error: no test authoring on unparsed-native-model-pin: pipeline fixer commits add or modify unauthorized test files (no-mistakes(ci) on unparsed-native-model-pin in 3d2f5dd61d4e: tests/fm-dod-lib.test.sh; no-mistakes(ci) on unparsed-native-model-pin in 3d2f5dd61d4e: tests/fm-pr-check-security.test.sh; no-mistakes(test) on unparsed-native-model-pin in 0353882f6fff: tests/fm-pr-check-security.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
+Persisted result: no PR record and no merge poll.
+
+=== opus-authorized: expected accept ===
+exit=0
+armed: state/opus-authorized.check.sh
 pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
-Observed: canonical PR and exact forge head recorded; merge poll armed, not executed.
+pr_head=186ffb5024dfd6c93fbf3a5171da24eda5bc6c84
+Persisted result: exact published PR head and merge poll recorded.
 
-=== live-sonnet-no-base (expected refuse): exit 1 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+=== inherited-handoff: expected accept ===
+exit=0
+armed: state/inherited-handoff.check.sh
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=186ffb5024dfd6c93fbf3a5171da24eda5bc6c84
+Persisted result: exact published PR head and merge poll recorded.
+
+=== changed-handoff: expected refuse ===
+exit=1
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
+Persisted result: no PR record and no merge poll.
+
+=== captain-path-exception: expected accept ===
+exit=0
+armed: state/captain-path-exception.check.sh
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=186ffb5024dfd6c93fbf3a5171da24eda5bc6c84
+Persisted result: exact published PR head and merge poll recorded.
+
+=== opus-unreadable-base: expected accept ===
+exit=0
+armed: state/opus-unreadable-base.check.sh
+pr=https://github.com/yelenplays/firstmate/pull/187
+pr_head=186ffb5024dfd6c93fbf3a5171da24eda5bc6c84
+Persisted result: exact published PR head and merge poll recorded.
+
+=== deepseek-unreadable-base: expected strict refusal ===
+exit=1
 error: test-file check cannot resolve the base branch origin/main in the worker copy
-Observed: no PR registration or merge poll created.
-
-=== live-native-sonnet (expected refuse): exit 1 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(ci) on claude-sonnet-5-5 in d1c223e963e2: tests/fm-dod-lib.test.sh; no-mistakes(ci) on claude-sonnet-5-5 in d1c223e963e2: tests/fm-pr-check-security.test.sh; no-mistakes(test) on claude-sonnet-5-5 in eb180028b1db: tests/fm-pr-check-security.test.sh); a banned fixer's tests need an allowlisted author, so revert them in a follow-up commit and validate again
-Observed: no PR registration or merge poll created.
-
-=== live-native-opus (expected accept): exit 0 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-armed: state/live-native-opus.check.sh
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
-Observed: canonical PR and exact forge head recorded; merge poll armed, not executed.
-
-=== live-unknown-fixer (expected accept): exit 0 ===
-WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
-armed: state/live-unknown-fixer.check.sh
-project=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5F2YD3Y9VR56Y7KB4XVCWM0/.test-runtime/live-pr
-pr=https://github.com/yelenplays/firstmate/pull/187
-pr_head=16ff368c43c3e5a8691c67d0cc03632cc371b1c2
-Observed: canonical PR and exact forge head recorded; merge poll armed, not executed.
-
-Completed; disposable home removed by EXIT trap. No forge writes or pipeline commands were executed.
+Persisted result: no PR record and no merge poll.

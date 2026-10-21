@@ -1,0 +1,2 @@
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/fm-dod-lib.test.sh tests/fm-pr-check-security.test.sh; revert those changes and report done again
