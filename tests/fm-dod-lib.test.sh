@@ -903,6 +903,53 @@ test_test_ban_pipeline_fixer_model_resolution() {
   pass "pipeline fixer models resolve from recorded runs, then the config"
 }
 
+# A native --model pin in agent_args_override is the model no-mistakes runs,
+# so it wins over the review role's model and agent_config, in both directions.
+test_test_ban_pipeline_fixer_native_pin_wins() {
+  local nm models
+  nm="$TMP_ROOT/native-nm"
+  mkdir -p "$nm"
+  cat > "$nm/config.yaml" <<'YAML'
+agent: [claude]
+agent_config:
+  claude:
+    model: claude-opus-5-5
+agent_args_override:
+  claude:
+    - --model
+    - claude-sonnet-5-5
+review_agents:
+  fixer:
+    agent: claude
+    model: claude-opus-5-5
+YAML
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
+  [ "$models" = claude-sonnet-5-5 ] || fail "review hid a native Sonnet pin behind Opus defaults: '$models'"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models lint fm/x)
+  [ "$models" = claude-sonnet-5-5 ] || fail "lint hid a native Sonnet pin behind agent_config: '$models'"
+
+  cat > "$nm/config.yaml" <<'YAML'
+agent: [claude]
+agent_config:
+  claude:
+    model: claude-haiku-5-5
+agent_args_override:
+  claude: ["--model=claude-opus-5-5"]
+review_agents:
+  fixer:
+    model: claude-sonnet-5-5
+YAML
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
+  [ "$models" = claude-opus-5-5 ] || fail "review ignored a native Opus pin over a Sonnet role model: '$models'"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+  [ "$models" = claude-opus-5-5 ] || fail "test ignored a native Opus pin over a Haiku agent_config: '$models'"
+
+  printf '%s\n' 'review_agents:' '  fixer:' '    model: claude-sonnet-5-5' > "$nm/config.yaml"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
+  [ "$models" = claude-sonnet-5-5 ] || fail "a fixer role model with no agent chain was lost: '$models'"
+  pass "a native model pin wins over role and agent_config models, in both directions"
+}
+
 test_test_ban_model_list
 test_test_ban_path_heuristic
 test_test_ban_exception_requires_explicit_paths
@@ -912,6 +959,7 @@ test_test_ban_gate_measures_from_the_tests_first_handoff
 test_test_ban_handoff_ignores_test_changes_from_the_base
 test_test_ban_pipeline_fixer_on_an_allowlisted_task
 test_test_ban_pipeline_fixer_model_resolution
+test_test_ban_pipeline_fixer_native_pin_wins
 test_test_ban_unreadable_pipeline_history
 
 echo "all fm-dod-lib tests passed"
