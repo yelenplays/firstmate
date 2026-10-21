@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Sync a clean checked-out ready branch and keep main and the remote untouched",
+    "result": "pass"
+  },
+  {
+    "name": "Sync a ready branch checked out nowhere using a fast-forward ref update",
+    "result": "pass"
+  },
+  {
+    "name": "Refuse a dirty ready copy, show sync-blocked, and retry after its changes are saved",
+    "result": "pass"
+  },
+  {
+    "name": "Keep a conflicting branch untouched, ignore old-incarnation blockers, and re-evaluate after resolution",
+    "result": "pass"
+  },
+  {
+    "name": "Skip held task and home locks without moving the branch, then sync after release",
+    "result": "pass"
+  },
+  {
+    "name": "Recover unrelayed readiness from stored events across notes and resolutions, but not resumed work",
+    "result": "pass"
+  },
+  {
+    "name": "Render merged versus live columns from durable post-merge records even without task metadata",
+    "result": "pass"
+  },
+  {
+    "name": "Publish a bounded child-home board and expose omitted counts on the parent board",
+    "result": "pass"
+  }
+]

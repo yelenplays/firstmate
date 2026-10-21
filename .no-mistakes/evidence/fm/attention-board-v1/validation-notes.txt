@@ -1,0 +1,22 @@
+Target: 16d58c65beb845ed2402c33df0ca7b1a76ea5b38
+
+Targeted baseline:
+- TMPDIR="$PWD/.validation-tmp" bash tests/fm-main-sync.test.sh: passed. Forge interactions are stubbed here; this is not live GitHub evidence. Includes same-head synced-receipt preservation after conflict refusal, adoption guards, transient retry, and real-git local cases.
+- TMPDIR="$PWD/.validation-tmp" bash tests/fm-board.test.sh: passed. Stubbed dependencies; not live backend evidence.
+- TMPDIR="$PWD/.validation-tmp" bash tests/fm-home-summary-refresh.test.sh: initially failed because repo-local TMPDIR nested the child home in the declared code root; product correctly refused that home.
+- TMPDIR=/tmp bash tests/fm-home-summary-refresh.test.sh: passed with normal toolchain-generated ephemeral fixtures, including parent consumption of a bounded large child ledger.
+- TMPDIR="$PWD/.validation-tmp" bash tests/fm-session-start.test.sh: full invocation exceeded the 120-second command deadline during unrelated lock-contention stress. No matching test processes remained afterward.
+- TMPDIR="$PWD/.validation-tmp" bash tests/fm-session-start.test.sh --board-only: passed the relevant board-first digest check. This uses fixture harnesses, not a real primary.
+
+Manual product checks:
+- python3 .validation-tmp/live_validate.py: all eight scenarios passed after correcting isolation layout. Executed actual bin/fm-main-sync.sh, bin/fm-board.sh, and bin/fm-home-summary-refresh.sh with real Git repositories and worktrees, no tool stubs or FM_TEST_SEAM. A declared installation root points its bin symlink to tracked code; all disposable homes are siblings outside that declared root but remain inside the gate worktree. The initial child-home refusal was re-driven successfully with this layout.
+- python3 .validation-tmp/regression.py: previous main-sync implementation from 1020e99c leaves a ready local branch behind main; the target synchronizes it and proves main ancestry. Also verified origin/HEAD selects trunk over an existing main. No landing or push by Firstmate was performed.
+- Git assertions compared main's exact head, primary branch, primary dirty status, and local bare remote refs before/after product operations; all remained unchanged. The only initial fixture push seeded the throwaway bare remote before invoking Firstmate.
+- Actual board stdout is rendered in board-output.html; this is a CLI surface, so no native GUI screenshot was required. Persisted post-merge input checks prove board classification only, not a real deployment or fresh witness.
+
+Previously accepted live-evidence exclusions remain:
+- Real GitHub update-branch/refusal/adoption: no authorized disposable repository/PR was supplied. Tests use fake gh, never claimed live.
+- Deployment witness: no authorized live deployment, merge, or fresh witness runtime was supplied. Stored verdict inputs are explicitly not witness evidence.
+- Real primary startup: tmux is absent on PATH; Herdr's named-session provisioning would intentionally write session state outside the worktree, not authorized under the current boundary. No default session was touched and no alternate executable was sought.
+
+No source changes, linters, formatters, static analysis, full repository suite, pushes, PRs, or pipeline-control operations were performed. Temporary drivers, fixture repositories, and generated worktree data were removed after evidence capture; evidence remains in this directory.

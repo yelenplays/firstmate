@@ -1,0 +1,118 @@
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:42Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 1,
+    "queued": 0,
+    "merged": 0,
+    "live": 1,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "note",
+        "detail": "additional context",
+        "group": "working",
+        "home": null
+      }
+    ],
+    "queued": [],
+    "merged": [],
+    "live": [
+      {
+        "group": "live",
+        "id": "deployed",
+        "title": "Stored merged delivery",
+        "kind": "ship",
+        "repo": "demo",
+        "since": "2026-10-20",
+        "at": null,
+        "url": "https://github.com/example/disposable/pull/2",
+        "reason": "post-merge clear",
+        "detail": "live confirmed against https://example.invalid",
+        "home": null
+      }
+    ],
+    "done": []
+  },
+  "unavailable": []
+}

@@ -1,0 +1,90 @@
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:33Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}

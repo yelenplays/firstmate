@@ -1,0 +1,50 @@
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/clean^1
+6a8f22555689b471081b8a07a25b73676cb319a3
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo branch fm/regression 6a8f22555689b471081b8a07a25b73676cb319a3
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/before/bin/fm-main-sync.sh regression
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/regression
+6a8f22555689b471081b8a07a25b73676cb319a3
+
+BEFORE: the previous product skipped the local-only ready branch; it still cannot fast-forward-land on main.
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh regression
+regression synced: merged 1 new local main commits into fm/regression
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo merge-base --is-ancestor main fm/regression
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/regression
+348e007c0e1a3863f79e646f124d04c79f79ff5f
+
+AFTER: the current product updates the ready branch, and ancestry now permits fast-forward landing. No landing was performed.
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo branch trunk main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/trunk
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo branch fm/default-choice 6a8f22555689b471081b8a07a25b73676cb319a3
+
+$ /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh default-choice
+default-choice synced: merged 1 new local trunk commits into fm/default-choice
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/default-choice^2
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse trunk
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+DEFAULT CHOICE: origin/HEAD selected trunk even while main existed; both local defaults and the dirty main copy stayed untouched.

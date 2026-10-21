@@ -1,102 +1,1835 @@
-$ fm-tasks-axi.sh add investigate "Investigate the release delay" --kind scout --repo demo
-ok: added investigate (scout, repo demo) -> Queued
-task:
-  id: investigate
-  title: Investigate the release delay
-  state: queued
-  blocked: no
-  blocked_by: none
-  held: no
-  hold_reason: "-"
-  hold_kind: "-"
-  hold_until: "-"
-  kind: scout
-  repo: demo
-  priority: "-"
-  created: 2026-10-21
-  closed: "-"
-  deps: none
-  links: none
-  body: ""
-help[2]:
-  - Run `tasks-axi start investigate` to move it to in flight
-  - Run `tasks-axi block investigate --by <other>` to record a dependency
-ok: added implement (ship, repo demo) -> Queued
-task:
-  id: implement
-  title: Implement the approved change
-  state: queued
-  blocked: no
-  blocked_by: none
-  held: no
-  hold_reason: "-"
-  hold_kind: "-"
-  hold_until: "-"
-  kind: ship
-  repo: demo
-  priority: "-"
-  created: 2026-10-21
-  closed: "-"
-  deps: none
-  links: none
-  body: ""
-help[2]:
-  - Run `tasks-axi start implement` to move it to in flight
-  - Run `tasks-axi block implement --by <other>` to record a dependency
-ok: added document (docs, repo demo) -> Queued
-task:
-  id: document
-  title: Document the release
-  state: queued
-  blocked: no
-  blocked_by: none
-  held: no
-  hold_reason: "-"
-  hold_kind: "-"
-  hold_until: "-"
-  kind: docs
-  repo: demo
-  priority: "-"
-  created: 2026-10-21
-  closed: "-"
-  deps: none
-  links: none
-  body: ""
-help[2]:
-  - Run `tasks-axi start document` to move it to in flight
-  - Run `tasks-axi block document --by <other>` to record a dependency
-$ fm-captain-hold.sh hold investigate --reason "Choose the deployment window"
-investigate
-$ fm-board.sh --home-only
-BOARD 2026-10-21T20:03:43Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+$ git init -q -b main /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo add .
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo commit -qm Initial local project
+
+$ git init -q --bare /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo remote add origin /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo push -q origin main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo worktree add -q -b fm/clean /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-clean main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-clean add clean.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-clean commit -qm clean work
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-clean rev-parse HEAD
+6a8f22555689b471081b8a07a25b73676cb319a3
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo checkout -q -b fm/bare main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo add bare.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo commit -qm bare work
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse HEAD
+1fe94355ea9ed4ad4dad7b14d71aeafd2b473a8f
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo checkout -q main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo worktree add -q -b fm/dirty /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty add dirty.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty commit -qm dirty work
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty rev-parse HEAD
+10651e8f282c5afe4825611861dbcbe9ff07944d
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo worktree add -q -b fm/conflict /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict add common.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict commit -qm conflict work
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict rev-parse HEAD
+b38e6ab9e4826649dbc567fa58845cced3a4421a
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo checkout -q -b fm/locked main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo add locked.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo commit -qm locked work
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse HEAD
+b88ea3393c1ee8699d28867f4ac7451f78eec5c3
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo checkout -q main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo add .
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo commit -qm Independent main advance
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh clean
+clean synced: merged 1 new local main commits into fm/clean
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/clean
+34f7caafaaf4cd4ad7db867f7083452cf630be66
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo show -s --format=%P 34f7caafaaf4cd4ad7db867f7083452cf630be66
+6a8f22555689b471081b8a07a25b73676cb319a3 6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-clean rev-parse HEAD
+34f7caafaaf4cd4ad7db867f7083452cf630be66
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-clean status --porcelain
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo merge-base --is-ancestor main fm/clean
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh clean
+clean current: up to date with local main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh bare
+bare synced: merged 1 new local main commits into fm/bare
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/bare
+d0bb1cf0f3b96f265f6fc5669fb65f3fd06d3dce
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo show -s --format=%P d0bb1cf0f3b96f265f6fc5669fb65f3fd06d3dce
+1fe94355ea9ed4ad4dad7b14d71aeafd2b473a8f 6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo merge-base --is-ancestor main fm/bare
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh dirty
+dirty blocked: its ready copy at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty has uncommitted changes; needs its worker
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/dirty
+10651e8f282c5afe4825611861dbcbe9ff07944d
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:28Z",
+  "counts": {
+    "needs_you": 1,
+    "ready": 4,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "sync-blocked",
+        "detail": "ready, but cannot be kept current with main: its ready copy at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/…",
+        "group": "needs_you",
+        "home": null
+      }
+    ],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:29Z: 1 need you · 4 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
 NEEDS YOU (1)
-- investigate [decision] Investigate the release delay - Choose the deployment window
-QUEUED (2)
-- implement [queued] Implement the approved change
-- document [queued] Document the release
-Repeated board reads preserved every data/ and state/ file byte-for-byte.
-$ FM_BOARD_SHOW=1 fm-board.sh --home-only
-BOARD 2026-10-21T20:03:44Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+- dirty [sync-blocked] dirty - ready, but cannot be kept current with main: its ready copy at /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/…
+READY TO APPROVE (4)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval
+- locked [approval] locked - local ready branch waiting for approval
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty add dirty.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-dirty commit -qm Save pending edit
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh dirty
+dirty synced: merged 1 new local main commits into fm/dirty
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:30Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:31Z: 0 need you · 5 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh conflict
+conflict conflict: 1 commits behind local main and they conflict; needs a rebase by its worker
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict rev-parse HEAD
+b38e6ab9e4826649dbc567fa58845cced3a4421a
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict status --porcelain
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:32Z",
+  "counts": {
+    "needs_you": 1,
+    "ready": 4,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "conflict",
+        "detail": "ready, but conflicts with main: 1 commits behind local main and they conflict; needs a rebase by its worker",
+        "group": "needs_you",
+        "home": null
+      }
+    ],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:32Z: 1 need you · 4 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
 NEEDS YOU (1)
-- investigate [decision] Investigate the release delay - Choose the deployment window
-QUEUED (2, showing 1; fm-board.sh --all shows every row)
-- implement [queued] Implement the approved change
-$ FM_BOARD_SHOW=1 fm-board.sh --all --home-only
-BOARD 2026-10-21T20:03:44Z: 1 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 0 done
-NEEDS YOU (1)
-- investigate [decision] Investigate the release delay - Choose the deployment window
-QUEUED (2)
-- implement [queued] Implement the approved change
-- document [queued] Document the release
-$ fm-home-summary-refresh.sh
-$ two simultaneous fm-main-sync.sh processes (no PR tasks)
-fm-main-sync skipped: another run holds /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G097QX1HT5QR2KEXWQZZBK/.test-validation/tmp/fm-lab.k3A4es/state/.main-sync.lock (pid 38899)
-$ fm-captain-hold.sh answer investigate --decision-file <answer>
-answered: investigate
-$ fm-board.sh --home-only
-BOARD 2026-10-21T20:03:50Z: 0 need you · 0 ready to approve · 0 working · 2 queued · 0 merged, not live yet · 0 live confirmed · 1 done
-QUEUED (2)
-- implement [queued] Implement the approved change
-- document [queued] Document the release
-DONE (1)
-- investigate [done] Investigate the release delay - closed
+- conflict [conflict] conflict - ready, but conflicts with main: 1 commits behind local main and they conflict; needs a rebase by its worker
+READY TO APPROVE (4)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:33Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:33Z: 0 need you · 5 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict add common.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/ready-conflict commit -qm Resolve conflicting change
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh conflict
+conflict synced: merged 1 new local main commits into fm/conflict
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:35Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:35Z: 0 need you · 5 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh locked
+locked skipped: a lifecycle action holds the task
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/locked
+b88ea3393c1ee8699d28867f4ac7451f78eec5c3
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh locked
+fm-main-sync skipped: another run holds /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/state/.main-sync.lock (pid 5521)
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse fm/locked
+b88ea3393c1ee8699d28867f4ac7451f78eec5c3
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-main-sync.sh locked
+locked synced: merged 1 new local main commits into fm/locked
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:38Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 6,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": "https://github.com/example/disposable/pull/1",
+        "reason": "approval",
+        "detail": "waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:38Z: 0 need you · 6 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (6)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval; kept current with main
+- missed [approval] https://github.com/example/disposable/pull/1 missed - waiting for approval
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:39Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 6,
+    "working": 0,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": "https://github.com/example/disposable/pull/1",
+        "reason": "approval",
+        "detail": "waiting for approval",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:39Z: 0 need you · 6 ready to approve · 0 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (6)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval; kept current with main
+- missed [approval] https://github.com/example/disposable/pull/1 missed - waiting for approval
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:39Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 1,
+    "queued": 0,
+    "merged": 0,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "note",
+        "detail": "additional context",
+        "group": "working",
+        "home": null
+      }
+    ],
+    "queued": [],
+    "merged": [],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:40Z: 0 need you · 5 ready to approve · 1 working · 0 queued · 0 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval; kept current with main
+WORKING (1)
+- missed [note] missed - additional context
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:41Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 1,
+    "queued": 0,
+    "merged": 1,
+    "live": 0,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "note",
+        "detail": "additional context",
+        "group": "working",
+        "home": null
+      }
+    ],
+    "queued": [],
+    "merged": [
+      {
+        "group": "merged",
+        "id": "deployed",
+        "title": "Stored merged delivery",
+        "kind": "ship",
+        "repo": "demo",
+        "since": "2026-10-20",
+        "at": null,
+        "url": "https://github.com/example/disposable/pull/2",
+        "reason": "post-merge witness",
+        "detail": "merged; live check pending against https://example.invalid",
+        "home": null
+      }
+    ],
+    "live": [],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:41Z: 0 need you · 5 ready to approve · 1 working · 0 queued · 1 merged, not live yet · 0 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval; kept current with main
+WORKING (1)
+- missed [note] missed - additional context
+MERGED (NOT LIVE YET) (1)
+- deployed [post-merge witness] https://github.com/example/disposable/pull/2 Stored merged delivery - merged; live check pending against https://example.invalid
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json --home-only
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:42Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 1,
+    "queued": 0,
+    "merged": 0,
+    "live": 1,
+    "done": 0
+  },
+  "partial": [],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "note",
+        "detail": "additional context",
+        "group": "working",
+        "home": null
+      }
+    ],
+    "queued": [],
+    "merged": [],
+    "live": [
+      {
+        "group": "live",
+        "id": "deployed",
+        "title": "Stored merged delivery",
+        "kind": "ship",
+        "repo": "demo",
+        "since": "2026-10-20",
+        "at": null,
+        "url": "https://github.com/example/disposable/pull/2",
+        "reason": "post-merge clear",
+        "detail": "live confirmed against https://example.invalid",
+        "home": null
+      }
+    ],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all --home-only
+BOARD 2026-10-21T22:32:42Z: 0 need you · 5 ready to approve · 1 working · 0 queued · 0 merged, not live yet · 1 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval; kept current with main
+WORKING (1)
+- missed [note] missed - additional context
+LIVE CONFIRMED (1)
+- deployed [post-merge clear] https://github.com/example/disposable/pull/2 Stored merged delivery - live confirmed against https://example.invalid
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/child-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-home-summary-refresh.sh
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --json
+{
+  "schema": "fm-board.v1",
+  "generated": "2026-10-21T22:32:45Z",
+  "counts": {
+    "needs_you": 0,
+    "ready": 5,
+    "working": 601,
+    "queued": 0,
+    "merged": 0,
+    "live": 1,
+    "done": 0
+  },
+  "partial": [
+    {
+      "home": "child",
+      "group": "working",
+      "count": 580
+    }
+  ],
+  "groups": {
+    "needs_you": [],
+    "ready": [
+      {
+        "id": "bare",
+        "title": "bare",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "clean",
+        "title": "clean",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "conflict",
+        "title": "conflict",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "dirty",
+        "title": "dirty",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      },
+      {
+        "id": "locked",
+        "title": "locked",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "approval",
+        "detail": "local ready branch waiting for approval; kept current with main",
+        "group": "ready",
+        "home": null
+      }
+    ],
+    "working": [
+      {
+        "id": "missed",
+        "title": "missed",
+        "kind": "ship",
+        "repo": null,
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "note",
+        "detail": "additional context",
+        "group": "working",
+        "home": null
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-1-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-2-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-3-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-4-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-5-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-6-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-7-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-8-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-9-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-10-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-11-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-12-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-13-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-14-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-15-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-16-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-17-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-18-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-19-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      },
+      {
+        "group": "working",
+        "id": "child/orphan-20-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+        "title": "Missing metadata",
+        "kind": "ship",
+        "repo": "demo",
+        "since": null,
+        "at": null,
+        "url": null,
+        "reason": "no-record",
+        "detail": "in flight with no task record",
+        "home": "child"
+      }
+    ],
+    "queued": [],
+    "merged": [],
+    "live": [
+      {
+        "group": "live",
+        "id": "deployed",
+        "title": "Stored merged delivery",
+        "kind": "ship",
+        "repo": "demo",
+        "since": "2026-10-20",
+        "at": null,
+        "url": "https://github.com/example/disposable/pull/2",
+        "reason": "post-merge clear",
+        "detail": "live confirmed against https://example.invalid",
+        "home": null
+      }
+    ],
+    "done": []
+  },
+  "unavailable": []
+}
+
+$ FM_HOME=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/bin/fm-board.sh --all
+BOARD 2026-10-21T22:32:46Z: 0 need you · 5 ready to approve · 601 working · 0 queued · 0 merged, not live yet · 1 live confirmed · 0 done
+READY TO APPROVE (5)
+- bare [approval] bare - local ready branch waiting for approval; kept current with main
+- clean [approval] clean - local ready branch waiting for approval
+- conflict [approval] conflict - local ready branch waiting for approval; kept current with main
+- dirty [approval] dirty - local ready branch waiting for approval; kept current with main
+- locked [approval] locked - local ready branch waiting for approval; kept current with main
+WORKING (21)
+- missed [note] missed - additional context
+- child/orphan-1-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-2-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-3-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-4-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-5-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-6-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-7-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-8-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-9-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-10-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-11-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-12-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-13-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-14-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-15-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-16-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-17-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-18-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-19-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+- child/orphan-20-iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii [no-record] Missing metadata - in flight with no task record
+LIVE CONFIRMED (1)
+- deployed [post-merge clear] https://github.com/example/disposable/pull/2 Stored merged delivery - live confirmed against https://example.invalid
+PARTIAL: child published 580 fewer WORKING rows than it holds; its own fm-board.sh shows them
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo rev-parse main
+6810f7f75d15669949e53847a739833792b3bbda
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo symbolic-ref --short HEAD
+main
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/main-home/projects/demo status --porcelain
+?? uncommitted-main.txt
+
+$ git -C /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G90CKM6QB4XMMX9E8JHPP3/.validation-tmp/live/remote.git show-ref
+e93298982decffe5009c228145ee738cb02215c9 refs/heads/main
+
