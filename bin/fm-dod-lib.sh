@@ -25,7 +25,9 @@
 # contract line so brief, spawn record, and worker instructions agree.
 # Callers of the gate are bin/fm-crew-state.sh (current-state done),
 # bin/fm-pr-check.sh (PR registration), and bin/fm-inactive-reconcile.sh
-# (secondmate ledger-first publish of a child done). A ship `done:` is not
+# (secondmate ledger-first publish of a child done). Except for the tdd-split
+# test seat, whose completion contract is owned by bin/fm-tdd-split-lib.sh,
+# a ship `done:` is not
 # accepted while the named head exists only in the worker's disposable copy.
 # The check tests that head, not whether some branch moved. In no-mistakes
 # mode the pre-validation `done: {summary}` is the pipeline handoff and is
