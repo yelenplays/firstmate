@@ -7,6 +7,10 @@
 #        fm-tdd-split.sh dispute <task-id>
 #        fm-tdd-split.sh mutation <task-id> [--timeout <seconds>]
 #
+# Before handoff or mutation runs its command, it must resolve the base and
+# merge-base and find at least one changed test still present at HEAD. Either
+# an unreadable base or an empty test list refuses without running the command.
+#
 # handoff
 #   Run by firstmate when a ship whose state/<id>.meta records tdd_split=tests
 #   reports `done: tests-ready <sha>`. In order, it refuses (exit 1, naming why)
