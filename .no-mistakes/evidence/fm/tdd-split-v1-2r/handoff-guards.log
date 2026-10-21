@@ -1,0 +1,42 @@
+
+SCENARIO: Uncommitted test cannot transfer
+COMMAND: fm-tdd-split.sh handoff dirty --timeout 1
+error: tdd-split test seat has uncommitted changes; commit the tests and report tests-ready again
+exit=1
+Persisted phase: tests (no handoff)
+
+SCENARIO: Test seat cannot implement production code
+COMMAND: fm-tdd-split.sh handoff production --timeout 1
+error: tdd-split test seat changed files that are not tests: counter.sh; the seat writes tests only, so revert those changes and report tests-ready again
+exit=1
+Persisted phase: tests (no handoff)
+
+SCENARIO: Already-passing test cannot transfer
+COMMAND: fm-tdd-split.sh handoff green --timeout 1
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FXMCSN5XSMQ4HBDZX37G3E/.test-tmp/fm-lab-guards.FJrPre/data/green/tdd-split-red.log
+exit=1
+Persisted phase: tests (no handoff)
+
+fm-tdd-split: head=2a277a6e36eea7c66fed3516e4f7f177548f9a67 exit=0 command=for t; do bash "$t" || exit 1; done
+
+
+SCENARIO: Unavailable test command cannot count as red
+COMMAND: fm-tdd-split.sh handoff missing --timeout 1
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FXMCSN5XSMQ4HBDZX37G3E/.test-tmp/fm-lab-guards.FJrPre/data/missing/tdd-split-red.log
+exit=1
+Persisted phase: tests (no handoff)
+fm-tdd-split: Zeile 1: fm-intentionally-missing-tdd-command: Kommando nicht gefunden
+
+fm-tdd-split: head=b30d68fce6bbd018cdc1f483e6d23f125f0a8f6d exit=127 command=fm-intentionally-missing-tdd-command "$@"
+
+
+SCENARIO: Timed-out command cannot count as red
+COMMAND: fm-tdd-split.sh handoff timed --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5FXMCSN5XSMQ4HBDZX37G3E/.test-tmp/fm-lab-guards.FJrPre/data/timed/tdd-split-red.log
+exit=1
+Persisted phase: tests (no handoff)
+
+fm-tdd-split: head=b30d68fce6bbd018cdc1f483e6d23f125f0a8f6d exit=124 command=sleep 5
+
+
+All real CLI refusals preserved the test-seat phase. No harness, transport, or control stub was used.
