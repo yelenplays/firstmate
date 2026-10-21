@@ -11,7 +11,7 @@ metadata:
 For a no-mistakes ship, trigger validation on the same worker after its implementation commit, using the harness invocation owned by `harness-adapters`.
 On a tdd-split test-seat completion, follow [the handoff owner](../../../bin/fm-tdd-split.sh) instead of triggering validation, and send a refusal's reason back to the seat as steering.
 The same owner handles an implementer's `blocked [key=test-dispute]` (`dispute`, or reject with `bin/fm-send.sh --resolve-key test-dispute`) and a declared `Mutation command:` (`mutation`, before treating the implementer's `done:` as ready).
-When a round of a task's work fails review or its done gate, follow [the escalation owner](../../../bin/fm-escalate.sh): record the failure, then run it; exit 3 means the task is already on Opus and goes to the captain.
+When a round of a task's work fails review or its done gate, follow [the escalation owner](../../../bin/fm-escalate.sh): record the failure, then run it and follow its reported action.
 The task worker that starts a no-mistakes run drives the pipeline and owns every `no-mistakes axi run` and `no-mistakes axi respond` call through the next gate or outcome.
 Firstmate never invokes `no-mistakes axi respond` for a crew-owned run.
 `bin/fm-dod-lib.sh` owns the worker-side `--intent` contract.

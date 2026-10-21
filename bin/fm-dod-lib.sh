@@ -833,8 +833,10 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
 # task record that never ran banned onto a banned model. Once a record has run
 # banned, every relaunch, banned or not, carries its test_ban_since forward,
 # writing test_ban_since=base when that banned run started from the base, so a
-# later handoff never moves the baseline past tests a banned run wrote. The done
-# gate then counts a test file only when it changed since that commit and is
+# generic relaunch never moves the baseline past tests a banned run wrote.
+# A tdd-split handoff refreshes that baseline under bin/fm-tdd-split.sh's
+# checked test-seat contract instead. The done gate counts a test file only
+# when it changed since that commit and is
 # either one of the branch's own changes against the base or one of the tests
 # handed over at it, so the tests the earlier seat committed are not the banned
 # worker's authorship while any change it makes to them still is, and test
