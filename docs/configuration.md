@@ -2503,6 +2503,8 @@ With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate
 The bridge is off while `config/slack-bridge` is absent: `post` prints one `slack bridge off` line and exits 0, and `check` stays silent.
 Without `bot-keychain-service`, it uses `slack-axi` and whichever account `slack-axi` is logged in as, with no Slack app, scope, or token of its own, and it never reads a token.
 With `bot-keychain-service`, `bin/fm-slack-bot.mjs` posts and reads as the home's bot through the Slack Web API, with the bot token read from the macOS Keychain item of that service name; [Slack bot setup](slack-bot.md) is the end-to-end setup path, including the app manifest.
+With `outbound=off`, `post` prints one `slack outbound off` line and exits 0, and `check` still reads captain thread replies and bot DMs but posts no missed outcome or digest; `bin/fm-updates.sh` then sees the bridge as off, so chat is the report.
+A Slack post never counts as the report to the captain: Firstmate always reports in the captain chat, and a bridge post is an optional extra copy when outbound is on.
 Either way the bridge never prints, stores, or logs a token.
 Each home brings its own `slack-axi` login or bot and its own config, so another person's firstmate runs the same bridge against their own account or bot and channels.
 
@@ -2517,6 +2519,9 @@ decisions-channel=#fm-decisions
 # optional; outcomes and ask pointers; absent uses report-channel for outcomes
 # and disables automatic morning digests
 updates-channel=#updates
+# optional, on or off, default on; off stops every outbound post (task-bound
+# posts, missed outcomes, digests) while inbound captain replies and bot DMs keep working
+outbound=off
 # optional, en or de, default en; fixed words and plain-word rewrites, not translation
 language=de
 # optional, 0..23, default 8; the local hour after which the morning digest posts

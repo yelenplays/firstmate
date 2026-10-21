@@ -91,7 +91,9 @@
 #
 # The bridge is off while config/slack-bridge is absent: `post` prints one
 # `slack bridge off` line and exits 0, and `check` is silent. docs/configuration.md
-# "Slack bridge" owns the config schema. The bridge never prints, stores, or
+# "Slack bridge" owns the config schema. With `outbound=off` in the config,
+# `post` prints one `slack outbound off` line and exits 0, and `check` still
+# reads inbound but posts no missed outcome or digest. The bridge never prints, stores, or
 # logs a token: the slack-axi transport never reads one, and the bot transport
 # reads the bot token from the Keychain only inside bin/fm-slack-bot.mjs.
 #
@@ -192,6 +194,7 @@ CFG_BOT=
 CFG_WATCH_DAYS=7
 CFG_POLL_SECONDS=
 CFG_POLL_SEEN=0
+CFG_OUTBOUND=on
 CFG_ERROR=
 
 valid_channel_id() {
@@ -223,6 +226,10 @@ config_load() {
       decisions-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_DECISIONS=$value ;;
       handoff-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_HANDOFF=$value ;;
       updates-channel) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_UPDATES=$value ;;
+      outbound)
+        value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}
+        case "$value" in on|off) CFG_OUTBOUND=$value ;; *) CFG_ERROR="config/slack-bridge outbound must be on or off"; return 0 ;; esac
+        ;;
       language) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_LANGUAGE=$value ;;
       digest-hour) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_DIGEST_HOUR=$value ;;
       board-url) value=${value#"${value%%[![:space:]]*}"}; value=${value%"${value##*[![:space:]]}"}; CFG_BOARD=$value ;;
@@ -503,6 +510,10 @@ action_post() {
     return 0
   fi
   [ -z "$CFG_ERROR" ] || die "$CFG_ERROR"
+  if [ "$CFG_OUTBOUND" = off ]; then
+    printf 'slack outbound off\n'
+    return 0
+  fi
   [ -n "$CFG_BOT" ] || command -v slack-axi >/dev/null 2>&1 || die "slack-axi is not installed on PATH"
   state_prepare || die "cannot prepare $BRIDGE_STATE"
   gen=
@@ -589,9 +600,10 @@ action_posted() {
 }
 
 # The settings bin/fm-updates.sh needs, one key=value per line; "bridge=off"
-# alone when the bridge is off or its config is invalid.
+# alone when the bridge is off, its config is invalid, or outbound posting is
+# off (chat is then the only report).
 action_settings() {
-  if ! config_load || [ -n "$CFG_ERROR" ]; then
+  if ! config_load || [ -n "$CFG_ERROR" ] || [ "$CFG_OUTBOUND" = off ]; then
     printf 'bridge=off\n'
     return 0
   fi
@@ -748,6 +760,8 @@ action_check() {
   trap '[ -z "$CHECK_ERRF" ] || rm -f -- "$CHECK_ERRF"' EXIT
   check_inbound
   [ "$CHECK_READY" -eq 1 ] || return 0
+  # Outbound off: inbound was read above; no missed outcome or digest is posted.
+  [ "$CFG_OUTBOUND" = on ] || return 0
   deadline=$((started + $(check_timeout) - 3))
   out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_UPDATES_DEADLINE="$deadline" "$UPDATES_BIN" tick 2>/dev/null) || true
   # Its own diagnostic record, so an inbound poll that clears its own never
