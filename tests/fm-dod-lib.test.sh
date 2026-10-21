@@ -743,20 +743,25 @@ test_test_ban_handoff_ignores_test_changes_from_the_base() {
 }
 
 # Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
-# each given as <branch>|<step>|<purpose>|<model>. 1 when sqlite3 is absent.
-record_nm_invocations() {  # <nm-home> <invocation>...
-  local nm=$1 inv branch step purpose model n sql=
+# each given as <branch>|<step>|<purpose>|<model>[|<repo-path>], on the
+# repository registered at <repo-path> unless the invocation names another.
+# 1 when sqlite3 is absent.
+record_nm_invocations() {  # <nm-home> <repo-path> <invocation>...
+  local nm=$1 repo=$2 inv branch step purpose model at n sql=
   command -v sqlite3 >/dev/null 2>&1 || return 1
   mkdir -p "$nm"
-  shift
-  n=$(sqlite3 "$nm/state.sqlite" "create table if not exists runs (id text primary key, branch text not null);
+  shift 2
+  n=$(sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
+    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
     create table if not exists agent_invocations (id text primary key, run_id text not null,
       step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
     select count(*) from agent_invocations;") || return 1
   for inv in "$@"; do
-    IFS='|' read -r branch step purpose model <<<"$inv"
+    IFS='|' read -r branch step purpose model at <<<"$inv"
+    at=${at:-$repo}
     n=$((n + 1))
-    sql="$sql insert into runs values ('r$n', '$branch');
+    sql="$sql insert or ignore into repos values ('$at', '$at');
+      insert into runs values ('r$n', '$at', '$branch');
       insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
   done
   sqlite3 "$nm/state.sqlite" "$sql"
@@ -779,12 +784,12 @@ test_test_ban_pipeline_fixer_on_an_allowlisted_task() {
   nm="$TMP_ROOT/fixer-nm"
   fm_git_worktree "$repo" "$wt" fm/fixer
   git -C "$wt" fetch -q origin
-  if ! record_nm_invocations "$nm" 'fm/fixer|test|test|openai-codex/gpt-6.1-sol' \
+  if ! record_nm_invocations "$nm" "$repo" 'fm/fixer|test|test|openai-codex/gpt-6.1-sol' \
     'fm/fixer|review|review|claude-opus-5-5' 'fm/fixer|review|review-fix|claude-sonnet-5-5'; then
     pass "pre-PR check bans a banned pipeline fixer's tests on an allowlisted task (sqlite3 absent, skipped)"
     return
   fi
-  printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/fixer\n' > "$meta"
+  printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/fixer\nproject=%s\n' "$repo" > "$meta"
   printf 'impl\n' > "$wt/impl.sh"
   git -C "$wt" add impl.sh && git -C "$wt" commit -q -m 'Opus implements'
   mkdir -p "$wt/tests"
@@ -871,37 +876,44 @@ test_test_ban_unreadable_pipeline_history() {
 # A step's candidates are its recorded successful writing invocations on the
 # task's branch, and only a record that names an allowlisted model accepts.
 test_test_ban_pipeline_fixer_model_resolution() {
-  local nm models
+  local nm models repo=/work/this-project other=/work/other-project
   nm="$TMP_ROOT/resolve-nm"
   mkdir -p "$nm"
   printf '%s\n' 'agent: [codex]' 'agent_config:' '  codex:' '    model: gpt-6.1-sol' > "$nm/config.yaml"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x)
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x "$repo")
   [ -z "$models" ] || fail "the config stood in for a missing record: '$models'"
-  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x)" = 'an unrecorded model' ] \
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x "$repo")" = 'an unrecorded model' ] \
     || fail "a step with no record was not refused as unrecorded"
-  if ! record_nm_invocations "$nm" 'fm/x|review|review|claude-haiku-5-5' 'fm/x|review|review-fix|claude-opus-5-5' \
+  if ! record_nm_invocations "$nm" "$repo" 'fm/x|review|review|claude-haiku-5-5' 'fm/x|review|review-fix|claude-opus-5-5' \
     'fm/other|review|review-fix|claude-sonnet-5-5' 'fm/x|lint|lint|gpt-6.1-sol' 'fm/x|lint|lint-fix|default' \
-    'fm/x|test|test|' 'fm/x|document|document|anthropic/claude-fable-5-1'; then
+    'fm/x|test|test|' 'fm/x|document|document|anthropic/claude-fable-5-1' \
+    "fm/x|document|document-fix|claude-sonnet-5-5|$other" "fm/x|format|format|claude-opus-5-5|$other"; then
     pass "pipeline fixer models come only from records (sqlite3 absent, recorded runs not exercised)"
     return
   fi
-  sqlite3 "$nm/state.sqlite" "insert into runs values ('rf', 'fm/x');
+  sqlite3 "$nm/state.sqlite" "insert into runs values ('rf', '$repo', 'fm/x');
     insert into agent_invocations values ('if', 'rf', 'review', 'review-fix', 'deepseek-v4', 'failed', 99);" \
     || fail "cannot record the failed fixture invocation"
-  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x)
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x "$repo")
   [ "$models" = claude-opus-5-5 ] || fail "review did not resolve to its recorded writing fixer: '$models'"
-  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/x)" ] \
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/x "$repo")" ] \
     || fail "a recorded Opus review fixer was refused"
-  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal document fm/x)" ] \
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal document fm/x "$repo")" ] \
     || fail "a recorded Fable document step was refused"
-  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal lint fm/x)" = default ] \
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal lint fm/x "$repo")" = default ] \
     || fail "a recorded default lint fixer was not refused"
-  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x)" = 'an unrecorded model' ] \
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x "$repo")" = 'an unrecorded model' ] \
     || fail "a recorded invocation with no model was not refused as unrecorded"
-  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/none)" = 'an unrecorded model' ] \
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/none "$repo")" = 'an unrecorded model' ] \
     || fail "another branch's record stood in for this branch"
-  [ "$(NM_HOME="$TMP_ROOT/resolve-nm-missing" fm_test_ban_nm_step_author_refusal review fm/x)" = 'an unrecorded model' ] \
+  [ "$(NM_HOME="$TMP_ROOT/resolve-nm-missing" fm_test_ban_nm_step_author_refusal review fm/x "$repo")" = 'an unrecorded model' ] \
     || fail "a missing state database was not refused as unrecorded"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal format fm/x "$repo")" = 'an unrecorded model' ] \
+    || fail "another repository's Opus record authorized this repository's step"
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal format fm/x "$other")" ] \
+    || fail "the other repository lost its own Opus record"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/x '')" = 'an unrecorded model' ] \
+    || fail "a task with no registered project borrowed a record"
   pass "pipeline fixer models come only from recorded runs, and only allowlisted records accept"
 }
 

@@ -296,19 +296,24 @@ write_task_meta() {
 }
 
 # Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
-# each given as <branch>|<step>|<purpose>|<model>. 1 when sqlite3 is absent.
-record_nm_invocations() {  # <nm-home> <invocation>...
-  local nm=$1 inv branch step purpose model n=0 sql=
+# each given as <branch>|<step>|<purpose>|<model>[|<repo-path>], on the
+# repository registered at <repo-path> unless the invocation names another.
+# 1 when sqlite3 is absent.
+record_nm_invocations() {  # <nm-home> <repo-path> <invocation>...
+  local nm=$1 repo=$2 inv branch step purpose model at n=0 sql=
   command -v sqlite3 >/dev/null 2>&1 || return 1
   mkdir -p "$nm"
-  shift
+  shift 2
   for inv in "$@"; do
-    IFS='|' read -r branch step purpose model <<<"$inv"
+    IFS='|' read -r branch step purpose model at <<<"$inv"
+    at=${at:-$repo}
     n=$((n + 1))
-    sql="$sql insert into runs values ('r$n', '$branch');
+    sql="$sql insert or ignore into repos values ('$at', '$at');
+      insert into runs values ('r$n', '$at', '$branch');
       insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
   done
-  sqlite3 "$nm/state.sqlite" "create table if not exists runs (id text primary key, branch text not null);
+  sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
+    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
     create table if not exists agent_invocations (id text primary key, run_id text not null,
       step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
     $sql"
@@ -853,7 +858,7 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
       "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
       "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
     printf 'branch=fm/task-a\n' >> "$dir/home/state/task-a.meta"
-    record_nm_invocations "$dir/nm-home" 'fm/task-a|review|review-fix|claude-sonnet-5-5' \
+    record_nm_invocations "$dir/nm-home" "$dir/project" 'fm/task-a|review|review-fix|claude-sonnet-5-5' \
       'fm/task-a|test|test|openai-codex/gpt-6.1-sol' || fail "cannot record the fixture invocations"
     printf 'impl\n' > "$dir/wt/impl.sh"
     git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'Opus implements without tests'
@@ -940,7 +945,7 @@ test_test_ban_binds_to_the_published_head() {
     else
       printf '%s\n' model=claude-opus-5-5 >> "$dir/home/state/task-a.meta"
     fi
-    record_nm_invocations "$dir/nm-home" "fm/task-a|review|review-fix|$fixer" \
+    record_nm_invocations "$dir/nm-home" "$dir/project" "fm/task-a|review|review-fix|$fixer" \
       || fail "cannot record the fixture invocation"
     local_head=$(git -C "$dir/wt" rev-parse HEAD)
     mkdir -p "$dir/wt/tests"
@@ -986,7 +991,7 @@ fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
     shift
   done
   shift
-  [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$@" || rc=no-sqlite3
+  [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$dir/project" "$@" || rc=no-sqlite3
   mkdir -p "$dir/wt/tests"
   printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
   git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(test): add a test'
@@ -1039,6 +1044,14 @@ test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model() {
     out=$(fixer_registration "test-ban-recorded-$n" -- "$inv")
     [ "${out%%$'\n'*}" != 0 ] || fail "a fixer recorded only as '${inv##*|}' registered"
   done
+  # Another project's run on the same branch name neither authorizes nor refuses.
+  out=$(fixer_registration test-ban-foreign-opus -- 'fm/task-a|test|test|claude-opus-5-5|/elsewhere/other-project')
+  [ "${out%%$'\n'*}" != 0 ] || fail "another repository's Opus record authorized an unrecorded fixer"
+  grep -Fq 'no test authoring on an unrecorded model' <<<"$out" \
+    || fail "the foreign-record refusal did not name the missing local record: $out"
+  out=$(fixer_registration test-ban-foreign-luna -- 'fm/task-a|test|test|claude-opus-5-5' \
+    'fm/task-a|test|test|gpt-6-luna|/elsewhere/other-project')
+  [ "${out%%$'\n'*}" = 0 ] || fail "another repository's banned record refused a recorded Opus fixer: $out"
   out=$(fixer_registration test-ban-recorded-sol "${codex[@]}" "    - -c" "    - 'model=\"gpt-6-luna\"'" -- \
     'fm/task-a|test|test|openai-codex/gpt-6.1-sol' 'fm/task-a|test|test-fix|claude-opus-5-5')
   [ "${out%%$'\n'*}" = 0 ] || fail "recorded Sol and Opus fixers were refused because of the config: $out"
