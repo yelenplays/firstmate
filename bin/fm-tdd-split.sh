@@ -121,16 +121,18 @@ meta_rewrite() {  # <key>... -- <line>...
   fm_lock_release "$lock" || true
 }
 
-# Prints the test files the branch changes since its merge-base with the base
-# that still exist at the worker copy's HEAD, one per line.
+# Fills TESTS with the test files the branch changes since its merge-base with
+# the base that still exist at the worker copy's HEAD. Runs in the main shell
+# so a failed diff dies the command instead of yielding an empty list.
 branch_tests() {
   local files path
+  TESTS=()
   files=$(fm_tdd_split_changed_files "$WT" "$BASE_BRANCH") || die "$files"
   while IFS= read -r path; do
     [ -n "$path" ] || continue
     fm_tdd_split_seat_path_ok "$path" || continue
     [ -e "$WT/$path" ] || continue
-    printf '%s\n' "$path"
+    TESTS+=("$path")
   done <<<"$files"
 }
 
@@ -201,8 +203,7 @@ case "$CMD" in
     SEAT_HEAD=$(git -C "$WT" rev-parse --verify 'HEAD^{commit}') || die "cannot read the worker copy's HEAD"
     BASE_REF=$(fm_test_ban_base_ref "$WT" "$BASE_BRANCH") || die "cannot resolve the base branch in the worker copy"
     MB=$(git -C "$WT" merge-base "$BASE_REF" HEAD) || die "no merge-base between HEAD and $BASE_REF"
-    TESTS=()
-    while IFS= read -r path; do TESTS+=("$path"); done < <(branch_tests)
+    branch_tests
     [ "${#TESTS[@]}" -gt 0 ] || die "the branch's commits delete tests but add or change none"
 
     # The red run happens in a private clone of the base plus the branch's
@@ -254,12 +255,12 @@ case "$CMD" in
       || die "task $ID's implementer has not reported done:"
     implementer_tests_untouched
     HEAD_SHA=$(git -C "$WT" rev-parse --verify 'HEAD^{commit}') || die "cannot read the worker copy's HEAD"
-    TESTS=()
-    while IFS= read -r path; do TESTS+=("$path"); done < <(branch_tests)
+    branch_tests
+    [ "${#TESTS[@]}" -gt 0 ] || die "the branch's commits leave no test file to run the mutation command against"
     git clone -q --shared --no-checkout -- "$WT" "$RUN_DIR/clone" 2>/dev/null || die "cannot clone the worker copy"
     git -C "$RUN_DIR/clone" checkout -q --detach "$HEAD_SHA" 2>/dev/null || die "cannot check out $HEAD_SHA in the clone"
     LOG="$DATA/$ID/tdd-split-mutation.log"
-    run_bounded "$RUN_DIR/clone" "$LOG" "$HEAD_SHA" "mutation command" "$MUTATION" ${TESTS[@]+"${TESTS[@]}"}
+    run_bounded "$RUN_DIR/clone" "$LOG" "$HEAD_SHA" "mutation command" "$MUTATION" "${TESTS[@]}"
     if [ "$RC" -eq 0 ]; then
       echo "tdd-split: $ID mutation gate passed at $HEAD_SHA"
       exit 0
