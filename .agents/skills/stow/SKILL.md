@@ -90,7 +90,7 @@ Every `/stow` invocation performs this complete pass, even when the session cont
 2. Read every current memory file completely: `data/captain.md`, `data/captain-shared.md`, and `data/learnings.md`.
    Treat an absent local file as absent, not as an invitation to manufacture content.
    Note any `Memory layering` declaration in them (schema: `docs/configuration.md`) and which declared tiers this session can reach; every later step consults it.
-   When neither `data/captain.md` nor `data/captain-shared.md` holds one, treat the local files as the only owners.
+   When neither `data/captain.md` nor `data/captain-shared.md` holds one, use AGENTS.md section 6's default routing.
    In a primary home, all three are curation inputs under their existing ownership rules.
    In a secondmate home, `data/captain-shared.md` is a read-only primary-owned input: count it, never edit it, and curate only the editable local files.
    Every mutation in the rest of this pass, including reinforcement, retiering, decay archival, legacy migration, consolidation, budget archival, and offload, applies only to an editable memory file.
@@ -224,7 +224,7 @@ A local skill exists only in this home, so offloading an entry out of `data/capt
 2. **Route each finding using AGENTS.md's knowledge-routing table.**
    AGENTS.md section 6 is the source of truth for destinations.
    Do not re-derive or duplicate that mapping here.
-   Match each finding against the home's declared memory tiers first and capture a tier-owned finding to that tier, falling back to the local files only for classes no declared tier owns.
+   Route new corrections of how firstmate works through [captain rules](../../../docs/captain-rules.md); match other findings against the home's declared memory tiers first and capture a tier-owned finding to that tier, falling back to the local files only for classes no declared tier owns.
    When the owning tier is unreachable from this session, write the finding to the startup-loaded local memory file its class would otherwise use, or keep it where it already lives, carrying the pending-capture marker for that tier; it is still an exception for the receipt, never a reason to treat the local copy as sufficient.
 3. **Write within the existing boundaries.**
    - Captain preferences and fleet-local operational facts belong in the destination selected by AGENTS.md after the required whole-file curation pass.

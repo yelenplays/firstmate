@@ -21,6 +21,7 @@ Explicit per-spawn `--backend` and `FM_BACKEND` remain stronger than every home'
 The declared `config/supervision-host-off` opt-out follows the same primary-authoritative propagation: its presence opts secondmate homes out even if they have their own engine setting, and its absence removes their copy at convergence.
 `config/supervision-host` itself is not inherited; each home selects its own engine.
 The declared `config/brief-include.md` follows the same primary-authoritative propagation, so a secondmate's own ship and scout briefs carry the primary's home brief additions and its absence removes their copy; secondmate charters still never take it.
+The declared `config/captain-rules.md` follows the same primary-authoritative propagation; [captain rules](../../../../docs/captain-rules.md) owns rule recording, context loading, and delivery to running consumers.
 `config/secondmate-harness` is not inherited because it is only the primary's knob for launching secondmate agents.
 `config/firstmate-role` is inherited under the additional [resolved-role and receipt policy](../../../../docs/configuration.md#firstmate-role-configfirstmate-role), not as a raw copy of the primary file.
 `config/claude-account` and `config/pi-account` are not inherited: a local secondmate agent launches on the launching home's worker account pin, and a secondmate home that should pin its own workers needs its own file ([`docs/configuration.md`](../../../../docs/configuration.md) "Worker account pin").

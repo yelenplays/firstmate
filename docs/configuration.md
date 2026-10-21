@@ -830,9 +830,9 @@ There is no shared learnings file by captain decision.
 
 ## External memory tiers (Memory layering section)
 
-A home may declare memory stores outside firstmate, such as MCP-served knowledge stores, as authoritative for named classes of knowledge.
+For knowledge other than [captain rules](captain-rules.md), a home may declare memory stores outside firstmate, such as MCP-served knowledge stores, as authoritative for named classes of knowledge.
 The declaration lives in a `Memory layering` heading inside `data/captain.md`, or inside the primary home's `data/captain-shared.md` when every secondmate home should inherit it; a local `data/captain.md` declaration wins for that home when both exist.
-No declaration means firstmate's local files under `data/` are the only memory owners, which is the default.
+For those classes, no declaration means firstmate's local files under `data/` are the only memory owners, which is the default.
 
 Each declared tier states, in plain prose or a table:
 
@@ -845,7 +845,6 @@ For example, one home declares a Palimpsest MCP store authoritative for reasonin
 
 The declaration is per-home untracked state under `data/`, like every other captain preference, so no clone or update carries it.
 A fresh primary home has no declaration until the captain re-declares the `Memory layering` section there from their own records.
-Until then local files are the only memory owners.
 
 [`AGENTS.md`](../AGENTS.md) section 6 owns what a declaration changes about knowledge routing, and the internal [`stow` skill](../.agents/skills/stow/SKILL.md) owns how curation reads the declaration and protects tier-owned entries from pruning.
 The section counts toward the startup memory budget like the rest of its file, so keep it to the mapping rather than restating these rules.
@@ -2219,6 +2218,10 @@ Nothing in the file is tracked or seeded; the captain's home writes it locally.
 `bin/fm-brief.sh` copies the matching block into every ship and scout brief as a `# Business facts` section right after the task, with the instruction to read it before any form, signup, directory entry, or legal or tax step.
 A missing file, a missing heading, or a row without the token renders nothing and is not an error; a malformed or repeated token stops the scaffold with a message naming the row.
 `config/business-facts.md` is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/references/inheritance.md) inherited-local-material contract, so a secondmate's own briefs for the same business carry the same block; secondmate charters carry none.
+
+## Captain rules (config/captain-rules.md)
+
+See [captain rules](captain-rules.md) for the standing-correction contract, context delivery, and secondmate inheritance; the [`fm-rules.sh` header](../bin/fm-rules.sh) owns file format and the write-time size budget, and the [`fm-rule-guard.sh` header](../bin/fm-rule-guard.sh) owns the Stop-guard block cap.
 
 ## Cross-family review
 

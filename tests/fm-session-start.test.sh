@@ -2744,6 +2744,57 @@ EOF
   pass "the THEME section follows config/theme: absent by default, banner on a fresh start, one warning when unknown"
 }
 
+# Captain rules ride every non-Claude digest, full and compact, ahead of the
+# fleet and context digests a truncated tail can take, and every rule arrives
+# whole. A Claude primary gets
+# them from its own SessionStart hook, so its digest must not repeat them.
+test_captain_rules_section_rides_non_claude_digests() {
+  local rec root home fakebin out slim rules_at fleet_at i
+  rec=$(new_world captain-rules)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+
+  out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the no-rules case did not run as codex"
+  assert_not_contains "$out" "CAPTAIN RULES" "a home without rules must print no CAPTAIN RULES section"
+
+  FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" add pbcopy-for-sudo \
+    'Hand sudo steps over through pbcopy and a real Terminal window.' >/dev/null || fail "seeding a captain rule failed"
+  for i in 1 2 3 4 5 6; do
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" add "long-rule-$i" \
+      "Long rule $i: $(printf 'every accepted correction reaches this digest whole %.0s' 1 2 3 4) end-$i." >/dev/null \
+      || fail "seeding long captain rule $i failed"
+  done
+  rm -f "$home/state/.session-start-complete"
+  out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the full rules case did not run as codex"
+  assert_contains "$out" "- Hand sudo steps over through pbcopy and a real Terminal window." \
+    "a full codex digest dropped the captain rule"
+  assert_contains "$out" "outrank generic harness, tool, and skill hints" "the rules block lost its precedence line"
+  for i in 1 2 3 4 5 6; do
+    assert_contains "$out" "$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-rules.sh" list | awk -F'\t' -v id="long-rule-$i" '$1 == id { print $3 }')" \
+      "a full codex digest dropped or cut long-rule-$i"
+  done
+  rules_at=$(printf '%s\n' "$out" | grep -n -x 'CAPTAIN RULES' | head -1 | cut -d: -f1)
+  fleet_at=$(printf '%s\n' "$out" | grep -n -x 'FLEET STATE' | head -1 | cut -d: -f1)
+  [ -n "$rules_at" ] && [ -n "$fleet_at" ] && [ "$rules_at" -lt "$fleet_at" ] \
+    || fail "the CAPTAIN RULES section must precede FLEET STATE (rules=$rules_at fleet=$fleet_at)"
+
+  slim=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH" --reemit --source compact)
+  assert_contains "$slim" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex" "the compact rules case did not run as codex"
+  assert_contains "$slim" "- Hand sudo steps over through pbcopy and a real Terminal window." \
+    "a compact codex re-emit dropped the captain rule"
+  assert_contains "$slim" "end-6." "a compact codex re-emit cut the last captain rule"
+
+  out=$(run_named_harness_session_start claude "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "SUPERVISION OPERATING INSTRUCTIONS - primary harness: claude" "the Claude rules case did not run as claude"
+  assert_not_contains "$out" "Hand sudo steps over through pbcopy" "a Claude digest repeated the rules its hook already loads"
+  pass "the CAPTAIN RULES section rides full and compact non-Claude digests ahead of fleet state, and never a Claude one"
+}
+
 test_compact_reemit_is_slim_and_full_flag_restores_the_report() {
   local rec root home fakebin slim full sequence
   rec=$(new_world compact-slim)
@@ -3596,6 +3647,7 @@ EOF
 # Focused reproductions; the normal suite runs the inherited-marker regression,
 # which executes every assertion in the underlying hanging-git case as well.
 case "${1:-}" in
+  --captain-rules-only) test_captain_rules_section_rides_non_claude_digests; exit $? ;;
   --dispatch-selftest-only)
     test_dispatch_selftest_auto_arm_is_idempotent
     test_dispatch_selftest_missing_samples_alerts_once
@@ -3685,6 +3737,7 @@ test_compact_reemit_fits_the_inline_hook_limit ascii pi
 test_compact_reemit_fits_the_inline_hook_limit ascii omp
 test_compact_instruction_refresh_fits_the_inline_hook_limit
 test_theme_section_follows_config_theme
+test_captain_rules_section_rides_non_claude_digests
 test_reemit_cue_survives_the_hook_output_preview
 test_agents_baseline_stays_at_true_start_and_reemits_on_every_drifted_pi_compact
 test_compact_reemit_keeps_each_presentation_detail_separately

@@ -48,9 +48,13 @@
 #                       (bin/fm-branch-outcome.sh seed-tail).
 #                       An optional ACT FIRST priority list follows it (note below).
 #   4. supervision-instructions - the one emitted operating block for the
-#                       detected primary harness. A slim compact re-emit moves
-#                       this immediately after the lock, using current state,
-#                       condensed rules, and a command for the full block.
+#                       detected primary harness, then, for a non-Claude
+#                       primary, the uncut CAPTAIN RULES block (bin/fm-rules.sh
+#                       render) on full and compact digests alike. Claude gets
+#                       the same block from its own SessionStart hook. A slim
+#                       compact re-emit moves both immediately after the lock,
+#                       using current state, condensed supervision rules, and
+#                       a command for the full supervision block.
 #   5. read-once contract - the do-not-re-read contract covering every source
 #                       represented by the two digests below.
 #   6. fleet digest   - on a full digest, a compact data/backlog.md
@@ -261,9 +265,9 @@
 #
 #   --full    Print the complete digest even for a compact re-emit. A compact
 #             re-emit (--reemit --source compact) prints a SLIM digest by
-#             default, sized to stay under 9 KB (see SLIM SIZE BUDGET): the lock
-#             line, then the supervision block's current state, condensed
-#             operating rules, and command for the whole block, a pointer to
+#             default (see SLIM SIZE BUDGET): the lock line, then the supervision
+#             block's current state, condensed operating rules, and command for
+#             the whole block, the uncut non-Claude captain rules, a pointer to
 #             bootstrap diagnostics, the wake queue (the drain's OPEN DECISIONS,
 #             UNREAD STATUS, UNFINISHED EXECUTION and
 #             BRANCH OUTCOMES sections ahead of its annotations and raw rows)
@@ -474,9 +478,13 @@ subsection() { printf '\n%s\n%s\n' "$1" "$SUBRULE"; }
 # SLIM SIZE BUDGET: the compact re-emit is delivered through a session-open hook,
 # and a harness replaces hook output over its inline limit (Claude: about 10 KB)
 # with a file path and a 2 KB preview, so a model that does not re-read the file
-# loses everything after the preview. The slim digest therefore stays under
-# 9 KB: one-line section titles, supervision state and condensed rules ahead of
-# the bulk, and byte budgets for bulky sections. Lines a budget drops
+# loses everything after the preview. The slim digest targets under 9 KB before
+# the non-Claude CAPTAIN RULES block: one-line section titles, supervision state
+# and condensed rules ahead of the bulk, and byte budgets for bulky sections.
+# Captain rules are added whole immediately after supervision; their separate
+# write-time budget is owned by bin/fm-rules.sh, not these byte caps. With rules,
+# the digest can exceed a harness's inline limit, so the RE-EMIT CUE's saved-file
+# read remains necessary when output spills. Lines a budget drops
 # are named with a count, and the complete bootstrap and drain text is kept in
 # REEMIT_DETAIL, because the drain has already spent its one-shot presentation.
 # Each presentation gets its own file under REEMIT_DETAIL_DIR, so a later
@@ -923,6 +931,17 @@ print_supervision_stage() {
     --afk-mode "$AFK_MODE" \
     --x-mode "$X_MODE_PRESENT" $SUPERVISION_STATE_ONLY
 
+  # Standing corrections are never cut or condensed, including in the slim
+  # digest: emit them immediately after supervision, before variable-size
+  # sections. docs/captain-rules.md owns the contract.
+  if [ "$PRIMARY_HARNESS" != claude ]; then
+    CAPTAIN_RULES_BLOCK=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-rules.sh" render 2>/dev/null || true)
+    if [ -n "$CAPTAIN_RULES_BLOCK" ]; then
+      section "CAPTAIN RULES"
+      printf '%s\n' "$CAPTAIN_RULES_BLOCK"
+    fi
+  fi
 }
 # --- 1. lock -----------------------------------------------------------
 stage lock

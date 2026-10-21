@@ -10,6 +10,12 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/herdr-client-pair-fixture.sh"
 
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
+# Exercise partial publication and convergence with the two config records this
+# lifecycle uses (plus the always-inherited captain-shared.md). Every extra
+# default item adds a queued SSH job, even when absent, and can exhaust
+# bootstrap's bounded convergence before it reaches the shared data record.
+# Keep unrelated additions to the default allowlist out of this timing budget.
+export FM_INHERITABLE_CONFIG='crew-dispatch.json crew-harness'
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP_ROOT=$(fm_test_tmproot fm-remote-secondmate-e2e)
 mkdir -p "$TMP_ROOT"
