@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Reject a handoff whose tests are already green, cannot execute, or time out",
+    "result": "pass"
+  },
+  {
+    "name": "Reject a test seat that changes production code or leaves tests uncommitted",
+    "result": "pass"
+  },
+  {
+    "name": "Run mutation on implemented HEAD with locked tests as exact arguments in a private clone",
+    "result": "pass"
+  },
+  {
+    "name": "Refuse mutation on an unreadable base, unrelated history, or zero remaining tests; reproduce before fix",
+    "result": "pass"
+  },
+  {
+    "name": "DeepSeek, GLM, and Sonnet cannot change or delete handed-over tests or add their own tests",
+    "result": "pass"
+  },
+  {
+    "name": "Count distinct failed Sonnet rounds, request Opus at round two, never escalate an unknown strong model down",
+    "result": "pass"
+  }
+]

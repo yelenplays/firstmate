@@ -1,0 +1,259 @@
+
+=== Reject a handoff whose tests are already green, cannot execute, or time out ===
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial
+error: the handed-over tests pass on the base, so they pin nothing the change adds; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/green/data/trial/tdd-split-red.log
+[exit 1]
+
+
+fm-tdd-split: head=1bc635beaaba9d7903d6d483474ae16576cbe5f3 exit=0 command=for t; do bash "$t" || exit 1; done
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial
+error: the fail-to-pass command could not run (exit 127), which proves nothing about the tests; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/missing-tool/data/trial/tdd-split-red.log
+[exit 1]
+
+fm-tdd-split: Zeile 1: fm-definitely-missing-red-command: Kommando nicht gefunden
+
+fm-tdd-split: head=f10de5bcb806350fa0b6a8c59843932b5f1fcfac exit=127 command=fm-definitely-missing-red-command "$@"
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial --timeout 1
+error: the fail-to-pass command hit its 1s bound; see /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/timeout/data/trial/tdd-split-red.log
+[exit 1]
+
+
+fm-tdd-split: head=cedbc5980813e3ea3cd138c860fe706b400abc8f exit=124 command=sleep 4
+
+
+=== Reject a test seat that changes production code or leaves tests uncommitted ===
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial
+error: tdd-split test seat changed files that are not tests: feature.sh; the seat writes tests only, so revert those changes and report tests-ready again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial
+error: tdd-split test seat has uncommitted changes; commit the tests and report tests-ready again
+[exit 1]
+
+
+=== Run mutation on implemented HEAD with locked tests as exact arguments in a private clone ===
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh mutation trial
+tdd-split: trial mutation gate passed at 316beed5011f92ee6875da74b68c76d69eb7618d
+[exit 0]
+
+argc=1 test=tests/feature with spaces.test.sh
+
+fm-tdd-split: head=316beed5011f92ee6875da74b68c76d69eb7618d exit=0 command=printf "argc=%s test=%s\n" "$#" "$1"; [ "$#" = 1 ] && [ "$1" = "tests/feature with spaces.test.sh" ] && bash "$1" && touch clone-only-side-effect
+
+Observed worker copy unchanged; mutation side effect stayed in the disposable clone.
+
+
+=== Refuse mutation on an unreadable base, unrelated history, or zero remaining tests; reproduce before fix ===
+
+BEFORE FIX: missing-base
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/before-fix/bin/fm-tdd-split.sh mutation trial
+tdd-split: trial mutation gate passed at 3afea03c9bf56937464c4cb0de761c9a94783c68
+error: tdd-split check cannot resolve the base branch origin/unavailable in the worker copy
+[exit 0]
+
+mutation executed with argc=0
+
+fm-tdd-split: head=3afea03c9bf56937464c4cb0de761c9a94783c68 exit=0 command=printf "mutation executed with argc=%s\n" "$#"; touch "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/missing-base/mutation-was-executed"
+
+TARGET: missing-base
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh mutation trial
+error: tdd-split check cannot resolve the base branch origin/unavailable in the worker copy
+[exit 1]
+
+Observed command not executed; phase unchanged.
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial
+error: tdd-split check cannot resolve the base branch origin/unavailable in the worker copy
+[exit 1]
+
+BEFORE FIX: unrelated-base
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/before-fix/bin/fm-tdd-split.sh mutation trial
+tdd-split: trial mutation gate passed at cc457aa070fbae0ad2e30ff757820de737e731a2
+error: tdd-split check found no merge-base between HEAD and refs/remotes/origin/main
+[exit 0]
+
+mutation executed with argc=0
+
+fm-tdd-split: head=cc457aa070fbae0ad2e30ff757820de737e731a2 exit=0 command=printf "mutation executed with argc=%s\n" "$#"; touch "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/unrelated-base/mutation-was-executed"
+
+TARGET: unrelated-base
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh mutation trial
+error: tdd-split check found no merge-base between HEAD and refs/remotes/origin/main
+[exit 1]
+
+Observed command not executed; phase unchanged.
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh handoff trial
+error: tdd-split check found no merge-base between HEAD and refs/remotes/origin/main
+[exit 1]
+
+BEFORE FIX: empty-tests
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/before-fix/bin/fm-tdd-split.sh mutation trial
+tdd-split: trial mutation gate passed at d10e55c621eb8a99de402442e0bf40a9545cbf41
+[exit 0]
+
+mutation executed with argc=0
+
+fm-tdd-split: head=d10e55c621eb8a99de402442e0bf40a9545cbf41 exit=0 command=printf "mutation executed with argc=%s\n" "$#"; touch "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/empty-tests/mutation-was-executed"
+
+TARGET: empty-tests
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh mutation trial
+error: the branch's commits leave no test file to run the mutation command against
+[exit 1]
+
+Observed command not executed; phase unchanged.
+
+BEFORE FIX: deleted-tests
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/before-fix/bin/fm-tdd-split.sh mutation trial
+tdd-split: trial mutation gate passed at b8ed3c014f77e3a411735472ae837d25ea5becb0
+[exit 0]
+
+mutation executed with argc=0
+
+fm-tdd-split: head=b8ed3c014f77e3a411735472ae837d25ea5becb0 exit=0 command=printf "mutation executed with argc=%s\n" "$#"; touch "/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/.local-validation/manual/deleted-tests/mutation-was-executed"
+
+TARGET: deleted-tests
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh mutation trial
+error: the branch's commits leave no test file to run the mutation command against
+[exit 1]
+
+Observed command not executed; phase unchanged.
+
+
+=== DeepSeek, GLM, and Sonnet cannot change or delete handed-over tests or add their own tests ===
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/self-authored.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on opencode-go/deepseek-v4.1-flash: the branch adds, modifies, or deletes unauthorized test files tests/feature.e2e.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/self-authored.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on zhipu/glm-5.2: the branch adds, modifies, or deletes unauthorized test files tests/feature.e2e.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/self-authored.test.sh; revert those changes and report done again
+[exit 1]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-tdd-split.sh dispute trial
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/feature.e2e.sh; revert those changes and report done again
+[exit 1]
+
+
+=== Count distinct failed Sonnet rounds, request Opus at round two, never escalate an unknown strong model down ===
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh record-failure trial --reason review rejected first attempt
+task=trial
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=614e72398523e29358f0019337a544f0f00881e2
+action=none
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh record-failure trial --reason same failed head again
+task=trial
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=1
+heads=614e72398523e29358f0019337a544f0f00881e2
+action=none
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh record-failure trial --reason review rejected second attempt
+task=trial
+current=claude/claude-sonnet-5-5/medium
+failed_rounds=2
+heads=614e72398523e29358f0019337a544f0f00881e2,2d172ce239564f729bbb790b065440a00088de9f
+action=relaunch
+next_harness=claude
+next_model=claude-opus-5-5
+next_effort=medium
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh run trial
+task=trial
+current=claude/claude-opus-5-5/medium
+failed_rounds=2
+heads=614e72398523e29358f0019337a544f0f00881e2,2d172ce239564f729bbb790b065440a00088de9f
+action=captain
+reason=2 failed rounds on claude-opus-5-5, the top of the escalation ladder
+[exit 3]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh record-failure trial --reason review rejected first attempt
+task=trial
+current=claude/gemini-3.5-pro/medium
+failed_rounds=1
+heads=214d104dd738563451396dd3e4261bd9f137d8f6
+action=none
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh record-failure trial --reason same failed head again
+task=trial
+current=claude/gemini-3.5-pro/medium
+failed_rounds=1
+heads=214d104dd738563451396dd3e4261bd9f137d8f6
+action=none
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh record-failure trial --reason review rejected second attempt
+task=trial
+current=claude/gemini-3.5-pro/medium
+failed_rounds=2
+heads=214d104dd738563451396dd3e4261bd9f137d8f6,f8d7e7d9bdef1af36e2955f1e55a47b419e83844
+action=relaunch
+next_harness=claude
+next_model=claude-opus-5-5
+next_effort=medium
+[exit 0]
+
+$ bash /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5G9280W309SJ4NPFZERASXA/bin/fm-escalate.sh run trial
+task=trial
+current=claude/claude-opus-5-5/medium
+failed_rounds=2
+heads=214d104dd738563451396dd3e4261bd9f137d8f6,f8d7e7d9bdef1af36e2955f1e55a47b419e83844
+action=captain
+reason=2 failed rounds on claude-opus-5-5, the top of the escalation ladder
+[exit 3]

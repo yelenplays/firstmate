@@ -1,0 +1,15 @@
+Target: ca9ec29536e07a94a142ff6cc22e66adb6ac074c
+
+Runtime tool availability (PATH only):
+bash: /run/current-system/sw/bin/bash
+git: /usr/bin/git
+jq: /etc/profiles/per-user/yelen/bin/jq
+python3: /opt/homebrew/bin/python3
+herdr: /opt/homebrew/bin/herdr
+treehouse: /Users/yelen/.local/bin/treehouse
+claude: /Users/yelen/.local/bin/claude
+tmux: not on PATH
+
+No real Claude agent, login check, trust-store update, Herdr session, publication, or pipeline-control operation was attempted.
+Claude lifecycle requires automatic workspace-trust registration outside the worktree unless an authenticated worktree-local CLAUDE_CONFIG_DIR is supplied. The workspace boundary forbids the default write.
+Real-agent handoff, dispute relaunch, mutation-failure relaunch, and Opus takeover remain untested. Normal Claude login availability was not assessed.
