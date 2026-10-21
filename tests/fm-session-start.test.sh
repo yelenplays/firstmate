@@ -3628,6 +3628,7 @@ EOF
 # Focused reproductions; the normal suite runs the inherited-marker regression,
 # which executes every assertion in the underlying hanging-git case as well.
 case "${1:-}" in
+  --board-only) test_board_prints_first_in_fleet_state; exit $? ;;
   --dispatch-selftest-only)
     test_dispatch_selftest_auto_arm_is_idempotent
     test_dispatch_selftest_missing_samples_alerts_once
