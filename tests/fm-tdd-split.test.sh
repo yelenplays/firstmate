@@ -358,6 +358,28 @@ test_mutation_gate() {
   pass "the mutation gate passes, sends surviving mutants back to the seat, and refuses a run that proves nothing"
 }
 
+# An implementer escalated onto Opus carries no test ban, so the mutation gate
+# is the only check that reads the branch's base.
+test_mutation_gate_refuses_an_unreadable_base() {
+  local out rc
+  new_case mutation-no-base
+  printf 'Mutation command: `[ "$#" -gt 0 ] || { echo ran with no tests; exit 0; }`\n' >>"$CASE_DATA/mutation-no-base/brief.md"
+  seat_commit tests/feature.test.sh '[ -f feature.sh ]'
+  to_implementer mutation-no-base
+  sed -i.bak '/^test_ban_model=/d' "$CASE_META"
+  seat_commit feature.sh 'echo done'
+  report mutation-no-base "done: PR https://example.test/o/r/pull/3 checks green"
+  git -C "$CASE_WT" update-ref refs/remotes/origin/main \
+    "$(git -C "$CASE_WT" commit-tree "$(git -C "$CASE_WT" mktree </dev/null)" -m unrelated)"
+  out=$(tdd_split mutation mutation-no-base)
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a mutation gate whose base has no merge-base exited $rc: $out"
+  assert_contains "$out" "no merge-base" "refusal did not name the unreadable base"
+  case "$out" in *"mutation gate passed"*) fail "a mutation run with no test files passed the gate: $out" ;; esac
+  [ ! -e "$CASE_CONTROL_LOG" ] || fail "a mutation gate whose base cannot be read relaunched the task"
+  pass "the mutation gate refuses, rather than runs without tests, when the branch's base cannot be read"
+}
+
 test_check_command_needs_exactly_one_line
 test_mutation_command_is_optional_and_single
 test_seat_done_gate
@@ -367,5 +389,6 @@ test_handoff_refuses_an_unready_seat
 test_dispute_routes_back_to_the_seat
 test_dispute_refusals
 test_mutation_gate
+test_mutation_gate_refuses_an_unreadable_base
 
 echo "all fm-tdd-split tests passed"
