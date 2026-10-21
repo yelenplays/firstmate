@@ -40,7 +40,7 @@
 #   Accepts the implementer's `blocked [key=test-dispute]: <test>: <reason>`
 #   and sends the task back to the test seat. Refused unless the record shows
 #   tdd_split=implement, that key is open as blocked, the worker copy is clean,
-#   and the implementer changed no handed-over test. It relaunches the seat
+#   and fm-dod-lib.sh's test-authoring gate accepts the implementer. It relaunches the seat
 #   (FM_TDD_SPLIT_SEAT_*) with the dispute in its note, records tdd_split=tests
 #   and tdd_split_dispute_head=<implementer HEAD>, and closes the key with a
 #   `resolved [key=test-dispute]` line. Firstmate answers a dispute it rejects
@@ -49,8 +49,9 @@
 # mutation
 #   The optional mutation gate, run on the implementer's done: when the brief
 #   declares `Mutation command: `<command>``. Refused unless the record shows
-#   tdd_split=implement, the current status line is a done:, and the
-#   implementer changed no handed-over test. It runs the command bounded like
+#   tdd_split=implement, the current status line is a done:, and
+#   fm-dod-lib.sh's test-authoring gate accepts the implementer.
+#   It runs the command bounded like
 #   the red run, in a private clone of the worker copy's HEAD with the test
 #   files the branch changes as "$@", logging to
 #   data/<id>/tdd-split-mutation.log. Exit 0 when it passes; exit 1 when it
@@ -158,7 +159,7 @@ run_bounded() {  # <dir> <log> <head> <what> <command> <tests>...
   fi
 }
 
-# Dies unless the implementer left every handed-over test as the seat wrote it.
+# Applies fm-dod-lib.sh's test-authoring contract, including its model scope.
 implementer_tests_untouched() {
   local reason
   reason=$(fm_test_ban_accept_done ship "$(fm_dod_meta_value "$META" mode)" "$WT" "done: $CMD" "$META" 1) \
