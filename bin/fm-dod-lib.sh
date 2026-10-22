@@ -1064,7 +1064,7 @@ fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
 # Prints each commit.fix_message value set in the YAML documents on stdin,
 # separated by \036, one per line, or `!` for a setting this reader cannot
 # parse: an unsupported root layout, indirect/quoted keys, a flow mapping,
-# a block scalar, or an escape in a double-quoted value. Only plain keys in
+# a multiline scalar, or an escape in a double-quoted value. Only plain keys in
 # unindented block roots are read. Root or commit-block merge keys and
 # indirection on commit emit `!` rather than resolving YAML merges or aliases;
 # an unrelated anchor elsewhere does not itself make the setting unreadable.
@@ -1096,6 +1096,17 @@ fm_test_ban_fix_message_values() {
           if (line ~ ("^[ \t]+[\"" q "&*!?]") || line ~ /^[ \t]+<<[ \t]*:/) print "!"
           continue
         }
+        # A deeper non-comment line continues this scalar. Do not emit a
+        # truncated template; multiline values are deliberately unreadable.
+        multiline = 0
+        for (j = i + 1; j <= n; j++) {
+          next_line = lines[j]
+          sub(/\r$/, "", next_line)
+          if (next_line ~ /^[ \t]*(#|$)/) continue
+          multiline = match(next_line, /[^ \t]/) > match(line, /[^ \t]/)
+          break
+        }
+        if (multiline) { print "!"; continue }
         v = line
         sub("^[ \t]+" fix_key "[ \t]*", "", v)
         if (substr(v, 1, 1) == "\"") {

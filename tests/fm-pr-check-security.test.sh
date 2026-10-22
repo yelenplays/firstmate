@@ -1248,6 +1248,58 @@ test_test_ban_pipeline_fixer_template_attribution() {
   pass "fm-pr-check binds Branch and checks every possible template step without interpreting Summary as Branch"
 }
 
+# YAML folds scalar continuation lines into the repair subject. Never silently
+# truncate those templates, regardless of which configuration supplied them.
+test_test_ban_pipeline_fixer_multiline_yaml() {
+  local source form out yaml global_yaml repo_yaml round_yaml round_repo_yaml
+  command -v sqlite3 >/dev/null 2>&1 || fail "multiline YAML regression requires sqlite3"
+  for source in global repo round-global round-repo; do
+    for form in plain single-quoted double-quoted normalized; do
+      case "$form" in
+        plain) yaml=$'commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}' ;;
+        single-quoted) yaml=$'commit:\n  fix_message: \'repair-{{.Step}}\n    {{.Summary}}\'' ;;
+        double-quoted) yaml=$'commit:\n  fix_message: "repair-{{.Step}}\n    {{.Summary}}"' ;;
+        normalized) yaml='commit:
+  fix_message: "repair-{{.Step}} {{.Summary}}"' ;;
+      esac
+      global_yaml= repo_yaml= round_yaml= round_repo_yaml=
+      case "$source" in
+        global) global_yaml=$yaml ;;
+        repo) repo_yaml=$yaml ;;
+        round-global) round_yaml=$yaml ;;
+        round-repo) round_repo_yaml=$yaml ;;
+      esac
+      out=$(FIXER_SUBJECT='repair-review add a test' \
+        FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
+        fixer_registration "tmpl-multiline-$source-$form" "$global_yaml" -- \
+        'fm/task-a|review|review-fix|claude-sonnet-5-5')
+      [ "${out%%$'\n'*}" != 0 ] || fail "$source $form YAML let a Sonnet repair register its test"
+      grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "$source $form refusal did not name the test: $out"
+      if [ "$form" = normalized ]; then
+        grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" \
+          || fail "$source normalized template refusal did not name Sonnet: $out"
+      else
+        grep -Fq 'commit.fix_message' <<<"$out" \
+          || fail "$source $form refusal did not name the unreadable template: $out"
+      fi
+      # An unreadable template also refuses an otherwise allowlisted worker;
+      # the equivalent single-line template must leave that worker alone.
+      out=$(FIXER_SUBJECT='add a test' \
+        FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
+        fixer_registration "tmpl-multiline-worker-$source-$form" "$global_yaml" -- \
+        'fm/task-a|review|review-fix|claude-sonnet-5-5')
+      if [ "$form" = normalized ]; then
+        [ "${out%%$'\n'*}" = 0 ] || fail "$source single-line template refused the Opus worker: $out"
+      else
+        [ "${out%%$'\n'*}" != 0 ] || fail "$source $form YAML let the worker bypass the unreadable-template policy"
+        grep -Fq 'commit.fix_message' <<<"$out" \
+          || fail "$source $form worker refusal did not name the unreadable template: $out"
+      fi
+    done
+  done
+  pass "fm-pr-check refuses multiline repair YAML across all configuration sources"
+}
+
 # An existing but unreadable global configuration cannot silently remove repair
 # attribution, even for an otherwise allowlisted worker's own test commit.
 test_test_ban_pipeline_fixer_unreadable_config() {
@@ -4196,6 +4248,11 @@ if [ "${1:-}" = --test-ban-template-attribution ]; then
   exit 0
 fi
 
+if [ "${1:-}" = --test-ban-multiline ]; then
+  test_test_ban_pipeline_fixer_multiline_yaml
+  exit 0
+fi
+
 if [ "${1:-}" = --test-ban-unreadable ]; then
   test_test_ban_pipeline_fixer_unreadable_config
   exit 0
@@ -4216,6 +4273,7 @@ if [ "${1:-}" = --test-ban ]; then
   test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
   test_test_ban_pipeline_fixer_subject_templates_and_authors
   test_test_ban_pipeline_fixer_template_attribution
+  test_test_ban_pipeline_fixer_multiline_yaml
   test_test_ban_pipeline_fixer_unreadable_config
   test_test_ban_pipeline_fixer_inherited_yaml
   exit 0
@@ -4265,6 +4323,7 @@ test_test_ban_binds_to_the_published_head
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
 test_test_ban_pipeline_fixer_subject_templates_and_authors
 test_test_ban_pipeline_fixer_template_attribution
+test_test_ban_pipeline_fixer_multiline_yaml
 test_test_ban_pipeline_fixer_unreadable_config
 test_test_ban_pipeline_fixer_inherited_yaml
 test_direct_pr_unpushed_commit_refuses_registration
