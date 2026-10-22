@@ -1,0 +1,29 @@
+ok - fm-slack-bridge: off without config
+ok - fm-slack-bridge: post sends, records, and refuses an unconfirmed send
+ok - fm-slack-bridge: captain reply delivered once, others ignored, handoff marked as request
+ok - fm-slack-bridge: macOS base64 fallback decodes inbound fields
+ok - fm-slack-bridge: unverified slack-axi keeps inbound off with one report
+ok - fm-slack-bridge: poll cadence state and validation
+ok - fm-slack-bridge: invalid config is refused and reported
+ok - fm-slack-bridge: outbound off stops every post and keeps inbound
+ok - fm-slack-bridge: a bot posts instead of slack-axi
+ok - fm-slack-bridge: a bot delivers only the captain's DMs and thread replies, and replies go back once
+ok - fm-slack-bridge: independent homes deliver only their own captain DMs
+ok - fm-slack-bridge: without a bot a reply stays local
+ok - fm-slack-bridge: bot reads continue until pagination is complete
+ok - fm-slack-bridge: a DM backlog past ten pages is read completely, and a failed page keeps the cursor
+ok - fm-slack-bridge: an ambiguous post is found before retry
+ok - fm-slack-bridge: concurrent reply attempts serialize
+ok - fm-slack-bridge: only this home's bot can satisfy a reply marker
+ok - fm-slack-bridge: bot failures refuse without leaking the token
+ok - fm-slack-bridge: verify proves the bot, both channels, and the DM
+ok - fm-slack-bridge: a bot delivers only the captain's own tags, once, and answers in a thread
+ok - fm-slack-bridge: top-level mentions survive the thread-discovery window
+ok - fm-slack-bridge: a tagged reply reachable two ways is delivered once
+ok - fm-slack-bridge: manifest names and minimal scopes
+ok - fm-slack-bridge: slack-axi posts readable structured and free-text layouts
+ok - fm-slack-bridge: posts refuse invalid input and cut overlong lines to the short shape
+ok - fm-slack-bridge: slack-axi posts the structured layout as its mrkdwn fallback
+ok - fm-slack-bridge: a bot sends structured posts as blocks and their thread replies still arrive
+ok - fm-slack-bridge: outcomes go to #updates and asks get a one-line #updates entry
+ok - fm-slack-bridge: a bot posts to the updates channel id from config and never creates one

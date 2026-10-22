@@ -1,0 +1,85 @@
+$ FM_HOME=<disposable-worktree-home> bin/fm-lab-home.sh create /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GE0ZB9KGFFYFN1WFXY7KKZ/.test-tmp/fm-lab.lr_r_b96
+/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GE0ZB9KGFFYFN1WFXY7KKZ/.test-tmp/fm-lab.lr_r_b96
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post report No config
+slack bridge off: no config/slack-bridge
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh settings
+bridge=off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post decision --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post ready --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post report --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post finished --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post merged --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post live --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post stuck --title Disposable lab validation
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post digest --title Disposable lab validation --line No updates should be sent
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post finished --task no-such-task --title Task-bound attempt
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post decision -- Legacy free-text attempt
+slack outbound off
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh tick
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh digest
+fm-updates: the Slack bridge is off; write config/slack-bridge first
+[exit 1]
+
+Observed persisted state: no post ledger, no outcome ledger, no digest receipt.
+
+The following uses synthetic persisted task input, NOT a live worker/merge/chat scenario.
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh tick
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh settle finished-task
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-updates.sh scan
+cleanup-due finished-task: finished; tell the captain in chat if not yet, then run bin/fm-teardown.sh finished-task
+[exit 0]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post report Must refuse
+fm-slack-bridge: config/slack-bridge outbound must be on or off
+[exit 1]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post report Must refuse
+fm-slack-bridge: config/slack-bridge outbound must be on or off
+[exit 1]
+
+$ FM_HOME=<disposable-worktree-home> bin/fm-slack-bridge.sh post report Must refuse
+fm-slack-bridge: config/slack-bridge outbound must be on or off
+[exit 1]
+
+All disposable home data removed by the driver on exit. No Slack setup verification or network posting was requested.
