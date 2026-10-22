@@ -1,0 +1,23 @@
+--- meta before
+tdd_split=implement
+tdd_split_tests=a1d6b14cfc6a6c8bc40261e1655548abb8a32d9d
+tdd_split_impl_harness=claude
+tdd_split_impl_model=claude-sonnet-5-5
+tdd-split: t1 dispute accepted at be3329def81b32c601c61596471280b58fb6f3cf; back on the test seat claude/claude-opus-5-5 (medium)
+exit=0
+--- seen by fm-control relaunch
+control argv: t1 relaunch --harness claude --model claude-opus-5-5 --effort medium --note <...>
+meta at relaunch time:
+tdd_split_tests=a1d6b14cfc6a6c8bc40261e1655548abb8a32d9d
+tdd_split_impl_harness=claude
+tdd_split_impl_model=claude-sonnet-5-5
+tdd_split=tests
+tdd_split_dispute_head=be3329def81b32c601c61596471280b58fb6f3cf
+--- meta after
+tdd_split_tests=a1d6b14cfc6a6c8bc40261e1655548abb8a32d9d
+tdd_split_impl_harness=claude
+tdd_split_impl_model=claude-sonnet-5-5
+tdd_split=tests
+tdd_split_dispute_head=be3329def81b32c601c61596471280b58fb6f3cf
+--- status tail
+resolved [key=test-dispute] [at=1792660598]: accepted: back on the test seat at be3329def81b32c601c61596471280b58fb6f3cf

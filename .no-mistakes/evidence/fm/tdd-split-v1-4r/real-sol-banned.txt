@@ -1,0 +1,9 @@
+== refused test files (sha step author path) ==
+b7b7d386e09bc9ecd8a164f07c1b2e0dfbf14167	document	gpt-6.1-sol	tests/fm-pr-check-security.test.sh
+877f5e5073d36a8c8fe6e9165ba8d65f1c779dbf	document	gpt-6.1-sol	tests/fm-pr-check-security.test.sh
+d59d5d4ab0a99e3af9c4739af188406353ff2b53	document	gpt-6.1-sol	tests/fm-pr-check-security.test.sh
+9f18d9c2759f7073e8c9f9463145dd15bf59f92b	document	gpt-6.1-sol	tests/fm-pr-check-security.test.sh
+3e286c2e48a7698b36fd1db706b69c6e916b9ba5	document	gpt-6.1-sol	tests/fm-pr-check-security.test.sh
+== gate verdict ==
+no test authoring on gpt-6.1-sol: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on gpt-6.1-sol in b7b7d386e09b: tests/fm-pr-check-security.test.sh; no-mistakes(document) on gpt-6.1-sol in 877f5e5073d3: tests/fm-pr-check-security.test.sh; no-mistakes(document) on gpt-6.1-sol in d59d5d4ab0a9: tests/fm-pr-check-security.test.sh; no-mistakes(document) on gpt-6.1-sol in 9f18d9c2759f: tests/fm-pr-check-security.test.sh; no-mistakes(document) on gpt-6.1-sol in 3e286c2e48a7: tests/fm-pr-check-security.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+REFUSE rc=1

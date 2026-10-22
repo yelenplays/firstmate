@@ -1,0 +1,22 @@
+--- meta before
+tdd_split=implement
+tdd_split_tests=cbbfd663cf974694ab0b3c5facea199c3942e027
+tdd_split_impl_harness=claude
+tdd_split_impl_model=claude-sonnet-5-5
+error: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again
+exit=1
+--- seen by fm-control relaunch
+control argv: t1 relaunch --harness claude --model claude-opus-5-5 --effort medium --note <...>
+meta at relaunch time:
+tdd_split_tests=cbbfd663cf974694ab0b3c5facea199c3942e027
+tdd_split_impl_harness=claude
+tdd_split_impl_model=claude-sonnet-5-5
+tdd_split=tests
+tdd_split_dispute_head=3c9ddfd92448a2703715f9b74aa438fbf4ea5f2a
+--- meta after
+tdd_split_tests=cbbfd663cf974694ab0b3c5facea199c3942e027
+tdd_split_impl_harness=claude
+tdd_split_impl_model=claude-sonnet-5-5
+tdd_split=implement
+--- status tail
+blocked [key=test-dispute]: tests/feature.test.sh: it checks the wrong file
