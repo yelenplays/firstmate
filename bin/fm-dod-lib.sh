@@ -1009,10 +1009,10 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # configuration recorded for a round of the task's runs. A template's literal
 # text, {{.Step}}, {{.Summary}}, and the recorded {{.Branch}} are matched under
 # every possible step interpretation; one without {{.Step}} attributes its
-# commits to every step, and one this check cannot
-# read or match makes every test-changing commit it does not otherwise
-# recognize refuse as `an unmatched commit.fix_message template`, even an
-# allowlisted worker's own commit.
+# commits to every step. An unreadable template or unsupported syntax causes
+# every otherwise unrecognized test-changing commit to be refused as
+# `an unmatched commit.fix_message template`, even an allowlisted worker's
+# own commit.
 # Their added or modified test files are accepted only when every matching
 # step's author is positively recorded as allowlisted: every successful invocation of
 # <step> across runs on the task's branch of the task's repository in
@@ -1220,8 +1220,9 @@ fm_test_ban_fix_message_steps() {  # <template> <subject> <branch>
 }
 
 # Prints `an unrecorded model` when <step> on <branch> of <repo-path> has no
-# recorded writing invocation, the first recorded model that is not an
-# allowlisted test author, or nothing when every recorded model is one.
+# invocation qualifying under the pipeline-fixer contract above, the first
+# recorded model that is not an allowlisted test author, or nothing when every
+# qualifying model is one.
 fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
   local models model
   models=$(fm_test_ban_nm_step_models "$1" "${2:-}" "${3:-}")
