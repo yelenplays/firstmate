@@ -1116,13 +1116,22 @@ fm_test_ban_fix_message_values() {
 # Prints the distinct commit.fix_message values in force for the task's
 # pipeline under the contract above: the global configuration, the repository's
 # .no-mistakes.yaml at <head>, and the configurations recorded for rounds of
-# runs on <branch> of the repository registered at <repo-path>.
+# runs on <branch> of the repository registered at <repo-path>. Existing global
+# or checked-head repository configs that cannot be read emit `!` (unreadable).
+# Absent files and failed database queries remain lenient: older schemas and
+# test fixtures may have no step_rounds table.
 fm_test_ban_nm_fix_messages() {  # <worktree> <head> <branch> <repo-path>
   local wt=$1 head=$2 branch=${3:-} repo=${4:-} nm
   nm=${NM_HOME:-$HOME/.no-mistakes}
   {
-    if [ -f "$nm/config.yaml" ]; then cat "$nm/config.yaml"; printf '\n\036'; fi
-    if git -C "$wt" show "$head:.no-mistakes.yaml" 2>/dev/null; then printf '\n\036'; fi
+    if [ -e "$nm/config.yaml" ]; then
+      cat "$nm/config.yaml" 2>/dev/null || printf '\n!'
+      printf '\n\036'
+    fi
+    if git -C "$wt" cat-file -e "$head:.no-mistakes.yaml" 2>/dev/null; then
+      git -C "$wt" show "$head:.no-mistakes.yaml" 2>/dev/null || printf '\n!'
+      printf '\n\036'
+    fi
     case "$branch$repo" in
       *"'"*) ;;
       *)

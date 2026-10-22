@@ -1051,6 +1051,7 @@ test_test_ban_binds_to_the_published_head() {
 # records a pipeline round on the task's branch with that global configuration.
 # FIXER_ROUND_REPO_YAML records its repository configuration; FIXER_REPO_YAML
 # sets the repository configuration committed at the checked head.
+# FIXER_CONFIG_UNREADABLE denies reads of the global config during registration.
 fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
   local dir head rc=0
   dir=$(make_case "$1")
@@ -1077,8 +1078,10 @@ fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
   git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "${FIXER_SUBJECT:-no-mistakes(test): add a test}"
   head=$(git -C "$dir/wt" rev-parse HEAD)
   if [ "$rc" = 0 ]; then
+    if [ "${FIXER_CONFIG_UNREADABLE:-0}" = 1 ]; then chmod 000 "$dir/nm-home/config.yaml"; fi
     FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
       > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+    if [ "${FIXER_CONFIG_UNREADABLE:-0}" = 1 ]; then chmod 600 "$dir/nm-home/config.yaml"; fi
     if [ "$rc" = 0 ] && ! grep -q '^pr=' "$dir/home/state/task-a.meta"; then rc=registered-without-pr; fi
   fi
   printf '%s\n' "$rc"
@@ -1189,6 +1192,40 @@ test_test_ban_pipeline_fixer_subject_templates_and_authors() {
   [ "${out%%$'\n'*}" != 0 ] || fail "a Sonnet combined document/lint pass registered its test"
   grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the housekeeping refusal did not name Sonnet: $out"
   pass "fm-pr-check attributes pipeline tests under custom subject templates, gate steps, and the combined document pass"
+}
+
+# An existing but unreadable global configuration cannot silently remove repair
+# attribution, even for an otherwise allowlisted worker's own test commit.
+test_test_ban_pipeline_fixer_unreadable_config() {
+  local out kind subject
+  local custom='commit:
+  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"'
+  if [ "$(id -u)" = 0 ]; then
+    pass "fm-pr-check unreadable global configuration (root bypasses chmod 000, not exercised)"
+    return
+  fi
+  command -v sqlite3 >/dev/null 2>&1 || fail "unreadable configuration regression requires sqlite3"
+  for kind in repair worker; do
+    case "$kind" in
+      repair) subject='repair[review] fm/task-a: add a test' ;;
+      worker) subject='add a test' ;;
+    esac
+    out=$(FIXER_SUBJECT=$subject fixer_registration "tmpl-readable-$kind" "$custom" -- \
+      'fm/task-a|review|review-fix|claude-sonnet-5-5')
+    if [ "$kind" = repair ]; then
+      [ "${out%%$'\n'*}" != 0 ] || fail "a readable custom-template Sonnet repair registered"
+      grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "readable repair refusal did not name Sonnet: $out"
+    else
+      [ "${out%%$'\n'*}" = 0 ] || fail "a readable template refused the Opus worker own commit: $out"
+    fi
+    out=$(FIXER_CONFIG_UNREADABLE=1 FIXER_SUBJECT=$subject \
+      fixer_registration "tmpl-unreadable-$kind" "$custom" -- \
+      'fm/task-a|review|review-fix|claude-sonnet-5-5')
+    [ "${out%%$'\n'*}" != 0 ] || fail "an unreadable global configuration let the $kind test commit register: $out"
+    grep -Fq 'commit.fix_message' <<<"$out" || fail "unreadable configuration refusal did not name the template: $out"
+    grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "unreadable configuration refusal did not name the test: $out"
+  done
+  pass "fm-pr-check refuses repair and worker tests when the global configuration cannot be read"
 }
 
 # Unsupported YAML indirection must not hide a repair template in any source.
@@ -4099,6 +4136,11 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
+if [ "${1:-}" = --test-ban-unreadable ]; then
+  test_test_ban_pipeline_fixer_unreadable_config
+  exit 0
+fi
+
 if [ "${1:-}" = --test-ban-yaml ]; then
   test_test_ban_pipeline_fixer_inherited_yaml
   exit 0
@@ -4113,6 +4155,7 @@ if [ "${1:-}" = --test-ban ]; then
   test_test_ban_binds_to_the_published_head
   test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
   test_test_ban_pipeline_fixer_subject_templates_and_authors
+  test_test_ban_pipeline_fixer_unreadable_config
   test_test_ban_pipeline_fixer_inherited_yaml
   exit 0
 fi
@@ -4160,6 +4203,7 @@ test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
 test_test_ban_pipeline_fixer_subject_templates_and_authors
+test_test_ban_pipeline_fixer_unreadable_config
 test_test_ban_pipeline_fixer_inherited_yaml
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
