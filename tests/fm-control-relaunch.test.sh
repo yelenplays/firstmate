@@ -1136,6 +1136,66 @@ test_tdd_split_handoff_relaunches_onto_the_locked_implementer() {
   pass "fm-tdd-split handoff: relaunches the red seat onto its locked implementer"
 }
 
+# A tdd-split case on its test seat: Opus medium, the recorded Sonnet
+# implementer, a brief declaring the fail-to-pass command, and committed red
+# tests. Prints the seat's HEAD.
+add_tdd_split_seat() {  # <case-dir> <id>
+  local dir=$1 id=$2 wt="$1/wt"
+  add_ship_task "$dir" "$id" claude
+  git -C "$wt" fetch -q origin
+  printf 'model=claude-opus-5-5\neffort=medium\ntdd_split=tests\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n' \
+    >> "$dir/home/state/$id.meta"
+  # shellcheck disable=SC2016 # the backticks are the brief's literal code span.
+  printf '\nFail-to-pass command: `for t; do bash "$t" || exit 1; done`\n' >> "$dir/home/data/$id/brief.md"
+  mkdir -p "$wt/tests"
+  printf '[ -f feature.sh ]\n' > "$wt/tests/feature.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'red tests'
+  git -C "$wt" rev-parse HEAD
+}
+
+# Recovering an interrupted test seat keeps it a test seat: the replacement
+# worker gets the same tests-first section the fresh seat had, not just the
+# ordinary ship instructions the seat's done gate would then refuse.
+test_tdd_split_seat_recovery_keeps_the_seat_section() {
+  local dir out rc brief
+  dir=$(new_case tdd-split-recovery rl34)
+  add_tdd_split_seat "$dir" rl34 >/dev/null
+  out=$(run_control "$dir" rl34 relaunch --model claude-opus-5-5 --effort medium \
+    --note 'Continue the interrupted task.'); rc=$?
+  expect_code 0 "$rc" "the seat's recovery relaunch should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl34 tdd_split)" = tests ] || fail "the recovery left the test phase"
+  brief="$dir/home/data/rl34/launch-brief.md"
+  assert_grep "Tests-first seat" "$brief" "the recovered seat lost its tests-first section"
+  assert_grep 'done: tests-ready <sha>' "$brief" "the recovered seat was not told how to report its tests"
+  assert_grep "continues on claude-sonnet-5-5" "$brief" "the recovered seat was not told its implementer"
+  pass "fm-control relaunch: recovering a tdd-split test seat keeps its tests-first section"
+}
+
+# An accepted test dispute relaunches the task from its implementer back onto
+# the Opus seat, which must again get the tests-first section.
+test_tdd_split_dispute_relaunches_a_seat_with_its_section() {
+  local dir out rc wt seat brief
+  dir=$(new_case tdd-split-dispute rl35)
+  seat=$(add_tdd_split_seat "$dir" rl35)
+  wt="$dir/wt"
+  printf 'done: tests-ready %s\n' "$seat" > "$dir/home/state/rl35.status"
+  out=$(CONTROL="$ROOT/bin/fm-tdd-split.sh" run_control "$dir" handoff rl35); rc=$?
+  expect_code 0 "$rc" "the tdd-split handoff should succeed"$'\n'"$out"
+  assert_no_grep "Tests-first seat" "$dir/home/data/rl35/launch-brief.md" "the implementer received the test seat's section"
+  printf 'echo done\n' > "$wt/feature.sh"
+  git -C "$wt" add feature.sh && git -C "$wt" commit -q -m 'implement'
+  printf 'blocked [key=test-dispute]: tests/feature.test.sh: it checks the wrong file\n' >> "$dir/home/state/rl35.status"
+
+  out=$(CONTROL="$ROOT/bin/fm-tdd-split.sh" run_control "$dir" dispute rl35); rc=$?
+  expect_code 0 "$rc" "the accepted dispute should relaunch the seat"$'\n'"$out"
+  [ "$(meta_field "$dir" rl35 model)" = claude-opus-5-5 ] || fail "the dispute did not relaunch onto the seat"
+  [ "$(meta_field "$dir" rl35 tdd_split)" = tests ] || fail "the dispute did not record the test phase"
+  brief="$dir/home/data/rl35/launch-brief.md"
+  assert_grep "Tests-first seat" "$brief" "the disputed seat did not get its tests-first section"
+  assert_grep "it checks the wrong file" "$brief" "the disputed seat did not get the dispute"
+  pass "fm-tdd-split dispute: relaunches the seat with its tests-first section"
+}
+
 # A ship that ran banned from its base and round-trips through an unbanned
 # model keeps measuring from the base when it returns to a banned model, so the
 # tests its first banned run committed are never handed over.
@@ -2857,6 +2917,8 @@ SH
 if [ "${1:-}" = --tdd-split ]; then
   test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff
   test_tdd_split_handoff_relaunches_onto_the_locked_implementer
+  test_tdd_split_seat_recovery_keeps_the_seat_section
+  test_tdd_split_dispute_relaunches_a_seat_with_its_section
   test_relaunch_round_trip_keeps_a_banned_run_baseline
   exit 0
 fi
@@ -2891,6 +2953,8 @@ test_exclude_tools_refusals_happen_before_the_agent_stops
 test_explicit_model_wins_over_the_recorded_one
 test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff
 test_tdd_split_handoff_relaunches_onto_the_locked_implementer
+test_tdd_split_seat_recovery_keeps_the_seat_section
+test_tdd_split_dispute_relaunches_a_seat_with_its_section
 test_relaunch_round_trip_keeps_a_banned_run_baseline
 test_relaunch_onto_an_unverified_harness_is_refused
 test_prior_harness_turnend_registry_entry_is_cleared
