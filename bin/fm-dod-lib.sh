@@ -1061,15 +1061,15 @@ fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
 
 # Prints each commit.fix_message value set in the YAML documents on stdin,
 # separated by \036, one per line, or `!` for a setting this reader cannot
-# parse: an unsupported root layout, a flow mapping, a block scalar, or an
-# escape in a double-quoted value. Only unindented block roots are read;
-# plain and simply quoted keys are recognized; other quoted keys fail closed.
+# parse: an unsupported root layout, indirect/quoted keys, a flow mapping,
+# a block scalar, or an escape in a double-quoted value. Only plain keys in
+# unindented block roots are read; YAML merges and aliases are not resolved.
 fm_test_ban_fix_message_values() {
   awk -v q="'" '
     BEGIN {
       RS = "\036"
-      commit_key = "(commit|\"commit\"|" q "commit" q ")[ \t]*:"
-      fix_key = "(fix_message|\"fix_message\"|" q "fix_message" q ")[ \t]*:"
+      commit_key = "commit[ \t]*:"
+      fix_key = "fix_message[ \t]*:"
     }
     {
       n = split($0, lines, "\n")
@@ -1089,7 +1089,7 @@ fm_test_ban_fix_message_values() {
         }
         if (!in_commit) continue
         if (line !~ ("^[ \t]+" fix_key)) {
-          if (line ~ ("^[ \t]+[\"" q "]")) print "!"
+          if (line ~ ("^[ \t]+[\"" q "&*!?]") || line ~ /^[ \t]+<<[ \t]*:/) print "!"
           continue
         }
         v = line

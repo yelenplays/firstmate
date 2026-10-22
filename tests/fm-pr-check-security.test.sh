@@ -1049,6 +1049,8 @@ test_test_ban_binds_to_the_published_head() {
 # record_nm_invocations takes after a `--` separator; prints the exit status,
 # then stderr. FIXER_SUBJECT replaces the commit subject, and FIXER_ROUND_YAML
 # records a pipeline round on the task's branch with that global configuration.
+# FIXER_ROUND_REPO_YAML records its repository configuration; FIXER_REPO_YAML
+# sets the repository configuration committed at the checked head.
 fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
   local dir head rc=0
   dir=$(make_case "$1")
@@ -1062,8 +1064,14 @@ fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
   done
   shift
   [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$dir/project" "$@" || rc=no-sqlite3
-  [ -z "${FIXER_ROUND_YAML:-}" ] || record_nm_round_config "$dir/nm-home" "$dir/project" fm/task-a \
-    "$FIXER_ROUND_YAML" || rc=no-sqlite3
+  if [ -n "${FIXER_ROUND_YAML:-}${FIXER_ROUND_REPO_YAML:-}" ]; then
+    record_nm_round_config "$dir/nm-home" "$dir/project" fm/task-a \
+      "${FIXER_ROUND_YAML:-}" "${FIXER_ROUND_REPO_YAML:-}" || rc=no-sqlite3
+  fi
+  if [ -n "${FIXER_REPO_YAML:-}" ]; then
+    printf '%s\n' "$FIXER_REPO_YAML" > "$dir/wt/.no-mistakes.yaml"
+    git -C "$dir/wt" add .no-mistakes.yaml
+  fi
   mkdir -p "$dir/wt/tests"
   printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
   git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "${FIXER_SUBJECT:-no-mistakes(test): add a test}"
@@ -1181,6 +1189,63 @@ test_test_ban_pipeline_fixer_subject_templates_and_authors() {
   [ "${out%%$'\n'*}" != 0 ] || fail "a Sonnet combined document/lint pass registered its test"
   grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the housekeeping refusal did not name Sonnet: $out"
   pass "fm-pr-check attributes pipeline tests under custom subject templates, gate steps, and the combined document pass"
+}
+
+# Unsupported YAML indirection must not hide a repair template in any source.
+# Assert registration behavior, not the syntax of the attribution reader.
+test_test_ban_pipeline_fixer_inherited_yaml() {
+  local source form yaml out n=0
+  local style='repair_style: &repair_style
+  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"'
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    fail "inherited YAML registration regression requires sqlite3"
+  fi
+  for source in global repo round-global round-repo; do
+    for form in scalar sequence root-scalar root-sequence alias anchor quoted single-quoted alias-key anchor-key; do
+      case "$form" in
+        scalar) yaml="$style"$'\ncommit:\n  <<: *repair_style' ;;
+        sequence) yaml="$style"$'\ncommit:\n  <<: [*repair_style]' ;;
+        root-scalar) yaml='defaults: &defaults
+  commit:
+    fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+<<: *defaults' ;;
+        root-sequence) yaml='defaults: &defaults
+  commit:
+    fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+<<: [*defaults]' ;;
+        alias) yaml="$style"$'\ncommit: *repair_style' ;;
+        anchor) yaml='commit: &repair_style
+  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
+        quoted) yaml='"commit":
+  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
+        single-quoted) yaml="'commit':
+  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"" ;;
+        alias-key) yaml='key: &commit_key commit
+*commit_key :
+  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
+        anchor-key) yaml='&commit_key commit:
+  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
+      esac
+      n=$((n + 1))
+      case "$source" in
+        global) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' \
+          fixer_registration "tmpl-inherited-$n" "$yaml" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
+        repo) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' FIXER_REPO_YAML=$yaml \
+          fixer_registration "tmpl-inherited-$n" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
+        round-global) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' FIXER_ROUND_YAML=$yaml \
+          fixer_registration "tmpl-inherited-$n" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
+        round-repo) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' FIXER_ROUND_REPO_YAML=$yaml \
+          fixer_registration "tmpl-inherited-$n" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
+      esac
+      [ "${out%%$'\n'*}" != 0 ] || fail "$source $form YAML let a Sonnet repair register its test"
+      grep -Fq 'commit.fix_message' <<<"$out" || fail "$source $form refusal did not name the unreadable template: $out"
+    done
+  done
+  out=$(FIXER_SUBJECT='add a test' fixer_registration tmpl-unrelated-anchor \
+    'agent_config: &agent_config' '  claude:' '    model: claude-opus-5-5' -- \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated anchor refused the Opus worker own commit: $out"
+  pass "fm-pr-check refuses indirect repair YAML across all sources without rejecting unrelated anchors"
 }
 
 test_valid_recording_and_merge_derivation() {
@@ -4034,6 +4099,11 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
+if [ "${1:-}" = --test-ban-yaml ]; then
+  test_test_ban_pipeline_fixer_inherited_yaml
+  exit 0
+fi
+
 if [ "${1:-}" = --test-ban ]; then
   test_tdd_split_locks_checkpoint_e2e_tests
   test_test_ban_runs_when_forge_head_is_available
@@ -4043,6 +4113,7 @@ if [ "${1:-}" = --test-ban ]; then
   test_test_ban_binds_to_the_published_head
   test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
   test_test_ban_pipeline_fixer_subject_templates_and_authors
+  test_test_ban_pipeline_fixer_inherited_yaml
   exit 0
 fi
 
@@ -4089,6 +4160,7 @@ test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
 test_test_ban_pipeline_fixer_subject_templates_and_authors
+test_test_ban_pipeline_fixer_inherited_yaml
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
