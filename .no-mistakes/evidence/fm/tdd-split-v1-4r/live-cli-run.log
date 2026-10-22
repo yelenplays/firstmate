@@ -1,0 +1,89 @@
+custom Sonnet global: pass
+custom Opus global: pass
+summary impersonation global: pass
+summary harmless Opus global: pass
+multiline plain global: pass
+unreadable worker plain global: pass
+multiline single global: pass
+unreadable worker single global: pass
+multiline double global: pass
+unreadable worker double global: pass
+multiline block global: pass
+unreadable worker block global: pass
+normalized multiline global: pass
+YAML merge *style global: pass
+YAML merge [*style] global: pass
+unsupported placeholder global: pass
+custom Sonnet repo: pass
+custom Opus repo: pass
+summary impersonation repo: pass
+summary harmless Opus repo: pass
+multiline plain repo: pass
+unreadable worker plain repo: pass
+multiline single repo: pass
+unreadable worker single repo: pass
+multiline double repo: pass
+unreadable worker double repo: pass
+multiline block repo: pass
+unreadable worker block repo: pass
+normalized multiline repo: pass
+YAML merge *style repo: pass
+YAML merge [*style] repo: pass
+unsupported placeholder repo: pass
+custom Sonnet round-global: pass
+custom Opus round-global: pass
+summary impersonation round-global: pass
+summary harmless Opus round-global: pass
+multiline plain round-global: pass
+unreadable worker plain round-global: pass
+multiline single round-global: pass
+unreadable worker single round-global: pass
+multiline double round-global: pass
+unreadable worker double round-global: pass
+multiline block round-global: pass
+unreadable worker block round-global: pass
+normalized multiline round-global: pass
+YAML merge *style round-global: pass
+YAML merge [*style] round-global: pass
+unsupported placeholder round-global: pass
+custom Sonnet round-repo: pass
+custom Opus round-repo: pass
+summary impersonation round-repo: pass
+summary harmless Opus round-repo: pass
+multiline plain round-repo: pass
+unreadable worker plain round-repo: pass
+multiline single round-repo: pass
+unreadable worker single round-repo: pass
+multiline double round-repo: pass
+unreadable worker double round-repo: pass
+multiline block round-repo: pass
+unreadable worker block round-repo: pass
+normalized multiline round-repo: pass
+YAML merge *style round-repo: pass
+YAML merge [*style] round-repo: pass
+unsupported placeholder round-repo: pass
+default Sonnet: pass
+default Opus: pass
+dotted unknown author: pass
+dotted Sonnet: pass
+dotted Opus: pass
+housekeeping Sonnet: pass
+housekeeping Opus: pass
+read-only review ignored: pass
+failed invocation ignored: pass
+every successful writer counts: pass
+stepless all writers: pass
+overlapping templates: pass
+ambiguous steps: pass
+summary before step: pass
+other branch not pipeline: pass
+Opus own test ordinary config: pass
+unreadable global repair[review] fm/live: add test: pass
+unreadable global worker adds test: pass
+absent database worker: pass
+old schema worker: pass
+old schema repair refuses: pass
+locked Sonnet worker: pass
+captain allowed test: pass
+failed real relaunch restores metadata: pass
+{"cases": 88, "failures": []}

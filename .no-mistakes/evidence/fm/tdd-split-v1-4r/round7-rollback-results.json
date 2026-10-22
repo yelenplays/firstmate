@@ -1,0 +1,58 @@
+[
+  {
+    "name": "dispute-absent",
+    "result": "pass",
+    "live": true,
+    "command": "FM_HOME=<marked-lab-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh dispute live",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-absent/home\nREFUSED: task live has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again\n",
+    "meta_before": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\ntdd_split=implement\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-absent/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-absent/repo\n",
+    "meta_after": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-absent/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-absent/repo\ntdd_split=implement\n",
+    "status_before": "blocked [key=test-dispute]: tests/feature.test.sh: wrong expectation\n",
+    "status_after": "blocked [key=test-dispute]: tests/feature.test.sh: wrong expectation\n",
+    "head": "928beeafae615978b14ab30fe14c260f1649614c"
+  },
+  {
+    "name": "dispute-present",
+    "result": "pass",
+    "live": true,
+    "command": "FM_HOME=<marked-lab-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh dispute live",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-present/home\nREFUSED: task live has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again\n",
+    "meta_before": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\ntdd_split=implement\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-present/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-present/repo\ntdd_split_dispute_head=c2b61b03e86f50099796b590f4818393868c94b9\n",
+    "meta_after": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-present/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-dispute-present/repo\ntdd_split=implement\ntdd_split_dispute_head=c2b61b03e86f50099796b590f4818393868c94b9\n",
+    "status_before": "blocked [key=test-dispute]: tests/feature.test.sh: wrong expectation\n",
+    "status_after": "blocked [key=test-dispute]: tests/feature.test.sh: wrong expectation\n",
+    "head": "ca5921af6add197ded859bfd07a18e9513d4fbf8"
+  },
+  {
+    "name": "mutation-absent",
+    "result": "pass",
+    "live": true,
+    "command": "FM_HOME=<marked-lab-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-absent/home\nREFUSED: task live has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the mutation can be run again\n",
+    "meta_before": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\ntdd_split=implement\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-absent/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-absent/repo\n",
+    "meta_after": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-absent/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-absent/repo\ntdd_split=implement\n",
+    "status_before": "done: implementation ready\n",
+    "status_after": "done: implementation ready\n",
+    "head": "69823a8bd40b578f5cd4fdb8f1366c1c99048b8e"
+  },
+  {
+    "name": "mutation-present",
+    "result": "pass",
+    "live": true,
+    "command": "FM_HOME=<marked-lab-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-present/home\nREFUSED: task live has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the mutation can be run again\n",
+    "meta_before": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\ntdd_split=implement\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-present/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-present/repo\ntdd_split_dispute_head=44872814faf11b80f09e3dcb818f8f954773eefc\n",
+    "meta_after": "kind=ship\nmode=no-mistakes\nharness=claude\nmodel=claude-opus-5-5\nbranch=fm/live\nbase_branch=main\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-present/repo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase-tmp/rollback-mutation-present/repo\ntdd_split=implement\ntdd_split_dispute_head=44872814faf11b80f09e3dcb818f8f954773eefc\n",
+    "status_before": "done: implementation ready\n",
+    "status_after": "done: implementation ready\n",
+    "head": "5a330eb58689028d7a9f2209d95f6d443340a2fa"
+  }
+]

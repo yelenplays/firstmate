@@ -1,0 +1,50 @@
+[
+  {
+    "name": "custom Sonnet global",
+    "result": "fail",
+    "live": true,
+    "source": "global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at e362204504dc9f6f2371c46c1734ad5d5d5fe522\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=e362204504dc9f6f2371c46c1734ad5d5d5fe522 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "e362204504dc9f6f2371c46c1734ad5d5d5fe522",
+    "repair_head": "e362204504dc9f6f2371c46c1734ad5d5d5fe522",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pmopubez/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pmopubez/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pmopubez/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pmopubez/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "housekeeping Opus",
+    "result": "fail",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(document): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "document",
+        "housekeeping",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on an unrecorded model in 6e1422f38dca: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "6e1422f38dcaf32a6107d21ea1958e01a36d10aa",
+    "repair_head": "6e1422f38dcaf32a6107d21ea1958e01a36d10aa",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.l0xdooih/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.l0xdooih/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.l0xdooih/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.l0xdooih/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  }
+]

@@ -1,0 +1,5 @@
+tmux=absent from PATH
+herdr=/opt/homebrew/bin/herdr
+claude=/Users/yelen/.local/bin/claude
+CLAUDE_CONFIG_DIR=<unset; normal user configuration>
+Boundary: normal Claude trust store may not be modified; no authenticated worktree-local Claude configuration was supplied. No Herdr session was provisioned or modified.

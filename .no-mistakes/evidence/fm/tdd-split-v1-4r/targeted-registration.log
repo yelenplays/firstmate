@@ -1,0 +1,12 @@
+ok - fm-pr-check locks checkpoint-owned end-to-end tests and allows new e2e tests
+ok - fm-pr-check enforces the test ban when a forge head is available
+ok - fm-pr-check refuses a test file a pipeline fixer commit adds on a banned task
+ok - fm-pr-check bans a banned pipeline fixer's tests by its own model, not the worker's
+ok - registration accepts an unresolved pipeline base on Opus and still refuses banned workers
+ok - fm-pr-check inspects the published head, not an older worker HEAD
+ok - fm-pr-check registers a pipeline fixer's test only on a recorded allowlisted model
+ok - fm-pr-check attributes pipeline tests under custom subject templates, gate steps, and the combined document pass
+ok - fm-pr-check binds Branch and checks every possible template step without interpreting Summary as Branch
+ok - fm-pr-check refuses multiline repair YAML across all configuration sources
+ok - fm-pr-check refuses repair and worker tests when the global configuration cannot be read
+ok - fm-pr-check refuses indirect repair YAML across all sources without rejecting unrelated anchors

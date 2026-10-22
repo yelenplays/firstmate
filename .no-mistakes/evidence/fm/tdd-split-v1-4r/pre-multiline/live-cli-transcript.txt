@@ -1,0 +1,18 @@
+multiline plain global => fail
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 8e78743756e6d50b402117a865181f7244afa947
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=8e78743756e6d50b402117a865181f7244afa947 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+normalized multiline global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in ee591e6f32b7: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+

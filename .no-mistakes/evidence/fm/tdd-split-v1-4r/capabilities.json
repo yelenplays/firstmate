@@ -1,0 +1,7 @@
+{
+  "tmux_on_PATH": null,
+  "herdr_on_PATH": "/opt/homebrew/bin/herdr",
+  "claude_on_PATH": "/Users/yelen/.local/bin/claude",
+  "worktree_local_Claude_config_provided": false,
+  "live_worker_constraint": "No normal user-level trust/config writes authorized; authenticated worktree-local CLAUDE_CONFIG_DIR not supplied. No CLI/login stand-ins used."
+}

@@ -1,0 +1,11 @@
+{
+  "tools": {
+    "tmux": null,
+    "herdr": "/opt/homebrew/bin/herdr",
+    "claude": "/Users/yelen/.local/bin/claude",
+    "sqlite3": "/usr/bin/sqlite3",
+    "python3": "/opt/homebrew/bin/python3"
+  },
+  "CLAUDE_CONFIG_DIR": null,
+  "worker_scenarios": "Not launched: tmux absent; Herdr alternative requires Claude workspace trust writes to user-level configuration. Supply an authenticated CLAUDE_CONFIG_DIR inside the allowed worktree and rerun named fm-lab-* scenarios. Normal Claude login availability was not tested or presumed absent."
+}

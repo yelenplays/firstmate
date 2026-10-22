@@ -1,0 +1,83 @@
+Real CLI attribution reproduction (target 299e7c4aefdcf574a0b58a3b28e06206d3cf1aaf)
+
+Template inputs for failing cases: Branch=fm/live; Step=review; Summary=repair/test: add test.
+The recorded successful review-fix author is Sonnet; the unrelated test author is Opus.
+Expected: refuse before executing the mutation command.
+
+summary-resembles-another-step-global
+command: FM_HOME=<isolated-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live --timeout 10
+configuration: commit:
+  fix_message: '{{.Branch}}/{{.Step}}: {{.Summary}}'
+subject: fm/live/review: repair/test: add test
+invocations: [["review", "review-fix", "claude-sonnet-5-5"], ["test", "test", "claude-opus-5-5"]]
+exit: 0
+stdout: tdd-split: live mutation gate passed at b0c0e7551008bcd2acb184e6b71b4a1047f5e8cb
+stderr: 
+mutation log: ASSERTION_EXECUTED tests=tests/feature.test.sh
+FEATURE_TEST_EXECUTED
+
+fm-tdd-split: head=b0c0e7551008bcd2acb184e6b71b4a1047f5e8cb exit=0 command=printf "ASSERTION_EXECUTED tests=%s\n" "$*"; for t; do bash "$t" || exit 1; done
+
+summary-resembles-another-step-repo
+command: FM_HOME=<isolated-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live --timeout 10
+configuration: commit:
+  fix_message: '{{.Branch}}/{{.Step}}: {{.Summary}}'
+subject: fm/live/review: repair/test: add test
+invocations: [["review", "review-fix", "claude-sonnet-5-5"], ["test", "test", "claude-opus-5-5"]]
+exit: 0
+stdout: tdd-split: live mutation gate passed at 04958a1dc20090d3e34febcb992e2d1aaed7a269
+stderr: 
+mutation log: ASSERTION_EXECUTED tests=tests/feature.test.sh
+FEATURE_TEST_EXECUTED
+
+fm-tdd-split: head=04958a1dc20090d3e34febcb992e2d1aaed7a269 exit=0 command=printf "ASSERTION_EXECUTED tests=%s\n" "$*"; for t; do bash "$t" || exit 1; done
+
+summary-resembles-another-step-round-global
+command: FM_HOME=<isolated-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live --timeout 10
+configuration: commit:
+  fix_message: '{{.Branch}}/{{.Step}}: {{.Summary}}'
+subject: fm/live/review: repair/test: add test
+invocations: [["review", "review-fix", "claude-sonnet-5-5"], ["test", "test", "claude-opus-5-5"]]
+exit: 0
+stdout: tdd-split: live mutation gate passed at c84ace0f3543ea5888b3d152aac15955f0145ad5
+stderr: 
+mutation log: ASSERTION_EXECUTED tests=tests/feature.test.sh
+FEATURE_TEST_EXECUTED
+
+fm-tdd-split: head=c84ace0f3543ea5888b3d152aac15955f0145ad5 exit=0 command=printf "ASSERTION_EXECUTED tests=%s\n" "$*"; for t; do bash "$t" || exit 1; done
+
+summary-resembles-another-step-round-repo
+command: FM_HOME=<isolated-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live --timeout 10
+configuration: commit:
+  fix_message: '{{.Branch}}/{{.Step}}: {{.Summary}}'
+subject: fm/live/review: repair/test: add test
+invocations: [["review", "review-fix", "claude-sonnet-5-5"], ["test", "test", "claude-opus-5-5"]]
+exit: 0
+stdout: tdd-split: live mutation gate passed at 5e8ab9bdef4e5553121d5ef380ecfe7ecc3d1660
+stderr: 
+mutation log: ASSERTION_EXECUTED tests=tests/feature.test.sh
+FEATURE_TEST_EXECUTED
+
+fm-tdd-split: head=5e8ab9bdef4e5553121d5ef380ecfe7ecc3d1660 exit=0 command=printf "ASSERTION_EXECUTED tests=%s\n" "$*"; for t; do bash "$t" || exit 1; done
+
+ambiguous-template-without-opus-decoy
+command: FM_HOME=<isolated-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live --timeout 10
+configuration: commit:
+  fix_message: '{{.Branch}}/{{.Step}}: {{.Summary}}'
+subject: fm/live/review: repair/test: add test
+invocations: [["review", "review-fix", "claude-sonnet-5-5"]]
+exit: 1
+stdout: 
+stderr: error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in 5e8ab9bdef4e: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+mutation log: 
+
+ambiguous-template-ordinary-summary
+command: FM_HOME=<isolated-home> NM_HOME=<isolated-nm> bash bin/fm-tdd-split.sh mutation live --timeout 10
+configuration: commit:
+  fix_message: '{{.Branch}}/{{.Step}}: {{.Summary}}'
+subject: fm/live/review: add test
+invocations: [["review", "review-fix", "claude-sonnet-5-5"], ["test", "test", "claude-opus-5-5"]]
+exit: 1
+stdout: 
+stderr: error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 2b7600a0edb7: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+mutation log: 

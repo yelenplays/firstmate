@@ -1,0 +1,2154 @@
+[
+  {
+    "name": "custom Sonnet global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 2ad0e289db1f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "2ad0e289db1f35865441596dee3526bafbbdee12",
+    "repair_head": "2ad0e289db1f35865441596dee3526bafbbdee12",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.592820sl/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.592820sl/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.592820sl/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.592820sl/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Opus global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at dcd3263c1087b56c87aaa971f6d9136bab05f090\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=dcd3263c1087b56c87aaa971f6d9136bab05f090 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "dcd3263c1087b56c87aaa971f6d9136bab05f090",
+    "repair_head": "dcd3263c1087b56c87aaa971f6d9136bab05f090",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e76cf63a/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e76cf63a/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e76cf63a/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e76cf63a/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary impersonation global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "fm/live/review: repair/test: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0171fad52e20: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "0171fad52e2001c17f2441ad53d32c862ddd4ddf",
+    "repair_head": "0171fad52e2001c17f2441ad53d32c862ddd4ddf",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kfeedrmh/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kfeedrmh/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kfeedrmh/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kfeedrmh/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary harmless Opus global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "fm/live/test: repair/review: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 8026754ae118708d41d32e737508d013959a42ba\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=8026754ae118708d41d32e737508d013959a42ba exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "8026754ae118708d41d32e737508d013959a42ba",
+    "repair_head": "8026754ae118708d41d32e737508d013959a42ba",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.c_m1nlro/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.c_m1nlro/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.c_m1nlro/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.c_m1nlro/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline plain global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 763dd4dd197d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "763dd4dd197de46272bfd9aabd166f8172844cc8",
+    "repair_head": "763dd4dd197de46272bfd9aabd166f8172844cc8",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.yjdh650b/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.yjdh650b/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.yjdh650b/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.yjdh650b/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker plain global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f3eedfcccb0f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "f3eedfcccb0ffc50ab923e4ff87164feedf1c9f8",
+    "repair_head": "f3eedfcccb0ffc50ab923e4ff87164feedf1c9f8",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sd61kugw/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sd61kugw/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sd61kugw/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sd61kugw/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline single global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in eb7841e3ec3a: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "eb7841e3ec3a98504c33f8b752fdf80cef49f680",
+    "repair_head": "eb7841e3ec3a98504c33f8b752fdf80cef49f680",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._wbf7eqx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._wbf7eqx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._wbf7eqx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._wbf7eqx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker single global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 580f0ce9bd6b: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "580f0ce9bd6b19f657de8004f2317b00cbce1815",
+    "repair_head": "580f0ce9bd6b19f657de8004f2317b00cbce1815",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.fhli_1n8/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.fhli_1n8/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.fhli_1n8/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.fhli_1n8/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline double global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 85a4ba974ee6: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "85a4ba974ee6dffbd2f301d5c7faec26238b5d9d",
+    "repair_head": "85a4ba974ee6dffbd2f301d5c7faec26238b5d9d",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cf3doqof/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cf3doqof/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cf3doqof/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cf3doqof/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker double global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in e5733a409307: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "e5733a4093073686d8360b449f362b6cc86cf538",
+    "repair_head": "e5733a4093073686d8360b449f362b6cc86cf538",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wocepwih/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wocepwih/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wocepwih/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wocepwih/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline block global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 855671d14c01: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "855671d14c0192faa0402debe25d30e5515050fd",
+    "repair_head": "855671d14c0192faa0402debe25d30e5515050fd",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qay4rsbg/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qay4rsbg/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qay4rsbg/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qay4rsbg/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker block global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f631fb21b107: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "f631fb21b107581a1e9a25caec192587f2da5450",
+    "repair_head": "f631fb21b107581a1e9a25caec192587f2da5450",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.s6p3r8wq/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.s6p3r8wq/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.s6p3r8wq/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.s6p3r8wq/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "normalized multiline global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 10104f5ae1c4: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "10104f5ae1c4005a2e9c675d6516793fc4c22b57",
+    "repair_head": "10104f5ae1c4005a2e9c675d6516793fc4c22b57",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.meiryjds/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.meiryjds/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.meiryjds/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.meiryjds/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge *style global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *style",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1ceca828946d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "1ceca828946d0fbb79b01f1c810ae99da52b55c3",
+    "repair_head": "1ceca828946d0fbb79b01f1c810ae99da52b55c3",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cdv1hxnu/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cdv1hxnu/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cdv1hxnu/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.cdv1hxnu/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge [*style] global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*style]",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1ceca828946d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "1ceca828946d0fbb79b01f1c810ae99da52b55c3",
+    "repair_head": "1ceca828946d0fbb79b01f1c810ae99da52b55c3",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9lu6cmvv/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9lu6cmvv/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9lu6cmvv/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9lu6cmvv/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unsupported placeholder global",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Unknown}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 61a9bf60f346: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "61a9bf60f3466527847bd3be7c6e6b4892fdfe7e",
+    "repair_head": "61a9bf60f3466527847bd3be7c6e6b4892fdfe7e",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ae9jlo9j/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ae9jlo9j/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ae9jlo9j/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ae9jlo9j/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Sonnet repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0717e5a60f5f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "0717e5a60f5ff23e24e501f7913a890d0d14d798",
+    "repair_head": "0717e5a60f5ff23e24e501f7913a890d0d14d798",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2fq9d_nb/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2fq9d_nb/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2fq9d_nb/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2fq9d_nb/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Opus repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at f285079516e3c0f187bd3a32879d11239b8e4e39\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=f285079516e3c0f187bd3a32879d11239b8e4e39 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "f285079516e3c0f187bd3a32879d11239b8e4e39",
+    "repair_head": "f285079516e3c0f187bd3a32879d11239b8e4e39",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.f_26y617/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.f_26y617/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.f_26y617/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.f_26y617/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary impersonation repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "fm/live/review: repair/test: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 523ca2ee7299: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "523ca2ee72995c2711f0115afdf08d2d5e91abb3",
+    "repair_head": "523ca2ee72995c2711f0115afdf08d2d5e91abb3",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tmrul3r3/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tmrul3r3/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tmrul3r3/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tmrul3r3/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary harmless Opus repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "fm/live/test: repair/review: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at c303df614b01a3ea1c4f7b78506b332de3bb89e9\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=c303df614b01a3ea1c4f7b78506b332de3bb89e9 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "c303df614b01a3ea1c4f7b78506b332de3bb89e9",
+    "repair_head": "c303df614b01a3ea1c4f7b78506b332de3bb89e9",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vs5qal08/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vs5qal08/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vs5qal08/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vs5qal08/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline plain repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in feef8376d094: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "feef8376d094704a94a2f9a36d0197428a59f96c",
+    "repair_head": "feef8376d094704a94a2f9a36d0197428a59f96c",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e4xikcnz/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e4xikcnz/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e4xikcnz/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e4xikcnz/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker plain repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 34a7294a5aaa: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "34a7294a5aaa348ea5fed0d0a4bc8a5147beb5bf",
+    "repair_head": "34a7294a5aaa348ea5fed0d0a4bc8a5147beb5bf",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.802kbcik/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.802kbcik/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.802kbcik/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.802kbcik/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline single repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 11d4cb5a5705: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "11d4cb5a570551a47cba6d22952e34f21f4c83cb",
+    "repair_head": "11d4cb5a570551a47cba6d22952e34f21f4c83cb",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.celntkgu/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.celntkgu/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.celntkgu/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.celntkgu/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker single repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in c458689213c9: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "c458689213c9bac92cdc295464e15b943fb1137d",
+    "repair_head": "c458689213c9bac92cdc295464e15b943fb1137d",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ascgypb5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ascgypb5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ascgypb5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ascgypb5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline double repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 4fc3065c87ef: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "4fc3065c87ef64facd6d20b956589b91b48960b3",
+    "repair_head": "4fc3065c87ef64facd6d20b956589b91b48960b3",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bf5xj0_b/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bf5xj0_b/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bf5xj0_b/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bf5xj0_b/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker double repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in e1afa2a63467: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "e1afa2a63467c319c8d9d53418c04cd225ae370c",
+    "repair_head": "e1afa2a63467c319c8d9d53418c04cd225ae370c",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.p9fgpije/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.p9fgpije/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.p9fgpije/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.p9fgpije/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline block repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 69ef30ed5186: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "69ef30ed5186fb59aa6326d0a9c471b42fae68ee",
+    "repair_head": "69ef30ed5186fb59aa6326d0a9c471b42fae68ee",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.now28mzx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.now28mzx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.now28mzx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.now28mzx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker block repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 63fcd08d3286: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "63fcd08d3286580c1e40ed89e525f10c8666ca8b",
+    "repair_head": "63fcd08d3286580c1e40ed89e525f10c8666ca8b",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vn2q9z6o/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vn2q9z6o/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vn2q9z6o/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.vn2q9z6o/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "normalized multiline repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 3d53b89a9f1b: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "3d53b89a9f1b1c19aee2f26f1e46d95d3b00c04b",
+    "repair_head": "3d53b89a9f1b1c19aee2f26f1e46d95d3b00c04b",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.isv2evuq/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.isv2evuq/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.isv2evuq/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.isv2evuq/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge *style repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *style",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 971f60daf33f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "971f60daf33f31e39c0249fce3c1f7dfe69744f7",
+    "repair_head": "971f60daf33f31e39c0249fce3c1f7dfe69744f7",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uwtvxbjq/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uwtvxbjq/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uwtvxbjq/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uwtvxbjq/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge [*style] repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*style]",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 69075de771e2: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "69075de771e274c7c8e5456e7172fa8629bc0b3f",
+    "repair_head": "69075de771e274c7c8e5456e7172fa8629bc0b3f",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.evql5szi/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.evql5szi/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.evql5szi/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.evql5szi/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unsupported placeholder repo",
+    "result": "pass",
+    "live": true,
+    "source": "repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Unknown}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 51f2f672ddc5: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "51f2f672ddc528c43f1e95742cfb0b953ed74999",
+    "repair_head": "51f2f672ddc528c43f1e95742cfb0b953ed74999",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ty3x7gud/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ty3x7gud/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ty3x7gud/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ty3x7gud/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Sonnet round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0f3297983131: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "0f3297983131cf2b1e20a19afa2def60e2ce5d84",
+    "repair_head": "0f3297983131cf2b1e20a19afa2def60e2ce5d84",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bkzgbx_u/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bkzgbx_u/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bkzgbx_u/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bkzgbx_u/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Opus round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 4d4b49c53af9f4b3514533b9c03b637297a2e0df\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=4d4b49c53af9f4b3514533b9c03b637297a2e0df exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "4d4b49c53af9f4b3514533b9c03b637297a2e0df",
+    "repair_head": "4d4b49c53af9f4b3514533b9c03b637297a2e0df",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.6q7j_q94/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.6q7j_q94/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.6q7j_q94/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.6q7j_q94/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary impersonation round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "fm/live/review: repair/test: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in b2db9afa4d70: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "b2db9afa4d7022897c31d996c45a3bb5177e0ee0",
+    "repair_head": "b2db9afa4d7022897c31d996c45a3bb5177e0ee0",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0aue3v45/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0aue3v45/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0aue3v45/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0aue3v45/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary harmless Opus round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "fm/live/test: repair/review: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 057a3bc9da9d14b6e01578ff9a38ca4eddbcbf0d\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=057a3bc9da9d14b6e01578ff9a38ca4eddbcbf0d exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "057a3bc9da9d14b6e01578ff9a38ca4eddbcbf0d",
+    "repair_head": "057a3bc9da9d14b6e01578ff9a38ca4eddbcbf0d",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.m4xg20l2/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.m4xg20l2/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.m4xg20l2/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.m4xg20l2/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline plain round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 41276aab5d70: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "41276aab5d7097078f6c03fe62a8381ebd1e72ad",
+    "repair_head": "41276aab5d7097078f6c03fe62a8381ebd1e72ad",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qunkjrnx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qunkjrnx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qunkjrnx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qunkjrnx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker plain round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 18b4bad0a8d2: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "18b4bad0a8d2b2c5ff5e4c4449fc359a61009244",
+    "repair_head": "18b4bad0a8d2b2c5ff5e4c4449fc359a61009244",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wcq2yhzm/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wcq2yhzm/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wcq2yhzm/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.wcq2yhzm/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline single round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 6c5e9ee7d5b9: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "6c5e9ee7d5b96760a49f6665ec59ddfea3bea602",
+    "repair_head": "6c5e9ee7d5b96760a49f6665ec59ddfea3bea602",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tb6e043u/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tb6e043u/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tb6e043u/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.tb6e043u/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker single round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 6e23f36d4940: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "6e23f36d4940d0a80129c57c1219e893244846fd",
+    "repair_head": "6e23f36d4940d0a80129c57c1219e893244846fd",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.j30j3hwx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.j30j3hwx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.j30j3hwx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.j30j3hwx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline double round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 3b1d2e702189: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "3b1d2e7021897d6dcace807a6c577ccb0ab887a0",
+    "repair_head": "3b1d2e7021897d6dcace807a6c577ccb0ab887a0",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pwi3x9jj/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pwi3x9jj/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pwi3x9jj/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pwi3x9jj/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker double round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f22b5905aca3: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "f22b5905aca36f130b581d448e7250956fdee277",
+    "repair_head": "f22b5905aca36f130b581d448e7250956fdee277",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lxmuzv1d/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lxmuzv1d/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lxmuzv1d/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lxmuzv1d/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline block round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1a6a16abdb0d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "1a6a16abdb0d3989d3bdbeb4fb85ebaef0461ef2",
+    "repair_head": "1a6a16abdb0d3989d3bdbeb4fb85ebaef0461ef2",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bjc47gmi/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bjc47gmi/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bjc47gmi/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.bjc47gmi/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker block round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 9f782492bb6e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "9f782492bb6ed63494224356d6988bf240879cbe",
+    "repair_head": "9f782492bb6ed63494224356d6988bf240879cbe",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9l2nlfny/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9l2nlfny/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9l2nlfny/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.9l2nlfny/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "normalized multiline round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0c73689e9c37: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "0c73689e9c37c4e7deb593849686ce085779410c",
+    "repair_head": "0c73689e9c37c4e7deb593849686ce085779410c",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.iif2l3a0/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.iif2l3a0/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.iif2l3a0/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.iif2l3a0/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge *style round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *style",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 0863800a4a52: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "0863800a4a524a48b4469de82dab35ed58b3b498",
+    "repair_head": "0863800a4a524a48b4469de82dab35ed58b3b498",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._z17vhhx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._z17vhhx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._z17vhhx/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._z17vhhx/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge [*style] round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*style]",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in b80790ce8d61: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "b80790ce8d61c73a18701f8a81589e6d6f502cd3",
+    "repair_head": "b80790ce8d61c73a18701f8a81589e6d6f502cd3",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.amxom9u9/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.amxom9u9/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.amxom9u9/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.amxom9u9/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unsupported placeholder round-global",
+    "result": "pass",
+    "live": true,
+    "source": "round-global",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Unknown}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in dab0fe2c9b95: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "dab0fe2c9b950103d3ba2d67d07d39893945ed39",
+    "repair_head": "dab0fe2c9b950103d3ba2d67d07d39893945ed39",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hqynchs_/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hqynchs_/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hqynchs_/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hqynchs_/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Sonnet round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 8426140445e6: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "8426140445e6fbef9dda1ee83bedf9f82b6165e2",
+    "repair_head": "8426140445e6fbef9dda1ee83bedf9f82b6165e2",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.07l7n6ge/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.07l7n6ge/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.07l7n6ge/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.07l7n6ge/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "custom Opus round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 33bff044a442891b04c1c4af4b9f870acc1eb6f5\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=33bff044a442891b04c1c4af4b9f870acc1eb6f5 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "33bff044a442891b04c1c4af4b9f870acc1eb6f5",
+    "repair_head": "33bff044a442891b04c1c4af4b9f870acc1eb6f5",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.nuwy97hm/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.nuwy97hm/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.nuwy97hm/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.nuwy97hm/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary impersonation round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "fm/live/review: repair/test: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 227c40ae85a5: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "227c40ae85a5702cd5b9a257e21fba75585c50da",
+    "repair_head": "227c40ae85a5702cd5b9a257e21fba75585c50da",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.rewh5sle/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.rewh5sle/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.rewh5sle/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.rewh5sle/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary harmless Opus round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "fm/live/test: repair/review: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at e29a605327445f6095c72851ecd0108ae7fddbdc\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=e29a605327445f6095c72851ecd0108ae7fddbdc exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "e29a605327445f6095c72851ecd0108ae7fddbdc",
+    "repair_head": "e29a605327445f6095c72851ecd0108ae7fddbdc",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.svlw9ikt/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.svlw9ikt/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.svlw9ikt/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.svlw9ikt/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline plain round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 7628e9c2da5d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "7628e9c2da5d1481cdf5cffbff434e3a74929714",
+    "repair_head": "7628e9c2da5d1481cdf5cffbff434e3a74929714",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w6gxthna/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w6gxthna/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w6gxthna/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w6gxthna/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker plain round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 5c2813419b76: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "5c2813419b7611b10caa8a4fafd7823d3eb4aa4f",
+    "repair_head": "5c2813419b7611b10caa8a4fafd7823d3eb4aa4f",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.krw1tmtf/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.krw1tmtf/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.krw1tmtf/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.krw1tmtf/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline single round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in ccc7fb9c8387: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "ccc7fb9c838722c28d1c4ebd7fa97b5eae9085a1",
+    "repair_head": "ccc7fb9c838722c28d1c4ebd7fa97b5eae9085a1",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7g4jtozy/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7g4jtozy/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7g4jtozy/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7g4jtozy/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker single round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: 'repair-{{.Step}}\n    {{.Summary}}'",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in be594430a4a6: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "be594430a4a63878f9067f897efe8502f29b8134",
+    "repair_head": "be594430a4a63878f9067f897efe8502f29b8134",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ttd_gqyr/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ttd_gqyr/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ttd_gqyr/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ttd_gqyr/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline double round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in e005cc75f871: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "e005cc75f871c48d01afb25218e79165b79bc909",
+    "repair_head": "e005cc75f871c48d01afb25218e79165b79bc909",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.zokkmkql/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.zokkmkql/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.zokkmkql/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.zokkmkql/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker double round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}}\n    {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 449c9ea1dfef: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "449c9ea1dfefcc0054e7b1e65cb9bcc9dfb145eb",
+    "repair_head": "449c9ea1dfefcc0054e7b1e65cb9bcc9dfb145eb",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7cpjfige/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7cpjfige/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7cpjfige/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.7cpjfige/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "multiline block round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 21aa6a0e15c0: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "21aa6a0e15c098eda47c61b17bdb5c5c2519f486",
+    "repair_head": "21aa6a0e15c098eda47c61b17bdb5c5c2519f486",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.r624ug9r/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.r624ug9r/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.r624ug9r/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.r624ug9r/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable worker block round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: >\n    repair-{{.Step}} {{.Summary}}",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 0c68f1612bf8: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "0c68f1612bf8b2229724131803ee2c00f6e10841",
+    "repair_head": "0c68f1612bf8b2229724131803ee2c00f6e10841",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lb7ul_mn/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lb7ul_mn/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lb7ul_mn/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.lb7ul_mn/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "normalized multiline round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in be9e46e09fc0: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "be9e46e09fc0f657b33b76aca75bc17e79183ad7",
+    "repair_head": "be9e46e09fc0f657b33b76aca75bc17e79183ad7",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uw1s6n8z/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uw1s6n8z/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uw1s6n8z/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.uw1s6n8z/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge *style round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *style",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in d8d04848587e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "d8d04848587ec4a634ad1fdd5edd5df23ea4400d",
+    "repair_head": "d8d04848587ec4a634ad1fdd5edd5df23ea4400d",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e15i1sd5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e15i1sd5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e15i1sd5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.e15i1sd5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "YAML merge [*style] round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "repair_style: &style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*style]",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 437519847141: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "4375198471416ec41583f325307f11e7142d2e37",
+    "repair_head": "4375198471416ec41583f325307f11e7142d2e37",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.02wbx0l5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.02wbx0l5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.02wbx0l5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.02wbx0l5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unsupported placeholder round-repo",
+    "result": "pass",
+    "live": true,
+    "source": "round-repo",
+    "subject": "repair-review add test",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Unknown}} {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 5923fc6cdbb2: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "5923fc6cdbb21a9832e84a88bca738c683afc583",
+    "repair_head": "5923fc6cdbb21a9832e84a88bca738c683afc583",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0y2i2to_/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0y2i2to_/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0y2i2to_/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.0y2i2to_/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "default Sonnet",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(review): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 82fd27b6e6c3: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c",
+    "repair_head": "82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.h7mf05oa/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.h7mf05oa/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.h7mf05oa/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.h7mf05oa/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "default Opus",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(review): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c",
+    "repair_head": "82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ka9u7hx5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ka9u7hx5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ka9u7hx5/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.ka9u7hx5/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "dotted unknown author",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(gate.test.mutation-budget): add test",
+    "configuration": null,
+    "authors": null,
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(gate.test.mutation-budget) on an unrecorded model in 228f3a81e054: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "228f3a81e0543e79c92a96879ae3921336b2c02d",
+    "repair_head": "228f3a81e0543e79c92a96879ae3921336b2c02d",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kh0ci9hm/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kh0ci9hm/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kh0ci9hm/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.kh0ci9hm/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "dotted Sonnet",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(gate.test.mutation-budget): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "gate.test.mutation-budget",
+        "gate.test.mutation-budget-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(gate.test.mutation-budget) on claude-sonnet-5-5 in 228f3a81e054: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "228f3a81e0543e79c92a96879ae3921336b2c02d",
+    "repair_head": "228f3a81e0543e79c92a96879ae3921336b2c02d",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.apvtki8j/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.apvtki8j/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.apvtki8j/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.apvtki8j/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "dotted Opus",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(gate.test.mutation-budget): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "gate.test.mutation-budget",
+        "gate.test.mutation-budget-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 9982e6fe6c9bb9dafa00f48bfc0a06c0d2c767a4\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=9982e6fe6c9bb9dafa00f48bfc0a06c0d2c767a4 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "9982e6fe6c9bb9dafa00f48bfc0a06c0d2c767a4",
+    "repair_head": "9982e6fe6c9bb9dafa00f48bfc0a06c0d2c767a4",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.y2dqm1qp/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.y2dqm1qp/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.y2dqm1qp/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.y2dqm1qp/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "housekeeping Sonnet",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(document): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "document",
+        "housekeeping",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on claude-sonnet-5-5 in 666d1156ad4e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5",
+    "repair_head": "666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.mqv9oini/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.mqv9oini/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.mqv9oini/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.mqv9oini/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "housekeeping Opus",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(document): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "document",
+        "housekeeping",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5",
+    "repair_head": "666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.g53q36bf/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.g53q36bf/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.g53q36bf/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.g53q36bf/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "read-only review ignored",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(review): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "review",
+        "review",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 9f37693bf0a3d5bf8dcc80919cfc7cc61069f6ce\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=9f37693bf0a3d5bf8dcc80919cfc7cc61069f6ce exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "9f37693bf0a3d5bf8dcc80919cfc7cc61069f6ce",
+    "repair_head": "9f37693bf0a3d5bf8dcc80919cfc7cc61069f6ce",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sucea7ad/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sucea7ad/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sucea7ad/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sucea7ad/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "failed invocation ignored",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(test): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "test",
+        "test",
+        "claude-sonnet-5-5",
+        "failed"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at d8cd5d084b0379a15da17dd88b5ac48db8360ad2\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=d8cd5d084b0379a15da17dd88b5ac48db8360ad2 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "d8cd5d084b0379a15da17dd88b5ac48db8360ad2",
+    "repair_head": "d8cd5d084b0379a15da17dd88b5ac48db8360ad2",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.oxlmxsfb/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.oxlmxsfb/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.oxlmxsfb/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.oxlmxsfb/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "every successful writer counts",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(test): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ],
+      [
+        "test",
+        "other-writing-purpose",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on claude-sonnet-5-5 in f419c8aa0c0e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "f419c8aa0c0eb78b9b2c0576f0e496d417af0768",
+    "repair_head": "f419c8aa0c0eb78b9b2c0576f0e496d417af0768",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.u31d899_/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.u31d899_/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.u31d899_/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.u31d899_/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "stepless all writers",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ],
+      [
+        "lint",
+        "lint-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 79c1fb5100c4: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "79c1fb5100c419aa153d0d131eb945b70d0baf4a",
+    "repair_head": "79c1fb5100c419aa153d0d131eb945b70d0baf4a",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pdoogd15/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pdoogd15/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pdoogd15/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.pdoogd15/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "overlapping templates",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(test): add test",
+    "configuration": "commit:\n  fix_message: \"{{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 19474a6bc4db: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "19474a6bc4dbb8136d05ad95ef9beab4d952e16c",
+    "repair_head": "19474a6bc4dbb8136d05ad95ef9beab4d952e16c",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hfbyytrn/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hfbyytrn/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hfbyytrn/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hfbyytrn/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "ambiguous steps",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "review-test-add test",
+    "configuration": "commit:\n  fix_message: \"{{.Step}}-{{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "review-test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in e0783efd265a: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "e0783efd265a9e08a7465f9ac9eda0c1aaaa6f20",
+    "repair_head": "e0783efd265a9e08a7465f9ac9eda0c1aaaa6f20",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.n8pgy_d0/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.n8pgy_d0/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.n8pgy_d0/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.n8pgy_d0/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "summary before step",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair/test/review: fm/live",
+    "configuration": "commit:\n  fix_message: \"{{.Summary}}/{{.Step}}: {{.Branch}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 12865df7ff41: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "12865df7ff416c619058dfd84603869b00114458",
+    "repair_head": "12865df7ff416c619058dfd84603869b00114458",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.v1wbr5wt/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.v1wbr5wt/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.v1wbr5wt/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.v1wbr5wt/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "other branch not pipeline",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "fm/other/review: add test",
+    "configuration": "commit:\n  fix_message: \"{{.Branch}}/{{.Step}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 1b098f05d9c865e69c7234618613f8cf44cdf5a3\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=1b098f05d9c865e69c7234618613f8cf44cdf5a3 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "1b098f05d9c865e69c7234618613f8cf44cdf5a3",
+    "repair_head": "1b098f05d9c865e69c7234618613f8cf44cdf5a3",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w9z5o7tr/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w9z5o7tr/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w9z5o7tr/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.w9z5o7tr/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "Opus own test ordinary config",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": "agent_config: &other\n  claude:\n    model: claude-opus-5-5",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 5326de145b838fb59bf5705d50de9a5fae268af1\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=5326de145b838fb59bf5705d50de9a5fae268af1 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "5326de145b838fb59bf5705d50de9a5fae268af1",
+    "repair_head": "5326de145b838fb59bf5705d50de9a5fae268af1",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.5u8omxw9/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.5u8omxw9/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.5u8omxw9/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.5u8omxw9/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable global repair[review] fm/live: add test",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "repair[review] fm/live: add test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in b0279c7dbccc: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "b0279c7dbcccd2cd45d095613a56e179fdad0ba4",
+    "repair_head": "b0279c7dbcccd2cd45d095613a56e179fdad0ba4",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.8wp76_h8/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.8wp76_h8/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.8wp76_h8/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.8wp76_h8/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "unreadable global worker adds test",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"",
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 807d9b27f36b: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "807d9b27f36be5e1cf6340be6e27b6a0c9791ef8",
+    "repair_head": "807d9b27f36be5e1cf6340be6e27b6a0c9791ef8",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.55twlcuy/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.55twlcuy/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.55twlcuy/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.55twlcuy/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "absent database worker",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": null,
+    "authors": null,
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at c4962c99b16b0ef945db0d9fb2226ad3bde573a7\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=c4962c99b16b0ef945db0d9fb2226ad3bde573a7 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "c4962c99b16b0ef945db0d9fb2226ad3bde573a7",
+    "repair_head": "c4962c99b16b0ef945db0d9fb2226ad3bde573a7",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.54y7qi6k/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.54y7qi6k/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.54y7qi6k/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.54y7qi6k/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "old schema worker",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": null,
+    "authors": null,
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 4fa91edf01eea0f89ed9401e58bc708e263b2159\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=4fa91edf01eea0f89ed9401e58bc708e263b2159 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "4fa91edf01eea0f89ed9401e58bc708e263b2159",
+    "repair_head": "4fa91edf01eea0f89ed9401e58bc708e263b2159",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qd1ibajz/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qd1ibajz/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qd1ibajz/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.qd1ibajz/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "old schema repair refuses",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(test): add test",
+    "configuration": null,
+    "authors": null,
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in a62023e6bde4: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": "",
+    "head": "a62023e6bde4ac62dc1d9c9922e1ec830a6c07b1",
+    "repair_head": "a62023e6bde4ac62dc1d9c9922e1ec830a6c07b1",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2h5pqg74/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2h5pqg74/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2h5pqg74/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.2h5pqg74/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n"
+  },
+  {
+    "name": "locked Sonnet worker",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": null,
+    "authors": null,
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/contract.test.sh; revert those changes and report done again\n",
+    "mutation_log": "",
+    "head": "300d5b1cb9c3eb23d6ed411b0bc4d56205c9b4a5",
+    "repair_head": "300d5b1cb9c3eb23d6ed411b0bc4d56205c9b4a5",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hry92z7t/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hry92z7t/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-sonnet-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\ntest_ban_model=claude-sonnet-5-5\ntest_ban_since=82048ae1b7790029993d3f9a9492cb2bef648af2\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hry92z7t/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.hry92z7t/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-sonnet-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\ntest_ban_model=claude-sonnet-5-5\ntest_ban_since=82048ae1b7790029993d3f9a9492cb2bef648af2\n"
+  },
+  {
+    "name": "captain allowed test",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "no-mistakes(review): add test",
+    "configuration": null,
+    "authors": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 0,
+    "stdout": "tdd-split: live mutation gate passed at 7ebffbca533f5fea061b047721a71ff25d27c829\n",
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=7ebffbca533f5fea061b047721a71ff25d27c829 exit=0 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 0\n",
+    "head": "7ebffbca533f5fea061b047721a71ff25d27c829",
+    "repair_head": "7ebffbca533f5fea061b047721a71ff25d27c829",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._ux7vgfy/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._ux7vgfy/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\ntest_ban_allowed=tests/contract.test.sh\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._ux7vgfy/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab._ux7vgfy/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\ntest_ban_allowed=tests/contract.test.sh\n"
+  },
+  {
+    "name": "failed real relaunch restores metadata",
+    "result": "pass",
+    "live": true,
+    "source": "global",
+    "subject": "worker adds test",
+    "configuration": null,
+    "authors": null,
+    "command": "FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sfmx6y19\nREFUSED: tmux endpoint 'fm-lab:missing' is malformed or does not belong to task live; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the mutation can be run again\n",
+    "mutation_log": "ASSERTION_EXECUTED:tests/contract.test.sh\n\nfm-tdd-split: head=f69dceb2e15e833c6d885826751c7bb251e0fb7b exit=1 command=printf \"ASSERTION_EXECUTED:%s\\n\" \"$@\"; exit 1\n",
+    "head": "f69dceb2e15e833c6d885826751c7bb251e0fb7b",
+    "repair_head": "f69dceb2e15e833c6d885826751c7bb251e0fb7b",
+    "metadata_before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sfmx6y19/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sfmx6y19/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\nharness=claude\nbackend=tmux\nwindow=fm-lab:missing\nendpoint_task_id=live\ntdd_split_dispute_head=4d279db489d57d4a5e88ff16846773beb97c6235\n",
+    "metadata_after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sfmx6y19/projects/demo\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sfmx6y19/projects/demo\nbranch=fm/live\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\nharness=claude\nbackend=tmux\nwindow=fm-lab:missing\nendpoint_task_id=live\ntdd_split=implement\ntdd_split_dispute_head=4d279db489d57d4a5e88ff16846773beb97c6235\n"
+  }
+]

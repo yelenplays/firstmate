@@ -1,0 +1,18 @@
+custom Sonnet global => fail
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at e362204504dc9f6f2371c46c1734ad5d5d5fe522
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=e362204504dc9f6f2371c46c1734ad5d5d5fe522 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+housekeeping Opus => fail
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on an unrecorded model in 6e1422f38dca: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+

@@ -1,0 +1,762 @@
+custom Sonnet global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 2ad0e289db1f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Opus global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at dcd3263c1087b56c87aaa971f6d9136bab05f090
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=dcd3263c1087b56c87aaa971f6d9136bab05f090 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+summary impersonation global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0171fad52e20: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+summary harmless Opus global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 8026754ae118708d41d32e737508d013959a42ba
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=8026754ae118708d41d32e737508d013959a42ba exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+multiline plain global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 763dd4dd197d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker plain global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f3eedfcccb0f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline single global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in eb7841e3ec3a: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker single global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 580f0ce9bd6b: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline double global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 85a4ba974ee6: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker double global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in e5733a409307: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline block global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 855671d14c01: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker block global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f631fb21b107: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+normalized multiline global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 10104f5ae1c4: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge *style global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1ceca828946d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge [*style] global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1ceca828946d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unsupported placeholder global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 61a9bf60f346: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Sonnet repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0717e5a60f5f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Opus repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at f285079516e3c0f187bd3a32879d11239b8e4e39
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=f285079516e3c0f187bd3a32879d11239b8e4e39 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+summary impersonation repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 523ca2ee7299: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+summary harmless Opus repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at c303df614b01a3ea1c4f7b78506b332de3bb89e9
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=c303df614b01a3ea1c4f7b78506b332de3bb89e9 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+multiline plain repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in feef8376d094: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker plain repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 34a7294a5aaa: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline single repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 11d4cb5a5705: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker single repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in c458689213c9: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline double repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 4fc3065c87ef: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker double repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in e1afa2a63467: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline block repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 69ef30ed5186: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker block repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 63fcd08d3286: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+normalized multiline repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 3d53b89a9f1b: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge *style repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 971f60daf33f: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge [*style] repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 69075de771e2: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unsupported placeholder repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 51f2f672ddc5: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Sonnet round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0f3297983131: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Opus round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 4d4b49c53af9f4b3514533b9c03b637297a2e0df
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=4d4b49c53af9f4b3514533b9c03b637297a2e0df exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+summary impersonation round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in b2db9afa4d70: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+summary harmless Opus round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 057a3bc9da9d14b6e01578ff9a38ca4eddbcbf0d
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=057a3bc9da9d14b6e01578ff9a38ca4eddbcbf0d exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+multiline plain round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 41276aab5d70: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker plain round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 18b4bad0a8d2: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline single round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 6c5e9ee7d5b9: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker single round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 6e23f36d4940: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline double round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 3b1d2e702189: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker double round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f22b5905aca3: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline block round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1a6a16abdb0d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker block round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 9f782492bb6e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+normalized multiline round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 0c73689e9c37: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge *style round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 0863800a4a52: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge [*style] round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in b80790ce8d61: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unsupported placeholder round-global => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in dab0fe2c9b95: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Sonnet round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 8426140445e6: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+custom Opus round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 33bff044a442891b04c1c4af4b9f870acc1eb6f5
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=33bff044a442891b04c1c4af4b9f870acc1eb6f5 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+summary impersonation round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 227c40ae85a5: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+summary harmless Opus round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at e29a605327445f6095c72851ecd0108ae7fddbdc
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=e29a605327445f6095c72851ecd0108ae7fddbdc exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+multiline plain round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 7628e9c2da5d: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker plain round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 5c2813419b76: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline single round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in ccc7fb9c8387: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker single round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in be594430a4a6: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline double round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in e005cc75f871: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker double round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 449c9ea1dfef: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+multiline block round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 21aa6a0e15c0: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable worker block round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 0c68f1612bf8: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+normalized multiline round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in be9e46e09fc0: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge *style round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in d8d04848587e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+YAML merge [*style] round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 437519847141: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unsupported placeholder round-repo => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 5923fc6cdbb2: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+default Sonnet => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 82fd27b6e6c3: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+default Opus => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=82fd27b6e6c33ea8a92d978693e2cd22cfc0f02c exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+dotted unknown author => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(gate.test.mutation-budget) on an unrecorded model in 228f3a81e054: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+dotted Sonnet => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(gate.test.mutation-budget) on claude-sonnet-5-5 in 228f3a81e054: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+dotted Opus => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 9982e6fe6c9bb9dafa00f48bfc0a06c0d2c767a4
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=9982e6fe6c9bb9dafa00f48bfc0a06c0d2c767a4 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+housekeeping Sonnet => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on claude-sonnet-5-5 in 666d1156ad4e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+housekeeping Opus => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=666d1156ad4eeb60fe43c1ac4444e9dc4b4bc0e5 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+read-only review ignored => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 9f37693bf0a3d5bf8dcc80919cfc7cc61069f6ce
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=9f37693bf0a3d5bf8dcc80919cfc7cc61069f6ce exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+failed invocation ignored => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at d8cd5d084b0379a15da17dd88b5ac48db8360ad2
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=d8cd5d084b0379a15da17dd88b5ac48db8360ad2 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+every successful writer counts => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on claude-sonnet-5-5 in f419c8aa0c0e: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+stepless all writers => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 79c1fb5100c4: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+overlapping templates => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 19474a6bc4db: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+ambiguous steps => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in e0783efd265a: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+summary before step => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 12865df7ff41: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+other branch not pipeline => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 1b098f05d9c865e69c7234618613f8cf44cdf5a3
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=1b098f05d9c865e69c7234618613f8cf44cdf5a3 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+Opus own test ordinary config => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 5326de145b838fb59bf5705d50de9a5fae268af1
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=5326de145b838fb59bf5705d50de9a5fae268af1 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+unreadable global repair[review] fm/live: add test => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in b0279c7dbccc: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+unreadable global worker adds test => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 807d9b27f36b: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+absent database worker => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at c4962c99b16b0ef945db0d9fb2226ad3bde573a7
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=c4962c99b16b0ef945db0d9fb2226ad3bde573a7 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+old schema worker => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 4fa91edf01eea0f89ed9401e58bc708e263b2159
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=4fa91edf01eea0f89ed9401e58bc708e263b2159 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+old schema repair refuses => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(test) on an unrecorded model in a62023e6bde4: tests/contract.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+
+
+locked Sonnet worker => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+error: no test authoring on claude-sonnet-5-5: the branch adds, modifies, or deletes unauthorized test files tests/contract.test.sh; revert those changes and report done again
+
+
+
+captain allowed test => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=0
+tdd-split: live mutation gate passed at 7ebffbca533f5fea061b047721a71ff25d27c829
+
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=7ebffbca533f5fea061b047721a71ff25d27c829 exit=0 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 0
+
+
+failed real relaunch restores metadata => pass
+FM_HOME=<disposable marked lab> NM_HOME=<lab>/nm bin/fm-tdd-split.sh mutation live --timeout 10
+exit=1
+
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.validation/tmp/fm-lab.sfmx6y19
+REFUSED: tmux endpoint 'fm-lab:missing' is malformed or does not belong to task live; preserving task state.
+error: relaunch onto the test seat failed; the task stays on its implementer and the mutation can be run again
+
+ASSERTION_EXECUTED:tests/contract.test.sh
+
+fm-tdd-split: head=f69dceb2e15e833c6d885826751c7bb251e0fb7b exit=1 command=printf "ASSERTION_EXECUTED:%s\n" "$@"; exit 1
+

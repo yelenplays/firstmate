@@ -1,0 +1,90 @@
+[
+  {
+    "scenario": "folded-normalized-control-global",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 1,
+    "command_executed": false,
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 4f1c6c5959a2: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": null
+  },
+  {
+    "scenario": "folded-plain-global",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 0,
+    "command_executed": true,
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED tests=tests/feature.test.sh\n\nfm-tdd-split: head=2739b72da61caea55ecb14d8a646becf9a9d2391 exit=0 command=printf ASSERTION_EXECUTED > \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase/live/folded-plain-global/assertion-executed\"; printf \"ASSERTION_EXECUTED tests=%s\\n\" \"$*\"\n"
+  },
+  {
+    "scenario": "folded-normalized-control-repo",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 1,
+    "command_executed": false,
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in b2ac7b7373a4: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": null
+  },
+  {
+    "scenario": "folded-plain-repo",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 0,
+    "command_executed": true,
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED tests=tests/feature.test.sh\n\nfm-tdd-split: head=2dfd1aa5f64a4607b3e6e9883d4342ccd4f0f340 exit=0 command=printf ASSERTION_EXECUTED > \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase/live/folded-plain-repo/assertion-executed\"; printf \"ASSERTION_EXECUTED tests=%s\\n\" \"$*\"\n"
+  },
+  {
+    "scenario": "folded-normalized-control-round-global",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 1,
+    "command_executed": false,
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in a28d259275aa: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": null
+  },
+  {
+    "scenario": "folded-plain-round-global",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 0,
+    "command_executed": true,
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED tests=tests/feature.test.sh\n\nfm-tdd-split: head=a478fb11091af30c8f23f19817a3d9d9128cbd8b exit=0 command=printf ASSERTION_EXECUTED > \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase/live/folded-plain-round-global/assertion-executed\"; printf \"ASSERTION_EXECUTED tests=%s\\n\" \"$*\"\n"
+  },
+  {
+    "scenario": "folded-normalized-control-round-repo",
+    "configuration": "commit:\n  fix_message: \"repair-{{.Step}} {{.Summary}}\"",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 1,
+    "command_executed": false,
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in a478fb11091a: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_log": null
+  },
+  {
+    "scenario": "folded-plain-round-repo",
+    "configuration": "commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}",
+    "normalized_template": "repair-{{.Step}} {{.Summary}}",
+    "rendered_subject": "repair-review add a test",
+    "matches_exercised_subject": true,
+    "exit": 0,
+    "command_executed": true,
+    "stderr": "",
+    "mutation_log": "ASSERTION_EXECUTED tests=tests/feature.test.sh\n\nfm-tdd-split: head=1444d7282352be1474d67755008e091de59a17df exit=0 command=printf ASSERTION_EXECUTED > \"/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GS3M4W07Q0D4MM3H04RCEJ/.test-phase/live/folded-plain-round-repo/assertion-executed\"; printf \"ASSERTION_EXECUTED tests=%s\\n\" \"$*\"\n"
+  }
+]
