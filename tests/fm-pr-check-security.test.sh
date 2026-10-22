@@ -295,48 +295,35 @@ write_task_meta() {
     "mode=no-mistakes"
 }
 
-# Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
-# each given as <branch>|<step>|<purpose>|<model>[|<repo-path>], on the
+# Records one no-mistakes run per branch and repository with its agent
+# invocations in <nm-home>/state.sqlite, each given as
+# <branch>|<step>|<purpose>|<model>[|<repo-path>[|<exit-status>]], on the
 # repository registered at <repo-path> unless the invocation names another.
-# 1 when sqlite3 is absent.
+# NM_RUN_RANGE="<submitted-head> <head>" sets every recorded run's commits; a
+# branch named by NM_RUN_EMPTY records its run with no invocation. 1 when
+# sqlite3 is absent.
 record_nm_invocations() {  # <nm-home> <repo-path> <invocation>...
-  local nm=$1 repo=$2 inv branch step purpose model at n=0 sql=
+  local nm=$1 repo=$2 inv branch step purpose model at status run n sql='' submitted='' pipeline=''
   command -v sqlite3 >/dev/null 2>&1 || return 1
+  [ -z "${NM_RUN_RANGE:-}" ] || read -r submitted pipeline <<<"$NM_RUN_RANGE"
   mkdir -p "$nm"
   shift 2
-  for inv in "$@"; do
-    IFS='|' read -r branch step purpose model at <<<"$inv"
-    at=${at:-$repo}
-    n=$((n + 1))
-    sql="$sql insert or ignore into repos values ('$at', '$at');
-      insert into runs values ('r$n', '$at', '$branch');
-      insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
-  done
-  sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
-    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
+  n=$(sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
+    create table if not exists runs (id text primary key, repo_id text not null, branch text not null,
+      submitted_head_sha text, head_sha text, created_at integer not null);
     create table if not exists agent_invocations (id text primary key, run_id text not null,
       step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
-    $sql"
-}
-
-# Records one pipeline round on <branch> of the repository at <repo-path> whose
-# effective configuration was <global-yaml> and <repo-yaml>, as no-mistakes
-# keeps them in step_rounds. 1 when sqlite3 is absent.
-record_nm_round_config() {  # <nm-home> <repo-path> <branch> <global-yaml> [<repo-yaml>]
-  local nm=$1 repo=$2 branch=$3 global=${4//\'/\'\'} local_yaml=${5:-} n
-  local_yaml=${local_yaml//\'/\'\'}
-  command -v sqlite3 >/dev/null 2>&1 || return 1
-  mkdir -p "$nm"
-  n=$RANDOM$RANDOM
-  sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
-    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
-    create table if not exists step_results (id text primary key, run_id text not null, step_name text not null);
-    create table if not exists step_rounds (id text primary key, step_result_id text not null,
-      global_config_yaml blob, repo_config_yaml blob);
-    insert or ignore into repos values ('$repo', '$repo');
-    insert into runs values ('rc$n', '$repo', '$branch');
-    insert into step_results values ('sr$n', 'rc$n', 'review');
-    insert into step_rounds values ('so$n', 'sr$n', cast('$global' as blob), cast('$local_yaml' as blob));"
+    select count(*) from runs;") || return 1
+  for inv in ${NM_RUN_EMPTY:+"$NM_RUN_EMPTY||||"} "$@"; do
+    IFS='|' read -r branch step purpose model at status <<<"$inv"
+    at=${at:-$repo}
+    run="r$n:$at:$branch"
+    sql="$sql insert or ignore into repos values ('$at', '$at');
+      insert or ignore into runs values ('$run', '$at', '$branch', '$submitted', '$pipeline', $n);"
+    [ -n "$step" ] || continue
+    sql="$sql insert into agent_invocations values ('$run:$RANDOM$RANDOM', '$run', '$step', '$purpose', '$model', '${status:-ok}', $n);"
+  done
+  sqlite3 "$nm/state.sqlite" "$sql"
 }
 
 # Extra "field=value" arguments are written before pr=, because
@@ -919,7 +906,7 @@ test_test_ban_covers_pipeline_fixer_commits() {
 # Opus task a Sonnet review fixer's test refuses the PR record, while a test the
 # Sol-run test step commits registers it.
 test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
-  local dir head step
+  local dir head step submitted
   for step in review test; do
     dir=$(make_case "test-ban-allowlisted-builder-$step")
     write_task_meta "$dir"
@@ -927,17 +914,24 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
       "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
       "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
     printf 'branch=fm/task-a\n' >> "$dir/home/state/task-a.meta"
-    record_nm_invocations "$dir/nm-home" "$dir/project" 'fm/task-a|review|review-fix|claude-sonnet-5-5' \
-      'fm/task-a|test|test|openai-codex/gpt-6.1-sol' || fail "cannot record the fixture invocations"
     printf 'impl\n' > "$dir/wt/impl.sh"
     git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'Opus implements without tests'
     mkdir -p "$dir/wt/tests"
     printf 'Opus test\n' > "$dir/wt/tests/inherited.test.sh"
     git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'Opus writes a test'
+    submitted=$(git -C "$dir/wt" rev-parse HEAD)
     printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
     printf 'changed test\n' > "$dir/wt/tests/inherited.test.sh"
     git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "no-mistakes($step): add a unit test"
     head=$(git -C "$dir/wt" rev-parse HEAD)
+    if [ "$step" = review ]; then
+      NM_RUN_RANGE="$submitted $head" record_nm_invocations "$dir/nm-home" "$dir/project" \
+        'fm/task-a|review|review-fix|claude-sonnet-5-5' || fail "cannot record the fixture invocations"
+    else
+      NM_RUN_RANGE="$submitted $head" record_nm_invocations "$dir/nm-home" "$dir/project" \
+        'fm/task-a|review|review|claude-sonnet-5-5' 'fm/task-a|test|test|openai-codex/gpt-6.1-sol' \
+        || fail "cannot record the fixture invocations"
+    fi
     if [ "$step" = review ]; then
       FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
         > "$dir/stdout" 2> "$dir/stderr" && fail "a Sonnet review fixer's test passed the pre-PR check on an Opus task"
@@ -1014,8 +1008,6 @@ test_test_ban_binds_to_the_published_head() {
     else
       printf '%s\n' model=claude-opus-5-5 >> "$dir/home/state/task-a.meta"
     fi
-    record_nm_invocations "$dir/nm-home" "$dir/project" "fm/task-a|review|review-fix|$fixer" \
-      || fail "cannot record the fixture invocation"
     local_head=$(git -C "$dir/wt" rev-parse HEAD)
     mkdir -p "$dir/wt/tests"
     printf 'unapproved test\n' > "$dir/wt/tests/fixer.test.sh"
@@ -1026,6 +1018,10 @@ test_test_ban_binds_to_the_published_head() {
       git -C "$dir/wt" commit -q -m 'no-mistakes(review): add a test'
     fi
     pr_head=$(git -C "$dir/wt" rev-parse HEAD)
+    if [ "$case" != banned-worker ]; then
+      NM_RUN_RANGE="$local_head $pr_head" record_nm_invocations "$dir/nm-home" "$dir/project" \
+        "fm/task-a|review|review-fix|$fixer" || fail "cannot record the fixture invocation"
+    fi
     git -C "$dir/wt" checkout -q --detach "$local_head"
     if [ "$case" = allowed-fixer ]; then
       FM_TEST_GH_HEAD=$pr_head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
@@ -1044,16 +1040,14 @@ test_test_ban_binds_to_the_published_head() {
   pass "fm-pr-check inspects the published head, not an older worker HEAD"
 }
 
-# One registration of an Opus task whose no-mistakes(test) commit adds a test,
-# with <config-line>s as the no-mistakes config.yaml and the invocations
-# record_nm_invocations takes after a `--` separator; prints the exit status,
-# then stderr. FIXER_SUBJECT replaces the commit subject, and FIXER_ROUND_YAML
-# records a pipeline round on the task's branch with that global configuration.
-# FIXER_ROUND_REPO_YAML records its repository configuration; FIXER_REPO_YAML
-# sets the repository configuration committed at the checked head.
-# FIXER_CONFIG_UNREADABLE denies reads of the global config during registration.
+# One registration of an Opus task on fm/task-a whose test-adding commit, with
+# subject FIXER_SUBJECT (default `no-mistakes(test): add a test`), a recorded
+# pipeline run authored, with <config-line>s as the no-mistakes config.yaml and
+# the run's invocations, as record_nm_invocations takes them, after a `--`
+# separator; the task-branch run is recorded even with no invocation. Prints the
+# exit status, then stderr.
 fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
-  local dir head rc=0
+  local dir submitted head rc=0
   dir=$(make_case "$1")
   shift
   write_task_meta "$dir"
@@ -1064,36 +1058,32 @@ fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
     shift
   done
   shift
-  [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$dir/project" "$@" || rc=no-sqlite3
-  if [ -n "${FIXER_ROUND_YAML:-}${FIXER_ROUND_REPO_YAML:-}" ]; then
-    record_nm_round_config "$dir/nm-home" "$dir/project" fm/task-a \
-      "${FIXER_ROUND_YAML:-}" "${FIXER_ROUND_REPO_YAML:-}" || rc=no-sqlite3
-  fi
-  if [ -n "${FIXER_REPO_YAML:-}" ]; then
-    printf '%s\n' "$FIXER_REPO_YAML" > "$dir/wt/.no-mistakes.yaml"
-    git -C "$dir/wt" add .no-mistakes.yaml
-  fi
+  submitted=$(git -C "$dir/wt" rev-parse HEAD)
   mkdir -p "$dir/wt/tests"
   printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
   git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "${FIXER_SUBJECT:-no-mistakes(test): add a test}"
   head=$(git -C "$dir/wt" rev-parse HEAD)
+  NM_RUN_RANGE="$submitted $head" NM_RUN_EMPTY=fm/task-a \
+    record_nm_invocations "$dir/nm-home" "$dir/project" "$@" || rc=no-sqlite3
   if [ "$rc" = 0 ]; then
-    if [ "${FIXER_CONFIG_UNREADABLE:-0}" = 1 ]; then chmod 000 "$dir/nm-home/config.yaml"; fi
     FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
       > "$dir/stdout" 2> "$dir/stderr" || rc=$?
-    if [ "${FIXER_CONFIG_UNREADABLE:-0}" = 1 ]; then chmod 600 "$dir/nm-home/config.yaml"; fi
     if [ "$rc" = 0 ] && ! grep -q '^pr=' "$dir/home/state/task-a.meta"; then rc=registered-without-pr; fi
   fi
   printf '%s\n' "$rc"
   cat "$dir/stderr" 2>/dev/null
 }
 
-# A pipeline fixer's test registers only when every recorded invocation of its
-# step names an allowlisted model. The config never stands in for a record,
+# A pipeline run's test registers only when every invocation recorded for that
+# run names an allowlisted model. The config never stands in for a record,
 # however its native overrides spell the model, and a record that names no
 # allowlisted model refuses.
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model() {
   local out codex n=0 expect config inv
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    pass "fm-pr-check pipeline fixer records (sqlite3 absent, not exercised)"
+    return
+  fi
   codex=("agent: [codex]" "agent_config:" "  codex:" "    model: gpt-6.1-sol" "agent_args_override:" "  codex:")
   for config in "-c|'model=\"gpt-6-luna\"'" "--config|'model=\"gpt-6-luna\"'" "--model|gpt-6.1-sol"; do
     n=$((n + 1))
@@ -1103,292 +1093,177 @@ test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model() {
       || fail "the unrecorded fixer refusal for '$config' did not say so: $out"
     grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "the unrecorded fixer refusal did not name the test: $out"
   done
-  if ! command -v sqlite3 >/dev/null 2>&1; then
-    pass "fm-pr-check refuses an unrecorded pipeline fixer (sqlite3 absent, recorded invocations not exercised)"
-    return
-  fi
   for inv in 'fm/task-a|test|test|gpt-6-luna=gpt-6-luna' 'fm/task-a|test|test|default=default' \
     'fm/task-a|test|test|=an unrecorded model' 'fm/other|test|test|gpt-6-luna=accept' \
-    'fm/task-a|test|test-fix|claude-sonnet-5-5=claude-sonnet-5-5' 'fm/task-a|review|review-fix|gpt-6-luna=accept'; do
+    'fm/task-a|test|test-fix|claude-sonnet-5-5=claude-sonnet-5-5' 'fm/task-a|review|review|gpt-6-luna=accept' \
+    'fm/task-a|review|review-fix|gpt-6-luna=gpt-6-luna' 'fm/task-a|lint|lint-fix|claude-haiku-5-5||failed=claude-haiku-5-5'; do
     n=$((n + 1))
     expect=${inv#*=}
     out=$(fixer_registration "test-ban-recorded-$n" "${codex[@]}" "    - --model" "    - gpt-6.1-sol" -- \
       'fm/task-a|test|test|claude-opus-5-5' "${inv%%=*}")
     if [ "$expect" = accept ]; then
-      # Another branch's or step's record leaves only the Opus record for this step.
+      # Another branch's or repository's record, or a read-only review turn,
+      # leaves only the Opus record for this run.
       [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated record '${inv%%=*}' displaced the Opus record: $out"
       continue
     fi
-    [ "${out%%$'\n'*}" != 0 ] || fail "a fixer step recorded on '$expect' registered beside Opus"
+    [ "${out%%$'\n'*}" != 0 ] || fail "a run that also recorded '$expect' registered beside Opus"
     grep -Fq "no test authoring on $expect" <<<"$out" || fail "the '$expect' refusal did not name it: $out"
-  done
-  for inv in 'fm/task-a|test|test|default' 'fm/task-a|test|test|'; do
-    n=$((n + 1))
-    out=$(fixer_registration "test-ban-recorded-$n" -- "$inv")
-    [ "${out%%$'\n'*}" != 0 ] || fail "a fixer recorded only as '${inv##*|}' registered"
   done
   # Another project's run on the same branch name neither authorizes nor refuses.
   out=$(fixer_registration test-ban-foreign-opus -- 'fm/task-a|test|test|claude-opus-5-5|/elsewhere/other-project')
   [ "${out%%$'\n'*}" != 0 ] || fail "another repository's Opus record authorized an unrecorded fixer"
   grep -Fq 'no test authoring on an unrecorded model' <<<"$out" \
     || fail "the foreign-record refusal did not name the missing local record: $out"
-  out=$(fixer_registration test-ban-foreign-luna -- 'fm/task-a|test|test|claude-opus-5-5' \
-    'fm/task-a|test|test|gpt-6-luna|/elsewhere/other-project')
-  [ "${out%%$'\n'*}" = 0 ] || fail "another repository's banned record refused a recorded Opus fixer: $out"
   out=$(fixer_registration test-ban-recorded-sol "${codex[@]}" "    - -c" "    - 'model=\"gpt-6-luna\"'" -- \
     'fm/task-a|test|test|openai-codex/gpt-6.1-sol' 'fm/task-a|test|test-fix|claude-opus-5-5')
   [ "${out%%$'\n'*}" = 0 ] || fail "recorded Sol and Opus fixers were refused because of the config: $out"
   pass "fm-pr-check registers a pipeline fixer's test only on a recorded allowlisted model"
 }
 
-# A pipeline commit is recognized under every supported commit.fix_message
-# template, recorded for the branch's runs or set in the live configuration,
-# and under a dotted gate step; a template that cannot be matched refuses
-# rather than letting its commits through. The combined document/lint pass
-# counts as the document step's author.
-test_test_ban_pipeline_fixer_subject_templates_and_authors() {
-  local out custom="commit:
-  fix_message: \"chore(no-mistakes-{{.Step}}): {{.Summary}}\""
+# Commit messages never attribute a commit: a test commit a recorded run
+# authored is checked against that run's authors whatever its subject says,
+# under any commit.fix_message template, and a commit no run authored is the
+# worker's own, even when its subject looks like a pipeline repair.
+test_test_ban_pipeline_fixer_ignores_commit_messages() {
+  local subject form out n=0 yaml_lines
+  local folded='commit:
+  fix_message: "no-mistakes(test):
+    {{.Summary}}"'
   if ! command -v sqlite3 >/dev/null 2>&1; then
-    pass "fm-pr-check pipeline fixer templates (sqlite3 absent, not exercised)"
+    pass "fm-pr-check record-only attribution (sqlite3 absent, not exercised)"
     return
   fi
-  out=$(FIXER_SUBJECT='no-mistakes(review): add a test' fixer_registration tmpl-default -- \
-    'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a default-subject Sonnet review fix registered"
-  out=$(FIXER_SUBJECT='chore(no-mistakes-review): add a test' FIXER_ROUND_YAML=$custom \
-    fixer_registration tmpl-recorded -- 'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a recorded custom-template Sonnet review fix registered"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the custom-template refusal did not name Sonnet: $out"
-  grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "the custom-template refusal did not name the test: $out"
-  out=$(FIXER_SUBJECT='chore(no-mistakes-review): add a test' \
-    fixer_registration tmpl-live 'commit:' '  fix_message: "chore(no-mistakes-{{ .Step }}): {{.Summary}}"' -- \
-    'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a custom template in the live configuration let a Sonnet review fix register"
-  out=$(FIXER_SUBJECT='chore(no-mistakes-review): add a test' FIXER_ROUND_YAML=$custom \
-    fixer_registration tmpl-opus -- 'fm/task-a|review|review-fix|claude-opus-5-5')
-  [ "${out%%$'\n'*}" = 0 ] || fail "a custom-template Opus review fix was refused: $out"
-  out=$(FIXER_SUBJECT='add a test' FIXER_ROUND_YAML=$custom \
-    fixer_registration tmpl-worker -- 'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" = 0 ] || fail "the Opus worker's own commit was taken for a pipeline commit: $out"
-  # A template without the step attributes the commit to every pipeline author.
-  out=$(FIXER_SUBJECT='fm/task-a: add a test' FIXER_ROUND_YAML='commit:
-  fix_message: "{{.Branch}}: {{.Summary}}"' fixer_registration tmpl-branch -- \
-    'fm/task-a|test|test|claude-opus-5-5' 'fm/task-a|lint|lint-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a step-less template commit registered beside a Sonnet lint fixer"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the step-less refusal did not name Sonnet: $out"
-  out=$(FIXER_SUBJECT='fix: add a test' FIXER_ROUND_YAML='commit:
-  fix_message: "fix: {{printf \"%s\" .Summary}}"' fixer_registration tmpl-unsupported -- \
-    'fm/task-a|test|test|claude-opus-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a commit under an unmatchable template registered"
-  grep -Fq 'commit.fix_message' <<<"$out" || fail "the unmatchable-template refusal did not name the template: $out"
-  # A subject several templates can render is checked under every reading: a
-  # Sonnet review repair under a summary-only template may read like the Opus
-  # test step's default subject.
-  out=$(FIXER_SUBJECT='no-mistakes(test): add a test' FIXER_ROUND_YAML='commit:
-  fix_message: "{{.Summary}}"' fixer_registration tmpl-overlap -- \
-    'fm/task-a|test|test|claude-opus-5-5' 'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a subject both templates render registered under its Opus reading only"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the overlapping-template refusal did not name Sonnet: $out"
-  out=$(FIXER_SUBJECT='no-mistakes(gate.test.mutation-budget): add a test' fixer_registration tmpl-gate --)
-  [ "${out%%$'\n'*}" != 0 ] || fail "an unrecorded gate repair's test registered"
-  out=$(FIXER_SUBJECT='no-mistakes(document): lint tests' fixer_registration housekeeping-opus -- \
-    'fm/task-a|document|housekeeping|claude-opus-5-5')
-  [ "${out%%$'\n'*}" = 0 ] || fail "an Opus combined document/lint pass was refused: $out"
-  out=$(FIXER_SUBJECT='no-mistakes(document): lint tests' fixer_registration housekeeping-sonnet -- \
-    'fm/task-a|document|housekeeping|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "a Sonnet combined document/lint pass registered its test"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the housekeeping refusal did not name Sonnet: $out"
-  pass "fm-pr-check attributes pipeline tests under custom subject templates, gate steps, and the combined document pass"
-}
-
-# Summary text cannot impersonate an allowlisted step, whether the template is
-# live or recorded. Exercise registration with real subjects and author records.
-test_test_ban_pipeline_fixer_template_attribution() {
-  local source out global_yaml repo_yaml round_yaml round_repo_yaml
-  local custom='commit:
-  fix_message: "{{.Branch}}/{{.Step}}: {{.Summary}}"'
-  command -v sqlite3 >/dev/null 2>&1 || fail "template attribution regression requires sqlite3"
-  for source in global repo round-global round-repo; do
-    global_yaml='' repo_yaml='' round_yaml='' round_repo_yaml=''
-    case "$source" in
-      global) global_yaml=$custom ;;
-      repo) repo_yaml=$custom ;;
-      round-global) round_yaml=$custom ;;
-      round-repo) round_repo_yaml=$custom ;;
-    esac
-    out=$(FIXER_SUBJECT='fm/task-a/review: repair/test: add a test' \
-      FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
-      fixer_registration "tmpl-summary-step-$source" "$global_yaml" -- \
-      'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|test|test|claude-opus-5-5')
-    [ "${out%%$'\n'*}" != 0 ] || fail "$source summary text disguised a Sonnet repair as the Opus test step"
-    grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "$source refusal did not name Sonnet: $out"
-    grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "$source refusal did not name the test: $out"
-    out=$(FIXER_SUBJECT='fm/task-a/test: repair/review: add a test' \
-      FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
-      fixer_registration "tmpl-summary-step-opus-$source" "$global_yaml" -- \
-      'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|test|test|claude-opus-5-5')
-    [ "${out%%$'\n'*}" = 0 ] || fail "$source summary text misattributed an Opus test commit: $out"
-  done
-  # Even with Branch fixed, a token delimiter shared with Summary can render
-  # the same subject for multiple steps. Both recorded readings must be checked.
-  out=$(FIXER_SUBJECT='review-test-add a test' fixer_registration tmpl-ambiguous-step \
-    'commit:' '  fix_message: "{{.Step}}-{{.Summary}}"' -- \
-    'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|review-test|test|claude-opus-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "an ambiguous template checked only its Opus reading"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "ambiguous attribution omitted Sonnet: $out"
-  out=$(FIXER_SUBJECT='repair/test/review: fm/task-a' fixer_registration tmpl-summary-before-step \
-    'commit:' '  fix_message: "{{.Summary}}/{{.Step}}: {{.Branch}}"' -- \
-    'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|test|test|claude-opus-5-5')
-  [ "${out%%$'\n'*}" != 0 ] || fail "Summary before Step disguised a Sonnet repair"
-  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "Summary-before-Step attribution omitted Sonnet: $out"
-  out=$(FIXER_SUBJECT='fm/other/review: add a test' fixer_registration tmpl-other-branch "$custom" -- \
-    'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" = 0 ] || fail "a different Branch was mistaken for a pipeline repair: $out"
-  pass "fm-pr-check binds Branch and checks every possible template step without interpreting Summary as Branch"
-}
-
-# YAML folds scalar continuation lines into the repair subject. Never silently
-# truncate those templates, regardless of which configuration supplied them.
-test_test_ban_pipeline_fixer_multiline_yaml() {
-  local source form out yaml global_yaml repo_yaml round_yaml round_repo_yaml
-  command -v sqlite3 >/dev/null 2>&1 || fail "multiline YAML regression requires sqlite3"
-  for source in global repo round-global round-repo; do
-    for form in plain single-quoted double-quoted normalized; do
-      case "$form" in
-        plain) yaml=$'commit:\n  fix_message: repair-{{.Step}}\n    {{.Summary}}' ;;
-        single-quoted) yaml=$'commit:\n  fix_message: \'repair-{{.Step}}\n    {{.Summary}}\'' ;;
-        double-quoted) yaml=$'commit:\n  fix_message: "repair-{{.Step}}\n    {{.Summary}}"' ;;
-        normalized) yaml='commit:
-  fix_message: "repair-{{.Step}} {{.Summary}}"' ;;
-      esac
-      global_yaml='' repo_yaml='' round_yaml='' round_repo_yaml=''
-      case "$source" in
-        global) global_yaml=$yaml ;;
-        repo) repo_yaml=$yaml ;;
-        round-global) round_yaml=$yaml ;;
-        round-repo) round_repo_yaml=$yaml ;;
-      esac
-      out=$(FIXER_SUBJECT='repair-review add a test' \
-        FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
-        fixer_registration "tmpl-multiline-$source-$form" "$global_yaml" -- \
-        'fm/task-a|review|review-fix|claude-sonnet-5-5')
-      [ "${out%%$'\n'*}" != 0 ] || fail "$source $form YAML let a Sonnet repair register its test"
-      grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "$source $form refusal did not name the test: $out"
-      if [ "$form" = normalized ]; then
-        grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" \
-          || fail "$source normalized template refusal did not name Sonnet: $out"
-      else
-        grep -Fq 'commit.fix_message' <<<"$out" \
-          || fail "$source $form refusal did not name the unreadable template: $out"
-      fi
-      # An unreadable template also refuses an otherwise allowlisted worker;
-      # the equivalent single-line template must leave that worker alone.
-      out=$(FIXER_SUBJECT='add a test' \
-        FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
-        fixer_registration "tmpl-multiline-worker-$source-$form" "$global_yaml" -- \
-        'fm/task-a|review|review-fix|claude-sonnet-5-5')
-      if [ "$form" = normalized ]; then
-        [ "${out%%$'\n'*}" = 0 ] || fail "$source single-line template refused the Opus worker: $out"
-      else
-        [ "${out%%$'\n'*}" != 0 ] || fail "$source $form YAML let the worker bypass the unreadable-template policy"
-        grep -Fq 'commit.fix_message' <<<"$out" \
-          || fail "$source $form worker refusal did not name the unreadable template: $out"
-      fi
-    done
-  done
-  pass "fm-pr-check refuses multiline repair YAML across all configuration sources"
-}
-
-# An existing but unreadable global configuration cannot silently remove repair
-# attribution, even for an otherwise allowlisted worker's own test commit.
-test_test_ban_pipeline_fixer_unreadable_config() {
-  local out kind subject
-  local custom='commit:
-  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"'
-  if [ "$(id -u)" = 0 ]; then
-    pass "fm-pr-check unreadable global configuration (root bypasses chmod 000, not exercised)"
-    return
-  fi
-  command -v sqlite3 >/dev/null 2>&1 || fail "unreadable configuration regression requires sqlite3"
-  for kind in repair worker; do
-    case "$kind" in
-      repair) subject='repair[review] fm/task-a: add a test' ;;
-      worker) subject='add a test' ;;
-    esac
-    out=$(FIXER_SUBJECT=$subject fixer_registration "tmpl-readable-$kind" "$custom" -- \
-      'fm/task-a|review|review-fix|claude-sonnet-5-5')
-    if [ "$kind" = repair ]; then
-      [ "${out%%$'\n'*}" != 0 ] || fail "a readable custom-template Sonnet repair registered"
-      grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "readable repair refusal did not name Sonnet: $out"
-    else
-      [ "${out%%$'\n'*}" = 0 ] || fail "a readable template refused the Opus worker own commit: $out"
-    fi
-    out=$(FIXER_CONFIG_UNREADABLE=1 FIXER_SUBJECT=$subject \
-      fixer_registration "tmpl-unreadable-$kind" "$custom" -- \
-      'fm/task-a|review|review-fix|claude-sonnet-5-5')
-    [ "${out%%$'\n'*}" != 0 ] || fail "an unreadable global configuration let the $kind test commit register: $out"
-    grep -Fq 'commit.fix_message' <<<"$out" || fail "unreadable configuration refusal did not name the template: $out"
-    grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "unreadable configuration refusal did not name the test: $out"
-  done
-  pass "fm-pr-check refuses repair and worker tests when the global configuration cannot be read"
-}
-
-# Unsupported YAML indirection must not hide a repair template in any source.
-# Assert registration behavior, not the syntax of the attribution reader.
-test_test_ban_pipeline_fixer_inherited_yaml() {
-  local source form yaml out n=0
-  local style='repair_style: &repair_style
-  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"'
-  if ! command -v sqlite3 >/dev/null 2>&1; then
-    fail "inherited YAML registration regression requires sqlite3"
-  fi
-  for source in global repo round-global round-repo; do
-    for form in scalar sequence root-scalar root-sequence alias anchor quoted single-quoted alias-key anchor-key; do
-      case "$form" in
-        scalar) yaml="$style"$'\ncommit:\n  <<: *repair_style' ;;
-        sequence) yaml="$style"$'\ncommit:\n  <<: [*repair_style]' ;;
-        root-scalar) yaml='defaults: &defaults
-  commit:
-    fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
-<<: *defaults' ;;
-        root-sequence) yaml='defaults: &defaults
-  commit:
-    fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
-<<: [*defaults]' ;;
-        alias) yaml="$style"$'\ncommit: *repair_style' ;;
-        anchor) yaml='commit: &repair_style
-  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
-        quoted) yaml='"commit":
-  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
-        single-quoted) yaml="'commit':
-  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"" ;;
-        alias-key) yaml='key: &commit_key commit
-*commit_key :
-  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
-        anchor-key) yaml='&commit_key commit:
-  fix_message: "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"' ;;
-      esac
+  for subject in 'no-mistakes(test): add a test' 'repair[review] add a test' 'add a test' 'no-mistakes(review): add a test'; do
+    for form in default folded; do
+      yaml_lines=()
+      [ "$form" = default ] || yaml_lines=("$folded")
       n=$((n + 1))
-      case "$source" in
-        global) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' \
-          fixer_registration "tmpl-inherited-$n" "$yaml" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
-        repo) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' FIXER_REPO_YAML=$yaml \
-          fixer_registration "tmpl-inherited-$n" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
-        round-global) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' FIXER_ROUND_YAML=$yaml \
-          fixer_registration "tmpl-inherited-$n" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
-        round-repo) out=$(FIXER_SUBJECT='repair[review] fm/task-a: add a test' FIXER_ROUND_REPO_YAML=$yaml \
-          fixer_registration "tmpl-inherited-$n" -- 'fm/task-a|review|review-fix|claude-sonnet-5-5') ;;
-      esac
-      [ "${out%%$'\n'*}" != 0 ] || fail "$source $form YAML let a Sonnet repair register its test"
-      grep -Fq 'commit.fix_message' <<<"$out" || fail "$source $form refusal did not name the unreadable template: $out"
+      out=$(FIXER_SUBJECT=$subject fixer_registration "msg-banned-$n" ${yaml_lines[@]+"${yaml_lines[@]}"} -- \
+        'fm/task-a|test|test|claude-opus-5-5' 'fm/task-a|review|review-fix|claude-sonnet-5-5')
+      [ "${out%%$'\n'*}" != 0 ] || fail "a Sonnet-repaired run's test registered under subject '$subject'"
+      grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the '$subject' refusal did not name Sonnet: $out"
+      grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "the '$subject' refusal did not name the test: $out"
+      out=$(FIXER_SUBJECT=$subject fixer_registration "msg-allowed-$n" ${yaml_lines[@]+"${yaml_lines[@]}"} -- \
+        'fm/task-a|test|test|claude-opus-5-5' 'fm/task-a|review|review|claude-sonnet-5-5')
+      [ "${out%%$'\n'*}" = 0 ] || fail "an Opus-only run's test was refused under subject '$subject': $out"
     done
   done
-  out=$(FIXER_SUBJECT='add a test' fixer_registration tmpl-unrelated-anchor \
-    'agent_config: &agent_config' '  claude:' '    model: claude-opus-5-5' -- \
-    'fm/task-a|review|review-fix|claude-sonnet-5-5')
-  [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated anchor refused the Opus worker own commit: $out"
-  pass "fm-pr-check refuses indirect repair YAML across all sources without rejecting unrelated anchors"
+  out=$(worker_commit_registration msg-worker 'no-mistakes(review): add a test')
+  [ "${out%%$'\n'*}" = 0 ] || fail "the Opus worker's own repair-looking commit was refused: $out"
+  pass "fm-pr-check attributes pipeline tests from recorded runs only, never from commit messages"
+}
+
+# An Opus worker's own test commit, subject <subject>, beside a recorded run
+# with a Sonnet review fix that authored only a non-test commit; prints the exit
+# status, then stderr.
+worker_commit_registration() {  # <case-name> <subject>
+  local dir submitted head rc=0
+  dir=$(make_case "$1")
+  write_task_meta "$dir"
+  printf '%s\n' model=claude-opus-5-5 branch=fm/task-a >> "$dir/home/state/task-a.meta"
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/worker.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "$2"
+  submitted=$(git -C "$dir/wt" rev-parse HEAD)
+  printf 'fix\n' > "$dir/wt/impl.sh"
+  git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'no-mistakes(review): fix the finding'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  NM_RUN_RANGE="$submitted $head" record_nm_invocations "$dir/nm-home" "$dir/project" \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5' || rc=no-sqlite3
+  if [ "$rc" = 0 ]; then
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+      > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+  fi
+  printf '%s\n' "$rc"
+  cat "$dir/stderr" 2>/dev/null
+}
+
+# A later run's rebase cannot launder an earlier run's test: replayed unchanged
+# it keeps that run's authors, and rewritten it passes them on to what the
+# rebasing run adds. A run whose commits no copy holds refuses every test
+# commit no readable run attributes when it records a banned author, unless the
+# gate repository holds its commits.
+test_test_ban_pipeline_fixer_survives_rebases_and_missing_runs() {
+  local dir mode submitted fixed head rebased out rc objects sha
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    pass "fm-pr-check rebased pipeline runs (sqlite3 absent, not exercised)"
+    return
+  fi
+  for mode in replay rewrite; do
+    dir=$(make_case "rebase-$mode")
+    write_task_meta "$dir"
+    printf '%s\n' model=claude-opus-5-5 branch=fm/task-a >> "$dir/home/state/task-a.meta"
+    submitted=$(git -C "$dir/wt" rev-parse HEAD)
+    mkdir -p "$dir/wt/tests"
+    printf 'sonnet\n' > "$dir/wt/tests/fixer.test.sh"
+    git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'add a test'
+    fixed=$(git -C "$dir/wt" rev-parse HEAD)
+    NM_RUN_RANGE="$submitted $fixed" record_nm_invocations "$dir/nm-home" "$dir/project" \
+      'fm/task-a|review|review-fix|claude-sonnet-5-5' || fail "cannot record the first run"
+    git -C "$dir/wt" checkout -q --detach origin/main
+    printf 'base moved\n' > "$dir/wt/base.txt"
+    git -C "$dir/wt" add base.txt && git -C "$dir/wt" commit -q -m 'base moves'
+    git -C "$dir/wt" update-ref refs/remotes/origin/main HEAD
+    git -C "$dir/wt" checkout -q -B fm/task-a "$fixed"
+    git -C "$dir/wt" rebase -q origin/main || fail "fixture rebase failed"
+    if [ "$mode" = rewrite ]; then
+      printf 'resolved\n' > "$dir/wt/tests/fixer.test.sh"
+      git -C "$dir/wt" commit -q --amend -a --no-edit
+    fi
+    rebased=$(git -C "$dir/wt" rev-parse HEAD)
+    NM_RUN_RANGE="$fixed $rebased" record_nm_invocations "$dir/nm-home" "$dir/project" \
+      'fm/task-a|rebase|rebase|openai-codex/gpt-6.1-sol' || fail "cannot record the rebasing run"
+    FM_TEST_GH_HEAD=$rebased run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+      > "$dir/stdout" 2> "$dir/stderr" && fail "a $mode rebase laundered a Sonnet run's test"
+    grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
+      || fail "the $mode rebase refusal did not name Sonnet: $(cat "$dir/stderr")"
+  done
+
+  for mode in banned allowlisted gate; do
+    dir=$(make_case "missing-run-$mode")
+    write_task_meta "$dir"
+    printf '%s\n' model=claude-opus-5-5 branch=fm/task-a >> "$dir/home/state/task-a.meta"
+    mkdir -p "$dir/wt/tests"
+    printf 'opus\n' > "$dir/wt/tests/worker.test.sh"
+    git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'Opus adds its own test'
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    submitted=$(git -C "$dir/wt" commit-tree "$head^{tree}" -p "$head" -m 'gate-only submitted head')
+    fixed=$(git -C "$dir/wt" commit-tree "$head^{tree}" -p "$submitted" -m 'gate-only repair')
+    if [ "$mode" = gate ]; then
+      git init -q --bare "$dir/nm-home/repos/gate-repo.git"
+      git -C "$dir/wt" push -q "$dir/nm-home/repos/gate-repo.git" "$fixed:refs/heads/gate"
+    fi
+    objects="$(cd "$dir/wt" && cd "$(git rev-parse --git-common-dir)" && pwd)/objects"
+    for sha in "$fixed" "$submitted"; do
+      rm -f "$objects/${sha:0:2}/${sha:2}"
+    done
+    ! git -C "$dir/wt" cat-file -e "$fixed^{commit}" 2>/dev/null || fail "fixture could not drop the run's commits"
+    mkdir -p "$dir/nm-home"
+    sqlite3 "$dir/nm-home/state.sqlite" "create table repos (id text primary key, working_path text not null unique);
+      create table runs (id text primary key, repo_id text not null, branch text not null,
+        submitted_head_sha text, head_sha text, created_at integer not null);
+      create table agent_invocations (id text primary key, run_id text not null,
+        step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
+      insert into repos values ('gate-repo', '$dir/project');
+      insert into runs values ('gone', 'gate-repo', 'fm/task-a', '$submitted', '$fixed', 1);
+      insert into agent_invocations values ('i', 'gone', 'review', 'review-fix',
+        '$([ "$mode" = allowlisted ] && echo claude-opus-5-5 || echo claude-sonnet-5-5)', 'ok', 1);" \
+      || fail "cannot record the unreadable run"
+    rc=0
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+      > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+    out=$(cat "$dir/stderr")
+    case "$mode" in
+      banned)
+        [ "$rc" != 0 ] || fail "an unreadable Sonnet run let the worker's test commit register"
+        grep -Fq 'no test authoring on unreadable no-mistakes history' <<<"$out" \
+          || fail "the unreadable-run refusal did not say so: $out"
+        grep -Fq 'tests/worker.test.sh' <<<"$out" || fail "the unreadable-run refusal did not name the test: $out" ;;
+      *) [ "$rc" = 0 ] || fail "a $mode unreadable run refused the worker's own test: $out" ;;
+    esac
+  done
+  pass "fm-pr-check keeps pipeline attribution across rebases and refuses unreadable banned runs"
 }
 
 test_valid_recording_and_merge_derivation() {
@@ -4242,24 +4117,9 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
-if [ "${1:-}" = --test-ban-template-attribution ]; then
-  test_test_ban_pipeline_fixer_template_attribution
-  test_test_ban_pipeline_fixer_subject_templates_and_authors
-  exit 0
-fi
-
-if [ "${1:-}" = --test-ban-multiline ]; then
-  test_test_ban_pipeline_fixer_multiline_yaml
-  exit 0
-fi
-
-if [ "${1:-}" = --test-ban-unreadable ]; then
-  test_test_ban_pipeline_fixer_unreadable_config
-  exit 0
-fi
-
-if [ "${1:-}" = --test-ban-yaml ]; then
-  test_test_ban_pipeline_fixer_inherited_yaml
+if [ "${1:-}" = --test-ban-attribution ]; then
+  test_test_ban_pipeline_fixer_ignores_commit_messages
+  test_test_ban_pipeline_fixer_survives_rebases_and_missing_runs
   exit 0
 fi
 
@@ -4271,11 +4131,8 @@ if [ "${1:-}" = --test-ban ]; then
   test_test_ban_registration_without_pipeline_history
   test_test_ban_binds_to_the_published_head
   test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
-  test_test_ban_pipeline_fixer_subject_templates_and_authors
-  test_test_ban_pipeline_fixer_template_attribution
-  test_test_ban_pipeline_fixer_multiline_yaml
-  test_test_ban_pipeline_fixer_unreadable_config
-  test_test_ban_pipeline_fixer_inherited_yaml
+  test_test_ban_pipeline_fixer_ignores_commit_messages
+  test_test_ban_pipeline_fixer_survives_rebases_and_missing_runs
   exit 0
 fi
 
@@ -4321,11 +4178,8 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks
 test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
-test_test_ban_pipeline_fixer_subject_templates_and_authors
-test_test_ban_pipeline_fixer_template_attribution
-test_test_ban_pipeline_fixer_multiline_yaml
-test_test_ban_pipeline_fixer_unreadable_config
-test_test_ban_pipeline_fixer_inherited_yaml
+test_test_ban_pipeline_fixer_ignores_commit_messages
+test_test_ban_pipeline_fixer_survives_rebases_and_missing_runs
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
