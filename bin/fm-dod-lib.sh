@@ -1010,7 +1010,8 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # text, {{.Step}}, {{.Summary}}, and {{.Branch}} are matched; one without
 # {{.Step}} attributes its commits to every step, and one this check cannot
 # read or match makes every test-changing commit it does not otherwise
-# recognize refuse as `an unmatched commit.fix_message template`.
+# recognize refuse as `an unmatched commit.fix_message template`, even an
+# allowlisted worker's own commit.
 # Their added or modified test files are accepted only when every matching
 # step's author is positively recorded as allowlisted: every successful invocation of
 # <step> across runs on the task's branch of the task's repository in
@@ -1024,8 +1025,8 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # another project's run on the same branch name neither authorizes nor refuses;
 # a task with no registered project has no record. Runs are not bound to a head
 # SHA, because the pipeline's own rebase rewrites the head that authored each
-# commit. The no-mistakes config is never consulted, because native overrides
-# there can select any model.
+# commit. Model attribution comes only from recorded invocations, never from
+# configured models, because native overrides can select any model.
 # Attribution is step-wide, not per commit. Captain-authorized paths and paths
 # restored at the checked head to their state before that commit are exempt;
 # deletions alone are not checked here. If the worker copy, checked head, origin
@@ -1063,7 +1064,9 @@ fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
 # separated by \036, one per line, or `!` for a setting this reader cannot
 # parse: an unsupported root layout, indirect/quoted keys, a flow mapping,
 # a block scalar, or an escape in a double-quoted value. Only plain keys in
-# unindented block roots are read; YAML merges and aliases are not resolved.
+# unindented block roots are read. Root or commit-block merge keys and
+# indirection on commit emit `!` rather than resolving YAML merges or aliases;
+# an unrelated anchor elsewhere does not itself make the setting unreadable.
 fm_test_ban_fix_message_values() {
   awk -v q="'" '
     BEGIN {
@@ -1147,7 +1150,8 @@ fm_test_ban_nm_fix_messages() {  # <worktree> <head> <branch> <repo-path>
 
 # Prints `<has-step>\t<ERE>` matching the subjects commit.fix_message
 # <template> renders, <has-step> 1 when the ERE's first group captures
-# {{.Step}}; 1 for a template outside literal text and the three placeholders.
+# {{.Step}}. Returns 1 for an unreadable template or unsupported syntax beyond
+# literal text and the three placeholders.
 fm_test_ban_fix_message_ere() {  # <template>
   local rest=$1 lit ph ere='' has=0
   [ -n "$rest" ] && [ "$rest" != '!' ] || return 1
