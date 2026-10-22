@@ -1061,8 +1061,9 @@ fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
 
 # Prints each commit.fix_message value set in the YAML documents on stdin,
 # separated by \036, one per line, or `!` for a setting this reader cannot
-# parse: a flow mapping, a block scalar, or an escape in a double-quoted value.
-# Plain and simply quoted keys are recognized; other quoted keys fail closed.
+# parse: an unsupported root layout, a flow mapping, a block scalar, or an
+# escape in a double-quoted value. Only unindented block roots are read;
+# plain and simply quoted keys are recognized; other quoted keys fail closed.
 fm_test_ban_fix_message_values() {
   awk -v q="'" '
     BEGIN {
@@ -1073,14 +1074,17 @@ fm_test_ban_fix_message_values() {
     {
       n = split($0, lines, "\n")
       in_commit = 0
+      root_seen = 0
       for (i = 1; i <= n; i++) {
         line = lines[i]
         sub(/\r$/, "", line)
         if (line ~ /^[ \t]*(#|$)/) continue
+        if (!root_seen && line ~ /^[ \t]/) { print "!"; break }
+        root_seen = 1
         if (line ~ /^[^ \t]/) {
           in_commit = line ~ ("^" commit_key "[ \t]*(#.*)?$")
           if (line ~ ("^" commit_key "[ \t]*[^ \t#]") || line ~ /^commit\.fix_message[ \t]*:/ ||
-              (!in_commit && line ~ ("^[\"" q "]"))) print "!"
+              (!in_commit && line !~ /^[A-Za-z_][A-Za-z0-9_-]*[ \t]*:/)) print "!"
           continue
         }
         if (!in_commit) continue
@@ -1123,7 +1127,8 @@ fm_test_ban_nm_fix_messages() {  # <worktree> <head> <branch> <repo-path>
       *"'"*) ;;
       *)
         if [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$nm/state.sqlite" ] && command -v sqlite3 >/dev/null 2>&1; then
-          fm_run_timed 10 sqlite3 -readonly "$nm/state.sqlite" \
+          # ASCII mode keeps record separators raw instead of rendering them as ^^.
+          fm_run_timed 10 sqlite3 -ascii -readonly "$nm/state.sqlite" \
             "select cast(c as text) || char(10, 30) from (select o.global_config_yaml c from step_rounds o join step_results s on s.id = o.step_result_id join runs r on r.id = s.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' union select o.repo_config_yaml from step_rounds o join step_results s on s.id = o.step_result_id join runs r on r.id = s.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch') where c is not null" \
             2>/dev/null || true
         fi ;;
