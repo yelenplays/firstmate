@@ -1182,6 +1182,14 @@ test_test_ban_pipeline_fixer_subject_templates_and_authors() {
     'fm/task-a|test|test|claude-opus-5-5')
   [ "${out%%$'\n'*}" != 0 ] || fail "a commit under an unmatchable template registered"
   grep -Fq 'commit.fix_message' <<<"$out" || fail "the unmatchable-template refusal did not name the template: $out"
+  # A subject several templates can render is checked under every reading: a
+  # Sonnet review repair under a summary-only template may read like the Opus
+  # test step's default subject.
+  out=$(FIXER_SUBJECT='no-mistakes(test): add a test' FIXER_ROUND_YAML='commit:
+  fix_message: "{{.Summary}}"' fixer_registration tmpl-overlap -- \
+    'fm/task-a|test|test|claude-opus-5-5' 'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a subject both templates render registered under its Opus reading only"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the overlapping-template refusal did not name Sonnet: $out"
   out=$(FIXER_SUBJECT='no-mistakes(gate.test.mutation-budget): add a test' fixer_registration tmpl-gate --)
   [ "${out%%$'\n'*}" != 0 ] || fail "an unrecorded gate repair's test registered"
   out=$(FIXER_SUBJECT='no-mistakes(document): lint tests' fixer_registration housekeeping-opus -- \
