@@ -1002,12 +1002,21 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 }
 
 # Pipeline-fixer contract: the forced pre-PR check inspects non-merge commits
-# since the base named `no-mistakes(<step>): ...`, independently of the worker's
-# lane. Their added or modified test files are accepted only when the step's
-# author is positively recorded as allowlisted: every successful writing
-# invocation of <step> across runs on the task's branch of the task's
-# repository in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite (<step>-fix, and
-# <step> itself except for the read-only review) names a model that matches
+# since the base whose subject a no-mistakes repair renders, independently of
+# the worker's lane: the default `no-mistakes(<step>): ...`, where <step> may be
+# a dotted gate step, or any commit.fix_message template set in the global
+# configuration, the repository's .no-mistakes.yaml at the checked head, or a
+# configuration recorded for a round of the task's runs. A template's literal
+# text, {{.Step}}, {{.Summary}}, and {{.Branch}} are matched; one without
+# {{.Step}} attributes its commits to every step, and one this check cannot
+# read or match makes every test-changing commit it does not otherwise
+# recognize refuse as `an unmatched commit.fix_message template`.
+# Their added or modified test files are accepted only when the step's
+# author is positively recorded as allowlisted: every successful invocation of
+# <step> across runs on the task's branch of the task's repository in
+# ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite, including the combined
+# document/lint housekeeping pass but on review only its review-fix, because
+# the review turn itself is read-only, names a model that matches
 # FM_TEST_AUTHOR_MODEL_PATTERNS. Every other case refuses, naming the first such
 # model or `an unrecorded model`: a banned or empty model, `default`, no recorded
 # invocation, or sqlite3 or the database unavailable. The repository is the
@@ -1034,18 +1043,109 @@ fm_test_ban_model_allowlisted() {  # <model>
   [ -n "$model" ] && [ "$model" != default ] && ! fm_test_ban_model_applies "$model"
 }
 
-# Prints the models recorded for <step> on <branch> of the repository
-# registered at <repo-path> under the pipeline-fixer contract above, `-` for an
-# invocation with no model; these are not attributed to individual commits.
-# Prints nothing when none is readable.
+# Prints the models recorded for <step>, or for every step when <step> is `*`,
+# on <branch> of the repository registered at <repo-path> under the
+# pipeline-fixer contract above, `-` for an invocation with no model; these are
+# not attributed to individual commits. Prints nothing when none is readable.
 fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
-  local step=$1 branch=${2:-} repo=${3:-} db
+  local step=$1 branch=${2:-} repo=${3:-} db filter
   db="${NM_HOME:-$HOME/.no-mistakes}/state.sqlite"
   case "$step$branch$repo" in *"'"*) return 0 ;; esac
   [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 0
+  filter=
+  [ "$step" = '*' ] || filter="and i.step_name = '$step'"
   fm_run_timed 10 sqlite3 -readonly "$db" \
-    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
+    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' $filter and i.exit_status = 'ok' and (i.step_name <> 'review' or i.purpose = 'review-fix')" \
     2>/dev/null || true
+}
+
+# Prints each commit.fix_message value set in the YAML documents on stdin,
+# separated by \036, one per line, or `!` for a setting this reader cannot
+# parse: a flow mapping, a block scalar, or an escape in a double-quoted value.
+fm_test_ban_fix_message_values() {
+  awk -v q="'" '
+    BEGIN { RS = "\036" }
+    {
+      n = split($0, lines, "\n")
+      in_commit = 0
+      for (i = 1; i <= n; i++) {
+        line = lines[i]
+        sub(/\r$/, "", line)
+        if (line ~ /^[ \t]*(#|$)/) continue
+        if (line ~ /^[^ \t]/) {
+          in_commit = line ~ /^commit:[ \t]*(#.*)?$/
+          if (line ~ /^commit:[ \t]*[^ \t#]/ || line ~ /^commit\.fix_message[ \t]*:/) print "!"
+          continue
+        }
+        if (!in_commit || line !~ /^[ \t]+fix_message[ \t]*:/) continue
+        v = line
+        sub(/^[ \t]+fix_message[ \t]*:[ \t]*/, "", v)
+        if (substr(v, 1, 1) == "\"") {
+          if (v ~ /\\/ || v !~ /^"[^"]*"[ \t]*(#.*)?$/) { print "!"; continue }
+          sub(/^"/, "", v)
+          sub(/"[ \t]*(#.*)?$/, "", v)
+        } else if (substr(v, 1, 1) == q) {
+          if (v !~ ("^" q "([^" q "]|" q q ")*" q "[ \t]*(#.*)?$")) { print "!"; continue }
+          sub("^" q, "", v)
+          sub(q "[ \t]*(#.*)?$", "", v)
+          gsub(q q, q, v)
+        } else {
+          if (v == "" || v ~ /^[|>&*!{[]/) { print "!"; continue }
+          sub(/[ \t]+#.*$/, "", v)
+          sub(/[ \t]+$/, "", v)
+        }
+        print v
+      }
+    }'
+}
+
+# Prints the distinct commit.fix_message values in force for the task's
+# pipeline under the contract above: the global configuration, the repository's
+# .no-mistakes.yaml at <head>, and the configurations recorded for rounds of
+# runs on <branch> of the repository registered at <repo-path>.
+fm_test_ban_nm_fix_messages() {  # <worktree> <head> <branch> <repo-path>
+  local wt=$1 head=$2 branch=${3:-} repo=${4:-} nm
+  nm=${NM_HOME:-$HOME/.no-mistakes}
+  {
+    if [ -f "$nm/config.yaml" ]; then cat "$nm/config.yaml"; printf '\n\036'; fi
+    if git -C "$wt" show "$head:.no-mistakes.yaml" 2>/dev/null; then printf '\n\036'; fi
+    case "$branch$repo" in
+      *"'"*) ;;
+      *)
+        if [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$nm/state.sqlite" ] && command -v sqlite3 >/dev/null 2>&1; then
+          fm_run_timed 10 sqlite3 -readonly "$nm/state.sqlite" \
+            "select cast(c as text) || char(10, 30) from (select o.global_config_yaml c from step_rounds o join step_results s on s.id = o.step_result_id join runs r on r.id = s.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' union select o.repo_config_yaml from step_rounds o join step_results s on s.id = o.step_result_id join runs r on r.id = s.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch') where c is not null" \
+            2>/dev/null || true
+        fi ;;
+    esac
+  } | fm_test_ban_fix_message_values | sort -u
+}
+
+# Prints `<has-step>\t<ERE>` matching the subjects commit.fix_message
+# <template> renders, <has-step> 1 when the ERE's first group captures
+# {{.Step}}; 1 for a template outside literal text and the three placeholders.
+fm_test_ban_fix_message_ere() {  # <template>
+  local rest=$1 lit ph ere='' has=0
+  [ -n "$rest" ] && [ "$rest" != '!' ] || return 1
+  while :; do
+    case "$rest" in
+      *'{{'*) lit=${rest%%'{{'*} rest=${rest#*'{{'} ;;
+      *) ere+=$(printf '%s' "$rest" | sed 's/[.[\()*+?{|^$]/\\&/g'); break ;;
+    esac
+    ere+=$(printf '%s' "$lit" | sed 's/[.[\()*+?{|^$]/\\&/g')
+    case "$rest" in *'}}'*) ;; *) return 1 ;; esac
+    ph=${rest%%'}}'*}
+    rest=${rest#*'}}'}
+    ph=${ph#"${ph%%[! ]*}"}
+    ph=${ph%"${ph##*[! ]}"}
+    case "$ph" in
+      .Step)
+        if [ "$has" = 1 ]; then ere+='[A-Za-z0-9._-]+'; else ere+='([A-Za-z0-9._-]+)'; has=1; fi ;;
+      .Summary|.Branch) ere+='.*' ;;
+      *) return 1 ;;
+    esac
+  done
+  printf '%s\t%s\n' "$has" "$ere"
 }
 
 # Prints `an unrecorded model` when <step> on <branch> of <repo-path> has no
@@ -1070,29 +1170,60 @@ fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
 # pipeline-fixer contract above, including its unreadable-history policy, in
 # the commits up to <head> (default the worker copy's HEAD).
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
-  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author authored path
+  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author path paths templates='' loaded=''
+  local template has ere unmatched branch project
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
   git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
   base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
   mb=$(git -C "$wt" merge-base "$base_ref" "$head" 2>/dev/null) || return 0
+  branch=$(fm_dod_meta_value "$meta" branch)
+  project=$(fm_dod_meta_value "$meta" project)
   while IFS=$'\t' read -r sha subject; do
-    case "$subject" in no-mistakes\(*\):*) ;; *) continue ;; esac
-    step=${subject#no-mistakes(}
-    step=${step%%)*}
-    case "$step" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
-    authored=
+    paths=()
     while IFS= read -r path; do
       fm_test_ban_path_is_test "$path" || continue
       fm_test_ban_path_allowed "$path" "$meta" && continue
       git -C "$wt" diff --quiet "$sha^" "$head" -- "$path" && continue
-      if [ -z "$authored" ]; then
-        authored=1
-        author=$(fm_test_ban_nm_step_author_refusal "$step" "$(fm_dod_meta_value "$meta" branch)" \
-          "$(fm_dod_meta_value "$meta" project)")
-      fi
-      [ -n "$author" ] || break
-      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+      paths+=("$path")
     done < <(git -C "$wt" diff-tree --no-commit-id --no-renames --name-only --diff-filter=ACMR -r "$sha" 2>/dev/null)
+    [ "${#paths[@]}" -gt 0 ] || continue
+    step=
+    case "$subject" in
+      no-mistakes\(*\):*)
+        step=${subject#no-mistakes(}
+        step=${step%%)*}
+        case "$step" in ''|*[!A-Za-z0-9._-]*) step= ;; esac ;;
+    esac
+    if [ -z "$step" ]; then
+      if [ -z "$loaded" ]; then
+        templates=$(fm_test_ban_nm_fix_messages "$wt" "$head" "$branch" "$project")
+        loaded=1
+      fi
+      unmatched=
+      while IFS= read -r template; do
+        [ -n "$template" ] || continue
+        if ! IFS=$'\t' read -r has ere < <(fm_test_ban_fix_message_ere "$template"); then
+          unmatched=1
+          continue
+        fi
+        [[ "$subject" =~ ^$ere$ ]] || continue
+        if [ "$has" = 1 ]; then step=${BASH_REMATCH[1]}; else step='*'; fi
+        break
+      done <<<"$templates"
+      if [ -z "$step" ]; then
+        [ -n "$unmatched" ] || continue
+        step='?'
+      fi
+    fi
+    if [ "$step" = '?' ]; then
+      author='an unmatched commit.fix_message template'
+    else
+      author=$(fm_test_ban_nm_step_author_refusal "$step" "$branch" "$project")
+    fi
+    [ -n "$author" ] || continue
+    for path in "${paths[@]}"; do
+      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+    done
   done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..$head" 2>/dev/null)
 }
 

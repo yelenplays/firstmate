@@ -319,6 +319,26 @@ record_nm_invocations() {  # <nm-home> <repo-path> <invocation>...
     $sql"
 }
 
+# Records one pipeline round on <branch> of the repository at <repo-path> whose
+# effective configuration was <global-yaml> and <repo-yaml>, as no-mistakes
+# keeps them in step_rounds. 1 when sqlite3 is absent.
+record_nm_round_config() {  # <nm-home> <repo-path> <branch> <global-yaml> [<repo-yaml>]
+  local nm=$1 repo=$2 branch=$3 global=${4//\'/\'\'} local_yaml=${5:-} n
+  local_yaml=${local_yaml//\'/\'\'}
+  command -v sqlite3 >/dev/null 2>&1 || return 1
+  mkdir -p "$nm"
+  n=$RANDOM$RANDOM
+  sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
+    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
+    create table if not exists step_results (id text primary key, run_id text not null, step_name text not null);
+    create table if not exists step_rounds (id text primary key, step_result_id text not null,
+      global_config_yaml blob, repo_config_yaml blob);
+    insert or ignore into repos values ('$repo', '$repo');
+    insert into runs values ('rc$n', '$repo', '$branch');
+    insert into step_results values ('sr$n', 'rc$n', 'review');
+    insert into step_rounds values ('so$n', 'sr$n', cast('$global' as blob), cast('$local_yaml' as blob));"
+}
+
 # Extra "field=value" arguments are written before pr=, because
 # fm_pr_metadata_identity_parse rejects an unrecognised line after it.
 write_poll_meta() {
@@ -1027,7 +1047,8 @@ test_test_ban_binds_to_the_published_head() {
 # One registration of an Opus task whose no-mistakes(test) commit adds a test,
 # with <config-line>s as the no-mistakes config.yaml and the invocations
 # record_nm_invocations takes after a `--` separator; prints the exit status,
-# then stderr.
+# then stderr. FIXER_SUBJECT replaces the commit subject, and FIXER_ROUND_YAML
+# records a pipeline round on the task's branch with that global configuration.
 fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
   local dir head rc=0
   dir=$(make_case "$1")
@@ -1041,9 +1062,11 @@ fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
   done
   shift
   [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$dir/project" "$@" || rc=no-sqlite3
+  [ -z "${FIXER_ROUND_YAML:-}" ] || record_nm_round_config "$dir/nm-home" "$dir/project" fm/task-a \
+    "$FIXER_ROUND_YAML" || rc=no-sqlite3
   mkdir -p "$dir/wt/tests"
   printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
-  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(test): add a test'
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "${FIXER_SUBJECT:-no-mistakes(test): add a test}"
   head=$(git -C "$dir/wt" rev-parse HEAD)
   if [ "$rc" = 0 ]; then
     FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
@@ -1105,6 +1128,59 @@ test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model() {
     'fm/task-a|test|test|openai-codex/gpt-6.1-sol' 'fm/task-a|test|test-fix|claude-opus-5-5')
   [ "${out%%$'\n'*}" = 0 ] || fail "recorded Sol and Opus fixers were refused because of the config: $out"
   pass "fm-pr-check registers a pipeline fixer's test only on a recorded allowlisted model"
+}
+
+# A pipeline commit is recognized under every supported commit.fix_message
+# template, recorded for the branch's runs or set in the live configuration,
+# and under a dotted gate step; a template that cannot be matched refuses
+# rather than letting its commits through. The combined document/lint pass
+# counts as the document step's author.
+test_test_ban_pipeline_fixer_subject_templates_and_authors() {
+  local out custom="commit:
+  fix_message: \"chore(no-mistakes-{{.Step}}): {{.Summary}}\""
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    pass "fm-pr-check pipeline fixer templates (sqlite3 absent, not exercised)"
+    return
+  fi
+  out=$(FIXER_SUBJECT='no-mistakes(review): add a test' fixer_registration tmpl-default -- \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a default-subject Sonnet review fix registered"
+  out=$(FIXER_SUBJECT='chore(no-mistakes-review): add a test' FIXER_ROUND_YAML=$custom \
+    fixer_registration tmpl-recorded -- 'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a recorded custom-template Sonnet review fix registered"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the custom-template refusal did not name Sonnet: $out"
+  grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "the custom-template refusal did not name the test: $out"
+  out=$(FIXER_SUBJECT='chore(no-mistakes-review): add a test' \
+    fixer_registration tmpl-live 'commit:' '  fix_message: "chore(no-mistakes-{{ .Step }}): {{.Summary}}"' -- \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a custom template in the live configuration let a Sonnet review fix register"
+  out=$(FIXER_SUBJECT='chore(no-mistakes-review): add a test' FIXER_ROUND_YAML=$custom \
+    fixer_registration tmpl-opus -- 'fm/task-a|review|review-fix|claude-opus-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "a custom-template Opus review fix was refused: $out"
+  out=$(FIXER_SUBJECT='add a test' FIXER_ROUND_YAML=$custom \
+    fixer_registration tmpl-worker -- 'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "the Opus worker's own commit was taken for a pipeline commit: $out"
+  # A template without the step attributes the commit to every pipeline author.
+  out=$(FIXER_SUBJECT='fm/task-a: add a test' FIXER_ROUND_YAML='commit:
+  fix_message: "{{.Branch}}: {{.Summary}}"' fixer_registration tmpl-branch -- \
+    'fm/task-a|test|test|claude-opus-5-5' 'fm/task-a|lint|lint-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a step-less template commit registered beside a Sonnet lint fixer"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the step-less refusal did not name Sonnet: $out"
+  out=$(FIXER_SUBJECT='fix: add a test' FIXER_ROUND_YAML='commit:
+  fix_message: "fix: {{printf \"%s\" .Summary}}"' fixer_registration tmpl-unsupported -- \
+    'fm/task-a|test|test|claude-opus-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a commit under an unmatchable template registered"
+  grep -Fq 'commit.fix_message' <<<"$out" || fail "the unmatchable-template refusal did not name the template: $out"
+  out=$(FIXER_SUBJECT='no-mistakes(gate.test.mutation-budget): add a test' fixer_registration tmpl-gate --)
+  [ "${out%%$'\n'*}" != 0 ] || fail "an unrecorded gate repair's test registered"
+  out=$(FIXER_SUBJECT='no-mistakes(document): lint tests' fixer_registration housekeeping-opus -- \
+    'fm/task-a|document|housekeeping|claude-opus-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "an Opus combined document/lint pass was refused: $out"
+  out=$(FIXER_SUBJECT='no-mistakes(document): lint tests' fixer_registration housekeeping-sonnet -- \
+    'fm/task-a|document|housekeeping|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "a Sonnet combined document/lint pass registered its test"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "the housekeeping refusal did not name Sonnet: $out"
+  pass "fm-pr-check attributes pipeline tests under custom subject templates, gate steps, and the combined document pass"
 }
 
 test_valid_recording_and_merge_derivation() {
@@ -3966,6 +4042,7 @@ if [ "${1:-}" = --test-ban ]; then
   test_test_ban_registration_without_pipeline_history
   test_test_ban_binds_to_the_published_head
   test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
+  test_test_ban_pipeline_fixer_subject_templates_and_authors
   exit 0
 fi
 
@@ -4011,6 +4088,7 @@ test_test_ban_covers_banned_fixers_on_allowlisted_tasks
 test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
+test_test_ban_pipeline_fixer_subject_templates_and_authors
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert
