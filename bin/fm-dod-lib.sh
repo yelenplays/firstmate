@@ -1007,8 +1007,9 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # a dotted gate step, or any commit.fix_message template set in the global
 # configuration, the repository's .no-mistakes.yaml at the checked head, or a
 # configuration recorded for a round of the task's runs. A template's literal
-# text, {{.Step}}, {{.Summary}}, and {{.Branch}} are matched; one without
-# {{.Step}} attributes its commits to every step, and one this check cannot
+# text, {{.Step}}, {{.Summary}}, and the recorded {{.Branch}} are matched under
+# every possible step interpretation; one without {{.Step}} attributes its
+# commits to every step, and one this check cannot
 # read or match makes every test-changing commit it does not otherwise
 # recognize refuse as `an unmatched commit.fix_message template`, even an
 # allowlisted worker's own commit.
@@ -1148,32 +1149,63 @@ fm_test_ban_nm_fix_messages() {  # <worktree> <head> <branch> <repo-path>
   } | fm_test_ban_fix_message_values | sort -u
 }
 
-# Prints `<has-step>\t<ERE>` matching the subjects commit.fix_message
-# <template> renders, <has-step> 1 when the ERE's first group captures
-# {{.Step}}. Returns 1 for an unreadable template or unsupported syntax beyond
-# literal text and the three placeholders.
-fm_test_ban_fix_message_ere() {  # <template>
-  local rest=$1 lit ph ere='' has=0
-  [ -n "$rest" ] && [ "$rest" != '!' ] || return 1
-  while :; do
-    case "$rest" in
-      *'{{'*) lit=${rest%%'{{'*} rest=${rest#*'{{'} ;;
-      *) ere+=$(printf '%s' "$rest" | sed 's/[.[\()*+?{|^$]/\\&/g'); break ;;
-    esac
-    ere+=$(printf '%s' "$lit" | sed 's/[.[\()*+?{|^$]/\\&/g')
-    case "$rest" in *'}}'*) ;; *) return 1 ;; esac
-    ph=${rest%%'}}'*}
-    rest=${rest#*'}}'}
-    ph=${ph#"${ph%%[! ]*}"}
-    ph=${ph%"${ph##*[! ]}"}
-    case "$ph" in
-      .Step)
-        if [ "$has" = 1 ]; then ere+='[A-Za-z0-9._-]+'; else ere+='([A-Za-z0-9._-]+)'; has=1; fi ;;
-      .Summary|.Branch) ere+='.*' ;;
-      *) return 1 ;;
-    esac
-  done
-  printf '%s\t%s\n' "$has" "$ere"
+# Prints every step whose commit.fix_message <template> can render <subject>
+# on the recorded <branch>, `*` for a matching template without Step, or `!`
+# for unreadable/unsupported syntax. Do not trust a single greedy capture:
+# Summary may contain delimiters and text that looks like another step.
+fm_test_ban_fix_message_steps() {  # <template> <subject> <branch>
+  # ARGV preserves backslashes in literal text (awk -v would interpret them).
+  awk '
+    function literal(s,    out, i, c) {
+      out = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (index("\\.^$[]()|*+?{}", c)) out = out "\\"
+        out = out c
+      }
+      return out
+    }
+    function pattern(step,    out, i) {
+      out = "^"
+      for (i = 1; i <= n; i++) out = out (is_step[i] ? step : parts[i])
+      return out "$"
+    }
+    BEGIN {
+      rest = ARGV[1]; subject = ARGV[2]; branch = ARGV[3]
+      if (rest == "" || rest == "!") { print "!"; exit }
+      while (pos = index(rest, "{{")) {
+        parts[++n] = literal(substr(rest, 1, pos - 1))
+        rest = substr(rest, pos + 2)
+        end = index(rest, "}}")
+        if (!end) { print "!"; exit }
+        ph = substr(rest, 1, end - 1)
+        rest = substr(rest, end + 2)
+        sub(/^ +/, "", ph); sub(/ +$/, "", ph)
+        n++
+        if (ph == ".Step") { is_step[n] = 1; has_step = 1 }
+        else if (ph == ".Summary") parts[n] = ".*"
+        else if (ph == ".Branch") parts[n] = literal(branch)
+        else { print "!"; exit }
+      }
+      parts[++n] = literal(rest)
+      if (subject !~ pattern("[A-Za-z0-9._-]+")) exit
+      if (!has_step) { print "*"; exit }
+      # Every possible Step is a substring of a step-token run in the subject.
+      # Checking concrete candidates also binds repeated Step placeholders to
+      # the same value and catches unrecorded interpretations, not just known steps.
+      count = split(subject, tokens, /[^A-Za-z0-9._-]+/)
+      for (t = 1; t <= count; t++) {
+        for (start = 1; start <= length(tokens[t]); start++) {
+          for (len = 1; len <= length(tokens[t]) - start + 1; len++) {
+            step = substr(tokens[t], start, len)
+            if (step in seen) continue
+            seen[step] = 1
+            if (subject ~ pattern(literal(step))) print step
+          }
+        }
+      }
+      exit
+    }' "$1" "$2" "$3"
 }
 
 # Prints `an unrecorded model` when <step> on <branch> of <repo-path> has no
@@ -1199,7 +1231,7 @@ fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
 # the commits up to <head> (default the worker copy's HEAD).
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
   local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author path paths templates='' loaded=''
-  local template has ere unmatched branch project steps
+  local template unmatched branch project steps
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
   git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
   base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
@@ -1231,12 +1263,9 @@ fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
     unmatched=
     while IFS= read -r template; do
       [ -n "$template" ] || continue
-      if ! IFS=$'\t' read -r has ere < <(fm_test_ban_fix_message_ere "$template"); then
-        unmatched=1
-        continue
-      fi
-      [[ "$subject" =~ ^$ere$ ]] || continue
-      if [ "$has" = 1 ]; then steps+=("${BASH_REMATCH[1]}"); else steps+=('*'); fi
+      while IFS= read -r step; do
+        if [ "$step" = '!' ]; then unmatched=1; else steps+=("$step"); fi
+      done < <(fm_test_ban_fix_message_steps "$template" "$subject" "$branch")
     done <<<"$templates"
     if [ "${#steps[@]}" -eq 0 ]; then
       [ -n "$unmatched" ] || continue

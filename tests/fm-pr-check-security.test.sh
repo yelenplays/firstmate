@@ -1202,6 +1202,52 @@ test_test_ban_pipeline_fixer_subject_templates_and_authors() {
   pass "fm-pr-check attributes pipeline tests under custom subject templates, gate steps, and the combined document pass"
 }
 
+# Summary text cannot impersonate an allowlisted step, whether the template is
+# live or recorded. Exercise registration with real subjects and author records.
+test_test_ban_pipeline_fixer_template_attribution() {
+  local source out global_yaml repo_yaml round_yaml round_repo_yaml
+  local custom='commit:
+  fix_message: "{{.Branch}}/{{.Step}}: {{.Summary}}"'
+  command -v sqlite3 >/dev/null 2>&1 || fail "template attribution regression requires sqlite3"
+  for source in global repo round-global round-repo; do
+    global_yaml= repo_yaml= round_yaml= round_repo_yaml=
+    case "$source" in
+      global) global_yaml=$custom ;;
+      repo) repo_yaml=$custom ;;
+      round-global) round_yaml=$custom ;;
+      round-repo) round_repo_yaml=$custom ;;
+    esac
+    out=$(FIXER_SUBJECT='fm/task-a/review: repair/test: add a test' \
+      FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
+      fixer_registration "tmpl-summary-step-$source" "$global_yaml" -- \
+      'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|test|test|claude-opus-5-5')
+    [ "${out%%$'\n'*}" != 0 ] || fail "$source summary text disguised a Sonnet repair as the Opus test step"
+    grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "$source refusal did not name Sonnet: $out"
+    grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "$source refusal did not name the test: $out"
+    out=$(FIXER_SUBJECT='fm/task-a/test: repair/review: add a test' \
+      FIXER_REPO_YAML=$repo_yaml FIXER_ROUND_YAML=$round_yaml FIXER_ROUND_REPO_YAML=$round_repo_yaml \
+      fixer_registration "tmpl-summary-step-opus-$source" "$global_yaml" -- \
+      'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|test|test|claude-opus-5-5')
+    [ "${out%%$'\n'*}" = 0 ] || fail "$source summary text misattributed an Opus test commit: $out"
+  done
+  # Even with Branch fixed, a token delimiter shared with Summary can render
+  # the same subject for multiple steps. Both recorded readings must be checked.
+  out=$(FIXER_SUBJECT='review-test-add a test' fixer_registration tmpl-ambiguous-step \
+    'commit:' '  fix_message: "{{.Step}}-{{.Summary}}"' -- \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|review-test|test|claude-opus-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "an ambiguous template checked only its Opus reading"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "ambiguous attribution omitted Sonnet: $out"
+  out=$(FIXER_SUBJECT='repair/test/review: fm/task-a' fixer_registration tmpl-summary-before-step \
+    'commit:' '  fix_message: "{{.Summary}}/{{.Step}}: {{.Branch}}"' -- \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5' 'fm/task-a|test|test|claude-opus-5-5')
+  [ "${out%%$'\n'*}" != 0 ] || fail "Summary before Step disguised a Sonnet repair"
+  grep -Fq 'no test authoring on claude-sonnet-5-5' <<<"$out" || fail "Summary-before-Step attribution omitted Sonnet: $out"
+  out=$(FIXER_SUBJECT='fm/other/review: add a test' fixer_registration tmpl-other-branch "$custom" -- \
+    'fm/task-a|review|review-fix|claude-sonnet-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "a different Branch was mistaken for a pipeline repair: $out"
+  pass "fm-pr-check binds Branch and checks every possible template step without interpreting Summary as Branch"
+}
+
 # An existing but unreadable global configuration cannot silently remove repair
 # attribution, even for an otherwise allowlisted worker's own test commit.
 test_test_ban_pipeline_fixer_unreadable_config() {
@@ -4144,6 +4190,12 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
+if [ "${1:-}" = --test-ban-template-attribution ]; then
+  test_test_ban_pipeline_fixer_template_attribution
+  test_test_ban_pipeline_fixer_subject_templates_and_authors
+  exit 0
+fi
+
 if [ "${1:-}" = --test-ban-unreadable ]; then
   test_test_ban_pipeline_fixer_unreadable_config
   exit 0
@@ -4163,6 +4215,7 @@ if [ "${1:-}" = --test-ban ]; then
   test_test_ban_binds_to_the_published_head
   test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
   test_test_ban_pipeline_fixer_subject_templates_and_authors
+  test_test_ban_pipeline_fixer_template_attribution
   test_test_ban_pipeline_fixer_unreadable_config
   test_test_ban_pipeline_fixer_inherited_yaml
   exit 0
@@ -4211,6 +4264,7 @@ test_test_ban_registration_without_pipeline_history
 test_test_ban_binds_to_the_published_head
 test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
 test_test_ban_pipeline_fixer_subject_templates_and_authors
+test_test_ban_pipeline_fixer_template_attribution
 test_test_ban_pipeline_fixer_unreadable_config
 test_test_ban_pipeline_fixer_inherited_yaml
 test_direct_pr_unpushed_commit_refuses_registration
