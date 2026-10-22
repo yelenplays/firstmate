@@ -57,9 +57,10 @@
 # wake, so a crash between delivery and the local delivered record is healed by
 # the next poll rather than duplicated. A poll that delivered anything prints
 # one line so the watcher wakes firstmate; a failing poll prints one line only
-# when its diagnostic changed; otherwise `check` is silent. Each poll then runs
-# bin/fm-updates.sh tick in the time left, which posts every finished task's
-# owed outcome and the once-a-day morning digest. Each delivered
+# when its diagnostic changed; otherwise `check` is silent. With outbound
+# posting enabled, each poll then runs bin/fm-updates.sh tick in the time left
+# for the outcome backstop and morning digest (docs/configuration.md).
+# Each delivered
 # captain message also records its reply route (channel and thread) in
 # state/slack-bridge/routes.
 #
@@ -749,9 +750,9 @@ deliver_captain() {  # <request-id> <channel> <thread-ts|-> <body>
   deliver "$1" slack-captain "$4"
 }
 
-# One watcher poll: inbound replies first, then the outcome backstop and the
-# morning digest (bin/fm-updates.sh tick) in the time left under the
-# watcher's per-check bound.
+# One watcher poll: inbound replies first, then, when outbound posting is on,
+# the outcome backstop and morning digest (bin/fm-updates.sh tick) in the time
+# left under the watcher's per-check bound.
 CHECK_READY=0
 CHECK_ERRF=
 action_check() {
