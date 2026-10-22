@@ -1062,9 +1062,14 @@ fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
 # Prints each commit.fix_message value set in the YAML documents on stdin,
 # separated by \036, one per line, or `!` for a setting this reader cannot
 # parse: a flow mapping, a block scalar, or an escape in a double-quoted value.
+# Plain and simply quoted keys are recognized; other quoted keys fail closed.
 fm_test_ban_fix_message_values() {
   awk -v q="'" '
-    BEGIN { RS = "\036" }
+    BEGIN {
+      RS = "\036"
+      commit_key = "(commit|\"commit\"|" q "commit" q ")[ \t]*:"
+      fix_key = "(fix_message|\"fix_message\"|" q "fix_message" q ")[ \t]*:"
+    }
     {
       n = split($0, lines, "\n")
       in_commit = 0
@@ -1073,13 +1078,18 @@ fm_test_ban_fix_message_values() {
         sub(/\r$/, "", line)
         if (line ~ /^[ \t]*(#|$)/) continue
         if (line ~ /^[^ \t]/) {
-          in_commit = line ~ /^commit:[ \t]*(#.*)?$/
-          if (line ~ /^commit:[ \t]*[^ \t#]/ || line ~ /^commit\.fix_message[ \t]*:/) print "!"
+          in_commit = line ~ ("^" commit_key "[ \t]*(#.*)?$")
+          if (line ~ ("^" commit_key "[ \t]*[^ \t#]") || line ~ /^commit\.fix_message[ \t]*:/ ||
+              (!in_commit && line ~ ("^[\"" q "]"))) print "!"
           continue
         }
-        if (!in_commit || line !~ /^[ \t]+fix_message[ \t]*:/) continue
+        if (!in_commit) continue
+        if (line !~ ("^[ \t]+" fix_key)) {
+          if (line ~ ("^[ \t]+[\"" q "]")) print "!"
+          continue
+        }
         v = line
-        sub(/^[ \t]+fix_message[ \t]*:[ \t]*/, "", v)
+        sub("^[ \t]+" fix_key "[ \t]*", "", v)
         if (substr(v, 1, 1) == "\"") {
           if (v ~ /\\/ || v !~ /^"[^"]*"[ \t]*(#.*)?$/) { print "!"; continue }
           sub(/^"/, "", v)
