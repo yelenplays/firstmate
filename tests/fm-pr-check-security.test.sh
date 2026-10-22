@@ -1210,7 +1210,7 @@ test_test_ban_pipeline_fixer_template_attribution() {
   fix_message: "{{.Branch}}/{{.Step}}: {{.Summary}}"'
   command -v sqlite3 >/dev/null 2>&1 || fail "template attribution regression requires sqlite3"
   for source in global repo round-global round-repo; do
-    global_yaml= repo_yaml= round_yaml= round_repo_yaml=
+    global_yaml='' repo_yaml='' round_yaml='' round_repo_yaml=''
     case "$source" in
       global) global_yaml=$custom ;;
       repo) repo_yaml=$custom ;;
@@ -1262,7 +1262,7 @@ test_test_ban_pipeline_fixer_multiline_yaml() {
         normalized) yaml='commit:
   fix_message: "repair-{{.Step}} {{.Summary}}"' ;;
       esac
-      global_yaml= repo_yaml= round_yaml= round_repo_yaml=
+      global_yaml='' repo_yaml='' round_yaml='' round_repo_yaml=''
       case "$source" in
         global) global_yaml=$yaml ;;
         repo) repo_yaml=$yaml ;;
