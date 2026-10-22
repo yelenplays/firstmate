@@ -1,0 +1,22 @@
+[
+  {
+    "name": "document-opus",
+    "command": "bin/fm-tdd-split.sh dispute local",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/document-opus/home\nREFUSED: task local has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again\n",
+    "before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/document-opus/project\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/document-opus/project\nbranch=fm/local\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\n",
+    "after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/document-opus/project\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/document-opus/project\nbranch=fm/local\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\n",
+    "record_restored": true
+  },
+  {
+    "name": "recorded-opus",
+    "command": "bin/fm-tdd-split.sh dispute local",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/recorded-opus/home\nREFUSED: task local has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again\n",
+    "before": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/recorded-opus/project\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/recorded-opus/project\nbranch=fm/local\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_dispute_head=old-round-head\n",
+    "after": "kind=ship\nmode=no-mistakes\nworktree=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/recorded-opus/project\nproject=/Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.test-phase-tmp/manual/recorded-opus/project\nbranch=fm/local\nbase_branch=main\nmodel=claude-opus-5-5\ntdd_split=implement\ntdd_split_dispute_head=old-round-head\n",
+    "record_restored": true
+  }
+]

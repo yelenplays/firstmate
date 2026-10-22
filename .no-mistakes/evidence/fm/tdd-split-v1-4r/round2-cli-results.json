@@ -1,0 +1,484 @@
+[
+  {
+    "name": "global-sonnet",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 806684e99d4f: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "repo-sonnet",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "repo",
+    "config": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 3c5e114414b8: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "round-global-sonnet",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "round-global",
+    "config": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in deaab59548a6: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "round-repo-sonnet",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "round-repo",
+    "config": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in deaab59548a6: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "recorded-opus",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "round-global",
+    "config": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "expected_exit": 0,
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at f0eda608a7b59fe0dca57ab688b0f4fab38d123d\n",
+    "stderr": "",
+    "mutation_output": "ASSERTION_EXECUTED\n\nfm-tdd-split: head=f0eda608a7b59fe0dca57ab688b0f4fab38d123d exit=0 command=for t; do bash \"$t\" || exit 1; done\n",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "worker-own",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "commit:\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "worker: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 0,
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at 3c3b7731a05207002a33206ce19f048065769548\n",
+    "stderr": "",
+    "mutation_output": "ASSERTION_EXECUTED\n\nfm-tdd-split: head=3c3b7731a05207002a33206ce19f048065769548 exit=0 command=for t; do bash \"$t\" || exit 1; done\n",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "stepless",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "commit:\n  fix_message: \"repair {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair fm/local: adjust assertion",
+    "invocations": [
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ],
+      [
+        "lint",
+        "lint-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 312962074a13: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "unsupported",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "commit:\n  fix_message: |\n    repair {{.Summary}}\n",
+    "subject": "worker: adjust assertion",
+    "invocations": [
+      [
+        "test",
+        "test",
+        "claude-opus-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 4ed1ab238533: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "dotted",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "",
+    "subject": "no-mistakes(gate.test.mutation-budget): adjust assertion",
+    "invocations": [
+      [
+        "gate.test.mutation-budget",
+        "gate.test.mutation-budget-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(gate.test.mutation-budget) on claude-sonnet-5-5 in 70ef877b9805: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "document-claude-opus-5-5",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "",
+    "subject": "no-mistakes(document): adjust assertion",
+    "invocations": [
+      [
+        "document",
+        "housekeeping",
+        "claude-opus-5-5"
+      ]
+    ],
+    "expected_exit": 0,
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at 7e84c33f28a3adbe8dbf39a5cfa858b834b4bb90\n",
+    "stderr": "",
+    "mutation_output": "ASSERTION_EXECUTED\n\nfm-tdd-split: head=7e84c33f28a3adbe8dbf39a5cfa858b834b4bb90 exit=0 command=for t; do bash \"$t\" || exit 1; done\n",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "document-claude-sonnet-5-5",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "",
+    "subject": "no-mistakes(document): adjust assertion",
+    "invocations": [
+      [
+        "document",
+        "housekeeping",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on claude-sonnet-5-5 in b61626a8c9c1: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "readonly-review",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "",
+    "subject": "no-mistakes(review): adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review",
+        "claude-sonnet-5-5"
+      ],
+      [
+        "review",
+        "review-fix",
+        "claude-opus-5-5"
+      ]
+    ],
+    "expected_exit": 0,
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at 15328df5dab106929b4c7ec474e9d4679e3481d3\n",
+    "stderr": "",
+    "mutation_output": "ASSERTION_EXECUTED\n\nfm-tdd-split: head=15328df5dab106929b4c7ec474e9d4679e3481d3 exit=0 command=for t; do bash \"$t\" || exit 1; done\n",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "quoted-global",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "global",
+    "config": "\"commit\":\n  \"fix_message\": \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 73175bd5b6a1: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "quoted-repo",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "repo",
+    "config": "\"commit\":\n  \"fix_message\": \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 6d9f1f3b75cf: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "quoted-round-global",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "round-global",
+    "config": "\"commit\":\n  \"fix_message\": \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 2d42fb27e6e5: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "quoted-round-repo",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "round-repo",
+    "config": "\"commit\":\n  \"fix_message\": \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 05a9aeab4da8: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "single-quoted",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "repo",
+    "config": "'commit':\n  'fix_message': 'repair[{{.Step}}] {{.Branch}}: {{.Summary}}'\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in b13fed5c013c: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "escaped-key",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "repo",
+    "config": "\"com\\u006dit\":\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in d92b27c1ccbb: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n",
+    "mutation_output": "",
+    "record_restored": null,
+    "pass": true
+  },
+  {
+    "name": "flow-root",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "repo",
+    "config": "{commit: {fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"}}\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at ff514a1f3d3cb5802cbdac7e7808170c3fa5dc0c\n",
+    "stderr": "",
+    "mutation_output": "ASSERTION_EXECUTED\n\nfm-tdd-split: head=ff514a1f3d3cb5802cbdac7e7808170c3fa5dc0c exit=0 command=for t; do bash \"$t\" || exit 1; done\n",
+    "record_restored": null,
+    "pass": false
+  },
+  {
+    "name": "indented-root",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh mutation local --timeout 10",
+    "configuration_source": "repo",
+    "config": "  commit:\n    fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\n",
+    "subject": "repair[review] fm/local: adjust assertion",
+    "invocations": [
+      [
+        "review",
+        "review-fix",
+        "claude-sonnet-5-5"
+      ]
+    ],
+    "expected_exit": 1,
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at 0ccb33cbfabeacb26be34a85116c40f92143940e\n",
+    "stderr": "",
+    "mutation_output": "ASSERTION_EXECUTED\n\nfm-tdd-split: head=0ccb33cbfabeacb26be34a85116c40f92143940e exit=0 command=for t; do bash \"$t\" || exit 1; done\n",
+    "record_restored": null,
+    "pass": false
+  },
+  {
+    "name": "rollback-False",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh dispute local",
+    "configuration_source": "global",
+    "config": "",
+    "subject": "worker: adjust assertion",
+    "invocations": [],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.phase-test/rollback-False/home\nREFUSED: task local has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again\n",
+    "mutation_output": "",
+    "record_restored": true,
+    "pass": true
+  },
+  {
+    "name": "rollback-True",
+    "candidate": "6033d2a3f11076882f14189698f7433a4479e106",
+    "command": "./bin/fm-tdd-split.sh dispute local",
+    "configuration_source": "global",
+    "config": "",
+    "subject": "worker: adjust assertion",
+    "invocations": [],
+    "expected_exit": 1,
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.phase-test/rollback-True/home\nREFUSED: task local has a missing, empty, or ambiguous window endpoint; preserving task state.\nerror: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again\n",
+    "mutation_output": "",
+    "record_restored": true,
+    "pass": true
+  }
+]

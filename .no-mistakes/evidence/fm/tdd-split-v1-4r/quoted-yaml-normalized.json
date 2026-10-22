@@ -1,0 +1,8 @@
+{
+  "equivalent": true,
+  "normalized": {
+    "commit": {
+      "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+    }
+  }
+}

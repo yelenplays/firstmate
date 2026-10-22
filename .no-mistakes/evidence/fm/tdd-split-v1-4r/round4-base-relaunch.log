@@ -1,0 +1,8 @@
+$ bash tests/fm-control-relaunch.test.sh --tdd-split
+Base: 0bcd790e7a3895afe8f71919f0cdcf50b3ff1237 with candidate regression scripts
+ok - fm-control relaunch: blocked Grok on tmux refuses and preserves work without typing
+ok - fm-control relaunch: a tests-first handoff onto a banned model records its commit
+ok - fm-tdd-split handoff: relaunches the red seat onto its locked implementer
+not ok - the recovered seat lost its tests-first section
+
+exit=1

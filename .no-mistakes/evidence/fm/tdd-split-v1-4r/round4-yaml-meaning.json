@@ -1,0 +1,106 @@
+{
+  "merged-commit-global": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *repair_style\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "nested-config-alias-global": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*repair_style]\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "merged-commit-repo": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *repair_style\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "nested-config-alias-repo": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*repair_style]\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "merged-commit-round-global": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *repair_style\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "nested-config-alias-round-global": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*repair_style]\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "merged-commit-round-repo": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: *repair_style\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  },
+  "nested-config-alias-round-repo": {
+    "input": "repair_style: &repair_style\n  fix_message: \"repair[{{.Step}}] {{.Branch}}: {{.Summary}}\"\ncommit:\n  <<: [*repair_style]\n",
+    "normalized": {
+      "repair_style": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      },
+      "commit": {
+        "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+      }
+    },
+    "consumer": "ruby -ryaml -rjson -e 'puts JSON.generate(YAML.load(STDIN.read))'",
+    "exit": 0
+  }
+}

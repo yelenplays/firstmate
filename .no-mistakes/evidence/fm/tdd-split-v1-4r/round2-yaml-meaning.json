@@ -1,0 +1,22 @@
+{
+  "repo-sonnet": {
+    "commit": {
+      "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+    }
+  },
+  "quoted-repo": {
+    "commit": {
+      "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+    }
+  },
+  "flow-root": {
+    "commit": {
+      "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+    }
+  },
+  "indented-root": {
+    "commit": {
+      "fix_message": "repair[{{.Step}}] {{.Branch}}: {{.Summary}}"
+    }
+  }
+}

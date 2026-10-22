@@ -1,0 +1,171 @@
+Candidate: 9f18d9c2759f7073e8c9f9463145dd15bf59f92b
+Production CLI transcripts (policy inputs are isolated real Git repositories and SQLite records; no harness/control executable was replaced).
+
+=== global-sonnet ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(review) on claude-sonnet-5-5 in 81bd0c5cdef8: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== recorded-opus ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=0
+stdout: tdd-split: local mutation gate passed at ad58388ef394f40de285b3a140771e634f3a9264
+
+stderr: 
+product mutation log: ASSERTION_EXECUTED
+
+fm-tdd-split: head=ad58388ef394f40de285b3a140771e634f3a9264 exit=0 command=for t; do bash "$t" || exit 1; done
+
+record restored: None
+
+=== worker-own ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=0
+stdout: tdd-split: local mutation gate passed at da2c8c24102ac27abd59c7faa0584eb06ed92b54
+
+stderr: 
+product mutation log: ASSERTION_EXECUTED
+
+fm-tdd-split: head=da2c8c24102ac27abd59c7faa0584eb06ed92b54 exit=0 command=for t; do bash "$t" || exit 1; done
+
+record restored: None
+
+=== stepless-all-authors ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 2e04687a19fc: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== dotted-default ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(gate.test.mutation-budget) on claude-sonnet-5-5 in e910df6acb45: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== housekeeping-claude-sonnet-5-5 ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on claude-sonnet-5-5 in 095a1c9a7036: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== readonly-review-excluded ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=0
+stdout: tdd-split: local mutation gate passed at 0b1770c42a25485fc8a7f5e32c3b93db8397d499
+
+stderr: 
+product mutation log: ASSERTION_EXECUTED
+
+fm-tdd-split: head=0b1770c42a25485fc8a7f5e32c3b93db8397d499 exit=0 command=for t; do bash "$t" || exit 1; done
+
+record restored: None
+
+=== overlap-recorded-stepless ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on claude-sonnet-5-5: pipeline fixer commits add or modify unauthorized test files (no-mistakes(*) on claude-sonnet-5-5 in 48ca2886c73f: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== merged-commit-global ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 9d5c63f6d0f9: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== unrelated-anchor-global ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=0
+stdout: tdd-split: local mutation gate passed at 239b48ef830025df457c2dfe54566334d3e2b519
+
+stderr: 
+product mutation log: ASSERTION_EXECUTED
+
+fm-tdd-split: head=239b48ef830025df457c2dfe54566334d3e2b519 exit=0 command=for t; do bash "$t" || exit 1; done
+
+record restored: None
+
+=== unreadable-global-sonnet ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in f4b2babcd7d2: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== unreadable-global-opus-own ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: error: no test authoring on an unmatched commit.fix_message template: pipeline fixer commits add or modify unauthorized test files (no-mistakes(?) on an unmatched commit.fix_message template in 1f309a5cb2ee: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again
+
+product mutation log: 
+record restored: None
+
+=== legacy-schema ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=0
+stdout: tdd-split: local mutation gate passed at ca279992104cdaf3c57ee361a332269b7d7892f2
+
+stderr: 
+product mutation log: ASSERTION_EXECUTED
+
+fm-tdd-split: head=ca279992104cdaf3c57ee361a332269b7d7892f2 exit=0 command=for t; do bash "$t" || exit 1; done
+
+record restored: None
+
+=== missing-db ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=0
+stdout: tdd-split: local mutation gate passed at e7e9875ff49788b6c9fdef4bd29706f3f4bd61d8
+
+stderr: 
+product mutation log: ASSERTION_EXECUTED
+
+fm-tdd-split: head=e7e9875ff49788b6c9fdef4bd29706f3f4bd61d8 exit=0 command=for t; do bash "$t" || exit 1; done
+
+record restored: None
+
+=== dispute-rollback-True ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh dispute local
+exit=1
+stdout: 
+stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.phase-test/dispute-rollback-True/home
+REFUSED: task local has a missing, empty, or ambiguous window endpoint; preserving task state.
+error: relaunch onto the test seat failed; the task stays on its implementer and the dispute can be run again
+
+product mutation log: 
+record restored: True
+
+=== mutation-rollback-True ===
+$ FM_HOME=<marked local lab> NM_HOME=<local policy database> bin/fm-tdd-split.sh mutation local --timeout 10
+exit=1
+stdout: 
+stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.phase-test/mutation-rollback-True/home
+REFUSED: task local has a missing, empty, or ambiguous window endpoint; preserving task state.
+error: relaunch onto the test seat failed; the task stays on its implementer and the mutation can be run again
+
+product mutation log: MUTANT_SURVIVED
+
+fm-tdd-split: head=3edb894087c4e9f717a8e5f8f7c2a9683ae16a0d exit=1 command=echo MUTANT_SURVIVED; exit 1
+
+record restored: True

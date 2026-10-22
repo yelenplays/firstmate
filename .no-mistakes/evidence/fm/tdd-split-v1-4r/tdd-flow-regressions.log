@@ -1,0 +1,11 @@
+ok - the brief declares exactly one fail-to-pass command
+ok - the brief declares at most one mutation command
+ok - the test seat may only report committed tests as tests-ready
+ok - handoff proves the tests red on the base and relaunches onto the implementer
+ok - handoff refuses a run that is green, cannot run, or times out
+ok - handoff refuses a seat that is not ready to hand over
+ok - an accepted dispute sends the task back to the seat, which then hands over again
+ok - a dispute is refused off the implementer, over uncommitted work, or after a test edit
+ok - the mutation gate passes, sends surviving mutants back to the seat, and refuses a run that proves nothing
+ok - the mutation gate refuses, rather than runs without tests, when the branch's base cannot be read
+all fm-tdd-split tests passed

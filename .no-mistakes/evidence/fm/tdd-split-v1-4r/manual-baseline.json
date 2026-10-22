@@ -1,0 +1,16 @@
+[
+  {
+    "name": "global-sonnet",
+    "base": "0bcd790e7a3895afe8f71919f0cdcf50b3ff1237",
+    "exit": 0,
+    "stdout": "tdd-split: local mutation gate passed at 337a313489c532822ab351c5ae783b3d1252d385\n",
+    "stderr": ""
+  },
+  {
+    "name": "document-opus",
+    "base": "0bcd790e7a3895afe8f71919f0cdcf50b3ff1237",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: no test authoring on an unrecorded model: pipeline fixer commits add or modify unauthorized test files (no-mistakes(document) on an unrecorded model in 534627315d73: tests/feature.test.sh); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again\n"
+  }
+]

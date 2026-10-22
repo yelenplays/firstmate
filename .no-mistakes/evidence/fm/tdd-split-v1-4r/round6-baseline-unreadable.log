@@ -1,0 +1,2 @@
+not ok - an unreadable global configuration let the repair test commit register: 0
+cat: /Users/yelen/.no-mistakes/worktrees/548b8aa73bec/01M5GKBK7PVAYVBDDQ69A2EV0M/.phase-tmp/fm-pr-check-security.xQm7Dn/tmpl-unreadable-repair/nm-home/config.yaml: Permission denied
