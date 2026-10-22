@@ -1001,28 +1001,40 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
   done
 }
 
-# Pipeline-fixer contract: the forced pre-PR check inspects non-merge commits
-# since the base named `no-mistakes(<step>): ...`, independently of the worker's
-# lane. Their added or modified test files are accepted only when the step's
-# author is positively recorded as allowlisted: every successful writing
-# invocation of <step> across runs on the task's branch of the task's
-# repository in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite (<step>-fix, and
-# <step> itself except for the read-only review) names a model that matches
-# FM_TEST_AUTHOR_MODEL_PATTERNS. Every other case refuses, naming the first such
-# model or `an unrecorded model`: a banned or empty model, `default`, no recorded
-# invocation, or sqlite3 or the database unavailable. The repository is the
-# meta's project=, matched exactly against the registered repos.working_path, so
-# another project's run on the same branch name neither authorizes nor refuses;
-# a task with no registered project has no record. Runs are not bound to a head
-# SHA, because the pipeline's own rebase rewrites the head that authored each
-# commit. The no-mistakes config is never consulted, because native overrides
-# there can select any model.
-# Attribution is step-wide, not per commit. Captain-authorized paths and paths
-# restored at the checked head to their state before that commit are exempt;
-# deletions alone are not checked here. If the worker copy, checked head, origin
-# base, or merge-base cannot be read, this check accepts without output: no
-# pipeline commit can then be seen. The banned-worker check still refuses
-# unreadable history before this check runs.
+# Pipeline-fixer contract: the forced pre-PR check attributes commits to the
+# no-mistakes pipeline only from its recorded runs, never from commit messages
+# or configured templates, independently of the worker's lane. A run on the
+# task's branch of the task's repository - the meta's project=, matched exactly
+# against the registered repos.working_path, so another project's run on the
+# same branch name neither authorizes nor refuses - recorded in
+# ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite authored the commits its pipeline
+# head (head_sha) adds over its submitted head (submitted_head_sha). Commits are
+# compared by stable patch-id, binary content included: a commit the run only
+# replays from its submitted head keeps its earlier attribution, and every
+# commit the run adds also inherits the attribution of submitted commits it no
+# longer carries unchanged, so a rebase that rewrites a pipeline commit cannot
+# launder it. A run's authors are the models of all its recorded agent
+# invocations, failed ones included, except review turns other than
+# review-fix, because the review turn itself is read-only; a run with none
+# records `an unrecorded model`. A run's commits are read from the worker copy,
+# or from the gate repository ${NM_HOME:-$HOME/.no-mistakes}/repos/<repo-id>.git
+# when the copy lacks them. Model attribution comes only from recorded
+# invocations, never from configured models, because native overrides can
+# select any model.
+# A non-merge commit since the base that adds or modifies a test file, still
+# changed at the checked head and not captain-authorized, refuses when any
+# author attributed to it is not positively allowlisted (a banned or empty
+# model, `default`, or `an unrecorded model`), naming the first such author and
+# its step. No state database means no pipeline has run, so nothing is
+# attributed. When the pipeline history cannot be read - no branch= or
+# project=, sqlite3 unavailable, the database unreadable or failing, or a run
+# with a non-allowlisted author whose commits neither copy holds - every such test
+# commit no readable run attributes refuses as `unreadable no-mistakes history`,
+# even an allowlisted worker's own commit. Deletions alone are not checked
+# here. If the worker copy, checked head, origin base, or merge-base cannot be
+# read, this check accepts without output: no pipeline commit can then be seen.
+# The banned-worker check still refuses unreadable history before this check
+# runs.
 # tests/fm-dod-lib.test.sh and tests/fm-pr-check-security.test.sh pin attribution,
 # unreadable-history handling, and pre-PR enforcement.
 
@@ -1034,66 +1046,122 @@ fm_test_ban_model_allowlisted() {  # <model>
   [ -n "$model" ] && [ "$model" != default ] && ! fm_test_ban_model_applies "$model"
 }
 
-# Prints the models recorded for <step> on <branch> of the repository
-# registered at <repo-path> under the pipeline-fixer contract above, `-` for an
-# invocation with no model; these are not attributed to individual commits.
-# Prints nothing when none is readable.
-fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
-  local step=$1 branch=${2:-} repo=${3:-} db
+# Prints the recorded pipeline history of <branch> of the repository
+# registered at <repo-path> under the pipeline-fixer contract above, tab
+# separated: `run <run-id> <repo-id> <submitted-head> <head>` per run in
+# creation order, then `inv <run-id> <step> <model>` per authoring invocation,
+# `-` for one with no model. Prints nothing when no state database exists,
+# because no pipeline has then run. 1 when the history cannot be read.
+fm_test_ban_nm_history() {  # <branch> <repo-path>
+  local branch=$1 repo=$2 db
   db="${NM_HOME:-$HOME/.no-mistakes}/state.sqlite"
-  case "$step$branch$repo" in *"'"*) return 0 ;; esac
-  [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 0
-  fm_run_timed 10 sqlite3 -readonly "$db" \
-    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
-    2>/dev/null || true
+  [ -e "$db" ] || return 0
+  case "$branch$repo" in *"'"*) return 1 ;; esac
+  [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 1
+  fm_test_ban_nm_query "$db" \
+    "select 'run', r.id, r.repo_id, coalesce(r.submitted_head_sha, ''), coalesce(r.head_sha, '') from runs r join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' order by r.created_at, r.id;
+     select 'inv', i.run_id, i.step_name, coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' and (i.step_name <> 'review' or i.purpose = 'review-fix');" \
+    2>/dev/null
 }
 
-# Prints `an unrecorded model` when <step> on <branch> of <repo-path> has no
-# recorded writing invocation, the first recorded model that is not an
-# allowlisted test author, or nothing when every recorded model is one.
-fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
-  local models model
-  models=$(fm_test_ban_nm_step_models "$1" "${2:-}" "${3:-}")
-  if [ -z "$models" ]; then
-    printf '%s\n' 'an unrecorded model'
-    return 0
-  fi
-  while IFS= read -r model; do
-    fm_test_ban_model_allowlisted "$model" && continue
-    [ "$model" != - ] || model='an unrecorded model'
-    printf '%s\n' "$model"
-    return 0
-  done <<<"$models"
+# Runs <sql> read-only against the no-mistakes state database <db>, printing
+# tab-separated rows. A WAL database whose daemon is stopped has no -shm file,
+# which a plain read-only open cannot create; with no -wal file either, the
+# main file holds every committed row, so it is then opened immutable.
+fm_test_ban_nm_query() {  # <db> <sql>
+  local db=$1 uri
+  fm_run_timed 10 sqlite3 -readonly -separator "$(printf '\t')" "$db" "$2" 2>/dev/null && return 0
+  [ ! -e "$db-wal" ] || return 1
+  uri=${db//%/%25}
+  uri=${uri//\?/%3f}
+  uri=${uri//#/%23}
+  fm_run_timed 10 sqlite3 -readonly -separator "$(printf '\t')" "file:$uri?immutable=1" "$2" 2>/dev/null &&
+    [ ! -e "$db-wal" ]
 }
 
-# Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
+# Prints `<patch-id> <sha>` for each non-merge commit `git log <range>` lists
+# in the repository at <path>, binary content included.
+fm_test_ban_patch_ids() {  # <path> <range>
+  git -C "$1" log -p --binary --no-merges --no-renames --no-ext-diff --no-color --format='commit %H' "$2" 2>/dev/null \
+    | git -C "$1" patch-id --stable 2>/dev/null
+}
+
+# Prints `<sha>\t<step>\t<author>\t<path>` for each test file refused under the
 # pipeline-fixer contract above, including its unreadable-history policy, in
 # the commits up to <head> (default the worker copy's HEAD).
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
-  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author authored path
+  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha path tests='' nm history unreadable=
+  local kind id repo_id submitted pipeline at candidate authors left right table='' pid attributed step model author
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
   git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
   base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
   mb=$(git -C "$wt" merge-base "$base_ref" "$head" 2>/dev/null) || return 0
-  while IFS=$'\t' read -r sha subject; do
-    case "$subject" in no-mistakes\(*\):*) ;; *) continue ;; esac
-    step=${subject#no-mistakes(}
-    step=${step%%)*}
-    case "$step" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
-    authored=
+  while IFS= read -r sha; do
     while IFS= read -r path; do
       fm_test_ban_path_is_test "$path" || continue
       fm_test_ban_path_allowed "$path" "$meta" && continue
       git -C "$wt" diff --quiet "$sha^" "$head" -- "$path" && continue
-      if [ -z "$authored" ]; then
-        authored=1
-        author=$(fm_test_ban_nm_step_author_refusal "$step" "$(fm_dod_meta_value "$meta" branch)" \
-          "$(fm_dod_meta_value "$meta" project)")
-      fi
-      [ -n "$author" ] || break
-      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+      tests+="$sha"$'\t'"$path"$'\n'
     done < <(git -C "$wt" diff-tree --no-commit-id --no-renames --name-only --diff-filter=ACMR -r "$sha" 2>/dev/null)
-  done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..$head" 2>/dev/null)
+  done < <(git -C "$wt" log --no-merges --format=%H "$mb..$head" 2>/dev/null)
+  [ -n "$tests" ] || return 0
+  nm=${NM_HOME:-$HOME/.no-mistakes}
+  # The table maps each patch-id a run added to its authors: `<patch-id>\t<step>\t<model>`.
+  if history=$(fm_test_ban_nm_history "$(fm_dod_meta_value "$meta" branch)" "$(fm_dod_meta_value "$meta" project)"); then
+    while IFS=$'\t' read -r kind id repo_id submitted pipeline; do
+      [ "$kind" = run ] || continue
+      authors=$(printf '%s\n' "$history" | awk -F'\t' -v id="$id" '$1 == "inv" && $2 == id { print $3 "\t" $4 }')
+      [ -n "$authors" ] || authors=$'*\t-'
+      at=
+      for candidate in "$wt" "$nm/repos/$repo_id.git"; do
+        [ -n "$submitted" ] && [ -n "$pipeline" ] || break
+        if git -C "$candidate" cat-file -e "$submitted^{commit}" 2>/dev/null &&
+          git -C "$candidate" cat-file -e "$pipeline^{commit}" 2>/dev/null; then
+          at=$candidate
+          break
+        fi
+      done
+      if [ -z "$at" ]; then
+        while IFS=$'\t' read -r step model; do
+          fm_test_ban_model_allowlisted "$model" || unreadable=1
+        done <<<"$authors"
+        continue
+      fi
+      left=$(fm_test_ban_patch_ids "$at" "$pipeline..$submitted" | cut -d' ' -f1)
+      right=$(fm_test_ban_patch_ids "$at" "$submitted..$pipeline" | cut -d' ' -f1)
+      # Submitted commits the run no longer carries pass their authors on.
+      authors=$(printf '%s\n' "$authors" "$(printf '%s\n' "$right" '--' "$left" '--' "$table" | awk -F'\t' '
+        $0 == "--" { part++; next }
+        part == 0 { kept[$0] = 1; next }
+        part == 1 { if (!($0 in kept)) dropped[$0] = 1; next }
+        $1 in dropped { print $2 "\t" $3 }')" | sed '/^$/d' | sort -u)
+      table+=$(printf '%s\n' "$authors" '--' "$left" '--' "$right" | awk '
+        $0 == "--" { part++; next }
+        part == 0 { who[++n] = $0; next }
+        part == 1 { carried[$0] = 1; next }
+        $0 != "" && !($0 in carried) && !($0 in added) { added[$0] = 1; for (i = 1; i <= n; i++) print $0 "\t" who[i] }')$'\n'
+    done <<<"$history"
+  else
+    unreadable=1
+  fi
+  printf '%s' "$tests" | while IFS=$'\t' read -r sha path; do
+    pid=$(fm_test_ban_patch_ids "$wt" "$sha^!" | cut -d' ' -f1)
+    attributed=$(printf '%s\n' "$table" | awk -F'\t' -v pid="$pid" 'pid != "" && $1 == pid { print $2 "\t" $3 }')
+    author=
+    while IFS=$'\t' read -r step model; do
+      [ -n "$step" ] || continue
+      fm_test_ban_model_allowlisted "$model" && continue
+      author=$model
+      [ "$model" != - ] || author='an unrecorded model'
+      break
+    done <<<"$attributed"
+    if [ -z "$attributed" ] && [ -n "$unreadable" ]; then
+      step='?'
+      author='unreadable no-mistakes history'
+    fi
+    [ -n "$author" ] || continue
+    printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+  done
 }
 
 # 0 when this done: is one the test-authoring gate must check: a ship done: from

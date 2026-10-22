@@ -13,6 +13,8 @@ set -u
 . "$ROOT/bin/fm-dod-lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-tdd-split)
+# The no-mistakes history the test-authoring gate reads stays inside the fixture.
+export NM_HOME="$TMP_ROOT/nm-home"
 fm_git_identity fmtest fmtest@example.invalid
 
 RED_COMMAND='for t; do bash "$t" || exit 1; done'

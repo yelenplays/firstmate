@@ -67,8 +67,11 @@
 #   keeps tdd_split=tests plus the implementer as tdd_split_impl_harness=,
 #   tdd_split_impl_model=, and tdd_split_impl_effort=. The brief must declare
 #   one `Fail-to-pass command:`. It is refused on scout, secondmate, relaunch,
-#   and batch spawns. bin/fm-tdd-split-lib.sh owns the profile and
-#   bin/fm-tdd-split.sh its handoff to the implementer.
+#   and batch spawns. A relaunch of a record on tdd_split=tests onto a model
+#   that may author tests is the seat again and gets the same section; a
+#   relaunch onto a banned model is the handoff to the implementer and does
+#   not. bin/fm-tdd-split-lib.sh owns the profile and bin/fm-tdd-split.sh its
+#   handoff to the implementer.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
@@ -1923,6 +1926,7 @@ fm_task_id_creation_valid "$ID" || {
 # tdd-split (see header): the requested profile is the implementer, recorded for
 # bin/fm-tdd-split.sh's handoff; this launch is the test seat.
 TDD_SPLIT_COMMAND=
+TDD_SPLIT_SEAT_COMMAND=
 if [ "$TDD_SPLIT" -eq 1 ]; then
   if [ "$KIND" != ship ] || [ "$RELAUNCH" -eq 1 ]; then
     echo "error: --tdd-split applies only to a fresh ship spawn" >&2
@@ -1940,6 +1944,7 @@ if [ "$TDD_SPLIT" -eq 1 ]; then
     echo "error: --tdd-split needs $DATA/$ID/brief.md to declare exactly one $FM_TDD_SPLIT_CHECK_LABEL \`<command>\` line" >&2
     exit 1
   }
+  TDD_SPLIT_SEAT_COMMAND=$TDD_SPLIT_COMMAND
   TDD_SPLIT_IMPL_HARNESS=$HARNESS_ARG
   TDD_SPLIT_IMPL_MODEL=$MODEL
   TDD_SPLIT_IMPL_EFFORT=$EFFORT
@@ -3864,6 +3869,13 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       echo "error: cannot read the worker copy's HEAD in $RELAUNCH_WT to record the tests-first handoff commit" >&2
       exit 1
     fi
+  elif [ "$RELAUNCH" -eq 1 ] && [ "$KIND" = ship ] && [ "$(fm_meta_get "$RELAUNCH_META" tdd_split)" = tests ]; then
+    # A tdd-split seat relaunched onto a test author stays the seat.
+    TDD_SPLIT_SEAT_COMMAND=$(fm_tdd_split_check_command "$DATA/$ID/brief.md") || {
+      echo "error: tdd-split seat $ID needs $DATA/$ID/brief.md to declare exactly one $FM_TDD_SPLIT_CHECK_LABEL \`<command>\` line" >&2
+      exit 1
+    }
+    TDD_SPLIT_IMPL_MODEL=$(fm_meta_get "$RELAUNCH_META" tdd_split_impl_model)
   fi
   # Use the existing launch-brief overlay for every worker kind, including
   # pre-scope briefs and relaunches. Charters never enter this worker path.
@@ -3881,8 +3893,8 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
         fm_brief_intent_overlay "$CAPTAIN_INTENT"
       fi &&
-      if [ -n "$TDD_SPLIT_COMMAND" ]; then
-        fm_tdd_split_seat_overlay "$TDD_SPLIT_COMMAND" "$TDD_SPLIT_IMPL_MODEL"
+      if [ -n "$TDD_SPLIT_SEAT_COMMAND" ]; then
+        fm_tdd_split_seat_overlay "$TDD_SPLIT_SEAT_COMMAND" "$TDD_SPLIT_IMPL_MODEL"
       fi
   } >"$BRIEF_TMP" || {
     rm -f -- "$BRIEF_TMP"

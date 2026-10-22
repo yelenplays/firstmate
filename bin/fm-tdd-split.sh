@@ -40,9 +40,12 @@
 #   Accepts the implementer's `blocked [key=test-dispute]: <test>: <reason>`
 #   and sends the task back to the test seat. Refused unless the record shows
 #   tdd_split=implement, that key is open as blocked, the worker copy is clean,
-#   and fm-dod-lib.sh's test-authoring gate accepts the implementer. It relaunches the seat
-#   (FM_TDD_SPLIT_SEAT_*) with the dispute in its note, records tdd_split=tests
-#   and tdd_split_dispute_head=<implementer HEAD>, and closes the key with a
+#   and fm-dod-lib.sh's test-authoring gate accepts the implementer. It records
+#   tdd_split=tests and tdd_split_dispute_head=<implementer HEAD> before
+#   relaunching the seat (FM_TDD_SPLIT_SEAT_*) with the dispute in its note;
+#   bin/fm-spawn.sh's header owns the relaunched seat's launch section.
+#   A failed relaunch restores the previous phase and dispute head, or refuses
+#   naming a restoration failure. A successful relaunch closes the key with a
 #   `resolved [key=test-dispute]` line. Firstmate answers a dispute it rejects
 #   with bin/fm-send.sh --resolve-key test-dispute instead.
 #
@@ -167,15 +170,20 @@ implementer_tests_untouched() {
 }
 
 # Sends the implementer's task back to the test seat at <head> because of
-# <reason>, recording tdd_split=tests and tdd_split_dispute_head=<head>.
+# <reason>, under the header's dispute-return contract.
 route_to_seat() {  # <head> <reason>
-  local head=$1 note
+  local head=$1 note restore
+  restore=$(grep -e '^tdd_split=' -e '^tdd_split_dispute_head=' "$META")
   note="tdd-split: this task is back on its test seat because $2. From $head change test files only: fix or strengthen the tests so they pin the brief's required behavior, and leave every other file as it is. Firstmate reruns \`$COMMAND\` from a clean clone of the base with the test files the branch changes, checked out from your HEAD, as its arguments, and hands over only when that run fails. Commit, report \`done: $FM_TDD_SPLIT_READY_VERB <sha>\` naming your HEAD, and stop; do not run no-mistakes, push, or open a PR. If the tests are right as they are, report \`done: $FM_TDD_SPLIT_READY_VERB <sha>\` without changing them."
-  "$FM_CONTROL_BIN" "$ID" relaunch --harness "$FM_TDD_SPLIT_SEAT_HARNESS" --model "$FM_TDD_SPLIT_SEAT_MODEL" \
-    --effort "$FM_TDD_SPLIT_SEAT_EFFORT" --note "$note" \
-    || die "relaunch onto the test seat failed; the task stays on its implementer and the $CMD can be run again"
   meta_rewrite tdd_split tdd_split_dispute_head -- tdd_split=tests "tdd_split_dispute_head=$head" \
-    || die "relaunched onto the test seat but could not record tdd_split=tests in $META"
+    || die "cannot record tdd_split=tests in $META; the task stays on its implementer"
+  if ! "$FM_CONTROL_BIN" "$ID" relaunch --harness "$FM_TDD_SPLIT_SEAT_HARNESS" --model "$FM_TDD_SPLIT_SEAT_MODEL" \
+    --effort "$FM_TDD_SPLIT_SEAT_EFFORT" --note "$note"; then
+    # shellcheck disable=SC2086 # one record line per word; record values hold no spaces.
+    meta_rewrite tdd_split tdd_split_dispute_head -- $restore \
+      || die "relaunch onto the test seat failed and $META could not be restored to tdd_split=implement"
+    die "relaunch onto the test seat failed; the task stays on its implementer and the $CMD can be run again"
+  fi
 }
 
 require_implementer() {
