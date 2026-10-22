@@ -1011,8 +1011,8 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
 # {{.Step}} attributes its commits to every step, and one this check cannot
 # read or match makes every test-changing commit it does not otherwise
 # recognize refuse as `an unmatched commit.fix_message template`.
-# Their added or modified test files are accepted only when the step's
-# author is positively recorded as allowlisted: every successful invocation of
+# Their added or modified test files are accepted only when every matching
+# step's author is positively recorded as allowlisted: every successful invocation of
 # <step> across runs on the task's branch of the task's repository in
 # ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite, including the combined
 # document/lint housekeeping pass but on review only its review-fix, because
@@ -1186,7 +1186,7 @@ fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
 # the commits up to <head> (default the worker copy's HEAD).
 fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
   local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author path paths templates='' loaded=''
-  local template has ere unmatched branch project
+  local template has ere unmatched branch project steps
   [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
   git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
   base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
@@ -1209,35 +1209,36 @@ fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
         step=${step%%)*}
         case "$step" in ''|*[!A-Za-z0-9._-]*) step= ;; esac ;;
     esac
-    if [ -z "$step" ]; then
-      if [ -z "$loaded" ]; then
-        templates=$(fm_test_ban_nm_fix_messages "$wt" "$head" "$branch" "$project")
-        loaded=1
-      fi
-      unmatched=
-      while IFS= read -r template; do
-        [ -n "$template" ] || continue
-        if ! IFS=$'\t' read -r has ere < <(fm_test_ban_fix_message_ere "$template"); then
-          unmatched=1
-          continue
-        fi
-        [[ "$subject" =~ ^$ere$ ]] || continue
-        if [ "$has" = 1 ]; then step=${BASH_REMATCH[1]}; else step='*'; fi
-        break
-      done <<<"$templates"
-      if [ -z "$step" ]; then
-        [ -n "$unmatched" ] || continue
-        step='?'
-      fi
+    steps=()
+    [ -z "$step" ] || steps+=("$step")
+    if [ -z "$loaded" ]; then
+      templates=$(fm_test_ban_nm_fix_messages "$wt" "$head" "$branch" "$project")
+      loaded=1
     fi
-    if [ "$step" = '?' ]; then
-      author='an unmatched commit.fix_message template'
-    else
-      author=$(fm_test_ban_nm_step_author_refusal "$step" "$branch" "$project")
+    unmatched=
+    while IFS= read -r template; do
+      [ -n "$template" ] || continue
+      if ! IFS=$'\t' read -r has ere < <(fm_test_ban_fix_message_ere "$template"); then
+        unmatched=1
+        continue
+      fi
+      [[ "$subject" =~ ^$ere$ ]] || continue
+      if [ "$has" = 1 ]; then steps+=("${BASH_REMATCH[1]}"); else steps+=('*'); fi
+    done <<<"$templates"
+    if [ "${#steps[@]}" -eq 0 ]; then
+      [ -n "$unmatched" ] || continue
+      steps=('?')
     fi
-    [ -n "$author" ] || continue
-    for path in "${paths[@]}"; do
-      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+    for step in "${steps[@]}"; do
+      if [ "$step" = '?' ]; then
+        author='an unmatched commit.fix_message template'
+      else
+        author=$(fm_test_ban_nm_step_author_refusal "$step" "$branch" "$project")
+      fi
+      [ -n "$author" ] || continue
+      for path in "${paths[@]}"; do
+        printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+      done
     done
   done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..$head" 2>/dev/null)
 }
