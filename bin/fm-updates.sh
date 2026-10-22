@@ -26,6 +26,8 @@
 # Output of `scan`, one line per task, nothing when all is clear:
 #   unreported <task> <kind>: <title>
 #   cleanup-due <task>: <reason>
+# "unreported" means no bridge post yet; a bridge post is never the captain
+# report, so a cleanup-due line still asks for the chat report first.
 # Output of `tick`: "posted <task> <kind>", "posted digest", or
 # "failed <task|digest> <kind>: <reason>" lines; silent when nothing was owed.
 # `settle` exits 0 when nothing is owed or the post landed, 1 when the post
@@ -277,8 +279,8 @@ action_scan() {
       printf 'unreported %s %s: %s\n' "$id" "$O_KIND" "$O_TITLE"
     elif [ "$O_FINAL" -eq 1 ]; then
       case "$O_KIND" in
-        merged) printf 'cleanup-due %s: merged and reported; run bin/fm-teardown.sh %s\n' "$id" "$id" ;;
-        *) printf 'cleanup-due %s: finished and reported; run bin/fm-teardown.sh %s\n' "$id" "$id" ;;
+        merged) printf 'cleanup-due %s: merged; tell the captain in chat if not yet, then run bin/fm-teardown.sh %s\n' "$id" "$id" ;;
+        *) printf 'cleanup-due %s: finished; tell the captain in chat if not yet, then run bin/fm-teardown.sh %s\n' "$id" "$id" ;;
       esac
     fi
   done <<EOF

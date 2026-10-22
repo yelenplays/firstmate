@@ -2494,7 +2494,7 @@ A fail-closed poll that already queued a wake, and a timeout, always print so th
 ## Slack bridge (config/slack-bridge)
 
 The Slack bridge (`bin/fm-slack-bridge.sh`) lets the captain follow and answer this home from Slack.
-Out, firstmate posts short captain-facing outcomes and approval asks; **Posting** below owns their channel routing.
+With outbound posting enabled, firstmate posts short captain-facing outcomes and approval asks; **Posting** below owns their channel routing.
 In, the captain's reply in the thread of a bridge post reaches firstmate as a captain inbox note, so replying `merge` in Slack works like typing it.
 With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate": firstmate posts as the bot, the captain can also DM the bot or tag it in the report or decisions channel, and firstmate's answers go back into the same DM or thread.
 
@@ -2503,6 +2503,10 @@ With an optional bot, the home has its own Slack app, such as "Yelen's Firstmate
 The bridge is off while `config/slack-bridge` is absent: `post` prints one `slack bridge off` line and exits 0, and `check` stays silent.
 Without `bot-keychain-service`, it uses `slack-axi` and whichever account `slack-axi` is logged in as, with no Slack app, scope, or token of its own, and it never reads a token.
 With `bot-keychain-service`, `bin/fm-slack-bot.mjs` posts and reads as the home's bot through the Slack Web API, with the bot token read from the macOS Keychain item of that service name; [Slack bot setup](slack-bot.md) is the end-to-end setup path, including the app manifest.
+Set `outbound=off` to stop outcome broadcasts while retaining inbound messages: `post` prints one `slack outbound off` line and exits 0, and `check` still reads captain thread replies, bot DMs, mentions, and handoff requests but posts no missed outcome or digest.
+`bin/fm-updates.sh` then treats outbound posting as disabled: `tick` and `settle` do not post, and cleanup does not wait for a Slack post.
+Bot replies to incoming captain messages and explicit manual setup tests remain enabled under **Replying** below.
+A Slack post never counts as the report to the captain: Firstmate always reports in the captain chat, and a bridge post is an optional extra copy when outbound is on.
 Either way the bridge never prints, stores, or logs a token.
 Each home brings its own `slack-axi` login or bot and its own config, so another person's firstmate runs the same bridge against their own account or bot and channels.
 
@@ -2517,6 +2521,8 @@ decisions-channel=#fm-decisions
 # optional; outcomes and ask pointers; absent uses report-channel for outcomes
 # and disables automatic morning digests
 updates-channel=#updates
+# optional, on or off, default on; see Activation and accounts for scope
+outbound=off
 # optional, en or de, default en; fixed words and plain-word rewrites, not translation
 language=de
 # optional, 0..23, default 8; the local hour after which the morning digest posts
@@ -2556,7 +2562,7 @@ With a bot configured, `bin/fm-slack-bot.mjs` reads author ids from the Slack We
 
 **Posting**
 
-Firstmate posts one item per message in the structured form:
+When outbound posting is enabled, Firstmate posts one item per message in the structured form:
 
 ```sh
 bin/fm-slack-bridge.sh post decision --project "Gmail Swipe" \
@@ -2583,7 +2589,7 @@ A structured `decision` with options must include `--recommend <key>` naming one
 With a bot the post is Block Kit with a plain-text fallback; through `slack-axi` it is that fallback, Slack formatting with the same layout.
 Answers stay thread replies, DMs, and mentions; there are no buttons, because the bot has no Socket Mode connection or public request URL.
 The free-text form still works for older callers; [`bin/fm-slack-bridge.sh`](../bin/fm-slack-bridge.sh)'s header and help own posting syntax and outcome-record mechanics.
-Use `--task <id>` for task outcomes so the backstop recognizes Firstmate's own report.
+Use `--task <id>` for task outcomes so the backstop recognizes Firstmate's own Slack post.
 For asks, `posted` stays false until both the original and any required updates pointer landed; retrying the same task-bound post sends only the missing destination.
 Every post is sent as a `slack-axi` draft it then sends or as the bot, and its channel id and message ts are recorded in `state/slack-bridge/posts`.
 Every post is top-level; without a bot that also keeps the bridge out of threads, because the logged-in account's thread replies are what counts as captain input.
@@ -2608,13 +2614,14 @@ An auto-merge task done with a PR is checked through one bounded `gh` call once 
 An unreadable PR state also falls back to that stale bound.
 Bridge polls attempt outcomes still owed 15 minutes after their event (`FM_UPDATES_GRACE`, default 900 seconds), so Firstmate's own task-bound post goes first and the poll is only the backstop.
 Local outcomes are attempted before PR lookups; deferred lookups rotate across polls, with remaining work retried as the poll budget permits.
-Ordinary task cleanup posts its owed outcome before staging a replayable close receipt and retains the task records when posting fails; secondmate retirement and explicitly approved discard with `--force` skip this step.
+When outbound posting is enabled, ordinary task cleanup posts its owed outcome before staging a replayable close receipt and retains the task records when posting fails; secondmate retirement and explicitly approved discard with `--force` skip this step.
 The backstop never bypasses landed-work, approval, or scout-completion guards.
-Every wake drain lists, under REPORT AND CLOSE, each outcome still unreported after its grace period and each reported final result awaiting cleanup, until its record is gone.
-Tasks reported as `ready` or `stuck` need approval or recovery rather than immediate cleanup.
-Without the bridge, chat is the report, so final results are listed for cleanup at once.
+Every wake drain lists, under REPORT AND CLOSE, each outcome not yet posted after its grace period when outbound posting is enabled, and each final result eligible for cleanup, until its record is gone.
+A cleanup-due line asks Firstmate to tell the captain in chat first, following the reporting rule under **Activation and accounts**.
+Tasks classified as `ready` or `stuck` need approval or recovery rather than immediate cleanup.
+Without outbound posting, final results are listed for cleanup at once.
 
-With `updates-channel` configured and polling active, the morning digest posts once a local day within four hours after `digest-hour`, before midnight; a missed window is skipped.
+With outbound posting enabled, `updates-channel` configured, and polling active, the morning digest posts once a local day within four hours after `digest-hour`, before midnight; a missed window is skipped.
 It shows what needs the captain (captain-held calls and approvals derived from task state), finished/merged/live posts recorded in the last 24 hours, and workers whose last status verb is `working` (never `done` or `failed`), plus the optional `board-url` link, in at most five lines.
 Secondmates are excluded from worker counts; their own homes report.
 `bin/fm-updates.sh digest --print` shows it without posting.
@@ -2629,7 +2636,7 @@ By default, the bridge follows the global `FM_CHECK_INTERVAL` slow-check cadence
 Optional `poll-seconds` gives this check its own cadence from 10 to 3600 seconds without changing merge-poll or other check schedules.
 The bridge records that setting in `state/slack-bridge.check-every`.
 Invalid or duplicate values are refused.
-Each poll also runs the report-then-close backstop and the morning digest above in the time left under `FM_CHECK_TIMEOUT`.
+With outbound posting enabled, each poll also runs the report-then-close backstop and the morning digest above in the time left under `FM_CHECK_TIMEOUT`.
 Each poll delivers every new accepted message exactly once through `bin/fm-inbox.sh note --request-id slack-<channel>-<ts>` with source `slack-captain` (thread replies, bot DMs, and bot mentions) or `slack-request`, which writes the durable note and its single `check` wake.
 A repeated poll, or one that lost its local delivered record, replays that request id instead of adding a note or wake.
 Bot DM history is paged to completion before its cursor advances; a failed read or delivery leaves the cursor in place so unread messages are retried.
@@ -2641,7 +2648,7 @@ A quiet poll prints nothing.
 
 The bridge reads each post's thread for replies only during the configured `watch-days` window (default 7 days, maximum 30 days).
 A reply after that window is not delivered.
-If an ask is still open after the window, repost it as a new structured message with `bin/fm-slack-bridge.sh post <kind> --title "<line>"`.
+If outbound posting is enabled and an ask is still open after the window, repost it as a new structured message with `bin/fm-slack-bridge.sh post <kind> --title "<line>"`.
 For decisions with options, include each `--option <key>=<text>` and `--recommend <key>`.
 Replies arrive within one poll interval while supervision is running.
 Set `poll-seconds=60` for the bridge's minute-or-two reply time.
