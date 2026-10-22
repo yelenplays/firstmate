@@ -295,6 +295,30 @@ write_task_meta() {
     "mode=no-mistakes"
 }
 
+# Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
+# each given as <branch>|<step>|<purpose>|<model>[|<repo-path>], on the
+# repository registered at <repo-path> unless the invocation names another.
+# 1 when sqlite3 is absent.
+record_nm_invocations() {  # <nm-home> <repo-path> <invocation>...
+  local nm=$1 repo=$2 inv branch step purpose model at n=0 sql=
+  command -v sqlite3 >/dev/null 2>&1 || return 1
+  mkdir -p "$nm"
+  shift 2
+  for inv in "$@"; do
+    IFS='|' read -r branch step purpose model at <<<"$inv"
+    at=${at:-$repo}
+    n=$((n + 1))
+    sql="$sql insert or ignore into repos values ('$at', '$at');
+      insert into runs values ('r$n', '$at', '$branch');
+      insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
+  done
+  sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
+    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
+    create table if not exists agent_invocations (id text primary key, run_id text not null,
+      step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
+    $sql"
+}
+
 # Extra "field=value" arguments are written before pr=, because
 # fm_pr_metadata_identity_parse rejects an unrecognised line after it.
 write_poll_meta() {
@@ -312,7 +336,7 @@ write_poll_meta() {
 run_check_entry() {
   local dir=$1
   shift
-  FM_ROOT_OVERRIDE="$dir/root" FM_HOME="$dir/home" \
+  FM_ROOT_OVERRIDE="$dir/root" FM_HOME="$dir/home" NM_HOME="$dir/nm-home" \
     FM_TEST_GUARD_LOG="$dir/guard.log" FM_TEST_GH_LOG="$dir/gh.log" \
     FM_TEST_GH_AXI_LOG="$dir/gh-axi.log" FM_TEST_GLAB_LOG="$dir/glab.log" \
     FM_TEST_GERRIT_AXI_LOG="$dir/gerrit-axi.log" \
@@ -795,6 +819,292 @@ test_test_ban_runs_when_forge_head_is_available() {
   [ ! -e "$dir/home/state/task-a.check.sh" ] || fail "test-ban bypass still armed a PR poll"
   ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "test-ban bypass recorded the PR"
   pass "fm-pr-check enforces the test ban when a forge head is available"
+}
+
+# A handed-over end-to-end test is locked even though ordinary e2e authoring
+# is exempt from the model-based test ban.
+test_tdd_split_locks_checkpoint_e2e_tests() {
+  local dir checkpoint head change
+  for change in weaken delete rename; do
+    dir=$(make_case "tdd-split-locked-e2e-$change")
+    mkdir -p "$dir/wt/e2e"
+    printf '[ -f feature.sh ]\n' > "$dir/wt/e2e/feature.test.sh"
+    git -C "$dir/wt" add e2e && git -C "$dir/wt" commit -q -m 'tests first'
+    checkpoint=$(git -C "$dir/wt" rev-parse HEAD)
+    (cd "$dir/wt" && bash e2e/feature.test.sh) && fail "checkpoint test was not red"
+    fm_write_meta "$dir/home/state/task-a.meta" \
+      "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+      "project=$dir/project" "kind=ship" "mode=no-mistakes" \
+      'model=claude-sonnet-5-5' 'test_ban_model=claude-sonnet-5-5' \
+      "test_ban_since=$checkpoint" 'tdd_split=implement' "tdd_split_tests=$checkpoint"
+    case "$change" in
+      weaken)
+        printf 'true\n' > "$dir/wt/e2e/feature.test.sh"
+        (cd "$dir/wt" && bash e2e/feature.test.sh) || fail "weakened test did not pass"
+        ;;
+      delete) rm "$dir/wt/e2e/feature.test.sh" ;;
+      rename) mv "$dir/wt/e2e/feature.test.sh" "$dir/wt/disabled.sh" ;;
+    esac
+    git -C "$dir/wt" add -A && git -C "$dir/wt" commit -q -m "$change checkpoint test"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    [ ! -e "$dir/wt/feature.sh" ] || fail "fixture unexpectedly implemented the feature"
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/84 \
+      > "$dir/stdout" 2> "$dir/stderr" && fail "a $change change to a checkpoint e2e test registered a PR"
+    grep -Fq 'e2e/feature.test.sh' "$dir/stderr" \
+      || fail "lock refusal did not name the changed test: $(cat "$dir/stderr")"
+    ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "changed checkpoint test recorded the PR"
+    [ ! -e "$dir/home/state/task-a.check.sh" ] || fail "changed checkpoint test armed monitoring"
+
+    git -C "$dir/wt" revert --no-edit HEAD >/dev/null || fail "could not restore checkpoint test"
+    printf 'implemented\n' > "$dir/wt/feature.sh"
+    printf '[ -f feature.sh ]\n' > "$dir/wt/e2e/new.test.sh"
+    git -C "$dir/wt" add -A && git -C "$dir/wt" commit -q -m 'implement without changing checkpoint tests'
+    (cd "$dir/wt" && bash e2e/feature.test.sh) || fail "implementation did not pass the checkpoint test"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/84 \
+      > "$dir/stdout" 2> "$dir/stderr" || fail "unchanged checkpoint test was refused: $(cat "$dir/stderr")"
+    grep -qx 'pr=https://github.com/o/r/pull/84' "$dir/home/state/task-a.meta" \
+      || fail "implementation did not record the PR"
+    [ -e "$dir/home/state/task-a.check.sh" ] || fail "implementation did not arm monitoring"
+  done
+  pass "fm-pr-check locks checkpoint-owned end-to-end tests and allows new e2e tests"
+}
+
+# A pipeline fixer runs after the worker's checked handoff, so the pre-PR
+# check must still see a test file its commit adds on a banned task.
+test_test_ban_covers_pipeline_fixer_commits() {
+  local dir head
+  dir=$(make_case test-ban-pipeline-fixer)
+  write_task_meta "$dir"
+  fm_write_meta "$dir/home/state/task-a.meta" \
+    "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+    "project=$dir/project" "kind=ship" "mode=no-mistakes" \
+    'test_ban_model=opencode-go/deepseek-v4.1-flash'
+  printf 'impl\n' > "$dir/wt/impl.sh"
+  git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'implement without tests'
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(review): Cover the finding with a unit test'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+    > "$dir/stdout" 2> "$dir/stderr" && fail "a pipeline fixer's test file passed the pre-PR test ban"
+  grep -Fq 'no test authoring on opencode-go/deepseek-v4.1-flash' "$dir/stderr" \
+    || fail "pipeline fixer refusal did not name the banned model: $(cat "$dir/stderr")"
+  grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "pipeline fixer refusal did not name the test: $(cat "$dir/stderr")"
+  ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a pipeline fixer's test file still recorded the PR"
+  pass "fm-pr-check refuses a test file a pipeline fixer commit adds on a banned task"
+}
+
+# The pipeline fixer's recorded model decides, not the worker's lane: on an
+# Opus task a Sonnet review fixer's test refuses the PR record, while a test the
+# Sol-run test step commits registers it.
+test_test_ban_covers_banned_fixers_on_allowlisted_tasks() {
+  local dir head step
+  for step in review test; do
+    dir=$(make_case "test-ban-allowlisted-builder-$step")
+    write_task_meta "$dir"
+    fm_write_meta "$dir/home/state/task-a.meta" \
+      "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+      "project=$dir/project" "kind=ship" "mode=no-mistakes" "model=claude-opus-5-5"
+    printf 'branch=fm/task-a\n' >> "$dir/home/state/task-a.meta"
+    record_nm_invocations "$dir/nm-home" "$dir/project" 'fm/task-a|review|review-fix|claude-sonnet-5-5' \
+      'fm/task-a|test|test|openai-codex/gpt-6.1-sol' || fail "cannot record the fixture invocations"
+    printf 'impl\n' > "$dir/wt/impl.sh"
+    git -C "$dir/wt" add impl.sh && git -C "$dir/wt" commit -q -m 'Opus implements without tests'
+    mkdir -p "$dir/wt/tests"
+    printf 'Opus test\n' > "$dir/wt/tests/inherited.test.sh"
+    git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'Opus writes a test'
+    printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+    printf 'changed test\n' > "$dir/wt/tests/inherited.test.sh"
+    git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m "no-mistakes($step): add a unit test"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    if [ "$step" = review ]; then
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" && fail "a Sonnet review fixer's test passed the pre-PR check on an Opus task"
+      grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
+        || fail "fixer refusal did not name the fixer's model: $(cat "$dir/stderr")"
+      grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "fixer refusal did not name the test: $(cat "$dir/stderr")"
+      grep -Fq 'tests/inherited.test.sh' "$dir/stderr" || fail "fixer refusal did not name the modified test: $(cat "$dir/stderr")"
+      ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "a banned fixer's test still recorded the PR"
+
+      git -C "$dir/wt" revert --no-edit HEAD >/dev/null || fail "could not revert the unauthorized test"
+      [ ! -e "$dir/wt/tests/fixer.test.sh" ] || fail "the revert left the unauthorized test present"
+      head=$(git -C "$dir/wt" rev-parse HEAD)
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "reverting the unauthorized test did not clear registration: $(cat "$dir/stderr")"
+      grep -q '^pr=https://github.com/o/r/pull/82$' "$dir/home/state/task-a.meta" \
+        || fail "reverting the unauthorized test did not record the PR"
+    else
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "an allowlisted pipeline step's test was refused: $(cat "$dir/stderr")"
+      grep -q '^pr=https://github.com/o/r/pull/82$' "$dir/home/state/task-a.meta" \
+        || fail "an allowlisted pipeline step's test did not record the PR"
+    fi
+  done
+  pass "fm-pr-check bans a banned pipeline fixer's tests by its own model, not the worker's"
+}
+
+# An unresolved origin base cannot attribute a fixer commit on an Opus task;
+# registration still succeeds with a forge head, unlike a banned worker.
+test_test_ban_registration_without_pipeline_history() {
+  local dir lane head
+  for lane in opus sonnet; do
+    dir=$(make_case "test-ban-no-origin-$lane")
+    write_task_meta "$dir"
+    printf 'model=claude-%s-5-5\n' "$lane" >> "$dir/home/state/task-a.meta"
+    if [ "$lane" = sonnet ]; then
+      printf 'test_ban_model=claude-sonnet-5-5\n' >> "$dir/home/state/task-a.meta"
+    fi
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    git -C "$dir/wt" update-ref -d refs/remotes/origin/main
+    if [ "$lane" = opus ]; then
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/83 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "Opus registration refused an unresolved base: $(cat "$dir/stderr")"
+      grep -qx 'pr=https://github.com/o/r/pull/83' "$dir/home/state/task-a.meta" \
+        || fail "Opus registration did not record the PR with an unresolved base"
+      [ -f "$dir/home/state/task-a.check.sh" ] || fail "Opus registration did not arm a poll with an unresolved base"
+    else
+      FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/83 \
+        > "$dir/stdout" 2> "$dir/stderr" && fail "banned worker registered with an unresolved base"
+      grep -Fq 'test-file check cannot resolve the base branch' "$dir/stderr" \
+        || fail "banned worker refusal changed: $(cat "$dir/stderr")"
+      ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "banned worker recorded a PR with an unresolved base"
+      [ ! -e "$dir/home/state/task-a.check.sh" ] || fail "banned worker armed a poll with an unresolved base"
+    fi
+  done
+  pass "registration accepts an unresolved pipeline base on Opus and still refuses banned workers"
+}
+
+# The gate approves the forge's head, so a worker copy whose HEAD predates the
+# pipeline's pushed commits cannot hide them: a banned fixer's test and a
+# banned worker's test change at the published head both refuse, and an
+# allowlisted fixer's test at that head still registers.
+test_test_ban_binds_to_the_published_head() {
+  local dir case fixer local_head pr_head
+  for case in banned-fixer allowed-fixer banned-worker; do
+    dir=$(make_case "test-ban-published-head-$case")
+    write_task_meta "$dir"
+    fixer=claude-sonnet-5-5
+    [ "$case" != allowed-fixer ] || fixer=claude-opus-5-5
+    fm_write_meta "$dir/home/state/task-a.meta" \
+      "window=firstmate:fm-task-a" "endpoint_task_id=task-a" "worktree=$dir/wt" \
+      "project=$dir/project" "kind=ship" "mode=no-mistakes" "branch=fm/task-a"
+    if [ "$case" = banned-worker ]; then
+      printf '%s\n' model=claude-sonnet-5-5 test_ban_model=claude-sonnet-5-5 >> "$dir/home/state/task-a.meta"
+    else
+      printf '%s\n' model=claude-opus-5-5 >> "$dir/home/state/task-a.meta"
+    fi
+    record_nm_invocations "$dir/nm-home" "$dir/project" "fm/task-a|review|review-fix|$fixer" \
+      || fail "cannot record the fixture invocation"
+    local_head=$(git -C "$dir/wt" rev-parse HEAD)
+    mkdir -p "$dir/wt/tests"
+    printf 'unapproved test\n' > "$dir/wt/tests/fixer.test.sh"
+    git -C "$dir/wt" add tests
+    if [ "$case" = banned-worker ]; then
+      git -C "$dir/wt" commit -q -m 'implementer adds a test'
+    else
+      git -C "$dir/wt" commit -q -m 'no-mistakes(review): add a test'
+    fi
+    pr_head=$(git -C "$dir/wt" rev-parse HEAD)
+    git -C "$dir/wt" checkout -q --detach "$local_head"
+    if [ "$case" = allowed-fixer ]; then
+      FM_TEST_GH_HEAD=$pr_head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" || fail "an allowlisted fixer's test at the published head was refused: $(cat "$dir/stderr")"
+      grep -qx 'pr=https://github.com/o/r/pull/82' "$dir/home/state/task-a.meta" \
+        || fail "an allowlisted fixer's test at the published head did not record the PR"
+    else
+      FM_TEST_GH_HEAD=$pr_head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+        > "$dir/stdout" 2> "$dir/stderr" && fail "$case: a test at the published head passed behind an older worker HEAD"
+      grep -Fq 'no test authoring on claude-sonnet-5-5' "$dir/stderr" \
+        || fail "$case: refusal did not name the banned model: $(cat "$dir/stderr")"
+      grep -Fq 'tests/fixer.test.sh' "$dir/stderr" || fail "$case: refusal did not name the test: $(cat "$dir/stderr")"
+      ! grep -q '^pr=' "$dir/home/state/task-a.meta" || fail "$case: an unauthorized published test recorded the PR"
+    fi
+  done
+  pass "fm-pr-check inspects the published head, not an older worker HEAD"
+}
+
+# One registration of an Opus task whose no-mistakes(test) commit adds a test,
+# with <config-line>s as the no-mistakes config.yaml and the invocations
+# record_nm_invocations takes after a `--` separator; prints the exit status,
+# then stderr.
+fixer_registration() {  # <case-name> [<config-line>...] -- [<invocation>...]
+  local dir head rc=0
+  dir=$(make_case "$1")
+  shift
+  write_task_meta "$dir"
+  printf '%s\n' model=claude-opus-5-5 branch=fm/task-a >> "$dir/home/state/task-a.meta"
+  mkdir -p "$dir/nm-home"
+  while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+    printf '%s\n' "$1" >> "$dir/nm-home/config.yaml"
+    shift
+  done
+  shift
+  [ "$#" -eq 0 ] || record_nm_invocations "$dir/nm-home" "$dir/project" "$@" || rc=no-sqlite3
+  mkdir -p "$dir/wt/tests"
+  printf 'unit\n' > "$dir/wt/tests/fixer.test.sh"
+  git -C "$dir/wt" add tests && git -C "$dir/wt" commit -q -m 'no-mistakes(test): add a test'
+  head=$(git -C "$dir/wt" rev-parse HEAD)
+  if [ "$rc" = 0 ]; then
+    FM_TEST_GH_HEAD=$head run_check_entry "$dir" task-a https://github.com/o/r/pull/82 \
+      > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+    if [ "$rc" = 0 ] && ! grep -q '^pr=' "$dir/home/state/task-a.meta"; then rc=registered-without-pr; fi
+  fi
+  printf '%s\n' "$rc"
+  cat "$dir/stderr" 2>/dev/null
+}
+
+# A pipeline fixer's test registers only when every recorded invocation of its
+# step names an allowlisted model. The config never stands in for a record,
+# however its native overrides spell the model, and a record that names no
+# allowlisted model refuses.
+test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model() {
+  local out codex n=0 expect config inv
+  codex=("agent: [codex]" "agent_config:" "  codex:" "    model: gpt-6.1-sol" "agent_args_override:" "  codex:")
+  for config in "-c|'model=\"gpt-6-luna\"'" "--config|'model=\"gpt-6-luna\"'" "--model|gpt-6.1-sol"; do
+    n=$((n + 1))
+    out=$(fixer_registration "test-ban-unrecorded-$n" "${codex[@]}" "    - ${config%%|*}" "    - ${config#*|}" --)
+    [ "${out%%$'\n'*}" != 0 ] || fail "an unrecorded fixer registered on config '$config'"
+    grep -Fq 'no test authoring on an unrecorded model' <<<"$out" \
+      || fail "the unrecorded fixer refusal for '$config' did not say so: $out"
+    grep -Fq 'tests/fixer.test.sh' <<<"$out" || fail "the unrecorded fixer refusal did not name the test: $out"
+  done
+  if ! command -v sqlite3 >/dev/null 2>&1; then
+    pass "fm-pr-check refuses an unrecorded pipeline fixer (sqlite3 absent, recorded invocations not exercised)"
+    return
+  fi
+  for inv in 'fm/task-a|test|test|gpt-6-luna=gpt-6-luna' 'fm/task-a|test|test|default=default' \
+    'fm/task-a|test|test|=an unrecorded model' 'fm/other|test|test|gpt-6-luna=accept' \
+    'fm/task-a|test|test-fix|claude-sonnet-5-5=claude-sonnet-5-5' 'fm/task-a|review|review-fix|gpt-6-luna=accept'; do
+    n=$((n + 1))
+    expect=${inv#*=}
+    out=$(fixer_registration "test-ban-recorded-$n" "${codex[@]}" "    - --model" "    - gpt-6.1-sol" -- \
+      'fm/task-a|test|test|claude-opus-5-5' "${inv%%=*}")
+    if [ "$expect" = accept ]; then
+      # Another branch's or step's record leaves only the Opus record for this step.
+      [ "${out%%$'\n'*}" = 0 ] || fail "an unrelated record '${inv%%=*}' displaced the Opus record: $out"
+      continue
+    fi
+    [ "${out%%$'\n'*}" != 0 ] || fail "a fixer step recorded on '$expect' registered beside Opus"
+    grep -Fq "no test authoring on $expect" <<<"$out" || fail "the '$expect' refusal did not name it: $out"
+  done
+  for inv in 'fm/task-a|test|test|default' 'fm/task-a|test|test|'; do
+    n=$((n + 1))
+    out=$(fixer_registration "test-ban-recorded-$n" -- "$inv")
+    [ "${out%%$'\n'*}" != 0 ] || fail "a fixer recorded only as '${inv##*|}' registered"
+  done
+  # Another project's run on the same branch name neither authorizes nor refuses.
+  out=$(fixer_registration test-ban-foreign-opus -- 'fm/task-a|test|test|claude-opus-5-5|/elsewhere/other-project')
+  [ "${out%%$'\n'*}" != 0 ] || fail "another repository's Opus record authorized an unrecorded fixer"
+  grep -Fq 'no test authoring on an unrecorded model' <<<"$out" \
+    || fail "the foreign-record refusal did not name the missing local record: $out"
+  out=$(fixer_registration test-ban-foreign-luna -- 'fm/task-a|test|test|claude-opus-5-5' \
+    'fm/task-a|test|test|gpt-6-luna|/elsewhere/other-project')
+  [ "${out%%$'\n'*}" = 0 ] || fail "another repository's banned record refused a recorded Opus fixer: $out"
+  out=$(fixer_registration test-ban-recorded-sol "${codex[@]}" "    - -c" "    - 'model=\"gpt-6-luna\"'" -- \
+    'fm/task-a|test|test|openai-codex/gpt-6.1-sol' 'fm/task-a|test|test-fix|claude-opus-5-5')
+  [ "${out%%$'\n'*}" = 0 ] || fail "recorded Sol and Opus fixers were refused because of the config: $out"
+  pass "fm-pr-check registers a pipeline fixer's test only on a recorded allowlisted model"
 }
 
 test_valid_recording_and_merge_derivation() {
@@ -3202,7 +3512,7 @@ SH
 }
 
 test_teardown_cannot_race_authority_consumption() {
-  local dir state url watcher_pid rc i
+  local dir state url watcher_pid rc deadline
   url=https://github.com/o/r/pull/1
   dir=$(make_case merge-authority-teardown-race)
   state="$dir/home/state"
@@ -3224,11 +3534,13 @@ test_teardown_cannot_race_authority_consumption() {
     run_watcher_bounded "$dir/home" "$dir/fakebin" \
       > "$dir/watch.out" 2> "$dir/watch.err" &
   watcher_pid=$!
-  i=0
+  # A loaded host can take seconds to start the watcher, so the wait is bounded
+  # by time, not by an iteration count.
+  deadline=$((SECONDS + FM_TEST_STUB_MAX_BLOCK_SECONDS))
   while [ ! -e "$dir/poll-started" ]; do
     sleep 0.01
-    i=$((i + 1))
-    if [ "$i" -ge 500 ]; then
+    if [ "$SECONDS" -ge "$deadline" ] || ! kill -0 "$watcher_pid" 2>/dev/null; then
+      [ -e "$dir/poll-started" ] && break
       kill "$watcher_pid" 2>/dev/null || true
       wait "$watcher_pid" 2>/dev/null || true
       fail "teardown race: watcher did not begin its validated poll"
@@ -3646,6 +3958,23 @@ SH
   pass "device re-record publication waits without rewriting its registration"
 }
 
+if [ "${1:-}" = --test-ban ]; then
+  test_tdd_split_locks_checkpoint_e2e_tests
+  test_test_ban_runs_when_forge_head_is_available
+  test_test_ban_covers_pipeline_fixer_commits
+  test_test_ban_covers_banned_fixers_on_allowlisted_tasks
+  test_test_ban_registration_without_pipeline_history
+  test_test_ban_binds_to_the_published_head
+  test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
+  exit 0
+fi
+
+if [ "${1:-}" = --tdd-lock ]; then
+  test_tdd_split_locks_checkpoint_e2e_tests
+  exit 0
+fi
+
+test_tdd_split_locks_checkpoint_e2e_tests
 test_parser_matrix
 test_gitlab_merge_watch
 test_forgejo_merge_watch
@@ -3677,6 +4006,11 @@ test_draft_pull_request_is_not_armed
 test_secondmate_record_refuses_a_pr_watch
 test_unpushed_named_head_refuses_registration
 test_test_ban_runs_when_forge_head_is_available
+test_test_ban_covers_pipeline_fixer_commits
+test_test_ban_covers_banned_fixers_on_allowlisted_tasks
+test_test_ban_registration_without_pipeline_history
+test_test_ban_binds_to_the_published_head
+test_test_ban_pipeline_fixer_needs_a_recorded_allowlisted_model
 test_direct_pr_unpushed_commit_refuses_registration
 test_valid_recording_and_merge_derivation
 test_rejected_metacharacter_bytes_are_inert

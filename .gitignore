@@ -14,3 +14,6 @@ config/
 /.test-runtime/
 
 .tools/
+
+# Scratch output a pipeline CI fixer writes while debugging; never part of a change.
+.ci-debug/

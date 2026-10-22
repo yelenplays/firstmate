@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--route-override <reason>] [--tdd-split] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
 #        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--route-override <reason>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--permission-mode <auto|accept-edits|smart|dangerous>] [--effort <level>] [--captain-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
@@ -58,14 +58,17 @@
 #   base_branch= in state/<id>.meta, which a relaunch reuses and later review and
 #   cleanup read; it is refused on secondmates and relaunches, and without it
 #   nothing changes.
-#   A ship or scout whose resolved --model is a Claude Sonnet or Haiku model
-#   records test_ban_model= and repeated test_ban_allowed=<path> values for
-#   captain-specified paths in state/<id>.meta; banned ship/scout launch briefs
-#   gain the No test authoring section. A ship relaunch onto a banned model also
-#   records test_ban_since=, the tests-first handoff commit, and every relaunch
-#   of a record that ever ran banned keeps that baseline. bin/fm-dod-lib.sh's
-#   test-authoring block owns the model list, path exception, handoff baseline,
-#   section, and enforcing done gate.
+#   Ship/scout test-authoring eligibility, test_ban_* metadata, launch sections,
+#   and relaunch baselines follow bin/fm-dod-lib.sh's test-authoring block.
+#   --tdd-split launches a fresh ship as a tdd-split ship: its --harness,
+#   --model, and --effort, all three required and the model outside the
+#   test-author allowlist, name the implementer, while the launch goes to the test seat
+#   (Opus at medium effort) with the Tests-first seat section, and the record
+#   keeps tdd_split=tests plus the implementer as tdd_split_impl_harness=,
+#   tdd_split_impl_model=, and tdd_split_impl_effort=. The brief must declare
+#   one `Fail-to-pass command:`. It is refused on scout, secondmate, relaunch,
+#   and batch spawns. bin/fm-tdd-split-lib.sh owns the profile and
+#   bin/fm-tdd-split.sh its handoff to the implementer.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
@@ -892,6 +895,7 @@ UPSTREAM_CONSENT=
 UPSTREAM_CONSENT_SET=0
 TRACEPARENT_SET=0
 RELAUNCH=0
+TDD_SPLIT=0
 # Opt-in only: exact-resume presentation-order lock waits instead of refusing.
 # Absent/unset keeps upstream refuse-on-contention. See header.
 HERDR_RESUME_LOCK_WAIT=0
@@ -976,6 +980,7 @@ for a in "$@"; do
     KIND_SET=1
     ;;
   --relaunch) RELAUNCH=1 ;;
+  --tdd-split) TDD_SPLIT=1 ;;
   --captain-override) want_value=captain-override ;;
   --captain-override=*)
     CAPTAIN_OVERRIDE=${a#--captain-override=}
@@ -1862,6 +1867,10 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
     echo "error: --route-override is one task's exception; spawn that task on its own" >&2
     exit 1
   fi
+  if [ "$TDD_SPLIT" -eq 1 ]; then
+    echo "error: --tdd-split names one task's implementer; spawn that task on its own" >&2
+    exit 1
+  fi
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
@@ -1911,6 +1920,33 @@ fm_task_id_creation_valid "$ID" || {
   echo "error: invalid task id" >&2
   exit 2
 }
+# tdd-split (see header): the requested profile is the implementer, recorded for
+# bin/fm-tdd-split.sh's handoff; this launch is the test seat.
+TDD_SPLIT_COMMAND=
+if [ "$TDD_SPLIT" -eq 1 ]; then
+  if [ "$KIND" != ship ] || [ "$RELAUNCH" -eq 1 ]; then
+    echo "error: --tdd-split applies only to a fresh ship spawn" >&2
+    exit 1
+  fi
+  if [ "$HARNESS_SET" -eq 0 ] || [ "$MODEL_SET" -eq 0 ] || [ "$EFFORT_SET" -eq 0 ]; then
+    echo "error: --tdd-split needs the implementer's --harness, --model, and --effort" >&2
+    exit 1
+  fi
+  if ! fm_test_ban_model_applies "$MODEL"; then
+    echo "error: --tdd-split implementer $MODEL may author tests itself; launch it as an ordinary ship instead" >&2
+    exit 1
+  fi
+  TDD_SPLIT_COMMAND=$(fm_tdd_split_check_command "$DATA/$ID/brief.md") || {
+    echo "error: --tdd-split needs $DATA/$ID/brief.md to declare exactly one $FM_TDD_SPLIT_CHECK_LABEL \`<command>\` line" >&2
+    exit 1
+  }
+  TDD_SPLIT_IMPL_HARNESS=$HARNESS_ARG
+  TDD_SPLIT_IMPL_MODEL=$MODEL
+  TDD_SPLIT_IMPL_EFFORT=$EFFORT
+  HARNESS_ARG=$FM_TDD_SPLIT_SEAT_HARNESS
+  MODEL=$FM_TDD_SPLIT_SEAT_MODEL
+  EFFORT=$FM_TDD_SPLIT_SEAT_EFFORT
+fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = ship ]; then
   BRANCH="$BRANCH_PREFIX$ID"
   if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
@@ -3815,7 +3851,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       TEST_BAN_SINCE=base
     fi
   fi
-  # bin/fm-dod-lib.sh's test-authoring block owns the model list, the captain
+  # bin/fm-dod-lib.sh's test-authoring block owns the allowlist, the captain
   # exception, and the section a banned ship receives; a scout records the ban
   # so a later promotion applies it.
   if fm_test_ban_model_applies "$MODEL"; then
@@ -3844,6 +3880,9 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fi &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
         fm_brief_intent_overlay "$CAPTAIN_INTENT"
+      fi &&
+      if [ -n "$TDD_SPLIT_COMMAND" ]; then
+        fm_tdd_split_seat_overlay "$TDD_SPLIT_COMMAND" "$TDD_SPLIT_IMPL_MODEL"
       fi
   } >"$BRIEF_TMP" || {
     rm -f -- "$BRIEF_TMP"
@@ -5978,8 +6017,8 @@ fi
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   [ -z "$UPSTREAM_CONSENT" ] || echo "upstream_consent=$UPSTREAM_CONSENT"
   echo "model=${MODEL:-default}"
-  # The test-authoring ban, only when the model is on its list, so an unbanned
-  # task record stays byte-identical.
+  # Omit ban metadata for unaffected tasks to preserve their record format;
+  # bin/fm-dod-lib.sh owns applicability.
   [ -z "$TEST_BAN_MODEL" ] || echo "test_ban_model=$TEST_BAN_MODEL"
   if [ -n "$TEST_BAN_MODEL" ]; then
     while IFS= read -r allowed_path; do
@@ -5987,6 +6026,12 @@ fi
     done <<<"$TEST_BAN_ALLOWED_PATHS"
   fi
   [ -z "$TEST_BAN_SINCE" ] || echo "test_ban_since=$TEST_BAN_SINCE"
+  if [ -n "$TDD_SPLIT_COMMAND" ]; then
+    echo "tdd_split=tests"
+    echo "tdd_split_impl_harness=$TDD_SPLIT_IMPL_HARNESS"
+    echo "tdd_split_impl_model=$TDD_SPLIT_IMPL_MODEL"
+    echo "tdd_split_impl_effort=$TDD_SPLIT_IMPL_EFFORT"
+  fi
   echo "effort=${EFFORT:-default}"
   echo "ai_family=$SPAWN_AI_FAMILY"
   echo "ai_family_source=$SPAWN_AI_FAMILY_SOURCE"

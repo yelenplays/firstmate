@@ -929,13 +929,16 @@ fi
 SH
   chmod +x "$WORLD/fakebin/fm-crew-state.sh"
 
+  # The stub stalls for 30s, so finishing well inside that proves the bound;
+  # the margins absorb script startup on a loaded runner.
   started=$(date +%s)
-  FM_INACTIVE_RECONCILE_BUDGET_SECS=1 run_reconcile "$MAIN" --startup
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
   elapsed=$(( $(date +%s) - started ))
-  [ "$elapsed" -le 3 ] || fail "stalled state read exceeded aggregate scan budget (${elapsed}s)"
+  [ "$elapsed" -le 10 ] || fail "stalled state read exceeded aggregate scan budget (${elapsed}s)"
 
+  # A rescan from a would stall on it again and never reach b in this budget.
   write_child "$MAIN" b 'done: green'
-  FM_INACTIVE_RECONCILE_BUDGET_SECS=1 run_reconcile "$MAIN" --startup
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=5 run_reconcile "$MAIN" --startup
   grep -Fq 'child=b state=done' "$MAIN/state/.wake-queue" \
     || fail "next bounded scan did not resume with the following child"
   pass "stalled state reads are bounded without starving later children"

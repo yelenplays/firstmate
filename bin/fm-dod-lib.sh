@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Single owner of a ship task's mode-specific "Definition of done" block, of
 # the named-head reachability gate that accepts a ship `done:` claim, and of the
-# test-authoring ban on Claude Sonnet and Haiku lanes (its block below).
+# test-authoring ban on every lane outside the test-author allowlist (its block below).
 # Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
 # bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
@@ -25,7 +25,9 @@
 # contract line so brief, spawn record, and worker instructions agree.
 # Callers of the gate are bin/fm-crew-state.sh (current-state done),
 # bin/fm-pr-check.sh (PR registration), and bin/fm-inactive-reconcile.sh
-# (secondmate ledger-first publish of a child done). A ship `done:` is not
+# (secondmate ledger-first publish of a child done). Except for the tdd-split
+# test seat, whose completion contract is owned by bin/fm-tdd-split-lib.sh,
+# a ship `done:` is not
 # accepted while the named head exists only in the worker's disposable copy.
 # The check tests that head, not whether some branch moved. In no-mistakes
 # mode the pre-validation `done: {summary}` is the pipeline handoff and is
@@ -136,6 +138,8 @@ fm_jev_first_rule() {
 . "$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)/fm-nm-run-lib.sh"
 # shellcheck source=bin/fm-brief-heading-lib.sh
 . "$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)/fm-brief-heading-lib.sh"
+# shellcheck source=bin/fm-tdd-split-lib.sh
+. "$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)/fm-tdd-split-lib.sh"
 
 fm_brief_worker_role() {  # <state-dir> <task-id> <code-root>
   local state=$1 task_id=$2 root=$3
@@ -799,54 +803,67 @@ fm_dod_named_head_reachable_outside_worktree() {  # <worktree> <project> <mode> 
   [ "$mode" = local-only ] && fm_dod_ref_contains "$project" refs/heads "$sha"
 }
 
-# --- No test authoring on Claude Sonnet and Haiku lanes ---------------------
-# This block is the single owner of the test-authoring ban: which models it
-# covers, the launch section that tells the worker, the explicit captain
-# exception, what counts as a test file, and the done gate that enforces it.
+# --- No test authoring outside the test-author allowlist -------------------
+# This block is the single owner of the test-authoring ban: which models may
+# author tests, the launch section that tells every other worker, the explicit
+# captain exception, what counts as a test file, and the done gate that enforces it.
+# The ban is an allowlist: only Claude Opus, Claude Fable, and GPT Sol may author
+# tests via FM_TEST_AUTHOR_MODEL_PATTERNS below; Sonnet, Haiku, DeepSeek, GLM,
+# and other named models that match none of those globs are banned.
 # bin/fm-spawn.sh records test_ban_model=<model> in state/<id>.meta for a ship or
-# scout whose resolved --model matches FM_TEST_BAN_MODEL_PATTERNS, plus one
+# scout whose resolved --model is banned, plus one
 # test_ban_allowed=<path> record per path explicitly named under the
 # `### Captain-specified test` subsection. It appends fm_test_ban_overlay to a
 # banned ship or scout launch brief. bin/fm-promote.sh renders the same section
 # into a promoted ship's instructions and re-derives allowed paths from intent. An unset or `default` model is not
-# matched, because the harness default is not knowable at spawn.
+# banned, because the harness default is not knowable at spawn.
 # fm_dod_accept_ship_done refuses a ship `done:` from a banned task whose commits
 # since the base add or modify a test file, naming the files. Under no-mistakes
-# only the pre-validation handoff `done:` is checked: the later CI-ready report
-# carries the pipeline's own commits, which this ban does not cover. End-to-end
-# tests and running existing tests stay allowed.
-# Tests-first handoff: a ship may start on a lane the ban does not cover, commit
+# the worker's handoff `done:` is checked before the pipeline runs, and
+# bin/fm-pr-check.sh forces the same check on the CI-ready report before it
+# records the PR, even when the forge supplies the head. The forced pre-PR
+# check also applies the pipeline-fixer contract below, independently of the
+# worker's lane.
+# New end-to-end tests and running existing tests stay allowed, but end-to-end
+# tests handed over at test_ban_since are locked like the other handed-over tests.
+# Tests-first handoff: a ship may start on an allowlisted lane, commit
 # failing tests there, and then be relaunched onto a banned lane to implement
 # until they pass (`bin/fm-control.sh <id> relaunch --model <banned-model>`).
 # bin/fm-spawn.sh records test_ban_since=<HEAD> when such a relaunch moves a
 # task record that never ran banned onto a banned model. Once a record has run
 # banned, every relaunch, banned or not, carries its test_ban_since forward,
 # writing test_ban_since=base when that banned run started from the base, so a
-# later handoff never moves the baseline past tests a banned run wrote. The done
-# gate then counts a test file only when it changed since that commit and is
+# generic relaunch never moves the baseline past tests a banned run wrote.
+# An allowlisted takeover has no test_ban_model and is not subject to the
+# worker test gate; retaining the baseline constrains a later banned relaunch.
+# The independent pipeline-fixer check still applies at PR registration.
+# A tdd-split handoff refreshes that baseline under bin/fm-tdd-split.sh's
+# checked test-seat contract instead. The done gate counts a test file only
+# when it changed since that commit and is
 # either one of the branch's own changes against the base or one of the tests
 # handed over at it, so the tests the earlier seat committed are not the banned
 # worker's authorship while any change it makes to them still is, and test
 # changes a merge or rebase brings in from the base are not. Tests left
 # uncommitted at the handoff count as the banned worker's.
-FM_TEST_BAN_MODEL_PATTERNS='*claude*sonnet* *claude*haiku* sonnet sonnet[[]* haiku haiku[[]*'
+FM_TEST_AUTHOR_MODEL_PATTERNS='*claude*opus* opus opus[[]* *claude*fable* fable fable[[]* *gpt-*-sol *gpt-*-sol-* *gpt-*-sol[[]*'
 FM_TEST_BAN_EXCEPTION_HEADING="### Captain-specified test"
 
-# 0 when <model> is on a lane whose workers may not author tests. Matching is
-# case-insensitive against the shell globs in FM_TEST_BAN_MODEL_PATTERNS, which
-# cover the Claude ids (claude-sonnet-*, claude-haiku-*, the older
-# claude-3-5-sonnet-* order), their provider-prefixed spellings such as
-# anthropic/claude-sonnet-* or us.anthropic.claude-haiku-*, and the Claude Code
-# aliases sonnet and haiku with an optional [context] suffix.
+# 0 when <model> is on a lane whose workers may not author tests: any named
+# model that matches none of the case-insensitive shell globs in
+# FM_TEST_AUTHOR_MODEL_PATTERNS. The globs cover the Claude Opus and Fable ids
+# (claude-opus-*, claude-fable-*), their provider-prefixed spellings such as
+# anthropic/claude-opus-* or us.anthropic.claude-opus-*, the Claude Code aliases
+# opus and fable with an optional [context] suffix, and GPT Sol ids such as
+# gpt-6.1-sol or openai-codex/gpt-6.1-sol.
 fm_test_ban_model_applies() {  # <model>
   local model pattern
   model=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
   [ -n "$model" ] && [ "$model" != default ] || return 1
-  for pattern in $FM_TEST_BAN_MODEL_PATTERNS; do
+  for pattern in $FM_TEST_AUTHOR_MODEL_PATTERNS; do
     # shellcheck disable=SC2254  # The pattern list holds intentional globs.
-    case "$model" in $pattern) return 0 ;; esac
+    case "$model" in $pattern) return 1 ;; esac
   done
-  return 1
+  return 0
 }
 
 # Prints test-file paths explicitly named in the captain test subsection.
@@ -878,8 +895,8 @@ fm_test_ban_path_allowed() {  # <path> <meta>
 
 # 0 when <path> is a test file the ban covers: anything under a tests/, test/,
 # __tests__/, spec/, or __snapshots__/ directory, or a file named *.test.*,
-# *_test.*, *.spec.*, test_*.py, or *.snap. A path or name containing e2e or
-# end-to-end is an end-to-end test and stays allowed.
+# *_test.*, *.spec.*, test_*.py, or *.snap. End-to-end paths are excluded here;
+# the test-authoring block above owns their handoff-lock exception.
 fm_test_ban_path_is_test() {  # <path>
   local path lower
   path=/$1
@@ -940,20 +957,26 @@ fm_test_ban_base_ref() {  # <worktree> [<base-branch>]
   return 1
 }
 
-# Prints, one per line, the test files the worker copy's commits add or modify
-# since their merge-base with the base. With a tests-first handoff <since>, it
-# prints the test files added, modified, or deleted since <since> that are also
-# changed against the base or were handed over at <since>. 1 when the base or
-# <since> cannot be resolved; stdout then holds a one-line reason.
-fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
-  local wt=$1 since=${3:-} base_ref mb fork path
+# Prints, one per line, the test files the commits up to <head> (default the
+# worker copy's HEAD) add or modify since their merge-base with the base. With a
+# tests-first handoff <since>, it prints the test files added, modified, or
+# deleted since <since> that are also changed against the base or were handed
+# over at <since>, under the test-authoring contract above.
+# 1 when the base, <since>, or <head> cannot be resolved; stdout then holds a
+# one-line reason.
+fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>] [<head>]
+  local wt=$1 since=${3:-} head=${4:-HEAD} base_ref mb fork path
   [ "$since" != base ] || since=
   if ! base_ref=$(fm_test_ban_base_ref "$wt" "${2:-}"); then
     printf '%s\n' "test-file check cannot resolve the base branch${2:+ origin/$2} in the worker copy"
     return 1
   fi
-  if ! mb=$(git -C "$wt" merge-base "$base_ref" HEAD 2>/dev/null); then
-    printf '%s\n' "test-file check found no merge-base between HEAD and $base_ref"
+  if ! git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1; then
+    printf '%s\n' "test-file check cannot read the published head $head in the worker copy; fetch it and report again"
+    return 1
+  fi
+  if ! mb=$(git -C "$wt" merge-base "$base_ref" "$head" 2>/dev/null); then
+    printf '%s\n' "test-file check found no merge-base between $head and $base_ref"
     return 1
   fi
   if [ -n "$since" ] && ! fork=$(git -C "$wt" merge-base "$base_ref" "$since" 2>/dev/null); then
@@ -961,16 +984,116 @@ fm_test_ban_changed_tests() {  # <worktree> [<base-branch>] [<since>]
     return 1
   fi
   if [ -z "$since" ]; then
-    git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" HEAD 2>/dev/null
+    git -C "$wt" diff --name-only --diff-filter=ACMR "$mb" "$head" 2>/dev/null
   else
     # Deleting a handed-over failing test is as much a change to it as editing it.
     awk 'NR == FNR { owned[$0] = 1; next } $0 in owned' \
-      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$mb" HEAD 2>/dev/null
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$mb" "$head" 2>/dev/null
         git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$fork" "$since" 2>/dev/null) \
-      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" HEAD 2>/dev/null)
+      <(git -C "$wt" diff --no-renames --name-only --diff-filter=ACMRD "$since" "$head" 2>/dev/null)
   fi | while IFS= read -r path; do
-    if fm_test_ban_path_is_test "$path"; then printf '%s\n' "$path"; fi
+    if fm_test_ban_path_is_test "$path" || {
+      [ -n "$since" ] && fm_tdd_split_seat_path_ok "$path" &&
+        ! git -C "$wt" diff --quiet "$fork" "$since" -- "$path"
+    }; then
+      printf '%s\n' "$path"
+    fi
   done
+}
+
+# Pipeline-fixer contract: the forced pre-PR check inspects non-merge commits
+# since the base named `no-mistakes(<step>): ...`, independently of the worker's
+# lane. Their added or modified test files are accepted only when the step's
+# author is positively recorded as allowlisted: every successful writing
+# invocation of <step> across runs on the task's branch of the task's
+# repository in ${NM_HOME:-$HOME/.no-mistakes}/state.sqlite (<step>-fix, and
+# <step> itself except for the read-only review) names a model that matches
+# FM_TEST_AUTHOR_MODEL_PATTERNS. Every other case refuses, naming the first such
+# model or `an unrecorded model`: a banned or empty model, `default`, no recorded
+# invocation, or sqlite3 or the database unavailable. The repository is the
+# meta's project=, matched exactly against the registered repos.working_path, so
+# another project's run on the same branch name neither authorizes nor refuses;
+# a task with no registered project has no record. Runs are not bound to a head
+# SHA, because the pipeline's own rebase rewrites the head that authored each
+# commit. The no-mistakes config is never consulted, because native overrides
+# there can select any model.
+# Attribution is step-wide, not per commit. Captain-authorized paths and paths
+# restored at the checked head to their state before that commit are exempt;
+# deletions alone are not checked here. If the worker copy, checked head, origin
+# base, or merge-base cannot be read, this check accepts without output: no
+# pipeline commit can then be seen. The banned-worker check still refuses
+# unreadable history before this check runs.
+# tests/fm-dod-lib.test.sh and tests/fm-pr-check-security.test.sh pin attribution,
+# unreadable-history handling, and pre-PR enforcement.
+
+# 0 when <model> is positively an allowlisted test author: named, not
+# `default`, and matching FM_TEST_AUTHOR_MODEL_PATTERNS.
+fm_test_ban_model_allowlisted() {  # <model>
+  local model
+  model=$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')
+  [ -n "$model" ] && [ "$model" != default ] && ! fm_test_ban_model_applies "$model"
+}
+
+# Prints the models recorded for <step> on <branch> of the repository
+# registered at <repo-path> under the pipeline-fixer contract above, `-` for an
+# invocation with no model; these are not attributed to individual commits.
+# Prints nothing when none is readable.
+fm_test_ban_nm_step_models() {  # <step> <branch> <repo-path>
+  local step=$1 branch=${2:-} repo=${3:-} db
+  db="${NM_HOME:-$HOME/.no-mistakes}/state.sqlite"
+  case "$step$branch$repo" in *"'"*) return 0 ;; esac
+  [ -n "$branch" ] && [ -n "$repo" ] && [ -f "$db" ] && command -v sqlite3 >/dev/null 2>&1 || return 0
+  fm_run_timed 10 sqlite3 -readonly "$db" \
+    "select distinct coalesce(nullif(i.model, ''), '-') from agent_invocations i join runs r on r.id = i.run_id join repos p on p.id = r.repo_id where p.working_path = '$repo' and r.branch = '$branch' and i.step_name = '$step' and i.exit_status = 'ok' and (i.purpose = '$step-fix' or (i.purpose = '$step' and '$step' <> 'review'))" \
+    2>/dev/null || true
+}
+
+# Prints `an unrecorded model` when <step> on <branch> of <repo-path> has no
+# recorded writing invocation, the first recorded model that is not an
+# allowlisted test author, or nothing when every recorded model is one.
+fm_test_ban_nm_step_author_refusal() {  # <step> <branch> <repo-path>
+  local models model
+  models=$(fm_test_ban_nm_step_models "$1" "${2:-}" "${3:-}")
+  if [ -z "$models" ]; then
+    printf '%s\n' 'an unrecorded model'
+    return 0
+  fi
+  while IFS= read -r model; do
+    fm_test_ban_model_allowlisted "$model" && continue
+    [ "$model" != - ] || model='an unrecorded model'
+    printf '%s\n' "$model"
+    return 0
+  done <<<"$models"
+}
+
+# Prints `<sha>\t<step>\t<model>\t<path>` for each test file refused under the
+# pipeline-fixer contract above, including its unreadable-history policy, in
+# the commits up to <head> (default the worker copy's HEAD).
+fm_test_ban_pipeline_fixer_tests() {  # <worktree> <meta> [<head>]
+  local wt=$1 meta=$2 head=${3:-HEAD} base_ref mb sha subject step author authored path
+  [ -n "$wt" ] && [ -d "$wt" ] && git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  git -C "$wt" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1 || return 0
+  base_ref=$(fm_test_ban_base_ref "$wt" "$(fm_dod_meta_value "$meta" base_branch)" 2>/dev/null) || return 0
+  mb=$(git -C "$wt" merge-base "$base_ref" "$head" 2>/dev/null) || return 0
+  while IFS=$'\t' read -r sha subject; do
+    case "$subject" in no-mistakes\(*\):*) ;; *) continue ;; esac
+    step=${subject#no-mistakes(}
+    step=${step%%)*}
+    case "$step" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
+    authored=
+    while IFS= read -r path; do
+      fm_test_ban_path_is_test "$path" || continue
+      fm_test_ban_path_allowed "$path" "$meta" && continue
+      git -C "$wt" diff --quiet "$sha^" "$head" -- "$path" && continue
+      if [ -z "$authored" ]; then
+        authored=1
+        author=$(fm_test_ban_nm_step_author_refusal "$step" "$(fm_dod_meta_value "$meta" branch)" \
+          "$(fm_dod_meta_value "$meta" project)")
+      fi
+      [ -n "$author" ] || break
+      printf '%s\t%s\t%s\t%s\n' "$sha" "$step" "$author" "$path"
+    done < <(git -C "$wt" diff-tree --no-commit-id --no-renames --name-only --diff-filter=ACMR -r "$sha" 2>/dev/null)
+  done < <(git -C "$wt" log --no-merges --format='%H%x09%s' "$mb..$head" 2>/dev/null)
 }
 
 # 0 when this done: is one the test-authoring gate must check: a ship done: from
@@ -991,16 +1114,42 @@ fm_test_ban_should_check() {  # <kind> <mode> <line> <meta> [force]
   esac
 }
 
+# 0 when the pipeline-fixer half of the gate applies: the forced pre-PR check
+# of a no-mistakes ship done:, on any task, banned worker or not.
+fm_test_ban_should_check_pipeline() {  # <kind> <mode> <line> <meta> [force]
+  [ "$1" = ship ] && [ "${5:-0}" = 1 ] || return 1
+  [ "$(status_line_verb "$3")" = "done" ] || return 1
+  [ -n "$4" ] && [ -f "$4" ] || return 1
+  case "$2" in no-mistakes|'') return 0 ;; *) return 1 ;; esac
+}
+
 # 0 when the test-authoring gate does not apply or finds no test files. 1 when
-# refused; stdout then holds a one-line reason naming the files.
-fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
+# refused; stdout then holds a one-line reason naming the files. The worker's
+# lane is checked first, then the forced pre-PR pipeline-fixer check. Both
+# inspect the commits up to <head>, the published head the check approves, when
+# given; otherwise the worker copy's HEAD.
+fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force] [<head>]
+  local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path fixer
+  fm_test_ban_accept_worker_done "$@" || return 1
+  fm_test_ban_should_check_pipeline "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
+  files=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta" "${7:-}") || return 0
+  [ -n "$files" ] || return 0
+  rejected=$(printf '%s\n' "$files" | awk -F'\t' '{ print "no-mistakes(" $2 ") on " $3 " in " substr($1, 1, 12) ": " $4 }' | sed 's/$/;/' | tr '\n' ' ' | sed 's/; $//')
+  fixer=$(printf '%s\n' "$files" | awk -F'\t' 'NR == 1 { print $3 }')
+  printf '%s\n' "no test authoring on $fixer: pipeline fixer commits add or modify unauthorized test files ($rejected); a pipeline step's tests need a recorded allowlisted author, so revert them in a follow-up commit and validate again"
+  return 1
+}
+
+# The worker's own half of fm_test_ban_accept_done: the test files the branch
+# changes on a task whose worker runs banned.
+fm_test_ban_accept_worker_done() {  # <kind> <mode> <worktree> <line> <meta> [force] [<head>]
   local kind=$1 mode=$2 wt=$3 line=$4 meta=$5 files rejected path
   fm_test_ban_should_check "$kind" "$mode" "$line" "$meta" "${6:-0}" || return 0
   if [ -z "$wt" ] || [ ! -d "$wt" ] || ! git -C "$wt" rev-parse --git-dir >/dev/null 2>&1; then
     printf '%s\n' "test-file check cannot read the worker copy"
     return 1
   fi
-  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$(fm_dod_meta_value "$meta" test_ban_since)") || {
+  files=$(fm_test_ban_changed_tests "$wt" "$(fm_dod_meta_value "$meta" base_branch)" "$(fm_dod_meta_value "$meta" test_ban_since)" "${7:-}") || {
     printf '%s\n' "$files"
     return 1
   }
@@ -1017,8 +1166,10 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
   return 0
 }
 
-# 0 when <line> is not a ship done: to gate, when it names the task's recorded
-# PR whose head the forge holds, when it names a Gerrit change whose current
+# A tdd-split test seat uses fm-tdd-split-lib.sh's completion gate instead of
+# the checks below; its tests-ready report does not require a published head.
+# Otherwise, 0 when <line> is not a ship done: to gate, when it names the task's
+# recorded PR whose head the forge holds, when it names a Gerrit change whose current
 # patch set carries the worker copy's HEAD tree, or otherwise when its named
 # head - the worker copy's HEAD - is reachable outside that disposable copy. A
 # published-for-review report that names no Gerrit change is refused.
@@ -1031,6 +1182,12 @@ fm_test_ban_accept_done() {  # <kind> <mode> <worktree> <line> <meta> [force]
 # (bin/fm-fleet-snapshot.sh), so the marker is read from <state>.
 fm_dod_accept_ship_done() {  # <kind> <mode> <worktree> <project> <line> [<state> <id> <meta>]
   local kind=$1 mode=$2 wt=$3 project=$4 line=$5 state=${6:-} id=${7:-} meta=${8:-} url sha gerrit
+  # A tdd-split test seat reports tests-ready, never a ship done; its own gate
+  # (bin/fm-tdd-split-lib.sh) replaces the rest of this one.
+  if [ "$kind" = ship ] && fm_tdd_split_on_seat "$meta"; then
+    fm_tdd_split_accept_done "$kind" "$wt" "$line" "$meta"
+    return
+  fi
   fm_test_ban_accept_done "$kind" "$mode" "$wt" "$line" "$meta" || return 1
   fm_dod_should_gate_ship_done "$kind" "$mode" "$line" || return 0
   if url=$(fm_dod_pr_url_from_done_note "$(status_line_note "$line")") \

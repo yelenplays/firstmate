@@ -21,6 +21,7 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+fm_git_identity
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
@@ -1099,6 +1100,40 @@ test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff() {
   expect_code 0 "$rc" "a return to the banned model should succeed"$'\n'"$out"
   [ "$(meta_field "$dir" rl31 test_ban_since)" = "$since" ] || fail "a later handoff moved the baseline past the earlier banned run"
   pass "fm-control relaunch: a tests-first handoff onto a banned model records its commit"
+}
+
+# A tdd-split ship end to end from the test seat's report: bin/fm-tdd-split.sh
+# proves the committed tests red on the base, then relaunches the task through
+# fm-control onto the recorded implementer, which inherits the tests-first
+# handoff baseline that locks those tests.
+test_tdd_split_handoff_relaunches_onto_the_locked_implementer() {
+  local dir out rc wt seat brief
+  dir=$(new_case tdd-split rl33)
+  add_ship_task "$dir" rl33 claude
+  wt="$dir/wt"
+  git -C "$wt" fetch -q origin
+  printf 'model=claude-opus-5-5\neffort=medium\ntdd_split=tests\ntdd_split_impl_harness=claude\ntdd_split_impl_model=claude-sonnet-5-5\ntdd_split_impl_effort=medium\n' \
+    >> "$dir/home/state/rl33.meta"
+  # shellcheck disable=SC2016 # the backticks are the brief's literal code span.
+  printf '\nFail-to-pass command: `for t; do bash "$t" || exit 1; done`\n' >> "$dir/home/data/rl33/brief.md"
+  mkdir -p "$wt/tests"
+  printf '[ -f feature.sh ]\n' > "$wt/tests/feature.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'red tests'
+  seat=$(git -C "$wt" rev-parse HEAD)
+  printf 'done: tests-ready %s\n' "$seat" > "$dir/home/state/rl33.status"
+
+  out=$(CONTROL="$ROOT/bin/fm-tdd-split.sh" run_control "$dir" handoff rl33); rc=$?
+  expect_code 0 "$rc" "the tdd-split handoff should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl33 model)" = claude-sonnet-5-5 ] || fail "the handoff did not relaunch onto the implementer"
+  [ "$(meta_field "$dir" rl33 test_ban_model)" = claude-sonnet-5-5 ] || fail "the implementer was not test-banned"
+  [ "$(meta_field "$dir" rl33 test_ban_since)" = "$seat" ] || fail "the seat's tests were not locked from its HEAD"
+  [ "$(meta_field "$dir" rl33 tdd_split)" = implement ] || fail "the record did not move to the implement phase"
+  [ "$(meta_field "$dir" rl33 tdd_split_tests)" = "$seat" ] || fail "the record did not name the handed-over tests"
+  [ "$(grep -c '^tdd_split=' "$dir/home/state/rl33.meta")" = 1 ] || fail "tdd_split was duplicated in the task record"
+  brief="$dir/home/data/rl33/launch-brief.md"
+  assert_grep "committed up to $seat were written before this handoff" "$brief" "the implementer's launch section did not name the handoff"
+  assert_no_grep "Tests-first seat" "$brief" "the implementer received the test seat's section"
+  pass "fm-tdd-split handoff: relaunches the red seat onto its locked implementer"
 }
 
 # A ship that ran banned from its base and round-trips through an unbanned
@@ -2819,6 +2854,13 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+if [ "${1:-}" = --tdd-split ]; then
+  test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff
+  test_tdd_split_handoff_relaunches_onto_the_locked_implementer
+  test_relaunch_round_trip_keeps_a_banned_run_baseline
+  exit 0
+fi
+
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
 test_relaunch_profile_changes_do_not_require_a_receipt
@@ -2848,6 +2890,7 @@ test_pi_exclude_tools_follow_the_relaunch
 test_exclude_tools_refusals_happen_before_the_agent_stops
 test_explicit_model_wins_over_the_recorded_one
 test_relaunch_onto_a_test_banned_model_records_the_tests_first_handoff
+test_tdd_split_handoff_relaunches_onto_the_locked_implementer
 test_relaunch_round_trip_keeps_a_banned_run_baseline
 test_relaunch_onto_an_unverified_harness_is_refused
 test_prior_harness_turnend_registry_entry_is_cleared

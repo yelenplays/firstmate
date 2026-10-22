@@ -465,19 +465,23 @@ test_worker_role_names_skill_and_fallback_file() {
 
 test_worker_role_names_skill_and_fallback_file
 
-# The test-authoring ban covers Claude Sonnet and Haiku spellings across
-# harnesses and nothing else.
+# The test-authoring ban is an allowlist: Opus, Fable, and GPT Sol spellings
+# across harnesses may author tests, and every other named model is banned.
 test_test_ban_model_list() {
   local model
   for model in claude-sonnet-5-5 claude-haiku-5-5 Claude-Sonnet-4-5 anthropic/claude-sonnet-4.5 \
     openrouter/anthropic/claude-haiku-4.5 us.anthropic.claude-haiku-4-5-v1:0 claude-3-5-sonnet-20241022 \
-    sonnet haiku 'sonnet[1m]'; do
+    sonnet haiku 'sonnet[1m]' opencode-go/deepseek-v4.1-flash opencode/deepseek-v4.1-flash-free \
+    deepseek-v4.1-flash glm-5.3-flash zai/glm-5.3-flash gpt-5.5 gpt-6-luna grok-4 kimi-k3 \
+    some-future-cheap-model opusish-local; do
     fm_test_ban_model_applies "$model" || fail "test ban missed model $model"
   done
-  for model in '' default claude-opus-5-5 opus claude-fable-5-1 gpt-5.5 grok-4 sonnetish-local; do
-    if fm_test_ban_model_applies "$model"; then fail "test ban matched model $model"; fi
+  for model in '' default claude-opus-5-5 Claude-Opus-5-5 anthropic/claude-opus-5.5 \
+    us.anthropic.claude-opus-5-5-v1:0 opus 'opus[1m]' claude-fable-5-1 fable 'fable[1m]' \
+    gpt-6.1-sol openai-codex/gpt-6.1-sol GPT-6.1-Sol gpt-6.1-sol-20261001; do
+    if fm_test_ban_model_applies "$model"; then fail "test ban matched allowlisted model $model"; fi
   done
-  pass "test ban covers Sonnet and Haiku spellings only"
+  pass "test ban allows only Opus, Fable, and GPT Sol spellings and bans every other named model"
 }
 
 test_test_ban_path_heuristic() {
@@ -738,6 +742,181 @@ test_test_ban_handoff_ignores_test_changes_from_the_base() {
   pass "test-ban gate ignores test changes the base brings in after a handoff"
 }
 
+# Records successful no-mistakes agent invocations in <nm-home>/state.sqlite,
+# each given as <branch>|<step>|<purpose>|<model>[|<repo-path>], on the
+# repository registered at <repo-path> unless the invocation names another.
+# 1 when sqlite3 is absent.
+record_nm_invocations() {  # <nm-home> <repo-path> <invocation>...
+  local nm=$1 repo=$2 inv branch step purpose model at n sql=
+  command -v sqlite3 >/dev/null 2>&1 || return 1
+  mkdir -p "$nm"
+  shift 2
+  n=$(sqlite3 "$nm/state.sqlite" "create table if not exists repos (id text primary key, working_path text not null unique);
+    create table if not exists runs (id text primary key, repo_id text not null, branch text not null);
+    create table if not exists agent_invocations (id text primary key, run_id text not null,
+      step_name text not null, purpose text not null, model text, exit_status text not null, started_at integer not null);
+    select count(*) from agent_invocations;") || return 1
+  for inv in "$@"; do
+    IFS='|' read -r branch step purpose model at <<<"$inv"
+    at=${at:-$repo}
+    n=$((n + 1))
+    sql="$sql insert or ignore into repos values ('$at', '$at');
+      insert into runs values ('r$n', '$at', '$branch');
+      insert into agent_invocations values ('i$n', 'r$n', '$step', '$purpose', '$model', 'ok', $n);"
+  done
+  sqlite3 "$nm/state.sqlite" "$sql"
+}
+
+pipeline_commit() {  # <worktree> <step> <path>
+  mkdir -p "$(dirname "$1/$3")"
+  printf 'fix\n' > "$1/$3"
+  git -C "$1" add -- "$3" && git -C "$1" commit -q -m "no-mistakes($2): cover the finding"
+}
+
+# The pipeline-fixer half of the pre-PR check bans a test a banned fixer
+# commits even when the task's own worker is allowlisted, and keeps the tests
+# an allowlisted step commits.
+test_test_ban_pipeline_fixer_on_an_allowlisted_task() {
+  local repo wt meta nm reason rc
+  repo="$TMP_ROOT/fixer-repo"
+  wt="$TMP_ROOT/fixer-wt"
+  meta="$TMP_ROOT/fixer.meta"
+  nm="$TMP_ROOT/fixer-nm"
+  fm_git_worktree "$repo" "$wt" fm/fixer
+  git -C "$wt" fetch -q origin
+  if ! record_nm_invocations "$nm" "$repo" 'fm/fixer|test|test|openai-codex/gpt-6.1-sol' \
+    'fm/fixer|review|review|claude-opus-5-5' 'fm/fixer|review|review-fix|claude-sonnet-5-5'; then
+    pass "pre-PR check bans a banned pipeline fixer's tests on an allowlisted task (sqlite3 absent, skipped)"
+    return
+  fi
+  printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\nbranch=fm/fixer\nproject=%s\n' "$repo" > "$meta"
+  printf 'impl\n' > "$wt/impl.sh"
+  git -C "$wt" add impl.sh && git -C "$wt" commit -q -m 'Opus implements'
+  mkdir -p "$wt/tests"
+  printf 'opus\n' > "$wt/tests/opus.test.sh"
+  git -C "$wt" add tests && git -C "$wt" commit -q -m 'Opus adds its own test'
+  pipeline_commit "$wt" test tests/sol.test.sh
+  NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
+    || fail "an allowlisted worker's and an allowlisted pipeline step's tests were refused"
+
+  pipeline_commit "$wt" review tests/fixer.test.sh
+  reason=$(NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1)
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "a Sonnet review fixer's test on an Opus task was accepted"
+  assert_contains "$reason" "no test authoring on claude-sonnet-5-5" "refusal did not name the fixer's model"
+  assert_contains "$reason" "no-mistakes(review)" "refusal did not name the pipeline step"
+  assert_contains "$reason" "tests/fixer.test.sh" "refusal did not name the fixer's test"
+  assert_not_contains "$reason" "tests/opus.test.sh" "refusal blamed the worker's own test"
+  assert_not_contains "$reason" "tests/sol.test.sh" "refusal blamed the allowlisted step's test"
+
+  NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: implemented' "$meta" \
+    || fail "the worker's handoff done was checked against pipeline commits"
+  reason=$(NM_HOME="$TMP_ROOT/no-nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1)
+  rc=$?
+  [ "$rc" -eq 1 ] || fail "pipeline steps with no recorded model were accepted"
+  assert_contains "$reason" "no test authoring on an unrecorded model" "refusal did not name the missing record"
+  assert_contains "$reason" "tests/sol.test.sh" "refusal did not name the unrecorded step's test"
+  printf 'test_ban_allowed=tests/fixer.test.sh\n' >> "$meta"
+  NM_HOME="$nm" fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 \
+    || fail "the captain-authorized test path was refused for a pipeline fixer"
+  pass "pre-PR check bans a banned pipeline fixer's tests on an allowlisted task"
+}
+
+# Without readable history no pipeline commit can be attributed. The optional
+# pipeline check accepts silently, but a banned worker still has to prove its
+# own test-file changes are allowed.
+test_test_ban_unreadable_pipeline_history() {
+  local scenario wt meta reason expected orphan
+  meta="$TMP_ROOT/unreadable-pipeline.meta"
+  for scenario in empty missing invalid no-origin named-base no-merge-base; do
+    wt="$TMP_ROOT/unreadable-pipeline-$scenario"
+    case "$scenario" in
+      empty) wt=; expected='test-file check cannot read the worker copy' ;;
+      missing) expected='test-file check cannot read the worker copy' ;;
+      invalid)
+        mkdir -p "$wt"
+        printf 'gitdir: missing\n' > "$wt/.git"
+        expected='test-file check cannot read the worker copy'
+        ;;
+      *)
+        fm_git_init_commit "$wt"
+        expected='test-file check cannot resolve the base branch in the worker copy'
+        if [ "$scenario" = named-base ]; then
+          git -C "$wt" update-ref refs/remotes/origin/main HEAD
+          expected='test-file check cannot resolve the base branch origin/release in the worker copy'
+        elif [ "$scenario" = no-merge-base ]; then
+          orphan=$(git -C "$wt" commit-tree 'HEAD^{tree}' -m 'unrelated base')
+          git -C "$wt" update-ref refs/remotes/origin/main "$orphan"
+          expected='test-file check found no merge-base between HEAD and refs/remotes/origin/main'
+        fi
+        ;;
+    esac
+    printf 'kind=ship\nmode=no-mistakes\nmodel=claude-opus-5-5\n' > "$meta"
+    [ "$scenario" != named-base ] || printf 'base_branch=release\n' >> "$meta"
+    reason=$(fm_test_ban_pipeline_fixer_tests "$wt" "$meta" 2>&1) \
+      || fail "pipeline attribution refused $scenario history: $reason"
+    [ -z "$reason" ] || fail "pipeline attribution printed a reason for $scenario history: $reason"
+    reason=$(fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1 2>&1) \
+      || fail "Opus pre-PR check refused $scenario history: $reason"
+    [ -z "$reason" ] || fail "Opus pre-PR check printed a reason for $scenario history: $reason"
+
+    printf 'test_ban_model=claude-sonnet-5-5\n' >> "$meta"
+    if reason=$(fm_test_ban_accept_done ship no-mistakes "$wt" 'done: PR https://example.test/o/r/pull/1 checks green' "$meta" 1); then
+      fail "banned worker pre-PR check accepted $scenario history"
+    fi
+    [ "$reason" = "$expected" ] || fail "banned worker refusal changed for $scenario: $reason"
+    if reason=$(fm_test_ban_accept_done ship no-mistakes "$wt" 'done: implemented' "$meta"); then
+      fail "banned worker handoff accepted $scenario history"
+    fi
+    [ "$reason" = "$expected" ] || fail "banned worker handoff refusal changed for $scenario: $reason"
+  done
+  pass "unreadable pipeline history accepts Opus silently and still refuses banned workers"
+}
+
+# A step's candidates are its recorded successful writing invocations on the
+# task's branch, and only a record that names an allowlisted model accepts.
+test_test_ban_pipeline_fixer_model_resolution() {
+  local nm models repo=/work/this-project other=/work/other-project
+  nm="$TMP_ROOT/resolve-nm"
+  mkdir -p "$nm"
+  printf '%s\n' 'agent: [codex]' 'agent_config:' '  codex:' '    model: gpt-6.1-sol' > "$nm/config.yaml"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models test fm/x "$repo")
+  [ -z "$models" ] || fail "the config stood in for a missing record: '$models'"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x "$repo")" = 'an unrecorded model' ] \
+    || fail "a step with no record was not refused as unrecorded"
+  if ! record_nm_invocations "$nm" "$repo" 'fm/x|review|review|claude-haiku-5-5' 'fm/x|review|review-fix|claude-opus-5-5' \
+    'fm/other|review|review-fix|claude-sonnet-5-5' 'fm/x|lint|lint|gpt-6.1-sol' 'fm/x|lint|lint-fix|default' \
+    'fm/x|test|test|' 'fm/x|document|document|anthropic/claude-fable-5-1' \
+    "fm/x|document|document-fix|claude-sonnet-5-5|$other" "fm/x|format|format|claude-opus-5-5|$other"; then
+    pass "pipeline fixer models come only from records (sqlite3 absent, recorded runs not exercised)"
+    return
+  fi
+  sqlite3 "$nm/state.sqlite" "insert into runs values ('rf', '$repo', 'fm/x');
+    insert into agent_invocations values ('if', 'rf', 'review', 'review-fix', 'deepseek-v4', 'failed', 99);" \
+    || fail "cannot record the failed fixture invocation"
+  models=$(NM_HOME="$nm" fm_test_ban_nm_step_models review fm/x "$repo")
+  [ "$models" = claude-opus-5-5 ] || fail "review did not resolve to its recorded writing fixer: '$models'"
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/x "$repo")" ] \
+    || fail "a recorded Opus review fixer was refused"
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal document fm/x "$repo")" ] \
+    || fail "a recorded Fable document step was refused"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal lint fm/x "$repo")" = default ] \
+    || fail "a recorded default lint fixer was not refused"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal test fm/x "$repo")" = 'an unrecorded model' ] \
+    || fail "a recorded invocation with no model was not refused as unrecorded"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/none "$repo")" = 'an unrecorded model' ] \
+    || fail "another branch's record stood in for this branch"
+  [ "$(NM_HOME="$TMP_ROOT/resolve-nm-missing" fm_test_ban_nm_step_author_refusal review fm/x "$repo")" = 'an unrecorded model' ] \
+    || fail "a missing state database was not refused as unrecorded"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal format fm/x "$repo")" = 'an unrecorded model' ] \
+    || fail "another repository's Opus record authorized this repository's step"
+  [ -z "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal format fm/x "$other")" ] \
+    || fail "the other repository lost its own Opus record"
+  [ "$(NM_HOME="$nm" fm_test_ban_nm_step_author_refusal review fm/x '')" = 'an unrecorded model' ] \
+    || fail "a task with no registered project borrowed a record"
+  pass "pipeline fixer models come only from recorded runs, and only allowlisted records accept"
+}
+
 test_test_ban_model_list
 test_test_ban_path_heuristic
 test_test_ban_exception_requires_explicit_paths
@@ -745,5 +924,8 @@ test_test_ban_gate_refuses_added_tests
 test_test_ban_gate_reads_the_named_base
 test_test_ban_gate_measures_from_the_tests_first_handoff
 test_test_ban_handoff_ignores_test_changes_from_the_base
+test_test_ban_pipeline_fixer_on_an_allowlisted_task
+test_test_ban_pipeline_fixer_model_resolution
+test_test_ban_unreadable_pipeline_history
 
 echo "all fm-dod-lib tests passed"
